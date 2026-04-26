@@ -322,7 +322,12 @@ async function handleChatCompletions(ctx, req, res) {
  */
 async function handleChatCompletionsBuffered(ctx, res, antBodyStr, completionId, retry = false) {
   const config = vscode.workspace.getConfiguration('claudeLocalBridge');
-  const baseUrl = config.get('anthropicBaseUrl', 'https://api.anthropic.com');
+  const configuredBaseUrl = config.get('anthropicBaseUrl', 'https://api.anthropic.com');
+
+  // Prefer the host we observed Claude Code actually calling
+  const baseUrl = ctx.interceptedHost
+    ? `https://${ctx.interceptedHost}${ctx.interceptedPort && ctx.interceptedPort !== 443 ? `:${ctx.interceptedPort}` : ''}`
+    : configuredBaseUrl;
   const url = new URL('/v1/messages', baseUrl);
   const creds = getCredentials(ctx);
   const authHeaders = buildAuthHeaders(creds);
@@ -387,7 +392,12 @@ async function handleChatCompletionsBuffered(ctx, res, antBodyStr, completionId,
  */
 async function handleChatCompletionsStreaming(ctx, _req, res, antBodyStr, modelName, completionId) {
   const config = vscode.workspace.getConfiguration('claudeLocalBridge');
-  const baseUrl = config.get('anthropicBaseUrl', 'https://api.anthropic.com');
+  const configuredBaseUrl = config.get('anthropicBaseUrl', 'https://api.anthropic.com');
+
+  // Prefer the host we observed Claude Code actually calling
+  const baseUrl = ctx.interceptedHost
+    ? `https://${ctx.interceptedHost}${ctx.interceptedPort && ctx.interceptedPort !== 443 ? `:${ctx.interceptedPort}` : ''}`
+    : configuredBaseUrl;
   const url = new URL('/v1/messages', baseUrl);
   const creds = getCredentials(ctx);
   const authHeaders = buildAuthHeaders(creds);

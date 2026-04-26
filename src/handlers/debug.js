@@ -25,6 +25,8 @@ async function handleDebug(ctx, _req, res) {
     interceptedToken: ctx.interceptedToken
       ? `${ctx.interceptedToken.slice(0, 8)}...${ctx.interceptedToken.slice(-4)}`
       : null,
+    interceptedHost: ctx.interceptedHost || null,
+    interceptedPort: ctx.interceptedPort || null,
     anthropicBaseUrl: config.get('anthropicBaseUrl', 'https://api.anthropic.com'),
     availableModels: LISTED_MODELS.map((m) => m.id),
   });
