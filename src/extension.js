@@ -19,6 +19,7 @@ const vscode = require('vscode');
 const { createContext } = require('./context');
 const { log } = require('./utils');
 const { startServer, stopServer } = require('./server');
+const { startCaptureProxy, stopCaptureProxy } = require('./capture-proxy');
 const { showStatus, showCredentialSource } = require('./handlers/debug');
 const httpsInterceptor = require('./interceptors/https');
 
@@ -53,10 +54,14 @@ function activate(context) {
 
   log(ctx, 'Extension activated. Starting server...');
   startServer(ctx).catch((err) => log(ctx, `Startup error: ${err.message}`, true));
+
+  // Start auth capture proxy — Claude Code routes through this via HTTPS_PROXY
+  startCaptureProxy(ctx);
 }
 
 function deactivate() {
   httpsInterceptor.uninstall(ctx);
+  stopCaptureProxy(ctx);
   stopServer(ctx);
 }
 

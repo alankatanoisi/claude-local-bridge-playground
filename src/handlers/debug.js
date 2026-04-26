@@ -27,6 +27,7 @@ async function handleDebug(ctx, _req, res) {
       : null,
     interceptedHost: ctx.interceptedHost || null,
     interceptedPort: ctx.interceptedPort || null,
+    captureProxy: ctx.captureProxy ? `http://localhost:11439` : null,
     anthropicBaseUrl: config.get('anthropicBaseUrl', 'https://api.anthropic.com'),
     availableModels: LISTED_MODELS.map((m) => m.id),
   });
