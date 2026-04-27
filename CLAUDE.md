@@ -27,6 +27,7 @@ npm test            # Run tests in test/ directory (using node:test)
 ```
 
 **Test Development**: Tests use the built-in `node:test` module (no external test runner). The test setup file (`test/setup.js`) provides test utilities. Run individual test files with:
+
 ```bash
 node --require ./test/setup.js --test test/specific.test.js
 ```
@@ -36,6 +37,7 @@ node --require ./test/setup.js --test test/specific.test.js
 ## Architecture
 
 ### Request Flow
+
 ```
 Client Request
     ↓
@@ -55,12 +57,14 @@ Response Streaming — pipes response back to client
 ### Key Components
 
 **Extension Lifecycle** (`src/extension.js`)
+
 - Activates on VS Code startup (`onStartupFinished`)
 - Registers VS Code commands and status bar item
 - Installs HTTPS interceptor (must happen before Claude Code makes requests)
 - Starts/stops the HTTP server
 
 **HTTP Server** (`src/server.js`)
+
 - Creates and manages the Node.js HTTP server
 - Handles CORS for localhost origins only
 - Routes requests to appropriate handlers
@@ -72,6 +76,7 @@ Response Streaming — pipes response back to client
   - `GET /v1/debug` → server status and credential source
 
 **Credential Discovery** (`src/credentials.js`)
+
 - Five-tier priority system (see README.md for full order)
 - **Priority 0** (highest): Intercepted tokens from HTTPS requests (captured by interceptor)
 - **Priority 1**: `ANTHROPIC_API_KEY` env var
@@ -82,30 +87,35 @@ Response Streaming — pipes response back to client
 - Includes caching (TTL configurable via context) and automatic invalidation on 401 responses
 
 **HTTPS Interceptor** (`src/interceptors/https.js`)
+
 - Patches `https.request()` globally to capture live tokens from Claude Code's outgoing requests
 - Records intercepted host, port, token, and header type
 - Highest priority credential source — always up-to-date, auto-refreshes on token rotation
 - Installed/uninstalled during extension lifecycle
 
 **Request Handlers** (`src/handlers/`)
+
 - `anthropic.js`: Handles `/v1/messages` and `/v1/messages/count_tokens`
 - `openai.js`: Converts OpenAI Chat Completions format to Anthropic format, handles streaming/tools
 - `models.js`: Returns list of available Claude models
 - `debug.js`: Returns server status and credential source
 
 **Proxy Core** (`src/proxy.js`)
+
 - `proxyToAnthropic()`: Forwards request to api.anthropic.com with auth headers
 - Streaming support: pipes response directly without buffering
 - Retry logic: on 401, clears credential cache and retries once with freshly discovered credentials
 - Forwards rate-limit headers and other relevant response headers
 
 **Context Object** (`src/context.js`)
+
 - Shared state object passed to all handlers
 - Contains: VS Code context, HTTP server, status bar, output channel, intercepted token data, credential cache
 
 ### Configuration
 
 VS Code settings (`claudeLocalBridge.*`):
+
 - `port` (default: `11437`) — HTTP server port
 - `anthropicBaseUrl` (default: `https://api.anthropic.com`) — Anthropic API base URL
 - `apiKey` (default: `""`) — Manual API key fallback (lowest priority)
@@ -116,12 +126,14 @@ VS Code settings (`claudeLocalBridge.*`):
 
 **Testing API Endpoints**: Use the `/v1/debug` endpoint to check server status and credential source. The response includes whether credentials were successfully discovered and what source they came from.
 
-**Debugging Credentials**: 
+**Debugging Credentials**:
+
 - Run `Claude Local Bridge: Show Credential Source` command in VS Code to see which credential source is active
 - Check the extension Output channel for logs (verbosity controlled by `logRequests` setting)
 - The status bar shows server port and credential source (click to see full status)
 
 **OpenAI → Anthropic Conversion**: The OpenAI handler converts request format, model names, and tool definitions. See `src/handlers/openai.js` for transformation logic. Key conversions:
+
 - Tool definitions: OpenAI's `function` format → Anthropic's `tool` format
 - Tool results: OpenAI's `tool` role messages → Anthropic's `tool_result` content block
 - Model names: optional remapping (e.g., `gpt-4` → `claude-opus-4-7`)
@@ -133,6 +145,7 @@ VS Code settings (`claudeLocalBridge.*`):
 ## Testing Notes
 
 Tests are in `test/` using Node's built-in `test` module. Test utilities are provided by `test/setup.js`. When adding tests:
+
 - Test files should end in `.test.js`
 - Use the test runner: `npm test` (runs all) or `node --require ./test/setup.js --test test/file.test.js` (single file)
 - Mock external dependencies (https requests, file system, etc.) — do not make real network calls

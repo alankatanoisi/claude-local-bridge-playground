@@ -178,8 +178,7 @@ const CLAUDE_CODE_FINGERPRINT = {
   },
   // First system block Claude Code sends — a billing/telemetry tag.
   // The cch=... value is opaque (likely a server-validated hash); it may rot.
-  billingHeader:
-    'x-anthropic-billing-header: cc_version=2.1.119.401; cc_entrypoint=claude-vscode; cch=d0a6f;',
+  billingHeader: 'x-anthropic-billing-header: cc_version=2.1.119.401; cc_entrypoint=claude-vscode; cch=d0a6f;',
   // Second system block — the SDK identity statement.
   agentIdentity: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
 };

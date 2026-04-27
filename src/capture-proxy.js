@@ -31,7 +31,12 @@ function captureAuthFromHeaders(ctx, headers, host, port) {
     ctx.cachedCredentials = null;
     ctx.credentialsCachedAt = 0;
     const preview = apiKey.slice(0, 8) + '...' + apiKey.slice(-4);
-    log(ctx, wasEmpty ? `🔑 [PROXY] Captured API key from ${host}: ${preview}` : `🔑 [PROXY] Auth rotated from ${host}: ${preview}`);
+    log(
+      ctx,
+      wasEmpty
+        ? `🔑 [PROXY] Captured API key from ${host}: ${preview}`
+        : `🔑 [PROXY] Auth rotated from ${host}: ${preview}`,
+    );
     return;
   }
 
@@ -47,7 +52,12 @@ function captureAuthFromHeaders(ctx, headers, host, port) {
     ctx.cachedCredentials = null;
     ctx.credentialsCachedAt = 0;
     const preview = token.slice(0, 8) + '...' + token.slice(-4);
-    log(ctx, wasEmpty ? `🔑 [PROXY] Captured Bearer token from ${host}: ${preview}` : `🔑 [PROXY] Auth rotated from ${host}: ${preview}`);
+    log(
+      ctx,
+      wasEmpty
+        ? `🔑 [PROXY] Captured Bearer token from ${host}: ${preview}`
+        : `🔑 [PROXY] Auth rotated from ${host}: ${preview}`,
+    );
   }
 }
 

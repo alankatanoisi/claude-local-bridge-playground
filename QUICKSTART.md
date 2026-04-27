@@ -78,25 +78,31 @@ Then run `/connect` in OpenCode, search for "Claude Bridge", enter `local` as th
 ### IDE Extensions
 
 **Continue.dev** (VS Code / JetBrains)
+
 - Settings → Add Model → Custom → Base URL: `http://localhost:11437/v1`, API Key: `local`
 
 **Cursor**
+
 - Settings → Models → Add OpenAI-compatible provider → URL: `http://localhost:11437/v1`, API Key: `local`
 
 **Cline / Roo Code** (VS Code)
+
 - Settings → API Provider: OpenAI Compatible → Base URL: `http://localhost:11437/v1`, API Key: `local`
 
 **Windsurf** (Codeium IDE)
+
 - Settings → Custom Model → OpenAI endpoint: `http://localhost:11437/v1`
 
 ### CLI Tools
 
 **Aider**
+
 ```bash
 aider --model claude-sonnet-4-5 --openai-api-base http://localhost:11437/v1 --openai-api-key local
 ```
 
 **llm** (Simon Willison's CLI)
+
 ```bash
 llm install llm-openai
 llm keys set openai --value local
@@ -106,22 +112,27 @@ llm -m claude-sonnet-4-5 -o http://localhost:11437/v1 "your prompt"
 ### Desktop Apps
 
 **Cherry Studio**
+
 - Settings → Providers → Add → OpenAI Compatible → URL: `http://localhost:11437/v1`
 
 **Chatbox**
+
 - Settings → Model Provider: OpenAI Compatible → API Host: `http://localhost:11437/v1`
 
 **Enchanted** (macOS)
+
 - Settings → Custom OpenAI Server → URL: `http://localhost:11437/v1`
 
 ### Web UIs
 
 **Open WebUI**
+
 - Admin Panel → Settings → Connections → OpenAI API → URL: `http://localhost:11437/v1`, Key: `local`
 
 ### Proxy / Gateway
 
 **LiteLLM**
+
 ```bash
 pip install litellm
 litellm --model openai/claude-sonnet-4-5 --api_base http://localhost:11437/v1 --api_key local

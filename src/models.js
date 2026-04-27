@@ -45,13 +45,13 @@ const ALIASES = {
   'gpt-4': 'claude-sonnet-4-5',
   'gpt-4-turbo': 'claude-sonnet-4-5',
   'gpt-3.5-turbo': 'claude-haiku-4-5',
-  'o1': 'claude-opus-4-5',
+  o1: 'claude-opus-4-5',
   'o1-mini': 'claude-sonnet-4-5',
   'o3-mini': 'claude-sonnet-4-5',
 
   // ollama / localai common shims
-  'llama3': 'claude-sonnet-4-5',
-  'mistral': 'claude-sonnet-4-5',
+  llama3: 'claude-sonnet-4-5',
+  mistral: 'claude-sonnet-4-5',
 };
 
 /** Models advertised in GET /v1/models */
