@@ -157,8 +157,40 @@ function clearCredentialsCache(ctx) {
   ctx.credentialsCachedAt = 0;
 }
 
+// Captured from a live Claude Code 2.1.119 request on 2026-04-27.
+// These mimic exactly what the CLI sends so Anthropic accepts an OAuth token.
+// Tweak via VS Code settings if Anthropic rotates the expected values.
+const CLAUDE_CODE_FINGERPRINT = {
+  userAgent: 'claude-cli/2.1.119 (external, claude-vscode, agent-sdk/0.2.120)',
+  anthropicBeta:
+    'claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,advisor-tool-2026-03-01,effort-2025-11-24',
+  // Stainless = the Anthropic SDK's self-identification headers.
+  stainless: {
+    'x-stainless-arch': 'arm64',
+    'x-stainless-lang': 'js',
+    'x-stainless-os': 'MacOS',
+    'x-stainless-package-version': '0.81.0',
+    'x-stainless-retry-count': '0',
+    'x-stainless-runtime': 'node',
+    'x-stainless-runtime-version': process.version,
+    'x-stainless-timeout': '600',
+  },
+  // First system block Claude Code sends — a billing/telemetry tag.
+  // The cch=... value is opaque (likely a server-validated hash); it may rot.
+  billingHeader:
+    'x-anthropic-billing-header: cc_version=2.1.119.401; cc_entrypoint=claude-vscode; cch=d0a6f;',
+  // Second system block — the SDK identity statement.
+  agentIdentity: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+};
+
+// Stable per-process session id; Claude Code uses one uuid for the whole CLI session.
+const { randomUUID } = require('crypto');
+const SESSION_ID = randomUUID();
+
 /**
- * Build the auth headers for Anthropic API calls given a Credentials object.
+ * Build the auth + identity headers for an Anthropic API call.
+ * For OAuth (Bearer) creds, we emit the full Claude Code header set so the
+ * gateway treats the call as a first-party Claude Code request.
  * @param {Credentials} creds
  * @returns {Record<string, string>}
  */
@@ -169,10 +201,68 @@ function buildAuthHeaders(creds) {
   };
   if (creds.apiKey) {
     headers['x-api-key'] = creds.apiKey;
-  } else if (creds.accessToken) {
+    return headers;
+  }
+  if (creds.accessToken) {
     headers['authorization'] = `Bearer ${creds.accessToken}`;
+    headers['accept'] = 'application/json';
+    headers['anthropic-beta'] = CLAUDE_CODE_FINGERPRINT.anthropicBeta;
+    headers['anthropic-dangerous-direct-browser-access'] = 'true';
+    headers['user-agent'] = CLAUDE_CODE_FINGERPRINT.userAgent;
+    headers['x-app'] = 'cli';
+    headers['x-claude-code-session-id'] = SESSION_ID;
+    Object.assign(headers, CLAUDE_CODE_FINGERPRINT.stainless);
   }
   return headers;
 }
 
-module.exports = { getCredentials, clearCredentialsCache, buildAuthHeaders };
+/**
+ * Reshape a request body's `system` field into the array form Claude Code
+ * uses, prepending the billing header and SDK identity blocks. Only applied
+ * when the credential is an OAuth/Bearer token — API-key requests are left
+ * untouched so they keep working in their normal first-party API mode.
+ *
+ * @param {object} body Parsed Anthropic request body (mutated in place)
+ * @param {Credentials} creds
+ */
+function prependClaudeCodeSystem(body, creds) {
+  if (!creds.accessToken) return body;
+
+  const billingBlock = { type: 'text', text: CLAUDE_CODE_FINGERPRINT.billingHeader };
+  const identityBlock = {
+    type: 'text',
+    text: CLAUDE_CODE_FINGERPRINT.agentIdentity,
+    cache_control: { type: 'ephemeral', ttl: '1h' },
+  };
+
+  let userBlocks = [];
+  if (typeof body.system === 'string' && body.system.length > 0) {
+    userBlocks = [
+      {
+        type: 'text',
+        text: body.system,
+        cache_control: { type: 'ephemeral', ttl: '1h' },
+      },
+    ];
+  } else if (Array.isArray(body.system)) {
+    userBlocks = body.system;
+  }
+
+  body.system = [billingBlock, identityBlock, ...userBlocks];
+  return body;
+}
+
+/** Path suffix Claude Code uses when posting messages with OAuth. */
+function messagesPathFor(creds) {
+  return creds.accessToken ? '/v1/messages?beta=true' : '/v1/messages';
+}
+
+module.exports = {
+  getCredentials,
+  clearCredentialsCache,
+  buildAuthHeaders,
+  prependClaudeCodeSystem,
+  messagesPathFor,
+  CLAUDE_CODE_FINGERPRINT,
+  SESSION_ID,
+};

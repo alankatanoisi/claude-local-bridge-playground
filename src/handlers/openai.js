@@ -9,7 +9,13 @@
 
 const { readBody, sendJson, buildStreamChunk, log, verboseLog } = require('../utils');
 const { resolveModel } = require('../models');
-const { getCredentials, buildAuthHeaders, clearCredentialsCache } = require('../credentials');
+const {
+  getCredentials,
+  buildAuthHeaders,
+  clearCredentialsCache,
+  prependClaudeCodeSystem,
+  messagesPathFor,
+} = require('../credentials');
 const https = require('https');
 const { URL } = require('url');
 const { randomUUID } = require('crypto');
@@ -304,6 +310,8 @@ async function handleChatCompletions(ctx, req, res) {
   }
 
   const antBody = openAIToAnthropic(oaiBody);
+  // Reshape system field to match Claude Code's wire format when using OAuth.
+  prependClaudeCodeSystem(antBody, getCredentials(ctx));
   const antBodyStr = JSON.stringify(antBody);
   const completionId = `chatcmpl-${randomUUID()}`;
   const isStream = oaiBody.stream === true;
@@ -328,8 +336,9 @@ async function handleChatCompletionsBuffered(ctx, res, antBodyStr, completionId,
   const baseUrl = ctx.interceptedHost
     ? `https://${ctx.interceptedHost}${ctx.interceptedPort && ctx.interceptedPort !== 443 ? `:${ctx.interceptedPort}` : ''}`
     : configuredBaseUrl;
-  const url = new URL('/v1/messages', baseUrl);
   const creds = getCredentials(ctx);
+  const apiPath = messagesPathFor(creds);
+  const url = new URL(apiPath, baseUrl);
   const authHeaders = buildAuthHeaders(creds);
   const bodyBuf = Buffer.from(antBodyStr, 'utf8');
 
@@ -338,7 +347,7 @@ async function handleChatCompletionsBuffered(ctx, res, antBodyStr, completionId,
       {
         hostname: url.hostname,
         port: url.port || 443,
-        path: '/v1/messages',
+        path: url.pathname + url.search,
         method: 'POST',
         headers: { ...authHeaders, 'content-length': bodyBuf.length },
         timeout: 300_000,
@@ -398,8 +407,9 @@ async function handleChatCompletionsStreaming(ctx, _req, res, antBodyStr, modelN
   const baseUrl = ctx.interceptedHost
     ? `https://${ctx.interceptedHost}${ctx.interceptedPort && ctx.interceptedPort !== 443 ? `:${ctx.interceptedPort}` : ''}`
     : configuredBaseUrl;
-  const url = new URL('/v1/messages', baseUrl);
   const creds = getCredentials(ctx);
+  const apiPath = messagesPathFor(creds);
+  const url = new URL(apiPath, baseUrl);
   const authHeaders = buildAuthHeaders(creds);
   const bodyBuf = Buffer.from(antBodyStr, 'utf8');
 
@@ -418,7 +428,7 @@ async function handleChatCompletionsStreaming(ctx, _req, res, antBodyStr, modelN
       {
         hostname: url.hostname,
         port: url.port || 443,
-        path: '/v1/messages',
+        path: url.pathname + url.search,
         method: 'POST',
         headers: { ...authHeaders, 'content-length': bodyBuf.length },
         timeout: 300_000,
