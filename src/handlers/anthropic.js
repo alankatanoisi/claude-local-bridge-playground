@@ -58,9 +58,9 @@ async function handleAnthropicMessages(ctx, req, res) {
 
   // Reshape system field + pick path based on credential type.
   const creds = getCredentials(ctx);
-  prependClaudeCodeSystem(body, creds);
+  prependClaudeCodeSystem(ctx, body, creds);
 
-  await proxyToAnthropic(ctx, res, messagesPathFor(creds), JSON.stringify(body));
+  await proxyToAnthropic(ctx, res, messagesPathFor(ctx, creds), JSON.stringify(body));
 }
 
 /**

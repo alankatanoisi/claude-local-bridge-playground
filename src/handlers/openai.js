@@ -311,7 +311,7 @@ async function handleChatCompletions(ctx, req, res) {
 
   const antBody = openAIToAnthropic(oaiBody);
   // Reshape system field to match Claude Code's wire format when using OAuth.
-  prependClaudeCodeSystem(antBody, getCredentials(ctx));
+  prependClaudeCodeSystem(ctx, antBody, getCredentials(ctx));
   const antBodyStr = JSON.stringify(antBody);
   const completionId = `chatcmpl-${randomUUID()}`;
   const isStream = oaiBody.stream === true;
@@ -337,9 +337,9 @@ async function handleChatCompletionsBuffered(ctx, res, antBodyStr, completionId,
     ? `https://${ctx.interceptedHost}${ctx.interceptedPort && ctx.interceptedPort !== 443 ? `:${ctx.interceptedPort}` : ''}`
     : configuredBaseUrl;
   const creds = getCredentials(ctx);
-  const apiPath = messagesPathFor(creds);
+  const apiPath = messagesPathFor(ctx, creds);
   const url = new URL(apiPath, baseUrl);
-  const authHeaders = buildAuthHeaders(creds);
+  const authHeaders = buildAuthHeaders(ctx, creds);
   const bodyBuf = Buffer.from(antBodyStr, 'utf8');
 
   return new Promise((resolve, reject) => {
@@ -399,7 +399,7 @@ async function handleChatCompletionsBuffered(ctx, res, antBodyStr, completionId,
 /**
  * Streaming: convert Anthropic SSE events to OpenAI SSE events on-the-fly.
  */
-async function handleChatCompletionsStreaming(ctx, _req, res, antBodyStr, modelName, completionId) {
+async function handleChatCompletionsStreaming(ctx, _req, res, antBodyStr, modelName, completionId, retry = false) {
   const config = vscode.workspace.getConfiguration('claudeLocalBridge');
   const configuredBaseUrl = config.get('anthropicBaseUrl', 'https://api.anthropic.com');
 
@@ -408,9 +408,9 @@ async function handleChatCompletionsStreaming(ctx, _req, res, antBodyStr, modelN
     ? `https://${ctx.interceptedHost}${ctx.interceptedPort && ctx.interceptedPort !== 443 ? `:${ctx.interceptedPort}` : ''}`
     : configuredBaseUrl;
   const creds = getCredentials(ctx);
-  const apiPath = messagesPathFor(creds);
+  const apiPath = messagesPathFor(ctx, creds);
   const url = new URL(apiPath, baseUrl);
-  const authHeaders = buildAuthHeaders(creds);
+  const authHeaders = buildAuthHeaders(ctx, creds);
   const bodyBuf = Buffer.from(antBodyStr, 'utf8');
 
   // Set up OpenAI SSE response headers
@@ -434,6 +434,17 @@ async function handleChatCompletionsStreaming(ctx, _req, res, antBodyStr, modelN
         timeout: 300_000,
       },
       (upRes) => {
+        // On 401: clear cache and retry once
+        if (upRes.statusCode === 401 && !retry) {
+          log(ctx, '⚠️ Received 401 (streaming) — clearing credential cache and retrying');
+          clearCredentialsCache(ctx);
+          upRes.resume(); // drain upstream
+          handleChatCompletionsStreaming(ctx, _req, res, antBodyStr, modelName, completionId, true)
+            .then(resolve)
+            .catch(reject);
+          return;
+        }
+
         if (upRes.statusCode !== 200) {
           const chunks = [];
           upRes.on('data', (c) => chunks.push(c));

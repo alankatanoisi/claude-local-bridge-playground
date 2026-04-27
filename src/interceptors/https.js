@@ -2,15 +2,17 @@
 
 const https = require('https');
 const { log } = require('../utils');
+const { extractFingerprint, updateFingerprint } = require('../fingerprint');
 
 // ─────────────────────────────────────────────
-// HTTPS + Fetch Interceptor — Auth + Endpoint Sniffer
+// HTTPS + Fetch Interceptor — Auth + Endpoint + Fingerprint Sniffer
 //
 // Patches both https.request() and globalThis.fetch to observe every
 // outgoing HTTPS call made by any VS Code extension in this process.
 // When Claude Code makes a request to an Anthropic endpoint, we capture:
 //   • The auth header (Bearer token or x-api-key)
 //   • The exact target hostname Claude Code is actually calling
+//   • The full request fingerprint (user-agent, stainless headers, etc.)
 //
 // WHY capture the endpoint too:
 //   Claude Code may not call api.anthropic.com directly — it might route
@@ -18,6 +20,11 @@ const { log } = require('../utils');
 //   actual URL, we proxy requests to wherever Claude Code really goes,
 //   just like ag-local-bridge routes through Antigravity's sidecar rather
 //   than directly to Google AI.
+//
+// WHY capture the fingerprint:
+//   Claude Code's request headers (user-agent, billing header, beta flags)
+//   change with each version. By capturing them live, the bridge becomes
+//   self-adapting instead of relying on hardcoded values that rot.
 //
 // NOTE: The Anthropic SDK uses fetch() by default, not https.request,
 // so both interceptors are needed.
@@ -64,6 +71,22 @@ function captureAuth(ctx, url, headers) {
     }
 
     if (host && ANTHROPIC_HOSTNAMES.has(host)) {
+      // Capture full fingerprint
+      const fingerprint = extractFingerprint(headers);
+      if (fingerprint) {
+        fingerprint.endpoint = { hostname: host, port };
+        // Extract path from URL for messages path discovery
+        if (typeof url === 'string') {
+          try {
+            const u = new URL(url);
+            fingerprint.messagesPath = u.pathname + u.search;
+          } catch {
+            // URL parsing failed — skip messages path capture
+          }
+        }
+        updateFingerprint(ctx, fingerprint);
+      }
+
       const cred = extractAuthFromHeaders(headers);
       if (cred && cred.token !== ctx.interceptedToken) {
         const wasEmpty = !ctx.interceptedToken;
@@ -86,6 +109,7 @@ function captureAuth(ctx, url, headers) {
             ? `🔑 [INTERCEPT] Captured Claude Code auth from ${host} (${cred.source}): ${preview}`
             : `🔑 [INTERCEPT] Auth rotated from ${host} (${cred.source}): ${preview}`,
         );
+        log(ctx, `🔍 [FINGERPRINT] Captured ${Object.keys(fingerprint || {}).length} header values from ${host}`);
       }
     }
   } catch {

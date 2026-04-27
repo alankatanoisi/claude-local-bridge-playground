@@ -30,6 +30,10 @@ function createContext() {
     interceptedHost: null, // actual hostname Claude Code calls (may not be api.anthropic.com)
     interceptedPort: null, // actual port (usually 443)
 
+    // Live captured fingerprint (self-adapting)
+    liveFingerprint: null, // captured headers from Claude Code's actual requests
+    liveFingerprintCapturedAt: 0, // timestamp of last fingerprint capture
+
     // Interceptor original function references (for clean uninstall)
     _originalHttpsRequest: null,
     _interceptedRequest: null,

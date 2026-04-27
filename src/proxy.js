@@ -35,7 +35,7 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false) {
 
   const url = new URL(apiPath, baseUrl);
   const creds = getCredentials(ctx);
-  const authHeaders = buildAuthHeaders(creds);
+  const authHeaders = buildAuthHeaders(ctx, creds);
 
   verboseLog(ctx, `→ ${url.hostname}${url.pathname}  model=${tryExtractModel(bodyStr)}  source=${creds.source}`);
 

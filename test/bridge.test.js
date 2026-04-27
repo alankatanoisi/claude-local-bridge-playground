@@ -95,16 +95,32 @@ describe('server routing', () => {
 describe('credentials.buildAuthHeaders', () => {
   it('builds x-api-key header for apiKey creds', () => {
     const { buildAuthHeaders } = require('../src/credentials');
-    const headers = buildAuthHeaders({ apiKey: 'sk-test', source: 'env' });
+    const headers = buildAuthHeaders({ liveFingerprint: null }, { apiKey: 'sk-test', source: 'env' });
     assert.equal(headers['x-api-key'], 'sk-test');
     assert.ok(!headers['authorization']);
   });
 
   it('builds Authorization Bearer for accessToken creds', () => {
     const { buildAuthHeaders } = require('../src/credentials');
-    const headers = buildAuthHeaders({ accessToken: 'tok-123', source: 'keychain' });
+    const headers = buildAuthHeaders({ liveFingerprint: null }, { accessToken: 'tok-123', source: 'keychain' });
     assert.equal(headers['authorization'], 'Bearer tok-123');
     assert.ok(!headers['x-api-key']);
+  });
+
+  it('uses live fingerprint headers when available', () => {
+    const { buildAuthHeaders } = require('../src/credentials');
+    const ctx = {
+      liveFingerprint: {
+        'user-agent': 'claude-cli/2.2.0 (test)',
+        'anthropic-beta': 'test-beta-2026-01-01',
+        'x-stainless-runtime': 'node',
+      },
+    };
+    const headers = buildAuthHeaders(ctx, { accessToken: 'tok-123', source: 'intercepted' });
+    assert.equal(headers['authorization'], 'Bearer tok-123');
+    assert.equal(headers['user-agent'], 'claude-cli/2.2.0 (test)');
+    assert.equal(headers['anthropic-beta'], 'test-beta-2026-01-01');
+    assert.equal(headers['x-stainless-runtime'], 'node');
   });
 });
 

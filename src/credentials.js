@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 const vscode = require('vscode');
 const { log } = require('./utils');
+const { buildAdaptiveAuthHeaders, getLiveSystemBlocks, adaptiveMessagesPath } = require('./fingerprint');
 
 // ─────────────────────────────────────────────
 // Credential Discovery
@@ -183,37 +184,20 @@ const CLAUDE_CODE_FINGERPRINT = {
   agentIdentity: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
 };
 
-// Stable per-process session id; Claude Code uses one uuid for the whole CLI session.
-const { randomUUID } = require('crypto');
-const SESSION_ID = randomUUID();
-
 /**
  * Build the auth + identity headers for an Anthropic API call.
  * For OAuth (Bearer) creds, we emit the full Claude Code header set so the
  * gateway treats the call as a first-party Claude Code request.
+ *
+ * Uses the live captured fingerprint if available (self-adapting), falling
+ * back to hardcoded values only when no live fingerprint exists.
+ *
+ * @param {object} ctx Bridge context
  * @param {Credentials} creds
  * @returns {Record<string, string>}
  */
-function buildAuthHeaders(creds) {
-  const headers = {
-    'anthropic-version': '2023-06-01',
-    'content-type': 'application/json',
-  };
-  if (creds.apiKey) {
-    headers['x-api-key'] = creds.apiKey;
-    return headers;
-  }
-  if (creds.accessToken) {
-    headers['authorization'] = `Bearer ${creds.accessToken}`;
-    headers['accept'] = 'application/json';
-    headers['anthropic-beta'] = CLAUDE_CODE_FINGERPRINT.anthropicBeta;
-    headers['anthropic-dangerous-direct-browser-access'] = 'true';
-    headers['user-agent'] = CLAUDE_CODE_FINGERPRINT.userAgent;
-    headers['x-app'] = 'cli';
-    headers['x-claude-code-session-id'] = SESSION_ID;
-    Object.assign(headers, CLAUDE_CODE_FINGERPRINT.stainless);
-  }
-  return headers;
+function buildAuthHeaders(ctx, creds) {
+  return buildAdaptiveAuthHeaders(ctx, creds);
 }
 
 /**
@@ -222,39 +206,70 @@ function buildAuthHeaders(creds) {
  * when the credential is an OAuth/Bearer token — API-key requests are left
  * untouched so they keep working in their normal first-party API mode.
  *
+ * Uses the live captured billing header if available (self-adapting).
+ *
+ * @param {object} ctx Bridge context
  * @param {object} body Parsed Anthropic request body (mutated in place)
  * @param {Credentials} creds
  */
-function prependClaudeCodeSystem(body, creds) {
+function prependClaudeCodeSystem(ctx, body, creds) {
   if (!creds.accessToken) return body;
 
-  const billingBlock = { type: 'text', text: CLAUDE_CODE_FINGERPRINT.billingHeader };
-  const identityBlock = {
-    type: 'text',
-    text: CLAUDE_CODE_FINGERPRINT.agentIdentity,
-    cache_control: { type: 'ephemeral', ttl: '1h' },
-  };
+  const liveBlocks = getLiveSystemBlocks(ctx);
+  if (liveBlocks) {
+    // Use live captured billing header
+    const billingBlock = { type: 'text', text: liveBlocks.billingHeader };
+    const identityBlock = {
+      type: 'text',
+      text: liveBlocks.agentIdentity,
+      cache_control: { type: 'ephemeral', ttl: '1h' },
+    };
 
-  let userBlocks = [];
-  if (typeof body.system === 'string' && body.system.length > 0) {
-    userBlocks = [
-      {
-        type: 'text',
-        text: body.system,
-        cache_control: { type: 'ephemeral', ttl: '1h' },
-      },
-    ];
-  } else if (Array.isArray(body.system)) {
-    userBlocks = body.system;
+    let userBlocks = [];
+    if (typeof body.system === 'string' && body.system.length > 0) {
+      userBlocks = [
+        {
+          type: 'text',
+          text: body.system,
+          cache_control: { type: 'ephemeral', ttl: '1h' },
+        },
+      ];
+    } else if (Array.isArray(body.system)) {
+      userBlocks = body.system;
+    }
+
+    body.system = [billingBlock, identityBlock, ...userBlocks];
+  } else {
+    // Fallback to hardcoded fingerprint
+    const billingBlock = { type: 'text', text: CLAUDE_CODE_FINGERPRINT.billingHeader };
+    const identityBlock = {
+      type: 'text',
+      text: CLAUDE_CODE_FINGERPRINT.agentIdentity,
+      cache_control: { type: 'ephemeral', ttl: '1h' },
+    };
+
+    let userBlocks = [];
+    if (typeof body.system === 'string' && body.system.length > 0) {
+      userBlocks = [
+        {
+          type: 'text',
+          text: body.system,
+          cache_control: { type: 'ephemeral', ttl: '1h' },
+        },
+      ];
+    } else if (Array.isArray(body.system)) {
+      userBlocks = body.system;
+    }
+
+    body.system = [billingBlock, identityBlock, ...userBlocks];
   }
 
-  body.system = [billingBlock, identityBlock, ...userBlocks];
   return body;
 }
 
 /** Path suffix Claude Code uses when posting messages with OAuth. */
-function messagesPathFor(creds) {
-  return creds.accessToken ? '/v1/messages?beta=true' : '/v1/messages';
+function messagesPathFor(ctx, creds) {
+  return adaptiveMessagesPath(ctx, creds);
 }
 
 module.exports = {
@@ -264,5 +279,4 @@ module.exports = {
   prependClaudeCodeSystem,
   messagesPathFor,
   CLAUDE_CODE_FINGERPRINT,
-  SESSION_ID,
 };
