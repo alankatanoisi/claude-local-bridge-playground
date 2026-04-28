@@ -14,6 +14,7 @@ const config = pkg?.contributes?.configuration?.properties || {};
 const defaults = {
   port: config['claudeLocalBridge.port']?.default,
   defaultModel: config['claudeLocalBridge.defaultModel']?.default,
+  requireCallerAuth: config['claudeLocalBridge.requireCallerAuth']?.default,
 };
 
 const docs = [
@@ -37,6 +38,10 @@ function has(text, pattern) {
 
 assert(Number.isInteger(defaults.port), 'package.json missing numeric default for claudeLocalBridge.port');
 assert(typeof defaults.defaultModel === 'string', 'package.json missing string default for claudeLocalBridge.defaultModel');
+assert(
+  typeof defaults.requireCallerAuth === 'boolean',
+  'package.json missing boolean default for claudeLocalBridge.requireCallerAuth',
+);
 
 for (const doc of docs) {
   assert(
@@ -78,6 +83,17 @@ assert(
   'QUICKSTART.md is missing OpenAI-compatible /v1 base URL guidance',
 );
 
+if (defaults.requireCallerAuth) {
+  assert(
+    has(readme, 'Authorization: Bearer'),
+    'README.md is missing caller Authorization Bearer guidance',
+  );
+  assert(
+    has(quickstart, 'Authorization: Bearer'),
+    'QUICKSTART.md is missing caller Authorization Bearer guidance',
+  );
+}
+
 if (errors.length) {
   console.error('Documentation defaults check failed:');
   for (const error of errors) {
@@ -89,3 +105,4 @@ if (errors.length) {
 console.log('Documentation defaults check passed.');
 console.log(`- port: ${defaults.port}`);
 console.log(`- defaultModel: ${defaults.defaultModel}`);
+console.log(`- requireCallerAuth: ${defaults.requireCallerAuth}`);

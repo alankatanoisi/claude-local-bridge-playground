@@ -17,6 +17,8 @@ Defaults below are sourced from `package.json` (`contributes.configuration.prope
 | `claudeLocalBridge.anthropicBaseUrl` | `https://api.anthropic.com` | Upstream Anthropic endpoint                      |
 | `claudeLocalBridge.logRequests`      | `false`                     | Verbose request/response logging                 |
 | `claudeLocalBridge.apiKey`           | `""`                        | Manual fallback key (lowest priority)            |
+| `claudeLocalBridge.requireCallerAuth` | `true`                     | Requires `Authorization: Bearer <token>` on API routes |
+| `claudeLocalBridge.callerAuthToken`   | `""`                       | Optional static caller token (otherwise auto-generated) |
 
 ---
 
@@ -73,6 +75,18 @@ Open **VS Code Settings** and search for `Claude Local Bridge`:
 | `claudeLocalBridge.apiKey`           | `""`                        | Manual API key (lowest priority)          |
 | `claudeLocalBridge.defaultModel`     | `claude-sonnet-4-5`         | Default model when none is specified      |
 | `claudeLocalBridge.logRequests`      | `false`                     | Verbose request logging to Output channel |
+| `claudeLocalBridge.requireCallerAuth` | `true`                     | Enforce Bearer token for incoming callers |
+| `claudeLocalBridge.callerAuthToken`   | `""`                       | Static Bearer token override              |
+
+### Caller auth (important)
+
+By default, bridge endpoints require:
+
+```http
+Authorization: Bearer <your-caller-token>
+```
+
+`GET /v1/debug` is the only unauthenticated endpoint. For predictable client setup, set `claudeLocalBridge.callerAuthToken` in VS Code settings and reuse that token in your callers.
 
 ---
 

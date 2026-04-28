@@ -10,10 +10,27 @@ Look for: `"authenticated": true`
 
 ---
 
+## Step 1.5: Set caller auth token (required by default)
+
+Bridge endpoints (except `/v1/debug`) require `Authorization: Bearer <token>`.
+Set a static token once in VS Code settings:
+
+```json
+"claudeLocalBridge.callerAuthToken": "local-dev-token"
+```
+
+Then export it for terminal examples:
+
+```bash
+export BRIDGE_CALLER_TOKEN=local-dev-token
+```
+
+---
+
 ## Step 2: Test the bridge (single line, copy-paste friendly)
 
 ```bash
-curl -s -X POST http://localhost:11437/v1/chat/completions -H "Content-Type: application/json" -d '{"model":"claude-haiku-4-5","max_tokens":30,"messages":[{"role":"user","content":"say hi"}]}'
+curl -s -X POST http://localhost:11437/v1/chat/completions -H "Content-Type: application/json" -H "Authorization: Bearer $BRIDGE_CALLER_TOKEN" -d '{"model":"claude-haiku-4-5","max_tokens":30,"messages":[{"role":"user","content":"say hi"}]}'
 ```
 
 If this returns a response → bridge works.
@@ -104,6 +121,12 @@ Then run `/connect` in OpenCode, search for "Claude Bridge", enter `local` as th
 
 ```bash
 aider --model claude-sonnet-4-5 --openai-api-base http://localhost:11437/v1 --openai-api-key local
+```
+
+If your tool supports custom headers, add:
+
+```http
+Authorization: Bearer local-dev-token
 ```
 
 **llm** (Simon Willison's CLI)
