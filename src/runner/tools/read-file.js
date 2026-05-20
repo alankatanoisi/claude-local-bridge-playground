@@ -42,6 +42,9 @@ function definition() {
 
 function execute(args, ctx) {
   const cwd = ctx.cwd || process.cwd();
+  if (!args || typeof args.path !== 'string' || args.path.trim() === '') {
+    return { ok: false, text: 'Missing required path argument for read_file.' };
+  }
   const target = path.resolve(cwd, args.path);
 
   try {

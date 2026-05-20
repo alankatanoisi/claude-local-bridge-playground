@@ -3,7 +3,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('http');
-const { post } = require('../../src/runner/model-client');
+const { post, postStream } = require('../../src/runner/model-client');
 
 function createMockServer(responseBody, statusCode) {
   return new Promise((resolve) => {
@@ -76,5 +76,51 @@ describe('model-client', () => {
         }
       });
     });
+  });
+
+  it('reconstructs streamed text and tool input deltas', async () => {
+    const frames = [
+      { type: 'message_start', message: { id: 'msg_01', type: 'message', role: 'assistant', content: [] } },
+      { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Reading files.' } },
+      { type: 'content_block_stop', index: 0 },
+      {
+        type: 'content_block_start',
+        index: 1,
+        content_block: { type: 'tool_use', id: 'toolu_1', name: 'read_file', input: {} },
+      },
+      { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: '{"path":"src/' } },
+      { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: 'runner/run.js"}' } },
+      { type: 'content_block_stop', index: 1 },
+      { type: 'message_stop' },
+    ];
+
+    const server = http.createServer((req, res) => {
+      req.resume();
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      for (const frame of frames) {
+        res.write('event: ' + frame.type + '\n');
+        res.write('data: ' + JSON.stringify(frame) + '\n\n');
+      }
+      res.end();
+    });
+
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = server.address().port;
+
+    try {
+      const result = await postStream(
+        { model: 'test', max_tokens: 10, messages: [] },
+        null,
+        `http://127.0.0.1:${port}/v1/messages`,
+      );
+
+      assert.deepEqual(result.content, [
+        { type: 'text', text: 'Reading files.' },
+        { type: 'tool_use', id: 'toolu_1', name: 'read_file', input: { path: 'src/runner/run.js' } },
+      ]);
+    } finally {
+      server.close();
+    }
   });
 });

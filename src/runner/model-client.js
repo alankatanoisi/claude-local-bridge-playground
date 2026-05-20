@@ -99,7 +99,8 @@ function postStream(body, cb, bridgeUrl, opts) {
       }
 
       let buffer = '';
-      let fullContent = []; // accumulate for non-streaming fallback
+      const fullContent = [];
+      const toolInputBuffers = new Map();
       let lastText = '';
 
       res.on('data', (chunk) => {
@@ -120,17 +121,43 @@ function postStream(body, cb, bridgeUrl, opts) {
 
           try {
             const event = JSON.parse(data);
-            if (options.streamOutput) {
-              // Stream text deltas to stdout
-              if (event.type === 'content_block_delta' && event.delta && event.delta.type === 'text_delta') {
-                process.stdout.write(event.delta.text);
-                lastText += event.delta.text;
-              }
-              // Accumulate for transcript
-              if (event.type === 'content_block_start' && event.content_block) {
-                fullContent.push(event.content_block);
+            if (event.type === 'content_block_start' && typeof event.index === 'number' && event.content_block) {
+              fullContent[event.index] = event.content_block;
+              if (event.content_block.type === 'tool_use') {
+                toolInputBuffers.set(event.index, '');
               }
             }
+
+            if (event.type === 'content_block_delta' && typeof event.index === 'number' && event.delta) {
+              const block = fullContent[event.index];
+              if (event.delta.type === 'text_delta') {
+                if (!block) fullContent[event.index] = { type: 'text', text: '' };
+                fullContent[event.index].text = (fullContent[event.index].text || '') + event.delta.text;
+                // Stream text deltas to stdout
+                if (options.streamOutput) {
+                  process.stdout.write(event.delta.text);
+                  lastText += event.delta.text;
+                }
+              } else if (event.delta.type === 'input_json_delta') {
+                const previous = toolInputBuffers.get(event.index) || '';
+                toolInputBuffers.set(event.index, previous + event.delta.partial_json);
+              }
+            }
+
+            if (event.type === 'content_block_stop' && typeof event.index === 'number') {
+              const block = fullContent[event.index];
+              if (block && block.type === 'tool_use') {
+                const rawInput = toolInputBuffers.get(event.index) || '';
+                if (rawInput) {
+                  try {
+                    block.input = JSON.parse(rawInput);
+                  } catch {
+                    block.input = {};
+                  }
+                }
+              }
+            }
+
             if (cb) cb(event);
           } catch {
             // ignore parse errors on partial frames
@@ -159,7 +186,7 @@ function postStream(body, cb, bridgeUrl, opts) {
         if (options.streamOutput && lastText) {
           process.stdout.write('\n');
         }
-        resolve({ streamed: true, content: fullContent });
+        resolve({ streamed: true, content: fullContent.filter(Boolean) });
       });
 
       res.on('error', (err) => {

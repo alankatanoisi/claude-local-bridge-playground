@@ -49,6 +49,12 @@ describe('tool-registry', () => {
     assert.ok(result.text.includes('hello'));
   });
 
+  it('read_file reports a clear error when path is missing', () => {
+    const result = execute('read_file', {}, ctx);
+    assert.equal(result.ok, false);
+    assert.match(result.text, /Missing required path argument/);
+  });
+
   it('read_file denies secret file', () => {
     fs.writeFileSync(path.join(tmpDir, '.env'), 'SECRET=1\n');
     const result = execute('read_file', { path: '.env' }, ctx);
