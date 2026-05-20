@@ -58,6 +58,8 @@ const vscode = {
   },
 };
 
+const defaultConfig = { ...config };
+
 // Intercept require('vscode') at the Module._load level.
 // This works even though vscode isn't an installed npm package.
 const _originalLoad = Module._load;
@@ -67,3 +69,12 @@ Module._load = function (request, parent, isMain) {
 };
 
 module.exports = vscode;
+module.exports.__setConfig = (key, value) => {
+  config[key] = value;
+};
+module.exports.__resetConfig = () => {
+  for (const key of Object.keys(config)) {
+    delete config[key];
+  }
+  Object.assign(config, defaultConfig);
+};

@@ -72,7 +72,13 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false) {
       if (upRes.statusCode === 401 && !retry) {
         log(ctx, '⚠️ Received 401 — clearing credential cache and retrying');
         clearCredentialsCache(ctx);
-        upRes.destroy();
+        if (typeof upRes.destroy === 'function') {
+          upRes.destroy();
+        } else if (typeof upRes.resume === 'function') {
+          // Some tests use a lightweight mocked response object that only
+          // supports resume(). Falling back keeps the retry semantics intact.
+          upRes.resume();
+        }
         proxyToAnthropic(ctx, res, apiPath, bodyStr, true).then(resolve).catch(reject);
         return;
       }
@@ -81,7 +87,11 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false) {
       // double-writing a second response shape into the same client stream.
       if (retry && res.headersSent) {
         log(ctx, '⚠️ Headers already sent — cannot forward retried response');
-        upRes.destroy();
+        if (typeof upRes.destroy === 'function') {
+          upRes.destroy();
+        } else if (typeof upRes.resume === 'function') {
+          upRes.resume();
+        }
         resolve();
         return;
       }
