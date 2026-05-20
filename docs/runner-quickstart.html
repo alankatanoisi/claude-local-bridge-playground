@@ -423,6 +423,16 @@
               <td>Where to write the JSONL transcript</td>
             </tr>
             <tr>
+              <td><code>--human-log &lt;path&gt;</code></td>
+              <td>off</td>
+              <td>Where to write a plain text log that is easier for a human to read</td>
+            </tr>
+            <tr>
+              <td><code>--include-file &lt;path&gt;</code></td>
+              <td>off</td>
+              <td>Copy a bounded project file into the prompt context; repeat for multiple files</td>
+            </tr>
+            <tr>
               <td><code>--resume &lt;path&gt;</code></td>
               <td>off</td>
               <td>Continue from an existing transcript</td>
@@ -483,6 +493,17 @@
         <pre><code>cat src/server.js | node bin/local-bridge-runner.js \
   "Review this file for potential bugs"</code></pre>
 
+        <h3>Include one or more project files</h3>
+        <pre><code>node bin/local-bridge-runner.js \
+  --include-file src/server.js \
+  --include-file README.md \
+  "Review the attached files and explain the main risks"</code></pre>
+
+        <h3>Write a human-readable log</h3>
+        <pre><code>node bin/local-bridge-runner.js \
+  --human-log ~/.bridge-runner/logs/server-review.md \
+  "Explain src/server.js and summarize the answer clearly"</code></pre>
+
         <h3>Search-first workflow</h3>
         <pre><code>node bin/local-bridge-runner.js \
   --max-tokens 4096 \
@@ -527,6 +548,7 @@
           <li>
             Transcripts live in <code>~/.bridge-runner/logs/</code> (outside the repo) and redact sensitive headers.
           </li>
+          <li>Human-readable logs also redact secret-looking values before they are written to disk.</li>
           <li>
             Write tools save backups in <code>.bridge-runner/backups/</code> so the <code>undo</code> tool can restore
             them.

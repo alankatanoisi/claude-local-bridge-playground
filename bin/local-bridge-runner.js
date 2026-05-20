@@ -14,6 +14,7 @@ const { parseArgs } = require('util');
 const fs = require('fs');
 const path = require('path');
 const { run } = require('../src/runner/run');
+const safety = require('../src/runner/safety');
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const DEFAULT_MAX_TOKENS = 2000;
@@ -39,6 +40,8 @@ Options:\n\
       DEFAULT_MAX_STEPS +
       ')\n\
   --transcript <path>  JSONL transcript path (default: ~/.bridge-runner/logs/<ts>.jsonl)\n\
+  --human-log <path>   Plain-text readable log path (off by default)\n\
+  --include-file <p>   Include a bounded relative file in pasted context (repeatable)\n\
   --resume <path>      Resume from a transcript (appends new prompt to existing conversation)\n\
   --accept-edits       Auto-approve write/edit/patch tools (skip confirmation)\n\
   --dont-ask           Auto-approve shell commands (skip confirmation)\n\
@@ -70,6 +73,8 @@ async function main() {
         'max-tokens': { type: 'string' },
         'max-steps': { type: 'string' },
         transcript: { type: 'string' },
+        'human-log': { type: 'string' },
+        'include-file': { type: 'string', multiple: true },
         resume: { type: 'string' },
         'accept-edits': { type: 'boolean' },
         'dont-ask': { type: 'boolean' },
@@ -108,6 +113,7 @@ async function main() {
   const shellTimeout = parseInt(args.values['shell-timeout'], 10) || 30000;
   const outputFormat = args.values['output-format'] || 'text';
   const stream = !!args.values.stream;
+  const includeFiles = args.values['include-file'] || [];
 
   if (!['text', 'json', 'stream-json'].includes(outputFormat)) {
     console.error('Error: --output-format must be one of: text, json, stream-json');
@@ -134,23 +140,28 @@ async function main() {
   const resume = !!resumePath;
 
   // Read stdin if piped
-  let stdinText = '';
+  const pastedParts = [];
   if (!process.stdin.isTTY) {
     try {
-      stdinText = fs.readFileSync(process.stdin.fd, 'utf8');
+      pastedParts.push(fs.readFileSync(process.stdin.fd, 'utf8'));
     } catch {
       // ignore — stdin may not be readable
     }
   }
 
+  if (includeFiles.length > 0) {
+    pastedParts.push(readIncludedFiles(cwd, includeFiles));
+  }
+
   await run({
     prompt,
-    stdinText: stdinText || undefined,
+    stdinText: pastedParts.filter(Boolean).join('\n\n') || undefined,
     cwd,
     model,
     maxTokens,
     maxSteps,
     transcriptPath,
+    humanLogPath: args.values['human-log'],
     verbose,
     acceptEdits,
     dontAsk,
@@ -162,7 +173,40 @@ async function main() {
   });
 }
 
-main().catch((err) => {
-  console.error('Unexpected error: ' + err.message);
-  if (process.exitCode === undefined) process.exitCode = 1;
-});
+function readIncludedFiles(cwd, includeFiles) {
+  const cwdCheck = safety.validateCwd(cwd);
+  if (!cwdCheck.valid) {
+    throw new Error(cwdCheck.reason);
+  }
+
+  const ctx = { cwd, cwdRealpath: cwdCheck.realpath };
+  const sections = [];
+  for (const inputPath of includeFiles) {
+    const target = safety.confinePath(ctx, inputPath);
+    if (!target) {
+      throw new Error('--include-file escapes cwd: ' + inputPath);
+    }
+    if (safety.isPathBlockedByDenyMatrix(target)) {
+      throw new Error('--include-file is blocked by safety rules: ' + inputPath);
+    }
+    const stat = fs.statSync(target);
+    if (!stat.isFile()) {
+      throw new Error('--include-file is not a file: ' + inputPath);
+    }
+    if (stat.size > 50 * 1024) {
+      throw new Error('--include-file is too large: ' + inputPath + ' (' + stat.size + ' bytes, max 51200)');
+    }
+    const content = safety.scrubSecrets(fs.readFileSync(target, 'utf8'));
+    sections.push('Included file: ' + inputPath + '\n---\n' + content);
+  }
+  return sections.join('\n\n');
+}
+
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('Unexpected error: ' + err.message);
+    if (process.exitCode === undefined) process.exitCode = 1;
+  });
+}
+
+module.exports = { readIncludedFiles };

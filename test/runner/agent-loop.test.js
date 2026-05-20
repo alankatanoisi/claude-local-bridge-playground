@@ -64,6 +64,32 @@ describe('agent loop — read-only', () => {
     }
   });
 
+  it('writes a human-readable log when humanLogPath is provided', async () => {
+    const originalPost = modelClient.post;
+    const humanLogPath = path.join(tmpDir, 'human-log.md');
+    modelClient.post = async () => ({
+      content: [{ type: 'text', text: 'Human log answer.' }],
+    });
+
+    try {
+      await run({
+        prompt: 'Log this run',
+        cwd: tmpDir,
+        model: 'test',
+        maxTokens: 10,
+        maxSteps: 2,
+        humanLogPath,
+      });
+
+      const text = fs.readFileSync(humanLogPath, 'utf8');
+      assert.ok(text.includes('User Prompt'));
+      assert.ok(text.includes('Log this run'));
+      assert.ok(text.includes('Human log answer.'));
+    } finally {
+      modelClient.post = originalPost;
+    }
+  });
+
   it('tool loop: list_files → final', async () => {
     const originalPost = modelClient.post;
     let callCount = 0;

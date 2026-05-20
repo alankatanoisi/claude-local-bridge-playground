@@ -398,6 +398,22 @@
             </div>
           </div>
 
+          <!-- Attachments -->
+          <div class="card">
+            <h2>Attach files</h2>
+            <div class="field">
+              <label for="attachmentMode">Attachment mode</label>
+              <select id="attachmentMode">
+                <option value="read">Ask model to read these project paths</option>
+                <option value="stdin">Pipe file contents through stdin</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="attachedPaths">Relative file paths</label>
+              <textarea id="attachedPaths" placeholder="src/server.js&#10;README.md"></textarea>
+            </div>
+          </div>
+
           <!-- Presets -->
           <div class="card">
             <h2>Quick presets</h2>
@@ -493,6 +509,11 @@
               <label for="transcript">Transcript path</label>
               <input type="text" id="transcript" placeholder="~/.bridge-runner/logs/&lt;timestamp&gt;.jsonl" />
             </div>
+
+            <div class="field">
+              <label for="humanLog">Human-readable log path</label>
+              <input type="text" id="humanLog" placeholder="~/.bridge-runner/logs/run-notes.md" />
+            </div>
           </div>
 
           <!-- Tool catalog -->
@@ -541,7 +562,8 @@
             <strong>Tip:</strong> Paste this into your terminal and press Enter. The runner connects through your local
             bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>. Use
             <code style="font-size: 0.75rem">stream-json</code> when another script or agent needs to parse every runner
-            event.
+            event. Set a human-readable log path when you want a plain text record of the prompt, tool calls, and final
+            answer.
           </div>
         </div>
       </div>
@@ -550,6 +572,8 @@
     <script>
       // ── Elements ──
       const prompt = document.getElementById('prompt');
+      const attachmentMode = document.getElementById('attachmentMode');
+      const attachedPaths = document.getElementById('attachedPaths');
       const model = document.getElementById('model');
       const maxSteps = document.getElementById('maxSteps');
       const maxTokens = document.getElementById('maxTokens');
@@ -563,6 +587,7 @@
       const shellTimeout = document.getElementById('shellTimeout');
       const resumePath = document.getElementById('resumePath');
       const transcript = document.getElementById('transcript');
+      const humanLog = document.getElementById('humanLog');
       const cmdOutput = document.getElementById('cmdOutput');
       const copyBtn = document.getElementById('copyBtn');
       const copyFeedback = document.getElementById('copyFeedback');
@@ -577,8 +602,26 @@
         outputFormat: 'text',
       };
 
-      // ── Render command ──
-      function render() {
+      function getAttachedPaths() {
+        return attachedPaths.value
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean);
+      }
+
+      function buildPromptText() {
+        const paths = getAttachedPaths();
+        let promptText = prompt.value.trim();
+        if (paths.length > 0 && attachmentMode.value === 'read') {
+          promptText +=
+            '\n\nAttached project paths:\n' +
+            paths.map((filePath) => '- ' + filePath).join('\n') +
+            '\n\nPlease use read_file on these paths before answering.';
+        }
+        return promptText.trim();
+      }
+
+      function buildCommandParts() {
         const parts = ['node bin/local-bridge-runner.js'];
 
         if (cwd.value.trim()) parts.push('--cwd ' + shellQuote(cwd.value.trim()));
@@ -588,6 +631,7 @@
         if (resumePath.value.trim()) parts.push('--resume ' + shellQuote(resumePath.value.trim()));
         if (transcript.value.trim() && !resumePath.value.trim())
           parts.push('--transcript ' + shellQuote(transcript.value.trim()));
+        if (humanLog.value.trim()) parts.push('--human-log ' + shellQuote(humanLog.value.trim()));
         if (acceptEdits.checked) parts.push('--accept-edits');
         if (dontAsk.checked) parts.push('--dont-ask');
         if (outputFormat.value !== DEFAULTS.outputFormat) parts.push('--output-format ' + outputFormat.value);
@@ -598,20 +642,26 @@
         if (stream.checked) parts.push('--stream');
         if (verbose.checked) parts.push('--verbose');
 
-        const promptText = prompt.value.trim();
+        const promptText = buildPromptText();
         if (promptText) parts.push(shellQuote(promptText));
 
-        if (parts.length > 3) {
-          const first = parts[0];
-          const rest = parts.slice(1, -1);
-          const last = parts[parts.length - 1];
-          let html = '<span class="dim">$</span> ' + esc(first) + ' \\\n';
-          for (const p of rest) html += '  ' + esc(p) + ' \\\n';
-          html += '  ' + esc(last);
-          cmdOutput.innerHTML = html;
-        } else {
-          cmdOutput.innerHTML = '<span class="dim">$</span> ' + esc(parts.join(' '));
+        return parts;
+      }
+
+      function buildRawCommand() {
+        const parts = buildCommandParts();
+        const paths = getAttachedPaths();
+        const command = parts.join(' ');
+        if (paths.length > 0 && attachmentMode.value === 'stdin') {
+          return 'cat ' + paths.map(shellQuote).join(' ') + ' | ' + command;
         }
+        return command;
+      }
+
+      // ── Render command ──
+      function render() {
+        const raw = buildRawCommand();
+        cmdOutput.innerHTML = '<span class="dim">$</span> ' + esc(raw);
 
         bashToolRow.style.display = allowShell.checked ? '' : 'none';
         if (allowShell.checked) shellWarn.classList.add('show');
@@ -634,6 +684,8 @@
       // ── Event listeners ──
       [
         prompt,
+        attachmentMode,
+        attachedPaths,
         model,
         maxSteps,
         maxTokens,
@@ -647,6 +699,7 @@
         shellTimeout,
         resumePath,
         transcript,
+        humanLog,
       ].forEach((el) => {
         el.addEventListener('input', render);
         el.addEventListener('change', render);
@@ -654,27 +707,7 @@
 
       // ── Copy ──
       function copyCommand() {
-        const parts = ['node bin/local-bridge-runner.js'];
-        if (cwd.value.trim()) parts.push('--cwd ' + shellQuote(cwd.value.trim()));
-        if (model.value !== DEFAULTS.model) parts.push('--model ' + model.value);
-        if (+maxTokens.value !== DEFAULTS.maxTokens) parts.push('--max-tokens ' + maxTokens.value);
-        if (+maxSteps.value !== DEFAULTS.maxSteps) parts.push('--max-steps ' + maxSteps.value);
-        if (resumePath.value.trim()) parts.push('--resume ' + shellQuote(resumePath.value.trim()));
-        if (transcript.value.trim() && !resumePath.value.trim())
-          parts.push('--transcript ' + shellQuote(transcript.value.trim()));
-        if (acceptEdits.checked) parts.push('--accept-edits');
-        if (dontAsk.checked) parts.push('--dont-ask');
-        if (outputFormat.value !== DEFAULTS.outputFormat) parts.push('--output-format ' + outputFormat.value);
-        if (allowShell.checked) {
-          parts.push('--allow-shell');
-          if (+shellTimeout.value !== DEFAULTS.shellTimeout) parts.push('--shell-timeout ' + shellTimeout.value);
-        }
-        if (stream.checked) parts.push('--stream');
-        if (verbose.checked) parts.push('--verbose');
-        const promptText = prompt.value.trim();
-        if (promptText) parts.push(shellQuote(promptText));
-
-        const raw = parts.join(' ');
+        const raw = buildRawCommand();
         navigator.clipboard
           .writeText(raw)
           .then(() => {

@@ -8,6 +8,7 @@ const { Transcript } = require('./transcript');
 const confirm = require('./confirmation');
 const safety = require('./safety');
 const { CATEGORIES } = require('./permissions');
+const { HumanLog } = require('./human-log');
 
 const DEFAULT_MAX_STEPS = 16;
 const MAX_CONSECUTIVE_FAILURES = 2;
@@ -93,6 +94,7 @@ async function run(options) {
     maxTokens,
     maxSteps,
     transcriptPath,
+    humanLogPath,
     bridgeUrl,
     verbose,
     acceptEdits,
@@ -123,6 +125,7 @@ async function run(options) {
   ctx.cwdRealpath = cwdCheck.realpath;
 
   const transcript = transcriptPath ? new Transcript(transcriptPath) : null;
+  const humanLog = humanLogPath ? new HumanLog(humanLogPath) : null;
   const output = makeOutput(outputFormat);
   const startedAt = Date.now();
 
@@ -149,6 +152,10 @@ async function run(options) {
   let consecutiveToolFailures = 0;
 
   output.emit('system', { subtype: 'init', cwd: ctx.cwdRealpath, model, max_steps: steps });
+  if (humanLog) {
+    humanLog.writeRunStart({ cwd: ctx.cwdRealpath, model, maxSteps: steps, outputFormat });
+    humanLog.writeUserPrompt(prompt, stdinText);
+  }
 
   for (let step = 1; step <= steps; step++) {
     // Prompt caching: mark system blocks and tool definitions as ephemerally cacheable.
@@ -183,6 +190,7 @@ async function run(options) {
     } catch (err) {
       const msg = 'Bridge error on step ' + step + ': ' + err.message;
       if (transcript) transcript.append({ type: 'error', step, message: msg });
+      if (humanLog) humanLog.writeError(msg);
       console.error(msg);
       if (step < steps && consecutiveToolFailures < MAX_CONSECUTIVE_FAILURES) {
         consecutiveToolFailures++;
@@ -196,6 +204,7 @@ async function run(options) {
     }
 
     if (transcript) transcript.append({ type: 'assistant', step, content: response.content });
+    if (humanLog) humanLog.writeAssistant(step, response);
     totalUsage = addUsage(totalUsage, response.usage);
     messages.push({ role: 'assistant', content: response.content });
     output.emit('assistant', {
@@ -222,6 +231,7 @@ async function run(options) {
         streamed: stream && outputFormat === 'text',
       };
       if (transcript) transcript.writeFinal(text || '');
+      if (humanLog) humanLog.writeFinal(text || '');
       output.emit('result', {
         subtype: 'success',
         duration_ms: result.duration_ms,
@@ -273,6 +283,7 @@ async function run(options) {
           toolUseId: tu.id,
         });
       }
+      if (humanLog) humanLog.writeToolResult(step, tu.name, tu.id, result);
       toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: result.text || '', is_error: !result.ok });
       if (verbose)
         console.error(
@@ -359,6 +370,7 @@ async function run(options) {
           bytes: result.bytes,
           toolUseId,
         });
+      if (humanLog) humanLog.writeToolResult(step, toolName, toolUseId, result);
       if (verbose)
         console.error(
           '[runner] step ' +
@@ -390,6 +402,7 @@ async function run(options) {
 
   const msg = 'Reached max_steps (' + steps + ') without a final answer.';
   if (transcript) transcript.append({ type: 'final', text: msg });
+  if (humanLog) humanLog.writeError(msg);
   output.emit('error', { message: msg, duration_ms: Date.now() - startedAt, num_turns: steps, usage: totalUsage });
   output.finish({
     finalText: msg,
