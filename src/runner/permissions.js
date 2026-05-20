@@ -28,9 +28,25 @@ const CATEGORIES = {
   edit_file: 'write',
   write_file: 'write',
   apply_patch: 'write',
-  undo: 'write',
-  undo_edit: 'write',
+  undo: 'recovery',
+  undo_edit: 'recovery',
   bash: 'shell',
+};
+
+// ---------------------------------------------------------------------------
+// Mode-based policy — declarative rules for each permission mode
+// ---------------------------------------------------------------------------
+
+const MODES = {
+  default: { 'read-only': 'allow', write: 'ask', shell: 'ask', recovery: 'allow' },
+  acceptEdits: { 'read-only': 'allow', write: 'allow', shell: 'ask', recovery: 'allow' },
+  dontAsk: { 'read-only': 'allow', write: 'allow', shell: 'allow', recovery: 'allow' },
+  plan: {
+    'read-only': 'plan_only',
+    write: 'plan_only',
+    shell: 'plan_only',
+    recovery: 'plan_only',
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -149,37 +165,47 @@ function check(toolName, args, ctx) {
     }
   }
 
-  // --- Category-based decision ---
+  // --- Category-based decision via policy object ---
   const category = CATEGORIES[toolName];
   if (!category) {
     return { decision: 'deny', reason: "Tool '" + toolName + "' is not in the allow-list." };
   }
 
-  if (category === 'read-only') {
+  if (category === 'shell' && !ctx.allowShell) {
+    return { decision: 'deny', reason: 'Shell commands are disabled. Use --allow-shell to enable.' };
+  }
+
+  // Pick the active policy mode from ctx flags
+  let activeMode = 'default';
+  if (ctx.plan) {
+    activeMode = 'plan';
+  } else if (ctx.dontAsk) {
+    activeMode = 'dontAsk';
+  } else if (ctx.acceptEdits) {
+    activeMode = 'acceptEdits';
+  }
+
+  const rule = MODES[activeMode];
+  const decision = rule[category] || 'deny';
+
+  if (decision === 'allow') {
     return { decision: 'allow' };
   }
 
-  if (category === 'write') {
-    if (toolName === 'undo' || toolName === 'undo_edit') {
-      return { decision: 'allow' };
-    }
-    if (ctx.acceptEdits) {
-      return { decision: 'allow' };
-    }
-    return { decision: 'ask', proposedAction: describeWriteAction(toolName, args) };
+  if (decision === 'plan_only') {
+    return {
+      decision: 'ask',
+      proposedAction:
+        '(plan mode) ' + (category === 'shell' ? describeShellAction(args) : describeWriteAction(toolName, args)),
+    };
   }
 
+  // 'ask' for write, shell, or any category not 'allow'
   if (category === 'shell') {
-    if (!ctx.allowShell) {
-      return { decision: 'deny', reason: 'Shell commands are disabled. Use --allow-shell to enable.' };
-    }
-    if (ctx.dontAsk) {
-      return { decision: 'allow' };
-    }
     return { decision: 'ask', proposedAction: describeShellAction(args) };
   }
 
-  return { decision: 'deny', reason: 'Unknown permission category.' };
+  return { decision: 'ask', proposedAction: describeWriteAction(toolName, args) };
 }
 
 // ---------------------------------------------------------------------------
@@ -214,4 +240,5 @@ module.exports = {
   isBlockedDir,
   BLOCKED_DIRS,
   CATEGORIES,
+  MODES,
 };

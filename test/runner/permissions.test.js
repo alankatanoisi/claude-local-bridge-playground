@@ -103,6 +103,36 @@ describe('permissions — shell tool', () => {
     const result = check('bash', { command: 'ls' }, { cwd, allowShell: true, dontAsk: true });
     assert.equal(result.decision, 'allow');
   });
+
+  it('bash is denied when dontAsk is true but allowShell is false', () => {
+    const result = check('bash', { command: 'ls' }, { cwd, dontAsk: true });
+    assert.equal(result.decision, 'deny');
+    assert.ok(result.reason.includes('--allow-shell'));
+  });
+});
+
+describe('permissions — plan mode', () => {
+  const cwd = '/fake/project';
+
+  it('returns structured dry-run ask for read-only tools', () => {
+    const result = check('read_file', { path: 'src/server.js' }, { cwd, plan: true });
+    assert.equal(result.decision, 'ask');
+    assert.ok(result.proposedAction.includes('(plan mode)'));
+    assert.ok(result.proposedAction.includes('read_file'));
+  });
+
+  it('still requires allowShell for shell tools', () => {
+    const result = check('bash', { command: 'ls' }, { cwd, plan: true });
+    assert.equal(result.decision, 'deny');
+    assert.ok(result.reason.includes('--allow-shell'));
+  });
+
+  it('returns structured dry-run ask for shell tools only after allowShell', () => {
+    const result = check('bash', { command: 'ls' }, { cwd, plan: true, allowShell: true });
+    assert.equal(result.decision, 'ask');
+    assert.ok(result.proposedAction.includes('(plan mode)'));
+    assert.ok(result.proposedAction.includes('Run: ls'));
+  });
 });
 
 describe('permissions — unknown tools', () => {

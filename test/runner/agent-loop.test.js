@@ -296,4 +296,61 @@ describe('agent loop — write/edit', () => {
       process.exitCode = savedExit;
     }
   });
+
+  it('plan mode returns dry-run tool results without writing files', async () => {
+    const originalPost = modelClient.post;
+    const savedExit = process.exitCode;
+    const plannedPath = path.join(tmpDir, 'planned.txt');
+    let secondRequest;
+    let callCount = 0;
+
+    modelClient.post = async (body) => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          content: [
+            {
+              type: 'tool_use',
+              id: 'tu-plan',
+              name: 'write_file',
+              input: { path: 'planned.txt', content: 'should not be written' },
+            },
+          ],
+        };
+      }
+      secondRequest = JSON.parse(JSON.stringify(body));
+      return {
+        content: [{ type: 'text', text: 'Plan captured.' }],
+      };
+    };
+
+    let logged = '';
+    const originalLog = console.log;
+    console.log = (msg) => {
+      logged += msg;
+    };
+
+    try {
+      await run({
+        prompt: 'Plan a write',
+        cwd: tmpDir,
+        model: 'test',
+        maxTokens: 10,
+        maxSteps: 3,
+        plan: true,
+        acceptEdits: true,
+        transcriptPath: path.join(tmpDir, 'plan-mode.jsonl'),
+      });
+
+      assert.equal(fs.existsSync(plannedPath), false);
+      const lastMessage = secondRequest.messages[secondRequest.messages.length - 1];
+      assert.equal(lastMessage.role, 'user');
+      assert.ok(lastMessage.content[0].content.includes('Plan mode: would'));
+      assert.ok(logged.includes('Plan captured'));
+    } finally {
+      console.log = originalLog;
+      modelClient.post = originalPost;
+      process.exitCode = savedExit;
+    }
+  });
 });
