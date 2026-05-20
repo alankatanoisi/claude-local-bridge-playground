@@ -134,16 +134,45 @@ function discoverCredentials(ctx) {
 }
 
 /**
- * Get credentials with caching.
+ * Get credentials with caching and token-rotation awareness.
+ *
+ * Why the extra watermark?
+ * Claude Code can rotate its live intercepted token while the bridge is still
+ * inside the normal cache TTL window. If we only looked at time, we could keep
+ * reusing an old token for a little while and then trip a retry loop.
+ *
+ * The watermark stores "which intercepted token produced this cache entry."
+ * If the live intercepted token changes, we throw away the cached credential
+ * before the TTL check and discover a fresh one immediately.
+ *
  * @param {object} ctx
  * @returns {Credentials}
  */
 function getCredentials(ctx) {
   const now = Date.now();
+
+  // If the live intercepted token changed since the cache entry was created,
+  // invalidate first so the bridge does not cling to a stale auth decision.
+  if (ctx.cachedCredentials) {
+    const lastWatermark = ctx.cachedCredentials.interceptedWatermark || null;
+    const currentToken = ctx.interceptedToken || null;
+    if (lastWatermark !== null && lastWatermark !== currentToken) {
+      ctx.cachedCredentials = null;
+      ctx.credentialsCachedAt = 0;
+    }
+  }
+
   if (ctx.cachedCredentials && now - ctx.credentialsCachedAt < ctx.CREDS_CACHE_TTL) {
     return ctx.cachedCredentials;
   }
   const creds = discoverCredentials(ctx);
+
+  // Record which live intercepted token produced this credential so future
+  // calls can notice a token rotation even before the TTL expires.
+  if (ctx.interceptedToken && creds.source && creds.source.startsWith('intercepted')) {
+    creds.interceptedWatermark = ctx.interceptedToken;
+  }
+
   ctx.cachedCredentials = creds;
   ctx.credentialsCachedAt = now;
   return creds;
@@ -156,6 +185,20 @@ function getCredentials(ctx) {
 function clearCredentialsCache(ctx) {
   ctx.cachedCredentials = null;
   ctx.credentialsCachedAt = 0;
+}
+
+/**
+ * Report the auth scheme implied by the resolved credentials.
+ * This is used by /v1/debug so users can tell whether the bridge will send
+ * `x-api-key`, `authorization: Bearer`, or nothing upstream.
+ *
+ * @param {Credentials} creds
+ * @returns {'x-api-key'|'bearer'|'none'}
+ */
+function getCredentialAuthMode(creds) {
+  if (creds?.apiKey) return 'x-api-key';
+  if (creds?.accessToken) return 'bearer';
+  return 'none';
 }
 
 // Captured from a live Claude Code 2.1.119 request on 2026-04-27.
@@ -274,6 +317,7 @@ function messagesPathFor(ctx, creds) {
 module.exports = {
   getCredentials,
   clearCredentialsCache,
+  getCredentialAuthMode,
   buildAuthHeaders,
   prependClaudeCodeSystem,
   messagesPathFor,

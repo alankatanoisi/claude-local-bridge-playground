@@ -5,7 +5,7 @@
  */
 
 const { sendJson } = require('../utils');
-const { getCredentials } = require('../credentials');
+const { getCredentials, getCredentialAuthMode } = require('../credentials');
 const { LISTED_MODELS } = require('../models');
 const vscode = require('vscode');
 
@@ -21,6 +21,7 @@ async function handleDebug(ctx, _req, res) {
     sessionId: ctx.sessionId,
     extensionVersion: ctx.extensionVersion,
     credentialSource: creds.source,
+    upstreamAuthMode: getCredentialAuthMode(creds),
     authenticated: !!(creds.apiKey || creds.accessToken),
     callerAuth: {
       enabled: config.get('requireCallerAuth', true),

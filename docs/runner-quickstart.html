@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Local Bridge Runner — Quick Start</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --fg: #1a1a1a;
+      --muted: #666;
+      --accent: #2563eb;
+      --accent-light: #dbeafe;
+      --code-bg: #f3f4f6;
+      --border: #e5e7eb;
+      --success: #059669;
+      --warn: #d97706;
+      --danger: #dc2626;
+      --radius: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.65;
+      color: var(--fg);
+      background: var(--bg);
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      color: #fff;
+      padding: 3rem 1.5rem 2.5rem;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0 0 0.5rem;
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      margin: 0;
+      opacity: 0.85;
+      font-size: 1.1rem;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 1rem;
+    }
+
+    .badge.read-only {
+      background: var(--success);
+      color: #fff;
+    }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    section {
+      margin-bottom: 2.5rem;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin: 0 0 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 1.5rem 0 0.5rem;
+      color: var(--muted);
+    }
+
+    p { margin: 0 0 1rem; }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .callout {
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      margin: 1rem 0;
+      border-left: 4px solid var(--accent);
+      background: var(--accent-light);
+    }
+
+    .callout strong {
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
+    .callout.warn {
+      border-left-color: var(--warn);
+      background: #fffbeb;
+    }
+
+    .callout.danger {
+      border-left-color: var(--danger);
+      background: #fef2f2;
+    }
+
+    .callout.success {
+      border-left-color: var(--success);
+      background: #ecfdf5;
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      box-shadow: var(--shadow);
+    }
+
+    code {
+      font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Courier New", monospace;
+      font-size: 0.9em;
+      background: var(--code-bg);
+      padding: 0.15em 0.35em;
+      border-radius: 4px;
+    }
+
+    pre code {
+      background: transparent;
+      padding: 0;
+    }
+
+    .step {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+    }
+
+    .step-number {
+      flex-shrink: 0;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.875rem;
+      margin-top: 0.1rem;
+    }
+
+    .step-body {
+      flex: 1;
+    }
+
+    .step-body p {
+      margin-bottom: 0.75rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      margin: 1rem 0;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .tool-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .tool-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .tool-card h4 {
+      margin: 0 0 0.25rem;
+      font-size: 0.95rem;
+      color: var(--accent);
+    }
+
+    .tool-card p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+      font-size: 0.875rem;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Local Bridge Runner</h1>
+  <p>A local coding agent that uses your existing <strong>claude-local-bridge</strong> as its model transport. No separate API key setup is required for the runner itself.</p>
+  <span class="badge read-only">CLI Runner</span>
+</header>
+
+<main>
+
+  <section>
+    <h2>What it does</h2>
+    <p>
+      The runner sends your prompt to the local bridge (usually on <code>localhost:11437</code>), which forwards it upstream using whatever credential source the bridge resolved on your Mac. When the model asks to read a file, list a directory, or search text, the runner executes the request safely and sends the result back.
+    </p>
+    <div class="callout success">
+      <strong>Key benefit</strong>
+      You can run agent-style queries from the terminal without setting up a separate Anthropic API key. The bridge handles upstream authentication.
+    </div>
+  </section>
+
+  <section>
+    <h2>Before you start</h2>
+    <p>Make sure the bridge is running. In VS Code, start the extension (or press <kbd>F5</kbd> in development mode). Then verify:</p>
+    <pre><code>curl -s http://localhost:11437/v1/debug | python3 -m json.tool</code></pre>
+    <p>Look for <code>"authenticated": true</code>. If you see it, you are ready.</p>
+  </section>
+
+  <section>
+    <h2>Quick start in 3 steps</h2>
+
+    <div class="step">
+      <div class="step-number">1</div>
+      <div class="step-body">
+        <p><strong>Ask a simple question</strong> (no tools needed)</p>
+        <pre><code>node bin/local-bridge-runner.js "What is 2 + 2?"</code></pre>
+        <p>The model should answer immediately with no tool calls.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">2</div>
+      <div class="step-body">
+        <p><strong>Ask about your project</strong> (triggers inspection tools)</p>
+        <pre><code>node bin/local-bridge-runner.js \
+  --verbose \
+  "List the main files in this repo and explain what each does"</code></pre>
+        <p>You will see step-by-step progress in stderr as the model calls <code>list_files</code> and <code>read_file</code>.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-number">3</div>
+      <div class="step-body">
+        <p><strong>Check the transcript</strong></p>
+        <pre><code>ls ~/.bridge-runner/logs/</code></pre>
+        <p>Every run writes a timestamped JSONL file so you can review what the model did.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Available tools</h2>
+    <p>The runner exposes read tools by default and can also expose guarded edit and shell tools when you enable them.</p>
+    <div class="tool-grid">
+      <div class="tool-card">
+        <h4>list_files</h4>
+        <p>List files and directories under a relative path. Skips <code>.git</code>, <code>node_modules</code>, <code>dist</code>, <code>build</code>, and <code>coverage</code> by default.</p>
+      </div>
+      <div class="tool-card">
+        <h4>read_file</h4>
+        <p>Read a file by relative path. Respects byte and line limits. Blocks secret-looking files (<code>.env</code>, <code>*.pem</code>, <code>credentials*.json</code>, etc.).</p>
+      </div>
+      <div class="tool-card">
+        <h4>search_text</h4>
+        <p>Search for text inside the project. Prefers ripgrep, falls back to grep, then to a pure Node walk. Case-insensitive.</p>
+      </div>
+      <div class="tool-card">
+        <h4>git_status</h4>
+        <p>Run <code>git status --short</code>. Read-only. Never adds, commits, resets, or pushes.</p>
+      </div>
+      <div class="tool-card">
+        <h4>edit_file / write_file / apply_patch</h4>
+        <p>Mutating tools for exact replacements, full writes, and patch-based changes. They ask for confirmation unless you pass <code>--accept-edits</code>.</p>
+      </div>
+      <div class="tool-card">
+        <h4>bash</h4>
+        <p>Optional shell tool with timeouts and output limits. It is hidden from the model unless you pass <code>--allow-shell</code>.</p>
+      </div>
+      <div class="tool-card">
+        <h4>undo</h4>
+        <p>Restore file backups created by write tools. This is the recovery path if an edit goes wrong.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>CLI options</h2>
+    <table>
+      <thead>
+        <tr><th>Flag</th><th>Default</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>--cwd &lt;path&gt;</code></td><td><code>.</code></td><td>Working directory the tools operate inside</td></tr>
+        <tr><td><code>--model &lt;name&gt;</code></td><td><code>claude-sonnet-4-6</code></td><td>Model to request from the bridge</td></tr>
+        <tr><td><code>--max-tokens &lt;n&gt;</code></td><td><code>2000</code></td><td>Max tokens per model response</td></tr>
+        <tr><td><code>--max-steps &lt;n&gt;</code></td><td><code>16</code></td><td>Maximum tool loops before giving up</td></tr>
+        <tr><td><code>--transcript &lt;path&gt;</code></td><td><code>~/.bridge-runner/logs/&lt;timestamp&gt;.jsonl</code></td><td>Where to write the JSONL transcript</td></tr>
+        <tr><td><code>--resume &lt;path&gt;</code></td><td>off</td><td>Continue from an existing transcript</td></tr>
+        <tr><td><code>--accept-edits</code></td><td>off</td><td>Auto-approve edit and write tools</td></tr>
+        <tr><td><code>--allow-shell</code></td><td>off</td><td>Expose the bash tool to the model</td></tr>
+        <tr><td><code>--dont-ask</code></td><td>off</td><td>Auto-approve shell commands once bash is enabled</td></tr>
+        <tr><td><code>--shell-timeout &lt;ms&gt;</code></td><td><code>30000</code></td><td>Timeout for shell commands</td></tr>
+        <tr><td><code>--stream</code></td><td>off</td><td>Print model output live as it streams</td></tr>
+        <tr><td><code>--verbose</code></td><td>off</td><td>Print step-by-step progress to stderr</td></tr>
+        <tr><td><code>--help</code></td><td>—</td><td>Show help and exit</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Example commands</h2>
+
+    <h3>Explain a specific file</h3>
+    <pre><code>node bin/local-bridge-runner.js \
+  --verbose \
+  "Explain what src/server.js does. Do not edit files."</code></pre>
+
+    <h3>Review code from stdin</h3>
+    <pre><code>cat src/server.js | node bin/local-bridge-runner.js \
+  "Review this file for potential bugs"</code></pre>
+
+    <h3>Search-first workflow</h3>
+    <pre><code>node bin/local-bridge-runner.js \
+  --max-tokens 4096 \
+  --max-steps 6 \
+  "Find where the credential discovery logic lives and summarize how it works"</code></pre>
+
+    <h3>Safe edit with confirmation</h3>
+    <pre><code>node bin/local-bridge-runner.js \
+  "Change the default port comment in src/server.js"</code></pre>
+
+    <h3>Edit and validate automatically</h3>
+    <pre><code>node bin/local-bridge-runner.js \
+  --accept-edits \
+  --allow-shell \
+  "Fix the failing test and then run npm test"</code></pre>
+
+    <h3>Use a different model</h3>
+    <pre><code>node bin/local-bridge-runner.js \
+  --model claude-opus-4-7 \
+  --max-tokens 4096 \
+  "Give me a deep dive on the proxy module"</code></pre>
+  </section>
+
+  <section>
+    <h2>Safety rules</h2>
+    <div class="callout warn">
+      <strong>Mutations are gated</strong>
+      Edit tools ask for confirmation by default. Shell is disabled by default. Unsafe paths and secret-looking files are blocked even when the mutation tools are enabled.
+    </div>
+    <ul>
+      <li>Blocked paths: <code>.env</code>, <code>*.pem</code>, <code>*.key</code>, <code>credentials*.json</code>, token files, anything that looks like a secret.</li>
+      <li>Blocked escapes: absolute paths and <code>../</code> outside the working directory are rejected.</li>
+      <li>Transcripts live in <code>~/.bridge-runner/logs/</code> (outside the repo) and redact sensitive headers.</li>
+      <li>Write tools save backups in <code>.bridge-runner/backups/</code> so the <code>undo</code> tool can restore them.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Troubleshooting</h2>
+
+    <h3>“Bridge returned HTTP 404” or connection refused</h3>
+    <p>The bridge is not running or is on a different port. Check:</p>
+    <pre><code>curl -s http://localhost:11437/v1/debug</code></pre>
+    <p>If that fails, start the bridge first (in VS Code: <code>Claude Local Bridge: Start Server</code>).</p>
+
+    <h3>“No credentials found” in bridge debug</h3>
+    <p>Open Claude Code in your terminal once. The bridge intercepts the live OAuth token from Claude Code's outgoing HTTPS requests.</p>
+
+    <h3>Model loops forever</h3>
+    <p>Use <code>--max-steps</code> to cap the loop. The default is 16. If the model keeps calling tools without reaching a final answer, try making your prompt more specific:</p>
+    <pre><code>"List the files and then stop. Do not call any more tools after listing."</code></pre>
+
+    <h3>Transcript files filling up</h3>
+    <p>They are small JSONL files in <code>~/.bridge-runner/logs/</code>. You can delete old ones safely:</p>
+    <pre><code>rm ~/.bridge-runner/logs/*.jsonl</code></pre>
+  </section>
+
+  <section>
+    <h2>Next steps</h2>
+    <p>
+      This runner now covers inspection, guarded edits, transcript logging, resume, and optional shell validation. Natural next features still include:
+    </p>
+    <ul>
+      <li>A project-wide <code>semantic_search</code> tool</li>
+      <li>HTTP endpoints that expose the same runner loop outside the CLI</li>
+      <li>A TUI (terminal UI) for interactive use</li>
+    </ul>
+    <div class="callout">
+      <strong>Happy building</strong>
+      If something breaks, check the transcript and run with <code>--verbose</code>. The runner is intentionally simple so you can read the code and understand every step.
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  Built on top of <a href="https://github.com/alankatanoisi/claude-local-bridge">claude-local-bridge</a>
+</footer>
+
+</body>
+</html>

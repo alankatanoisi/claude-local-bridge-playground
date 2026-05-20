@@ -2,6 +2,7 @@
 
 const { describe, it, before } = require('node:test');
 const assert = require('node:assert/strict');
+const http = require('node:http');
 
 // Credentials module tests
 // We mock process.env and child_process to avoid real keychain/file access.
@@ -124,6 +125,45 @@ describe('credentials.buildAuthHeaders', () => {
   });
 });
 
+describe('credentials.getCredentialAuthMode', () => {
+  it('reports x-api-key for api key credentials', () => {
+    const { getCredentialAuthMode } = require('../src/credentials');
+    assert.equal(getCredentialAuthMode({ apiKey: 'sk-test', source: 'env' }), 'x-api-key');
+  });
+
+  it('reports bearer for access token credentials', () => {
+    const { getCredentialAuthMode } = require('../src/credentials');
+    assert.equal(getCredentialAuthMode({ accessToken: 'tok-123', source: 'keychain' }), 'bearer');
+  });
+
+  it('reports none when no credential exists', () => {
+    const { getCredentialAuthMode } = require('../src/credentials');
+    assert.equal(getCredentialAuthMode({ source: 'none' }), 'none');
+  });
+});
+
+describe('debug route', () => {
+  it('reports the resolved upstream auth mode', async () => {
+    const vscode = require('./__mocks__/vscode');
+    const { startServer, stopServer } = require('../src/server');
+    const ctx = makeCtx();
+    process.env.CLAUDE_CODE_OAUTH_TOKEN = 'tok-123';
+    vscode.__setConfig('port', 0);
+
+    await startServer(ctx);
+    const port = ctx.server.address().port;
+    const response = await requestJson(port, 'GET', '/v1/debug');
+    await stopServer(ctx);
+    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    vscode.__setConfig('port', 11437);
+    vscode.__resetConfig();
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.credentialSource, 'env:CLAUDE_CODE_OAUTH_TOKEN');
+    assert.equal(response.body.upstreamAuthMode, 'bearer');
+  });
+});
+
 // ─────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────
@@ -135,6 +175,37 @@ function makeCtx() {
     credentialsCachedAt: 0,
     CREDS_CACHE_TTL: 300_000,
   };
+}
+
+function requestJson(port, method, pathName, body) {
+  const payload = body === undefined ? null : JSON.stringify(body);
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        hostname: '127.0.0.1',
+        port,
+        path: pathName,
+        method,
+        headers: payload
+          ? {
+              'content-type': 'application/json',
+              'content-length': Buffer.byteLength(payload),
+            }
+          : {},
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+          const text = Buffer.concat(chunks).toString('utf8');
+          resolve({ statusCode: res.statusCode, body: text ? JSON.parse(text) : null });
+        });
+      },
+    );
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
 }
 
 /**

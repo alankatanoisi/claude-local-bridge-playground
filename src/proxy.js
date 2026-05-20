@@ -6,6 +6,11 @@ const vscode = require('vscode');
 const { getCredentials, clearCredentialsCache, buildAuthHeaders } = require('./credentials');
 const { log, verboseLog } = require('./utils');
 
+// Reuse a single keep-alive agent so repeated tool-use loops do not pay for a
+// fresh TLS handshake every time. This matters most when the bridge is hit many
+// times in a row during an agent run.
+const sharedAgent = new https.Agent({ keepAlive: true, maxSockets: 6 });
+
 // ─────────────────────────────────────────────
 // Core Proxy
 // Forwards a request to api.anthropic.com and pipes
@@ -15,20 +20,23 @@ const { log, verboseLog } = require('./utils');
 /**
  * Proxy a request to the Anthropic API.
  *
- * @param {object}    ctx        Bridge context
- * @param {object}    res        Node.js ServerResponse to write into
- * @param {string}    apiPath    e.g. '/v1/messages'
- * @param {string}    bodyStr    JSON body string
- * @param {boolean}   [retry]    Internal — true when retrying after a 401
+ * Headers are intentionally deferred until the upstream response is known.
+ * That keeps the retry path clean: if the first upstream response is a 401,
+ * the bridge can retry without having already committed headers to the client.
+ *
+ * @param {object} ctx Bridge context
+ * @param {object} res Node.js ServerResponse to write into
+ * @param {string} apiPath e.g. '/v1/messages'
+ * @param {string} bodyStr JSON body string
+ * @param {boolean} [retry] Internal — true when retrying after a 401
  * @returns {Promise<void>}
  */
 async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false) {
   const config = vscode.workspace.getConfiguration('claudeLocalBridge');
   const configuredBaseUrl = config.get('anthropicBaseUrl', 'https://api.anthropic.com');
 
-  // Prefer the host we observed Claude Code actually calling.
-  // This mirrors ag-local-bridge's pattern: route through the same endpoint
-  // the authenticated client uses, rather than assuming api.anthropic.com.
+  // Prefer the host we observed Claude Code actually calling so the bridge can
+  // stay aligned with the real official client path.
   const baseUrl = ctx.interceptedHost
     ? `https://${ctx.interceptedHost}${ctx.interceptedPort && ctx.interceptedPort !== 443 ? `:${ctx.interceptedPort}` : ''}`
     : configuredBaseUrl;
@@ -46,6 +54,7 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false) {
     port: url.port || 443,
     path: url.pathname + url.search,
     method: 'POST',
+    agent: sharedAgent,
     headers: {
       ...authHeaders,
       'content-length': bodyBuf.length,
@@ -57,13 +66,23 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false) {
     const upReq = https.request(reqOptions, (upRes) => {
       verboseLog(ctx, `← ${upRes.statusCode} ${url.pathname}`);
 
-      // On 401: clear cache and retry once
+      // On 401, force a fresh credential lookup and retry once. Destroying the
+      // upstream response is deliberate here: we do not want to keep reading a
+      // failed body when the right next action is a new authenticated request.
       if (upRes.statusCode === 401 && !retry) {
         log(ctx, '⚠️ Received 401 — clearing credential cache and retrying');
         clearCredentialsCache(ctx);
-        // Drain the upstream body before retrying
-        upRes.resume();
+        upRes.destroy();
         proxyToAnthropic(ctx, res, apiPath, bodyStr, true).then(resolve).catch(reject);
+        return;
+      }
+
+      // If a retry path somehow already committed headers, stop here instead of
+      // double-writing a second response shape into the same client stream.
+      if (retry && res.headersSent) {
+        log(ctx, '⚠️ Headers already sent — cannot forward retried response');
+        upRes.destroy();
+        resolve();
         return;
       }
 
