@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Command Builder — Local Bridge Runner</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --surface: #161b22;
+        --border: #30363d;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --blue: #58a6ff;
+        --green: #3fb950;
+        --orange: #d2991d;
+        --red: #f85149;
+        --purple: #bc8cff;
+        --code-bg: #1c2128;
+        --input-bg: #0d1117;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        min-height: 100vh;
+      }
+      .container {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 1.5rem;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+      header h1 {
+        font-size: 1.3rem;
+        background: linear-gradient(135deg, var(--blue), var(--purple));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      header a {
+        color: var(--muted);
+        font-size: 0.85rem;
+        text-decoration: none;
+      }
+      header a:hover {
+        color: var(--blue);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        align-items: start;
+      }
+      @media (max-width: 700px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1.2rem 1.4rem;
+        margin-bottom: 1rem;
+      }
+      .card h2 {
+        font-size: 1rem;
+        margin-bottom: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .field {
+        margin-bottom: 0.85rem;
+      }
+      .field:last-child {
+        margin-bottom: 0;
+      }
+      label {
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 0.25rem;
+      }
+      input,
+      select,
+      textarea {
+        width: 100%;
+        background: var(--input-bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font-size: 0.9rem;
+        padding: 0.45rem 0.6rem;
+        font-family: inherit;
+        transition: border-color 0.15s;
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--blue);
+        box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+      }
+      textarea {
+        resize: vertical;
+        min-height: 72px;
+      }
+
+      .row {
+        display: flex;
+        gap: 0.6rem;
+      }
+      .row > .field {
+        flex: 1;
+      }
+
+      .checks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.2rem;
+        margin-bottom: 0.7rem;
+      }
+      .checks label.check-label {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.82rem;
+        font-weight: 400;
+        color: var(--text);
+        text-transform: none;
+        letter-spacing: 0;
+        cursor: pointer;
+      }
+      .checks input[type='checkbox'] {
+        width: auto;
+        accent-color: var(--blue);
+        cursor: pointer;
+      }
+
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.8rem;
+      }
+      .toggle-row span {
+        font-size: 0.82rem;
+      }
+      .toggle-row span.detail {
+        color: var(--muted);
+        font-size: 0.75rem;
+      }
+
+      .toggle {
+        position: relative;
+        width: 40px;
+        height: 22px;
+        flex-shrink: 0;
+      }
+      .toggle input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .toggle .slider {
+        position: absolute;
+        inset: 0;
+        background: var(--border);
+        border-radius: 22px;
+        cursor: pointer;
+        transition: 0.2s;
+      }
+      .toggle .slider::before {
+        content: '';
+        position: absolute;
+        height: 16px;
+        width: 16px;
+        left: 3px;
+        bottom: 3px;
+        background: var(--text);
+        border-radius: 50%;
+        transition: 0.2s;
+      }
+      .toggle input:checked + .slider {
+        background: var(--green);
+      }
+      .toggle input:checked + .slider::before {
+        transform: translateX(18px);
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 0.1em 0.5em;
+        border-radius: 8px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+      .badge-read {
+        background: rgba(63, 185, 80, 0.15);
+        color: var(--green);
+      }
+      .badge-write {
+        background: rgba(210, 153, 29, 0.15);
+        color: var(--orange);
+      }
+      .badge-shell {
+        background: rgba(188, 140, 255, 0.15);
+        color: var(--purple);
+      }
+      .badge-recovery {
+        background: rgba(88, 166, 255, 0.15);
+        color: var(--blue);
+      }
+
+      .presets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-bottom: 1.2rem;
+      }
+      .preset-btn {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        color: var(--text);
+        font-size: 0.78rem;
+        padding: 0.3rem 0.75rem;
+        cursor: pointer;
+        transition: 0.15s;
+        white-space: nowrap;
+      }
+      .preset-btn:hover {
+        border-color: var(--blue);
+        color: var(--blue);
+      }
+      .preset-btn.active {
+        border-color: var(--blue);
+        background: rgba(88, 166, 255, 0.08);
+        color: var(--blue);
+      }
+
+      .cmd-panel {
+        position: sticky;
+        top: 1rem;
+      }
+      .terminal {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 0.8rem;
+      }
+      .terminal-bar {
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        padding: 0.45rem 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .terminal-bar .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+      .terminal-bar .dot:nth-child(1) {
+        background: var(--red);
+      }
+      .terminal-bar .dot:nth-child(2) {
+        background: var(--orange);
+      }
+      .terminal-bar .dot:nth-child(3) {
+        background: var(--green);
+      }
+      .terminal-bar .title {
+        margin-left: 0.4rem;
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .terminal pre {
+        margin: 0;
+        padding: 0.9rem 1rem;
+        font-size: 0.82rem;
+        line-height: 1.7;
+        overflow-x: auto;
+        color: var(--green);
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .terminal pre .dim {
+        color: var(--muted);
+      }
+
+      .copy-btn {
+        width: 100%;
+        padding: 0.55rem;
+        border: 1px solid var(--green);
+        background: rgba(63, 185, 80, 0.08);
+        color: var(--green);
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.15s;
+      }
+      .copy-btn:hover {
+        background: rgba(63, 185, 80, 0.15);
+      }
+      .copy-btn.copied {
+        background: rgba(63, 185, 80, 0.2);
+      }
+
+      .tool-list {
+        list-style: none;
+        font-size: 0.78rem;
+      }
+      .tool-list li {
+        padding: 0.3rem 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .tool-list li + li {
+        border-top: 1px solid var(--border);
+      }
+      .tool-list .name {
+        font-weight: 600;
+      }
+      .tool-list .desc {
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
+      .shell-warn {
+        background: rgba(210, 153, 29, 0.06);
+        border: 1px solid rgba(210, 153, 29, 0.2);
+        border-radius: 6px;
+        padding: 0.5rem 0.7rem;
+        font-size: 0.75rem;
+        color: var(--orange);
+        margin-top: 0.5rem;
+        display: none;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .shell-warn.show {
+        display: flex;
+      }
+
+      .divider {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 0.8rem 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Command Builder</h1>
+        <a href="user-guide.html">&larr; User Guide</a>
+      </header>
+
+      <div class="layout">
+        <!-- ── LEFT ── FORM ── -->
+        <div>
+          <!-- Prompt -->
+          <div class="card">
+            <h2>Prompt</h2>
+            <div class="field">
+              <textarea
+                id="prompt"
+                placeholder="e.g. Explain how src/server.js works&#10;or: Add JSDoc to every exported function"
+              ></textarea>
+            </div>
+          </div>
+
+          <!-- Presets -->
+          <div class="card">
+            <h2>Quick presets</h2>
+            <div class="presets" id="presets">
+              <button class="preset-btn" data-preset="readonly">Read-only exploration</button>
+              <button class="preset-btn" data-preset="confirm">Edit with confirmation</button>
+              <button class="preset-btn" data-preset="auto">Auto-approve edits</button>
+              <button class="preset-btn" data-preset="full">Full agent + shell</button>
+              <button class="preset-btn" data-preset="automation">Automation JSON</button>
+              <button class="preset-btn" data-preset="resume">Resume session</button>
+              <button class="preset-btn" data-preset="debug">Verbose debug</button>
+            </div>
+          </div>
+
+          <!-- Model & limits -->
+          <div class="card">
+            <h2>Model &amp; limits</h2>
+            <div class="row">
+              <div class="field">
+                <label for="model">Model</label>
+                <select id="model">
+                  <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+                  <option value="claude-opus-4-7">claude-opus-4-7</option>
+                  <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
+                  <option value="claude-haiku-4-5">claude-haiku-4-5</option>
+                  <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="cwd">Working directory</label>
+                <input type="text" id="cwd" placeholder="(current directory)" />
+              </div>
+            </div>
+            <div class="row">
+              <div class="field">
+                <label for="maxSteps">Max steps</label>
+                <input type="number" id="maxSteps" value="16" min="1" max="200" />
+              </div>
+              <div class="field">
+                <label for="maxTokens">Max tokens</label>
+                <input type="number" id="maxTokens" value="2000" min="100" max="32000" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Permission flags -->
+          <div class="card">
+            <h2>Permission flags</h2>
+
+            <div class="checks">
+              <label class="check-label"> <input type="checkbox" id="acceptEdits" /> --accept-edits </label>
+              <label class="check-label"> <input type="checkbox" id="dontAsk" /> --dont-ask </label>
+              <label class="check-label"> <input type="checkbox" id="stream" /> --stream </label>
+              <label class="check-label"> <input type="checkbox" id="verbose" /> --verbose </label>
+            </div>
+
+            <div class="field">
+              <label for="outputFormat">Output format</label>
+              <select id="outputFormat">
+                <option value="text">text — normal terminal output</option>
+                <option value="json">json — one final JSON object</option>
+                <option value="stream-json">stream-json — parseable JSON lines</option>
+              </select>
+            </div>
+
+            <div class="toggle-row">
+              <div>
+                <span>Allow shell</span>
+                <span class="detail">&nbsp;(bash tool)</span>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="allowShell" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div id="shellWarn" class="shell-warn">
+              &#9888; Enables the model to run shell commands. Use with caution.
+            </div>
+
+            <div class="field" style="margin-top: 0.5rem">
+              <label for="shellTimeout">Shell timeout (ms)</label>
+              <input type="number" id="shellTimeout" value="30000" min="100" max="120000" step="1000" />
+            </div>
+
+            <hr class="divider" />
+
+            <div class="field">
+              <label for="resumePath">Resume from transcript</label>
+              <input type="text" id="resumePath" placeholder="~/.bridge-runner/logs/last.jsonl" />
+            </div>
+
+            <div class="field">
+              <label for="transcript">Transcript path</label>
+              <input type="text" id="transcript" placeholder="~/.bridge-runner/logs/&lt;timestamp&gt;.jsonl" />
+            </div>
+          </div>
+
+          <!-- Tool catalog -->
+          <div class="card">
+            <h2>
+              Tools
+              <span style="font-weight: 400; font-size: 0.75rem; color: var(--muted)">(what the model can use)</span>
+            </h2>
+            <ul class="tool-list">
+              <li><span class="name">list_files</span><span class="badge badge-read">read</span></li>
+              <li><span class="name">read_file</span><span class="badge badge-read">read</span></li>
+              <li><span class="name">search_text</span><span class="badge badge-read">read</span></li>
+              <li><span class="name">git_status</span><span class="badge badge-read">read</span></li>
+              <li><span class="name">edit_file</span><span class="badge badge-write">write</span></li>
+              <li><span class="name">write_file</span><span class="badge badge-write">write</span></li>
+              <li><span class="name">apply_patch</span><span class="badge badge-write">write</span></li>
+              <li><span class="name">undo</span><span class="badge badge-recovery">recovery</span></li>
+              <li><span class="name">undo_edit</span><span class="badge badge-recovery">recovery</span></li>
+              <li id="bashToolRow" style="display: none">
+                <span class="name">bash</span><span class="badge badge-shell">shell</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- ── RIGHT ── COMMAND OUTPUT ── -->
+        <div class="cmd-panel">
+          <div class="card">
+            <h2>Generated command</h2>
+            <div class="terminal">
+              <div class="terminal-bar">
+                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                <span class="title">zsh</span>
+              </div>
+              <pre id="cmdOutput"><code></code></pre>
+            </div>
+            <button class="copy-btn" id="copyBtn" onclick="copyCommand()">Copy to clipboard</button>
+            <p
+              id="copyFeedback"
+              style="text-align: center; font-size: 0.75rem; color: var(--muted); margin-top: 0.35rem"
+            >
+              &nbsp;
+            </p>
+          </div>
+          <div class="card" style="font-size: 0.8rem; color: var(--muted)">
+            <strong>Tip:</strong> Paste this into your terminal and press Enter. The runner connects through your local
+            bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>. Use
+            <code style="font-size: 0.75rem">stream-json</code> when another script or agent needs to parse every runner
+            event.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ── Elements ──
+      const prompt = document.getElementById('prompt');
+      const model = document.getElementById('model');
+      const maxSteps = document.getElementById('maxSteps');
+      const maxTokens = document.getElementById('maxTokens');
+      const cwd = document.getElementById('cwd');
+      const acceptEdits = document.getElementById('acceptEdits');
+      const dontAsk = document.getElementById('dontAsk');
+      const stream = document.getElementById('stream');
+      const verbose = document.getElementById('verbose');
+      const outputFormat = document.getElementById('outputFormat');
+      const allowShell = document.getElementById('allowShell');
+      const shellTimeout = document.getElementById('shellTimeout');
+      const resumePath = document.getElementById('resumePath');
+      const transcript = document.getElementById('transcript');
+      const cmdOutput = document.getElementById('cmdOutput');
+      const copyBtn = document.getElementById('copyBtn');
+      const copyFeedback = document.getElementById('copyFeedback');
+      const shellWarn = document.getElementById('shellWarn');
+      const bashToolRow = document.getElementById('bashToolRow');
+
+      const DEFAULTS = {
+        maxSteps: 16,
+        maxTokens: 2000,
+        model: 'claude-sonnet-4-6',
+        shellTimeout: 30000,
+        outputFormat: 'text',
+      };
+
+      // ── Render command ──
+      function render() {
+        const parts = ['node bin/local-bridge-runner.js'];
+
+        if (cwd.value.trim()) parts.push('--cwd ' + shellQuote(cwd.value.trim()));
+        if (model.value !== DEFAULTS.model) parts.push('--model ' + model.value);
+        if (+maxTokens.value !== DEFAULTS.maxTokens) parts.push('--max-tokens ' + maxTokens.value);
+        if (+maxSteps.value !== DEFAULTS.maxSteps) parts.push('--max-steps ' + maxSteps.value);
+        if (resumePath.value.trim()) parts.push('--resume ' + shellQuote(resumePath.value.trim()));
+        if (transcript.value.trim() && !resumePath.value.trim())
+          parts.push('--transcript ' + shellQuote(transcript.value.trim()));
+        if (acceptEdits.checked) parts.push('--accept-edits');
+        if (dontAsk.checked) parts.push('--dont-ask');
+        if (outputFormat.value !== DEFAULTS.outputFormat) parts.push('--output-format ' + outputFormat.value);
+        if (allowShell.checked) {
+          parts.push('--allow-shell');
+          if (+shellTimeout.value !== DEFAULTS.shellTimeout) parts.push('--shell-timeout ' + shellTimeout.value);
+        }
+        if (stream.checked) parts.push('--stream');
+        if (verbose.checked) parts.push('--verbose');
+
+        const promptText = prompt.value.trim();
+        if (promptText) parts.push(shellQuote(promptText));
+
+        if (parts.length > 3) {
+          const first = parts[0];
+          const rest = parts.slice(1, -1);
+          const last = parts[parts.length - 1];
+          let html = '<span class="dim">$</span> ' + esc(first) + ' \\\n';
+          for (const p of rest) html += '  ' + esc(p) + ' \\\n';
+          html += '  ' + esc(last);
+          cmdOutput.innerHTML = html;
+        } else {
+          cmdOutput.innerHTML = '<span class="dim">$</span> ' + esc(parts.join(' '));
+        }
+
+        bashToolRow.style.display = allowShell.checked ? '' : 'none';
+        if (allowShell.checked) shellWarn.classList.add('show');
+        else shellWarn.classList.remove('show');
+
+        copyBtn.textContent = 'Copy to clipboard';
+        copyBtn.classList.remove('copied');
+        copyFeedback.innerHTML = '&nbsp;';
+      }
+
+      function esc(s) {
+        return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
+      function shellQuote(s) {
+        if (s.includes("'")) return '"' + s.replace(/"/g, '\\"') + '"';
+        return "'" + s + "'";
+      }
+
+      // ── Event listeners ──
+      [
+        prompt,
+        model,
+        maxSteps,
+        maxTokens,
+        cwd,
+        acceptEdits,
+        dontAsk,
+        stream,
+        verbose,
+        outputFormat,
+        allowShell,
+        shellTimeout,
+        resumePath,
+        transcript,
+      ].forEach((el) => {
+        el.addEventListener('input', render);
+        el.addEventListener('change', render);
+      });
+
+      // ── Copy ──
+      function copyCommand() {
+        const parts = ['node bin/local-bridge-runner.js'];
+        if (cwd.value.trim()) parts.push('--cwd ' + shellQuote(cwd.value.trim()));
+        if (model.value !== DEFAULTS.model) parts.push('--model ' + model.value);
+        if (+maxTokens.value !== DEFAULTS.maxTokens) parts.push('--max-tokens ' + maxTokens.value);
+        if (+maxSteps.value !== DEFAULTS.maxSteps) parts.push('--max-steps ' + maxSteps.value);
+        if (resumePath.value.trim()) parts.push('--resume ' + shellQuote(resumePath.value.trim()));
+        if (transcript.value.trim() && !resumePath.value.trim())
+          parts.push('--transcript ' + shellQuote(transcript.value.trim()));
+        if (acceptEdits.checked) parts.push('--accept-edits');
+        if (dontAsk.checked) parts.push('--dont-ask');
+        if (outputFormat.value !== DEFAULTS.outputFormat) parts.push('--output-format ' + outputFormat.value);
+        if (allowShell.checked) {
+          parts.push('--allow-shell');
+          if (+shellTimeout.value !== DEFAULTS.shellTimeout) parts.push('--shell-timeout ' + shellTimeout.value);
+        }
+        if (stream.checked) parts.push('--stream');
+        if (verbose.checked) parts.push('--verbose');
+        const promptText = prompt.value.trim();
+        if (promptText) parts.push(shellQuote(promptText));
+
+        const raw = parts.join(' ');
+        navigator.clipboard
+          .writeText(raw)
+          .then(() => {
+            copyBtn.textContent = 'Copied!';
+            copyBtn.classList.add('copied');
+            copyFeedback.textContent = 'Ready to paste in your terminal.';
+          })
+          .catch(() => {
+            copyFeedback.textContent = 'Could not copy — select and copy manually.';
+          });
+      }
+
+      // ── Presets ──
+      const PRESETS = {
+        readonly: {
+          prompt: 'Explain this repo at a high level. List the main files and describe what each does.',
+          maxSteps: 8,
+          maxTokens: 2000,
+          maxStepsDefault: true,
+          maxTokensDefault: true,
+          acceptEdits: false,
+          dontAsk: false,
+          allowShell: false,
+          stream: false,
+          verbose: false,
+          outputFormat: 'text',
+        },
+        confirm: {
+          prompt: 'Fix the typo in the README.',
+          maxSteps: 16,
+          maxTokens: 2000,
+          maxStepsDefault: false,
+          maxTokensDefault: true,
+          acceptEdits: false,
+          dontAsk: false,
+          allowShell: false,
+          stream: false,
+          verbose: false,
+          outputFormat: 'text',
+        },
+        auto: {
+          prompt: 'Add JSDoc comments to every exported function in src/runner/',
+          maxSteps: 20,
+          maxTokens: 4096,
+          maxStepsDefault: false,
+          maxTokensDefault: false,
+          acceptEdits: true,
+          dontAsk: false,
+          allowShell: false,
+          stream: false,
+          verbose: false,
+          outputFormat: 'text',
+        },
+        full: {
+          prompt: 'Write a quickSort function in src/quick-sort.js, add a test, and run npm test to verify.',
+          maxSteps: 30,
+          maxTokens: 4096,
+          maxStepsDefault: false,
+          maxTokensDefault: false,
+          acceptEdits: true,
+          dontAsk: true,
+          allowShell: true,
+          stream: false,
+          verbose: false,
+          outputFormat: 'text',
+        },
+        automation: {
+          prompt: 'List the files in this repo and summarize what the project does.',
+          maxSteps: 8,
+          maxTokens: 2000,
+          maxStepsDefault: true,
+          maxTokensDefault: true,
+          acceptEdits: false,
+          dontAsk: false,
+          allowShell: false,
+          stream: false,
+          verbose: false,
+          outputFormat: 'stream-json',
+        },
+        resume: {
+          prompt: 'Continue where we left off.',
+          resumePath: '~/.bridge-runner/logs/<last-session>.jsonl',
+          maxSteps: 16,
+          maxTokens: 2000,
+          maxStepsDefault: false,
+          maxTokensDefault: true,
+          acceptEdits: false,
+          dontAsk: false,
+          allowShell: false,
+          stream: false,
+          verbose: false,
+          outputFormat: 'text',
+        },
+        debug: {
+          prompt: 'List the files under src/runner/ and read the first 15 lines of run.js.',
+          maxSteps: 8,
+          maxTokens: 1000,
+          maxStepsDefault: true,
+          maxTokensDefault: false,
+          acceptEdits: false,
+          dontAsk: false,
+          allowShell: false,
+          stream: false,
+          verbose: true,
+          outputFormat: 'text',
+        },
+      };
+
+      document.getElementById('presets').addEventListener('click', (e) => {
+        const btn = e.target.closest('.preset-btn');
+        if (!btn) return;
+        const name = btn.dataset.preset;
+        const p = PRESETS[name];
+        if (!p) return;
+
+        document.querySelectorAll('.preset-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        prompt.value = p.prompt;
+        acceptEdits.checked = p.acceptEdits;
+        dontAsk.checked = p.dontAsk;
+        allowShell.checked = p.allowShell;
+        stream.checked = p.stream || false;
+        verbose.checked = p.verbose;
+        outputFormat.value = p.outputFormat || DEFAULTS.outputFormat;
+        resumePath.value = p.resumePath || '';
+        if (p.maxStepsDefault) maxSteps.value = DEFAULTS.maxSteps;
+        else maxSteps.value = p.maxSteps;
+        if (p.maxTokensDefault) maxTokens.value = DEFAULTS.maxTokens;
+        else maxTokens.value = p.maxTokens;
+
+        render();
+      });
+
+      render();
+    </script>
+  </body>
+</html>
