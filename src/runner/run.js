@@ -23,14 +23,16 @@
  */
 
 const fs = require('fs');
-const { buildSystem, buildUserMessage, buildToolResultMessage } = require('./context-builder');
+const { buildSystem, buildUserMessage } = require('./context-builder');
 const modelClient = require('./model-client');
 const { getDefinitions, execute, executeForce } = require('./tool-registry');
 const { Transcript } = require('./transcript');
 const confirm = require('./confirmation');
+const safety = require('./safety');
 
 const DEFAULT_MAX_STEPS = 16;
 const MAX_CONSECUTIVE_FAILURES = 2;
+const OUTPUT_FORMATS = new Set(['text', 'json', 'stream-json']);
 
 function extractTextBlocks(content) {
   if (!Array.isArray(content)) return '';
@@ -43,6 +45,37 @@ function extractTextBlocks(content) {
 function extractToolUses(content) {
   if (!Array.isArray(content)) return [];
   return content.filter((b) => b.type === 'tool_use');
+}
+
+function addUsage(totalUsage, usage) {
+  if (!usage) return totalUsage;
+  return {
+    input_tokens: totalUsage.input_tokens + (usage.input_tokens || 0),
+    output_tokens: totalUsage.output_tokens + (usage.output_tokens || 0),
+  };
+}
+
+function makeOutput(outputFormat) {
+  const events = [];
+
+  function emit(type, fields) {
+    const event = { type, ...(fields || {}) };
+    events.push(event);
+    if (outputFormat === 'stream-json') {
+      process.stdout.write(JSON.stringify(event) + '\n');
+    }
+    return event;
+  }
+
+  function finish(result) {
+    if (outputFormat === 'json') {
+      process.stdout.write(JSON.stringify(result) + '\n');
+    } else if (outputFormat === 'text' && result.finalText && !result.streamed) {
+      console.log(result.finalText);
+    }
+  }
+
+  return { events, emit, finish };
 }
 
 // ── Resume: load messages from a transcript JSONL ──
@@ -120,7 +153,12 @@ async function run(options) {
     shellTimeout,
     resume,
     stream,
+    outputFormat: requestedOutputFormat,
   } = options;
+
+  const outputFormat = OUTPUT_FORMATS.has(requestedOutputFormat) ? requestedOutputFormat : 'text';
+  const output = makeOutput(outputFormat);
+  const startedAt = Date.now();
 
   const ctx = {
     cwd: cwd || process.cwd(),
@@ -128,7 +166,18 @@ async function run(options) {
     dontAsk: !!dontAsk,
     allowShell: !!allowShell,
     shellTimeout: shellTimeout || 30000,
+    undoLog: [],
   };
+
+  // Validate and realpath-resolve the working directory at startup.
+  // This populates ctx.cwdRealpath for confinePath checks downstream.
+  const cwdCheck = safety.validateCwd(ctx.cwd);
+  if (!cwdCheck.valid) {
+    console.error('[runner] ' + cwdCheck.reason);
+    process.exitCode = 1;
+    return;
+  }
+  ctx.cwdRealpath = cwdCheck.realpath;
 
   const transcript = transcriptPath ? new Transcript(transcriptPath) : null;
 
@@ -155,8 +204,16 @@ async function run(options) {
   const tools = getDefinitions(ctx);
   const system = buildSystem(ctx);
   const steps = maxSteps || DEFAULT_MAX_STEPS;
+  let totalUsage = { input_tokens: 0, output_tokens: 0 };
 
   let consecutiveToolFailures = 0;
+
+  output.emit('system', {
+    subtype: 'init',
+    cwd: ctx.cwdRealpath,
+    model,
+    max_steps: steps,
+  });
 
   for (let step = 1; step <= steps; step++) {
     const requestBody = {
@@ -165,12 +222,13 @@ async function run(options) {
       system,
       messages,
       tools,
-      ...(stream ? { stream: true } : {}),
+      ...(stream && outputFormat === 'text' ? { stream: true } : {}),
     };
 
     if (transcript) {
       transcript.append({ type: 'request', step, model });
     }
+    output.emit('model_request', { step, model });
 
     if (verbose) {
       console.error('[runner] step ' + step + ': sending request to bridge');
@@ -178,7 +236,7 @@ async function run(options) {
 
     let response;
     try {
-      if (stream) {
+      if (stream && outputFormat === 'text') {
         response = await modelClient.postStream(requestBody, null, bridgeUrl, { streamOutput: true });
         // With streaming, the full content was printed inline. The accumulated
         // content blocks are returned for tool-use parsing.
@@ -194,6 +252,7 @@ async function run(options) {
     } catch (err) {
       const msg = 'Bridge error on step ' + step + ': ' + err.message;
       if (transcript) transcript.append({ type: 'error', step, message: msg });
+      output.emit('error', { step, message: msg });
       console.error(msg);
 
       // Retry once on bridge errors
@@ -209,6 +268,18 @@ async function run(options) {
       return;
     }
 
+    totalUsage = addUsage(totalUsage, response.usage);
+    messages.push({ role: 'assistant', content: response.content });
+    output.emit('assistant', {
+      step,
+      message: {
+        id: response.id,
+        role: response.role || 'assistant',
+        content: response.content,
+        usage: response.usage,
+      },
+    });
+
     if (transcript) {
       transcript.append({ type: 'assistant', step, content: response.content });
     }
@@ -222,19 +293,39 @@ async function run(options) {
 
     if (toolUses.length === 0) {
       const finalText = text;
+      const result = {
+        finalText,
+        steps: step,
+        duration_ms: Date.now() - startedAt,
+        usage: totalUsage,
+        events: output.events,
+        streamed: stream && outputFormat === 'text',
+      };
       if (transcript) transcript.writeFinal(finalText);
-      if (!stream) {
-        // With streaming, text was already printed live
-        console.log(finalText);
-      }
-      return;
+      output.emit('result', {
+        subtype: 'success',
+        duration_ms: result.duration_ms,
+        num_turns: step,
+        usage: totalUsage,
+      });
+      output.finish(result);
+      return result;
     }
 
-    // Process each tool call — some may need confirmation
+    const toolResults = [];
+
+    // Process each tool call. The assistant message above is kept exactly as
+    // returned, and the user tool_result blocks are batched below.
     for (const toolUse of toolUses) {
       const toolName = toolUse.name;
       const args = toolUse.input || {};
       const toolUseId = toolUse.id;
+      output.emit('tool_use', {
+        step,
+        tool_use_id: toolUseId,
+        name: toolName,
+        input: args,
+      });
 
       if (transcript) {
         transcript.append({ type: 'tool_call', step, tool: toolName, args, toolUseId });
@@ -245,10 +336,16 @@ async function run(options) {
       }
 
       // First attempt: check permissions (may return 'ask' signal)
-      let result = execute(toolName, args, ctx);
+      let result = execute(toolName, args, ctx, toolUseId);
 
       // Handle confirmation prompt for write/shell tools
       if (result.needsConfirmation) {
+        output.emit('approval_required', {
+          step,
+          tool_use_id: toolUseId,
+          name: toolName,
+          proposed_action: result.proposedAction,
+        });
         if (transcript) {
           transcript.append({
             type: 'tool_confirm',
@@ -259,7 +356,7 @@ async function run(options) {
         }
         const choice = await confirm.ask(result.proposedAction);
         if (choice === 'allow') {
-          result = executeForce(toolName, args, ctx);
+          result = executeForce(toolName, args, ctx, toolUseId);
         } else {
           if (transcript) {
             transcript.append({ type: 'tool_denied', step, tool: toolName });
@@ -329,20 +426,53 @@ async function run(options) {
         );
       }
 
-      // Append assistant tool_use + tool_result to conversation
-      messages.push({
-        role: 'assistant',
-        content: [{ type: 'tool_use', id: toolUseId, name: toolName, input: args }],
+      output.emit('tool_result', {
+        step,
+        tool_use_id: toolUseId,
+        name: toolName,
+        content: result.text || '',
+        is_error: !result.ok,
+        bytes: result.bytes,
       });
-      messages.push(buildToolResultMessage(toolUseId, result.text));
+
+      toolResults.push({
+        type: 'tool_result',
+        tool_use_id: toolUseId,
+        content: result.text || '',
+        is_error: !result.ok,
+      });
+
+      // Keep collecting tool results; the model expects them together in the
+      // next user message after the assistant tool_use message.
     }
+
+    messages.push({ role: 'user', content: toolResults });
   }
 
   // Max steps reached without final answer
   const msg = 'Reached max_steps (' + steps + ') without a final answer.';
   if (transcript) transcript.append({ type: 'final', text: msg });
-  console.log(msg);
+  output.emit('error', {
+    message: msg,
+    duration_ms: Date.now() - startedAt,
+    num_turns: steps,
+    usage: totalUsage,
+  });
+  output.finish({
+    finalText: msg,
+    steps,
+    duration_ms: Date.now() - startedAt,
+    usage: totalUsage,
+    events: output.events,
+  });
   process.exitCode = 1;
+  return {
+    finalText: msg,
+    steps,
+    duration_ms: Date.now() - startedAt,
+    usage: totalUsage,
+    events: output.events,
+  };
 }
 
 module.exports = { run, extractTextBlocks, extractToolUses, loadMessagesFromTranscript };

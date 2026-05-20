@@ -15,9 +15,9 @@ describe('tool-registry', () => {
 
   const ctx = { cwd: tmpDir };
 
-  it('returns definitions for 8 tools (bash excluded by default)', () => {
+  it('returns definitions for 9 tools (bash excluded by default)', () => {
     const defs = getDefinitions();
-    assert.equal(defs.length, 8);
+    assert.equal(defs.length, 9);
     const names = defs.map((d) => d.name);
     assert.ok(names.includes('list_files'));
     assert.ok(names.includes('read_file'));
@@ -27,11 +27,12 @@ describe('tool-registry', () => {
     assert.ok(names.includes('write_file'));
     assert.ok(names.includes('apply_patch'));
     assert.ok(names.includes('undo'));
+    assert.ok(names.includes('undo_edit'));
   });
 
   it('includes bash when allowShell is true', () => {
     const defs = getDefinitions({ allowShell: true });
-    assert.equal(defs.length, 9);
+    assert.equal(defs.length, 10);
     const names = defs.map((d) => d.name);
     assert.ok(names.includes('bash'));
   });
@@ -95,6 +96,12 @@ describe('tool-registry', () => {
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('created'));
     fs.unlinkSync(path.join(tmpDir, 'forced.js'));
+  });
+
+  it('executeForce still respects hard safety denies', () => {
+    const result = executeForce('write_file', { path: '.env', content: 'SECRET=1' }, ctx);
+    assert.equal(result.ok, false);
+    assert.ok(result.text.includes('Permission denied'));
   });
 
   it('bash is denied when allowShell is false', () => {

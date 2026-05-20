@@ -25,6 +25,7 @@ function buildSystem(ctx) {
   prompt += '- apply_patch: Apply a unified diff patch to a file. A backup is saved.\n';
   prompt +=
     '- undo: List available backups or restore a file from a previous backup. Use this to recover from mistakes.\n';
+  prompt += '- undo_edit: Undo an edit_file or write_file call from the current run by tool_use_id or path.\n';
   if (allowShell) {
     prompt += '- bash: Run a shell command inside the project directory (timeout + output limits apply).\n';
   }

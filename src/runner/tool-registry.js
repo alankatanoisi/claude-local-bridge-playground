@@ -19,8 +19,10 @@ const editFile = require('./tools/edit-file');
 const writeFile = require('./tools/write-file');
 const applyPatch = require('./tools/apply-patch');
 const undo = require('./tools/undo');
+const undoEdit = require('./tools/undo-edit');
 const bash = require('./tools/bash');
 const permissions = require('./permissions');
+const safety = require('./safety');
 
 const TOOLS = {
   list_files: listFiles,
@@ -31,6 +33,7 @@ const TOOLS = {
   write_file: writeFile,
   apply_patch: applyPatch,
   undo: undo,
+  undo_edit: undoEdit,
   bash: bash,
 };
 
@@ -46,6 +49,20 @@ function getDefinitions(ctx) {
 }
 
 /**
+ * Run a tool and scrub secrets from its result text.
+ * All tool results pass through scrubSecrets before being returned,
+ * so API keys and tokens never appear in messages or transcripts.
+ */
+function runAndScrub(tool, args, ctx, toolUseId) {
+  const toolCtx = toolUseId ? { ...ctx, toolUseId } : ctx;
+  const result = tool.execute(args, toolCtx);
+  if (result.text) {
+    result.text = safety.scrubSecrets(result.text);
+  }
+  return result;
+}
+
+/**
  * Check permissions, then execute (or return confirmation signal).
  *
  * Returns:
@@ -53,7 +70,7 @@ function getDefinitions(ctx) {
  *   On ask:    { ok: false, needsConfirmation: true, proposedAction: string, toolName: string, args: object }
  *   On deny:   { ok: false, text: 'Permission denied: ...' }
  */
-function execute(toolName, args, ctx) {
+function execute(toolName, args, ctx, toolUseId) {
   const perm = permissions.check(toolName, args, ctx);
 
   if (perm.decision === 'deny') {
@@ -70,14 +87,14 @@ function execute(toolName, args, ctx) {
     };
   }
 
-  // decision === 'allow' — run the tool
+  // decision === 'allow' — run the tool with secret scrubbing
   const tool = TOOLS[toolName];
   if (!tool) {
     return { ok: false, text: 'Unknown tool: ' + toolName };
   }
 
   try {
-    return tool.execute(args, ctx);
+    return runAndScrub(tool, args, ctx, toolUseId);
   } catch (err) {
     return { ok: false, text: 'Tool error: ' + err.message };
   }
@@ -86,15 +103,23 @@ function execute(toolName, args, ctx) {
 /**
  * Execute a tool WITHOUT checking permissions.
  * Used after the user explicitly approves a write or shell action.
+ * Still scrubs secrets from results.
  */
-function executeForce(toolName, args, ctx) {
+function executeForce(toolName, args, ctx, toolUseId) {
   const tool = TOOLS[toolName];
   if (!tool) {
     return { ok: false, text: 'Unknown tool: ' + toolName };
   }
 
+  // "Force" means the user already approved an ask-level action. It must not
+  // bypass hard denies such as cwd escapes or secret-looking paths.
+  const perm = permissions.check(toolName, args, { ...ctx, acceptEdits: true, dontAsk: true });
+  if (perm.decision === 'deny') {
+    return { ok: false, text: 'Permission denied: ' + perm.reason };
+  }
+
   try {
-    return tool.execute(args, ctx);
+    return runAndScrub(tool, args, ctx, toolUseId);
   } catch (err) {
     return { ok: false, text: 'Tool error: ' + err.message };
   }

@@ -14,10 +14,11 @@
  */
 
 const { execSync } = require('child_process');
+const safety = require('../safety');
 
-const DEFAULT_SHELL_TIMEOUT = 30000; // 30 seconds
-const MAX_SHELL_TIMEOUT = 120000; // 2 minutes
-const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024; // 10 MB
+const DEFAULT_SHELL_TIMEOUT = 30000;
+const MAX_SHELL_TIMEOUT = 120000;
+const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
 const MAX_OUTPUT_CHARS = 10000;
 
 function definition() {
@@ -54,6 +55,7 @@ function execute(args, ctx) {
       encoding: 'utf8',
       timeout,
       maxBuffer: DEFAULT_MAX_BUFFER,
+      env: safety.buildSafeEnv(),
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 

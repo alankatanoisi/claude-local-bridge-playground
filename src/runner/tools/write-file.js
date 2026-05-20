@@ -11,6 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { atomicWriteFile, recordUndo, saveBackup, sha256Text } = require('./file-write-utils');
 
 const MAX_CONTENT_BYTES = 50000;
 
@@ -38,16 +39,6 @@ function definition() {
   };
 }
 
-function saveBackup(filePath, contentBuffer) {
-  const backupsDir = path.join(path.dirname(filePath), '..', '.bridge-runner', 'backups');
-  if (!fs.existsSync(backupsDir)) {
-    fs.mkdirSync(backupsDir, { recursive: true });
-  }
-  const backupPath = path.join(backupsDir, path.basename(filePath) + '.bak');
-  fs.writeFileSync(backupPath, contentBuffer);
-  return backupPath;
-}
-
 function execute(args, ctx) {
   const cwd = ctx.cwd || process.cwd();
   const target = path.resolve(cwd, args.path);
@@ -71,27 +62,39 @@ function execute(args, ctx) {
 
   const existed = fs.existsSync(target);
   let backupPath = null;
+  let originalHash = null;
 
   if (existed) {
     try {
-      backupPath = saveBackup(target, fs.readFileSync(target));
+      const original = fs.readFileSync(target);
+      originalHash = sha256Text(original.toString('utf8'));
+      backupPath = saveBackup(target, original, cwd);
     } catch {
       // Non-fatal: continue writing even if backup fails
     }
   }
 
   try {
-    fs.writeFileSync(target, content, 'utf8');
+    atomicWriteFile(target, content);
   } catch (err) {
     return { ok: false, text: 'Write error: ' + err.message };
   }
+
+  recordUndo(ctx, {
+    path: args.path,
+    absolute_path: target,
+    backup_path: backupPath,
+    original_sha256: originalHash,
+    new_sha256: sha256Text(content),
+    tool: 'write_file',
+  });
 
   const bytes = Buffer.byteLength(content, 'utf8');
   const msg = existed
     ? 'File overwritten (' + bytes + ' bytes). Backup saved to ' + backupPath
     : 'File created (' + bytes + ' bytes)';
 
-  return { ok: true, text: msg, bytes };
+  return { ok: true, text: msg, bytes, backupPath, new_hash: sha256Text(content) };
 }
 
 module.exports = { definition, execute };

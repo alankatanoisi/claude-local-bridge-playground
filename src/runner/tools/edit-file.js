@@ -13,6 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { atomicWriteFile, recordUndo, saveBackup, sha256Text } = require('./file-write-utils');
 
 function definition() {
   return {
@@ -35,6 +36,14 @@ function definition() {
         new_string: {
           type: 'string',
           description: 'Text to insert in place of old_string',
+        },
+        expected_sha256: {
+          type: 'string',
+          description: 'Optional SHA-256 hash of the current file content. If it differs, the edit is refused.',
+        },
+        replace_all: {
+          type: 'boolean',
+          description: 'Replace every occurrence of old_string. Defaults to false, which requires exactly one match.',
         },
       },
       required: ['path', 'old_string', 'new_string'],
@@ -74,19 +83,6 @@ function buildDiffPreview(lines, matchLine, oldStr, newStr) {
   return diff.join('\n');
 }
 
-/**
- * Save a backup copy of a file before editing.
- */
-function saveBackup(filePath, contentBuffer) {
-  const backupsDir = path.join(path.dirname(filePath), '..', '.bridge-runner', 'backups');
-  if (!fs.existsSync(backupsDir)) {
-    fs.mkdirSync(backupsDir, { recursive: true });
-  }
-  const backupPath = path.join(backupsDir, path.basename(filePath) + '.bak');
-  fs.writeFileSync(backupPath, contentBuffer);
-  return backupPath;
-}
-
 function execute(args, ctx) {
   const cwd = ctx.cwd || process.cwd();
   const target = path.resolve(cwd, args.path);
@@ -95,6 +91,25 @@ function execute(args, ctx) {
     // Read the current file
     const original = fs.readFileSync(target, 'utf8');
     const oldStr = args.old_string;
+    const currentHash = sha256Text(original);
+
+    if (!oldStr) {
+      return { ok: false, text: 'old_string must not be empty.' };
+    }
+
+    if (args.expected_sha256 && args.expected_sha256 !== currentHash) {
+      return {
+        ok: false,
+        text:
+          'Hash guard failed for ' +
+          args.path +
+          '. current_sha256=' +
+          currentHash +
+          ' expected_sha256=' +
+          args.expected_sha256,
+        current_hash: currentHash,
+      };
+    }
 
     // Count occurrences of old_string — must match exactly once
     let idx = 0;
@@ -115,7 +130,7 @@ function execute(args, ctx) {
       };
     }
 
-    if (count > 1) {
+    if (count > 1 && !args.replace_all) {
       // Find the line numbers of each match to help the user narrow down
       const lineNumbers = [];
       let searchFrom = 0;
@@ -143,18 +158,35 @@ function execute(args, ctx) {
     const diff = buildDiffPreview(lines, matchLine, oldStr, args.new_string);
 
     // Apply the edit
-    const modified = original.slice(0, matchIndex) + args.new_string + original.slice(matchIndex + oldStr.length);
+    const modified = args.replace_all
+      ? original.split(oldStr).join(args.new_string)
+      : original.slice(0, matchIndex) + args.new_string + original.slice(matchIndex + oldStr.length);
 
     // Save backup before writing
-    const backupPath = saveBackup(target, original);
+    const backupPath = saveBackup(target, original, cwd);
 
-    fs.writeFileSync(target, modified, 'utf8');
+    atomicWriteFile(target, modified);
+    recordUndo(ctx, {
+      path: args.path,
+      absolute_path: target,
+      backup_path: backupPath,
+      original_sha256: currentHash,
+      new_sha256: sha256Text(modified),
+      tool: 'edit_file',
+    });
 
     return {
       ok: true,
-      text: 'File edited successfully. Backup saved to ' + backupPath + '\n\nDiff:\n' + diff,
+      text:
+        'File edited successfully. Backup saved to ' +
+        backupPath +
+        (args.replace_all ? '\nReplaced ' + count + ' occurrences.' : '') +
+        '\n\nDiff:\n' +
+        diff,
       diff,
       backupPath,
+      current_hash: currentHash,
+      new_hash: sha256Text(modified),
     };
   } catch (err) {
     return { ok: false, text: 'Error: ' + err.message };

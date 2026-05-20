@@ -44,6 +44,7 @@ Options:\n\
   --dont-ask           Auto-approve shell commands (skip confirmation)\n\
   --allow-shell        Enable the bash tool (disabled by default)\n\
   --shell-timeout <ms> Max time for shell commands in ms (default: 30000)\n\
+  --output-format <f>  Output style: text, json, or stream-json (default: text)\n\
   --stream             Stream model output live to terminal as it arrives\n\
   --verbose            Print step-by-step progress to stderr\n\
   --help               Show this help\n\
@@ -74,6 +75,7 @@ async function main() {
         'dont-ask': { type: 'boolean' },
         'allow-shell': { type: 'boolean' },
         'shell-timeout': { type: 'string' },
+        'output-format': { type: 'string' },
         stream: { type: 'boolean' },
         verbose: { type: 'boolean' },
         help: { type: 'boolean' },
@@ -104,7 +106,13 @@ async function main() {
   const dontAsk = !!args.values['dont-ask'];
   const allowShell = !!args.values['allow-shell'];
   const shellTimeout = parseInt(args.values['shell-timeout'], 10) || 30000;
+  const outputFormat = args.values['output-format'] || 'text';
   const stream = !!args.values.stream;
+
+  if (!['text', 'json', 'stream-json'].includes(outputFormat)) {
+    console.error('Error: --output-format must be one of: text, json, stream-json');
+    process.exit(1);
+  }
 
   // If --resume is passed, use its value as the transcript path
   const resumePath = args.values.resume;
@@ -148,6 +156,7 @@ async function main() {
     dontAsk,
     allowShell,
     shellTimeout,
+    outputFormat,
     resume,
     stream,
   });

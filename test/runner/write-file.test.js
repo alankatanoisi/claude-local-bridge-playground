@@ -42,4 +42,24 @@ describe('write_file tool', () => {
     assert.equal(result.ok, true);
     assert.ok(fs.existsSync(path.join(tmpDir, 'deep', 'nested', 'file.js')));
   });
+
+  it('records undo metadata when overwriting a file', () => {
+    const filePath = path.join(tmpDir, 'undo-write.js');
+    fs.writeFileSync(filePath, 'old');
+    const undoCtx = { cwd: tmpDir, undoLog: [], toolUseId: 'tu-write' };
+    const result = execute({ path: 'undo-write.js', content: 'new' }, undoCtx);
+    assert.equal(result.ok, true);
+    assert.equal(undoCtx.undoLog.length, 1);
+    assert.equal(undoCtx.undoLog[0].tool_use_id, 'tu-write');
+    assert.ok(undoCtx.undoLog[0].backup_path);
+    assert.equal(fs.readFileSync(filePath, 'utf8'), 'new');
+  });
+
+  it('keeps backups inside the project directory', () => {
+    const filePath = path.join(tmpDir, 'project-backup.js');
+    fs.writeFileSync(filePath, 'old');
+    const result = execute({ path: 'project-backup.js', content: 'new' }, ctx);
+    assert.equal(result.ok, true);
+    assert.ok(result.backupPath.startsWith(path.join(tmpDir, '.bridge-runner')));
+  });
 });

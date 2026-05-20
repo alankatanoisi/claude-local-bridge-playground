@@ -361,8 +361,8 @@
           <div class="tool-card">
             <h4>edit_file / write_file / apply_patch</h4>
             <p>
-              Mutating tools for exact replacements, full writes, and patch-based changes. They ask for confirmation
-              unless you pass <code>--accept-edits</code>.
+              Mutating tools for exact replacements, full writes, and patch-based changes. Writes are atomic, edits can
+              use a SHA-256 guard, and they ask for confirmation unless you pass <code>--accept-edits</code>.
             </p>
           </div>
           <div class="tool-card">
@@ -375,6 +375,13 @@
           <div class="tool-card">
             <h4>undo</h4>
             <p>Restore file backups created by write tools. This is the recovery path if an edit goes wrong.</p>
+          </div>
+          <div class="tool-card">
+            <h4>undo_edit</h4>
+            <p>
+              Restore the backup from a specific current-run edit or write by <code>tool_use_id</code>, or undo the most
+              recent change for a path.
+            </p>
           </div>
         </div>
       </section>
@@ -441,6 +448,11 @@
               <td>Timeout for shell commands</td>
             </tr>
             <tr>
+              <td><code>--output-format &lt;f&gt;</code></td>
+              <td><code>text</code></td>
+              <td>Choose <code>text</code>, <code>json</code>, or parseable <code>stream-json</code> lines</td>
+            </tr>
+            <tr>
               <td><code>--stream</code></td>
               <td>off</td>
               <td>Print model output live as it streams</td>
@@ -476,6 +488,11 @@
   --max-tokens 4096 \
   --max-steps 6 \
   "Find where the credential discovery logic lives and summarize how it works"</code></pre>
+
+        <h3>Automation-friendly JSON lines</h3>
+        <pre><code>node bin/local-bridge-runner.js \
+  --output-format stream-json \
+  "List the files and summarize the repo" | jq -c .</code></pre>
 
         <h3>Safe edit with confirmation</h3>
         <pre><code>node bin/local-bridge-runner.js \
