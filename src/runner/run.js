@@ -50,6 +50,17 @@ function makeOutput(outputFormat) {
   return { events, emit, finish };
 }
 
+function applyCacheControlBudget(system, tools) {
+  const cachedSystem =
+    typeof system === 'string' ? [{ type: 'text', text: system }] : system.map((block) => ({ ...block }));
+
+  if (cachedSystem.length > 0) {
+    cachedSystem[0] = { ...cachedSystem[0], cache_control: { type: 'ephemeral' } };
+  }
+
+  return { cachedSystem, cachedTools: tools };
+}
+
 function loadMessagesFromTranscript(filePath) {
   if (!fs.existsSync(filePath)) return null;
   const lines = fs.readFileSync(filePath, 'utf8').trim().split('\n');
@@ -158,13 +169,7 @@ async function run(options) {
   }
 
   for (let step = 1; step <= steps; step++) {
-    // Prompt caching: mark system blocks and tool definitions as ephemerally cacheable.
-    // system may be a string (from context-builder) or an array (if already preprocessed).
-    const cachedSystem =
-      typeof system === 'string'
-        ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
-        : system.map((b) => ({ ...b, cache_control: { type: 'ephemeral' } }));
-    const cachedTools = tools.map((t) => ({ ...t, cache_control: { type: 'ephemeral' } }));
+    const { cachedSystem, cachedTools } = applyCacheControlBudget(system, tools);
 
     const requestBody = {
       model,
@@ -415,4 +420,4 @@ async function run(options) {
   return { finalText: msg, steps, duration_ms: Date.now() - startedAt, usage: totalUsage, events: output.events };
 }
 
-module.exports = { run, extractTextBlocks, extractToolUses, loadMessagesFromTranscript };
+module.exports = { run, extractTextBlocks, extractToolUses, loadMessagesFromTranscript, applyCacheControlBudget };

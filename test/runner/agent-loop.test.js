@@ -8,7 +8,7 @@ const fs = require('fs');
 
 const modelClient = require('../../src/runner/model-client');
 const confirm = require('../../src/runner/confirmation');
-const { run, extractTextBlocks, extractToolUses } = require('../../src/runner/run');
+const { run, extractTextBlocks, extractToolUses, applyCacheControlBudget } = require('../../src/runner/run');
 
 describe('run helpers', () => {
   it('extractTextBlocks joins text blocks', () => {
@@ -28,6 +28,20 @@ describe('run helpers', () => {
     const tools = extractToolUses(content);
     assert.equal(tools.length, 1);
     assert.equal(tools[0].name, 'list_files');
+  });
+
+  it('caps prompt cache_control blocks at Anthropic limit', () => {
+    const tools = Array.from({ length: 10 }, (_, index) => ({
+      name: 'tool_' + index,
+      description: 'test tool',
+      input_schema: { type: 'object', properties: {} },
+    }));
+
+    const { cachedSystem, cachedTools } = applyCacheControlBudget('system prompt', tools);
+    const cacheBlocks = [...cachedSystem, ...cachedTools].filter((block) => block.cache_control);
+
+    assert.equal(cacheBlocks.length, 1);
+    assert.equal(cachedSystem[0].cache_control.type, 'ephemeral');
   });
 });
 
