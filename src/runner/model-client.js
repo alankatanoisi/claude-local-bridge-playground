@@ -15,6 +15,10 @@ const http = require('http');
 
 const DEFAULT_BRIDGE_URL = 'http://127.0.0.1:11437/v1/messages';
 
+// Shared keep-alive agent so repeated requests to localhost reuse the same
+// TCP connection instead of paying a handshake penalty on every turn.
+const keepAliveAgent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+
 function post(body, bridgeUrl) {
   const url = bridgeUrl || DEFAULT_BRIDGE_URL;
   const bodyStr = JSON.stringify(body);
@@ -31,6 +35,7 @@ function post(body, bridgeUrl) {
         'content-length': Buffer.byteLength(bodyStr),
       },
       timeout: 120000,
+      agent: keepAliveAgent,
     };
 
     const req = http.request(options, (res) => {
@@ -85,6 +90,7 @@ function postStream(body, cb, bridgeUrl, opts) {
         accept: 'text/event-stream',
       },
       timeout: 120000,
+      agent: keepAliveAgent,
     };
 
     const req = http.request(reqOpts, (res) => {

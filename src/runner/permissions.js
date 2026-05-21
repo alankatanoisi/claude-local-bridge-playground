@@ -175,6 +175,11 @@ function check(toolName, args, ctx) {
     return { decision: 'deny', reason: 'Shell commands are disabled. Use --allow-shell to enable.' };
   }
 
+  // Restrict to allowed-tools whitelist if one is set
+  if (ctx.allowedTools && !ctx.allowedTools.has(toolName)) {
+    return { decision: 'deny', reason: "Tool '" + toolName + "' is not in the allowed-tools list." };
+  }
+
   // Pick the active policy mode from ctx flags
   let activeMode = 'default';
   if (ctx.plan) {

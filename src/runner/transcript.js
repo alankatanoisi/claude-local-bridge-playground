@@ -43,6 +43,7 @@ function redactEvent(event) {
 class Transcript {
   constructor(filePath) {
     this.filePath = filePath;
+    this._buf = [];
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -51,12 +52,20 @@ class Transcript {
 
   append(event) {
     const safe = redactEvent(event);
-    const line = JSON.stringify(safe) + '\n';
-    fs.appendFileSync(this.filePath, line);
+    this._buf.push(JSON.stringify(safe));
+    if (this._buf.length >= 10) this.flush();
+  }
+
+  flush() {
+    if (this._buf.length === 0) return;
+    const lines = this._buf.join('\n') + '\n';
+    fs.appendFileSync(this.filePath, lines);
+    this._buf = [];
   }
 
   writeFinal(text) {
     this.append({ type: 'final', text });
+    this.flush();
   }
 }
 

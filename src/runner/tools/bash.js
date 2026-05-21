@@ -13,13 +13,13 @@
  *   - Only available when --allow-shell CLI flag is set
  */
 
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const safety = require('../safety');
 
 const DEFAULT_SHELL_TIMEOUT = 30000;
 const MAX_SHELL_TIMEOUT = 120000;
-const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
-const MAX_OUTPUT_CHARS = 10000;
+const DEFAULT_MAX_BUFFER = 1024 * 1024;
+const MAX_OUTPUT_CHARS = 100000;
 
 function definition() {
   return {
@@ -49,17 +49,56 @@ function execute(args, ctx) {
   // Use the configured timeout, clamped to a safe maximum
   const timeout = Math.min(ctx.shellTimeout || DEFAULT_SHELL_TIMEOUT, MAX_SHELL_TIMEOUT);
 
+  // Build environment: filtered + optional network block
+  const env = safety.buildSafeEnv();
+  if (ctx.noNetwork) {
+    env.http_proxy = '127.0.0.1:1';
+    env.https_proxy = '127.0.0.1:1';
+    env.HTTP_PROXY = '127.0.0.1:1';
+    env.HTTPS_PROXY = '127.0.0.1:1';
+    env.no_proxy = 'localhost,127.0.0.1';
+    env.NO_PROXY = 'localhost,127.0.0.1';
+  }
+
   try {
-    const stdout = execSync(command, {
+    // Use spawnSync with shell to capture stdout and stderr separately
+    const result = spawnSync(command, [], {
       cwd,
       encoding: 'utf8',
       timeout,
       maxBuffer: DEFAULT_MAX_BUFFER,
-      env: safety.buildSafeEnv(),
+      env,
+      shell: true,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
-    let text = stdout.toString().trim();
+    if (result.error) {
+      // spawnSync failed to start entirely (e.g., command binary not found, ETIMEDOUT)
+      if (result.error.code === 'ETIMEDOUT' || result.signal) {
+        return { ok: false, text: 'Command timed out after ' + timeout / 1000 + 's', command };
+      }
+      return { ok: false, text: 'Command error: ' + result.error.message, command };
+    }
+
+    const stdout = (result.stdout || '').trim();
+    const stderr = (result.stderr || '').trim();
+
+    // Check signal first — a killed process may have status: null
+    if (result.signal) {
+      return { ok: false, text: 'Command killed by signal ' + result.signal, command };
+    }
+
+    if (result.status !== 0) {
+      let errorText = 'Command exited with code ' + result.status;
+      if (stdout) errorText += '\nstdout:\n' + stdout.slice(0, MAX_OUTPUT_CHARS);
+      if (stderr) errorText += '\nstderr:\n' + stderr.slice(0, MAX_OUTPUT_CHARS);
+      return { ok: false, text: errorText, command };
+    }
+
+    let text = stdout;
+    if (stderr) {
+      text += (text ? '\n' : '') + '[stderr] ' + stderr;
+    }
     if (text.length === 0) {
       text = '(command completed with no output)';
     } else if (text.length > MAX_OUTPUT_CHARS) {
@@ -68,22 +107,7 @@ function execute(args, ctx) {
 
     return { ok: true, text, command };
   } catch (err) {
-    // execSync throws on non-zero exit code OR timeout.
-    // On macOS err.killed can be undefined even after SIGTERM — also check signal.
-    let errorText = '';
-    if (err.killed || err.signal || err.code === 'ETIMEDOUT') {
-      errorText = 'Command timed out after ' + timeout / 1000 + 's';
-    } else {
-      errorText = 'Command exited with code ' + (err.status || 'unknown');
-      if (err.stdout) {
-        errorText += '\nstdout:\n' + err.stdout.toString().slice(0, MAX_OUTPUT_CHARS);
-      }
-      if (err.stderr) {
-        errorText += '\nstderr:\n' + err.stderr.toString().slice(0, MAX_OUTPUT_CHARS);
-      }
-    }
-
-    return { ok: false, text: errorText, command };
+    return { ok: false, text: 'Command error: ' + err.message, command };
   }
 }
 

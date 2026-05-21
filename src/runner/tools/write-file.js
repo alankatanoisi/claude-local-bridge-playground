@@ -11,6 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const safety = require('../safety');
 const { atomicWriteFile, recordUndo, saveBackup, sha256Text } = require('./file-write-utils');
 
 const MAX_CONTENT_BYTES = 50000;
@@ -41,7 +42,16 @@ function definition() {
 
 function execute(args, ctx) {
   const cwd = ctx.cwd || process.cwd();
-  const target = path.resolve(cwd, args.path);
+
+  if (!args || typeof args.content !== 'string') {
+    return { ok: false, text: 'Missing required content argument for write_file.' };
+  }
+
+  const confined = safety.confinePath(ctx, args.path);
+  if (!confined) {
+    return { ok: false, text: 'Path escapes working directory: ' + args.path };
+  }
+  const target = confined;
   const content = args.content;
 
   if (Buffer.byteLength(content, 'utf8') > MAX_CONTENT_BYTES) {

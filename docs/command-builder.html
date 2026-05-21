@@ -436,6 +436,7 @@
               <button class="preset-btn" data-preset="confirm">Edit with confirmation</button>
               <button class="preset-btn" data-preset="auto">Auto-approve edits</button>
               <button class="preset-btn" data-preset="full">Full agent + shell</button>
+              <button class="preset-btn" data-preset="plan">Plan mode (dry run)</button>
               <button class="preset-btn" data-preset="automation">Automation JSON</button>
               <button class="preset-btn" data-preset="otherfolder">Other local folder</button>
               <button class="preset-btn" data-preset="resume">Resume session</button>
@@ -487,6 +488,8 @@
               <label class="check-label"> <input type="checkbox" id="dontAsk" /> --dont-ask </label>
               <label class="check-label"> <input type="checkbox" id="stream" /> --stream </label>
               <label class="check-label"> <input type="checkbox" id="verbose" /> --verbose </label>
+              <label class="check-label"> <input type="checkbox" id="plan" /> --plan </label>
+              <label class="check-label"> <input type="checkbox" id="noNetwork" /> --no-network </label>
             </div>
 
             <div class="field">
@@ -496,6 +499,11 @@
                 <option value="json">json — one final JSON object</option>
                 <option value="stream-json">stream-json — parseable JSON lines</option>
               </select>
+            </div>
+
+            <div class="field" style="margin-top: 0.5rem">
+              <label for="systemPrompt">Custom system prompt</label>
+              <input type="text" id="systemPrompt" placeholder="Override the built-in system prompt (optional)" />
             </div>
 
             <div class="toggle-row">
@@ -511,6 +519,9 @@
             <div id="shellWarn" class="shell-warn">
               &#9888; Enables the model to run shell commands. Use with caution.
             </div>
+            <div id="planNote" class="note" style="display: none">
+              Plan mode: the model will describe actions instead of executing writes and shell commands.
+            </div>
 
             <div class="field" style="margin-top: 0.5rem">
               <label for="shellTimeout">Shell timeout (ms)</label>
@@ -522,6 +533,12 @@
             <div class="field">
               <label for="resumePath">Resume from transcript</label>
               <input type="text" id="resumePath" placeholder="~/.bridge-runner/logs/last.jsonl" />
+            </div>
+
+            <div class="checks" style="margin-top: 0.5rem">
+              <label class="check-label">
+                <input type="checkbox" id="continueFromLatest" /> --continue (auto-resume from latest)
+              </label>
             </div>
 
             <div class="field">
@@ -614,6 +631,10 @@
       const shellWarn = document.getElementById('shellWarn');
       const bashToolRow = document.getElementById('bashToolRow');
       const attachmentNote = document.getElementById('attachmentNote');
+      const plan = document.getElementById('plan');
+      const noNetwork = document.getElementById('noNetwork');
+      const systemPrompt = document.getElementById('systemPrompt');
+      const continueFromLatest = document.getElementById('continueFromLatest');
 
       const DEFAULTS = {
         maxSteps: 16,
@@ -658,8 +679,12 @@
         if (transcript.value.trim() && !resumePath.value.trim())
           parts.push('--transcript ' + shellQuote(transcript.value.trim()));
         if (humanLog.value.trim()) parts.push('--human-log ' + shellQuote(humanLog.value.trim()));
+        if (systemPrompt.value.trim()) parts.push('--system-prompt ' + shellQuote(systemPrompt.value.trim()));
+        if (continueFromLatest.checked) parts.push('--continue');
         if (acceptEdits.checked) parts.push('--accept-edits');
         if (dontAsk.checked) parts.push('--dont-ask');
+        if (plan.checked) parts.push('--plan');
+        if (noNetwork.checked) parts.push('--no-network');
         if (outputFormat.value !== DEFAULTS.outputFormat) parts.push('--output-format ' + outputFormat.value);
         if (allowShell.checked) {
           parts.push('--allow-shell');
@@ -699,6 +724,11 @@
         bashToolRow.style.display = allowShell.checked ? '' : 'none';
         if (allowShell.checked) shellWarn.classList.add('show');
         else shellWarn.classList.remove('show');
+
+        const planNote = document.getElementById('planNote');
+        if (planNote) {
+          planNote.style.display = plan.checked ? 'flex' : 'none';
+        }
 
         updateAttachmentNote();
 
@@ -751,6 +781,10 @@
         resumePath,
         transcript,
         humanLog,
+        plan,
+        noNetwork,
+        systemPrompt,
+        continueFromLatest,
       ].forEach((el) => {
         el.addEventListener('input', render);
         el.addEventListener('change', render);
@@ -827,6 +861,21 @@
           acceptEdits: true,
           dontAsk: true,
           allowShell: true,
+          stream: false,
+          verbose: false,
+          outputFormat: 'text',
+          runnerPath: '',
+          cwd: '',
+        },
+        plan: {
+          prompt: 'Describe what changes you would make to fix the failing test. Do not edit files.',
+          maxSteps: 8,
+          maxTokens: 2000,
+          maxStepsDefault: true,
+          maxTokensDefault: true,
+          acceptEdits: false,
+          dontAsk: false,
+          allowShell: false,
           stream: false,
           verbose: false,
           outputFormat: 'text',
@@ -914,6 +963,10 @@
         verbose.checked = p.verbose;
         outputFormat.value = p.outputFormat || DEFAULTS.outputFormat;
         resumePath.value = p.resumePath || '';
+        plan.checked = p.plan || false;
+        noNetwork.checked = p.noNetwork || false;
+        systemPrompt.value = p.systemPrompt || '';
+        continueFromLatest.checked = p.continueFromLatest || false;
         if (Object.prototype.hasOwnProperty.call(p, 'runnerPath')) runnerPath.value = p.runnerPath;
         if (Object.prototype.hasOwnProperty.call(p, 'cwd')) cwd.value = p.cwd;
         if (p.maxStepsDefault) maxSteps.value = DEFAULTS.maxSteps;

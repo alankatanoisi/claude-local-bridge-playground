@@ -62,4 +62,16 @@ describe('write_file tool', () => {
     assert.equal(result.ok, true);
     assert.ok(result.backupPath.startsWith(path.join(tmpDir, '.bridge-runner')));
   });
+
+  it('rejects missing content argument', () => {
+    const result = execute({ path: 'no-content.js' }, ctx);
+    assert.equal(result.ok, false);
+    assert.ok(result.text.includes('Missing required content'));
+  });
+
+  it('rejects path that escapes working directory', () => {
+    const result = execute({ path: '../../../etc/passwd', content: 'hack' }, ctx);
+    assert.equal(result.ok, false);
+    assert.ok(result.text.includes('escapes'));
+  });
 });

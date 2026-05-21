@@ -5,6 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const safety = require('../safety');
 const { atomicWriteFile, sha256Text } = require('./file-write-utils');
 
 function definition() {
@@ -66,6 +67,12 @@ function execute(args, ctx) {
 
   const cwd = (ctx && ctx.cwd) || process.cwd();
   const target = entry.absolute_path || path.resolve(cwd, entry.path);
+
+  // Validate that the restore target hasn't escaped the project
+  const confined = safety.confinePath(ctx, entry.path);
+  if (!confined) {
+    return { ok: false, text: 'Undo target path escapes working directory: ' + entry.path };
+  }
   const backupContent = fs.readFileSync(entry.backup_path, 'utf8');
 
   try {

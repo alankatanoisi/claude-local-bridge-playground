@@ -44,9 +44,19 @@ Options:\n\
   --include-file <p>   Include a bounded relative file in pasted context (repeatable)\n\
   --resume <path>      Resume from a transcript (appends new prompt to existing conversation)\n\
   --accept-edits       Auto-approve write/edit/patch tools (skip confirmation)\n\
-  --dont-ask           Auto-approve shell commands (skip confirmation)\n\
+  --dont-ask           Skip confirmation for already-enabled risky tools\n\
   --allow-shell        Enable the bash tool (disabled by default)\n\
   --shell-timeout <ms> Max time for shell commands in ms (default: 30000)\n\
+  --no-network         Block outbound network in shell commands (sets http_proxy=127.0.0.1:1)\n\
+  --system-prompt <s>  Override the default system prompt\n\
+  --allowed-tools <f>  Comma-separated tool names to enable (others hidden + denied)\n\
+  --max-context-tokens <n> Warn when total tokens exceed budget; halt at 2x budget\n\
+  --max-tool-calls-per-turn <n> Cap tool calls per model response; halt if exceeded\n\
+  --temperature <f>    Model temperature 0.0–1.0 (default: model default, usually 1.0)\n\
+  --confirm-timeout <ms> Auto-deny confirmation prompts after N ms (default: no timeout)\n\
+  --log-level <level>  Stderr verbosity: quiet, normal, or verbose (default: normal)\n\
+  --continue           Resume from the latest transcript in ~/.bridge-runner/logs/\n\
+  --plan               Plan mode: describe actions instead of executing them\n\
   --output-format <f>  Output style: text, json, or stream-json (default: text)\n\
   --stream             Stream model output live to terminal as it arrives\n\
   --verbose            Print step-by-step progress to stderr\n\
@@ -83,6 +93,16 @@ async function main() {
         'allow-shell': { type: 'boolean' },
         'shell-timeout': { type: 'string' },
         'output-format': { type: 'string' },
+        'no-network': { type: 'boolean' },
+        'system-prompt': { type: 'string' },
+        'allowed-tools': { type: 'string' },
+        'max-context-tokens': { type: 'string' },
+        'max-tool-calls-per-turn': { type: 'string' },
+        temperature: { type: 'string' },
+        'confirm-timeout': { type: 'string' },
+        'log-level': { type: 'string' },
+        continue: { type: 'boolean' },
+        plan: { type: 'boolean' },
         stream: { type: 'boolean' },
         verbose: { type: 'boolean' },
         help: { type: 'boolean' },
@@ -108,7 +128,16 @@ async function main() {
   const model = args.values.model || DEFAULT_MODEL;
   const maxTokens = parseInt(args.values['max-tokens'], 10) || DEFAULT_MAX_TOKENS;
   const maxSteps = parseInt(args.values['max-steps'], 10) || DEFAULT_MAX_STEPS;
-  const verbose = !!args.values.verbose;
+  const verboseFromFlag = !!args.values.verbose;
+  const logLevel = args.values['log-level'];
+  if (logLevel && !['quiet', 'normal', 'verbose'].includes(logLevel)) {
+    console.error('Error: --log-level must be one of: quiet, normal, verbose');
+    process.exit(1);
+  }
+  // --verbose flag is equivalent to --log-level verbose; log-level takes precedent
+  const effectiveLogLevel = logLevel || (verboseFromFlag ? 'verbose' : 'normal');
+  const verbose = effectiveLogLevel === 'verbose';
+  const quiet = effectiveLogLevel === 'quiet';
   const acceptEdits = !!args.values['accept-edits'];
   const dontAsk = !!args.values['dont-ask'];
   const allowShell = !!args.values['allow-shell'];
@@ -116,6 +145,24 @@ async function main() {
   const outputFormat = args.values['output-format'] || 'text';
   const stream = !!args.values.stream;
   const includeFiles = args.values['include-file'] || [];
+  const noNetwork = !!args.values['no-network'];
+  const systemPromptOverride = args.values['system-prompt'] || undefined;
+  const plan = !!args.values.plan;
+  const temperatureStr = args.values.temperature;
+  const temperature = temperatureStr ? parseFloat(temperatureStr) : undefined;
+  const confirmTimeout = parseInt(args.values['confirm-timeout'], 10) || undefined;
+  const maxContextTokens = parseInt(args.values['max-context-tokens'], 10) || undefined;
+  const maxToolCallsPerTurn = parseInt(args.values['max-tool-calls-per-turn'], 10) || undefined;
+  const allowedToolsRaw = args.values['allowed-tools'];
+  const allowedTools = allowedToolsRaw
+    ? allowedToolsRaw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : null;
+
+  // --continue: find the latest transcript in ~/.bridge-runner/logs/
+  const shouldContinue = !!args.values.continue;
 
   if (!['text', 'json', 'stream-json'].includes(outputFormat)) {
     console.error('Error: --output-format must be one of: text, json, stream-json');
@@ -136,6 +183,29 @@ async function main() {
     const logDir = path.join(homeDir, '.bridge-runner', 'logs');
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     transcriptPath = path.join(logDir, timestamp + '.jsonl');
+  }
+
+  // --continue: find the latest transcript automatically
+  if (shouldContinue && !resumePath) {
+    const homeDir = process.env.HOME || process.env.USERPROFILE || process.cwd();
+    const logDir = path.join(homeDir, '.bridge-runner', 'logs');
+    try {
+      const files = fs
+        .readdirSync(logDir)
+        .filter((f) => f.endsWith('.jsonl'))
+        .sort();
+      if (files.length === 0) {
+        console.error('[runner] --continue: no transcripts found in ' + logDir + '. Starting a new session.');
+        resumePath = null;
+      } else {
+        resumePath = path.join(logDir, files[files.length - 1]);
+        transcriptPath = resumePath;
+        console.error('[runner] continuing from ' + resumePath);
+      }
+    } catch {
+      console.error('[runner] --continue: cannot access ' + logDir + '. Starting a new session.');
+      resumePath = null;
+    }
   }
 
   // When resuming, the transcript is reused; we append new events to it
@@ -165,6 +235,7 @@ async function main() {
     transcriptPath,
     humanLogPath: args.values['human-log'],
     verbose,
+    quiet,
     acceptEdits,
     dontAsk,
     allowShell,
@@ -172,6 +243,14 @@ async function main() {
     outputFormat,
     resume,
     stream,
+    noNetwork,
+    systemPromptOverride,
+    plan,
+    temperature,
+    confirmTimeout,
+    allowedTools,
+    maxContextTokens,
+    maxToolCallsPerTurn,
   });
 }
 

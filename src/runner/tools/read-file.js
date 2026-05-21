@@ -12,6 +12,7 @@ const path = require('path');
 
 const MAX_BYTES_DEFAULT = 50000;
 const MAX_LINES_DEFAULT = 1000;
+const MAX_BYTES_HARD_CAP = 1000000;
 
 function definition() {
   return {
@@ -53,8 +54,8 @@ function execute(args, ctx) {
       return { ok: false, text: `Not a file: ${args.path}` };
     }
 
-    const maxBytes = args.max_bytes || MAX_BYTES_DEFAULT;
-    const maxLines = args.max_lines || MAX_LINES_DEFAULT;
+    const maxBytes = Math.min(args.max_bytes || MAX_BYTES_DEFAULT, MAX_BYTES_HARD_CAP);
+    const maxLines = Math.min(args.max_lines || MAX_LINES_DEFAULT, MAX_BYTES_HARD_CAP / 80);
 
     const buffer = fs.readFileSync(target, 'utf8');
     let text = buffer;

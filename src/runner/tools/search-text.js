@@ -39,25 +39,38 @@ function definition() {
 }
 
 function rgAvailable() {
+  if (rgAvailable.cached !== undefined) return rgAvailable.cached;
   try {
     execSync('rg --version', { stdio: 'ignore', timeout: 3000 });
-    return true;
+    rgAvailable.cached = true;
   } catch {
-    return false;
+    rgAvailable.cached = false;
   }
+  return rgAvailable.cached;
 }
 
 function grepAvailable() {
+  if (grepAvailable.cached !== undefined) return grepAvailable.cached;
   try {
     execSync('grep --version', { stdio: 'ignore', timeout: 3000 });
-    return true;
+    grepAvailable.cached = true;
   } catch {
-    return false;
+    grepAvailable.cached = false;
   }
+  return grepAvailable.cached;
+}
+
+function shellEscape(str) {
+  // Replace single quotes with '\'' and wrap in single quotes
+  return "'" + str.replace(/'/g, "'\\''") + "'";
 }
 
 function searchWithRg(pattern, targetDir) {
-  const cmd = `rg -i -n --max-count 50 --hidden ${BLOCKED_DIRS.map((d) => `-g '!${d}'`).join(' ')} -- '${pattern.replace(/'/g, "'\"'\"'")}'`;
+  const cmd =
+    'rg -i -n --max-count 50 --hidden ' +
+    BLOCKED_DIRS.map((d) => '-g ' + shellEscape('!' + d)).join(' ') +
+    ' -- ' +
+    shellEscape(pattern);
   const result = execSync(cmd, {
     cwd: targetDir,
     encoding: 'utf8',
@@ -68,7 +81,10 @@ function searchWithRg(pattern, targetDir) {
 }
 
 function searchWithGrep(pattern, targetDir) {
-  const cmd = `grep -r -i -n --max-count=50 --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude-dir=coverage '${pattern.replace(/'/g, "'\"'\"'")}' .`;
+  const cmd =
+    'grep -r -i -n --max-count=50 --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude-dir=coverage ' +
+    shellEscape(pattern) +
+    ' .';
   const result = execSync(cmd, {
     cwd: targetDir,
     encoding: 'utf8',
@@ -126,7 +142,8 @@ function execute(args, ctx) {
     try {
       raw = searchWithRg(pattern, targetDir);
     } catch (err) {
-      lastErr = err;
+      // rg returns exit code 1 when no matches — that's not an error
+      if (err.status !== 1) lastErr = err;
     }
   }
 
@@ -135,7 +152,8 @@ function execute(args, ctx) {
     try {
       raw = searchWithGrep(pattern, targetDir);
     } catch (err) {
-      lastErr = err;
+      // grep returns exit code 1 when no matches — that's not an error
+      if (err.status !== 1) lastErr = err;
     }
   }
 
@@ -150,7 +168,7 @@ function execute(args, ctx) {
 
   if (!raw) {
     if (lastErr) {
-      return { ok: false, text: `Error: ${lastErr.message}` };
+      return { ok: false, text: 'Error: ' + lastErr.message };
     }
     return { ok: true, text: 'No matches found.' };
   }

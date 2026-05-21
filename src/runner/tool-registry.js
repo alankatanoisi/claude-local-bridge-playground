@@ -37,14 +37,13 @@ const TOOLS = {
   bash: bash,
 };
 
-/**
- * Get Anthropic tool definitions for all registered tools.
- * bash is only included when ctx.allowShell is true — the model never
- * sees it otherwise, so it won't ask to run commands.
- */
 function getDefinitions(ctx) {
   return Object.entries(TOOLS)
-    .filter(([name]) => name !== 'bash' || (ctx && ctx.allowShell))
+    .filter(([name]) => {
+      if (name === 'bash' && !(ctx && ctx.allowShell)) return false;
+      if (ctx && ctx.allowedTools) return ctx.allowedTools.has(name);
+      return true;
+    })
     .map(([, tool]) => tool.definition());
 }
 

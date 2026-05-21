@@ -50,6 +50,14 @@ describe('bash tool', () => {
     assert.equal(result.ok, false);
     assert.ok(result.text.includes('timed out'));
   });
+
+  it('reports signal when process is killed', () => {
+    // Run a subshell that kills itself with SIGABRT
+    const result = execute({ command: 'bash -c "kill -ABRT \\$\\$"' }, { cwd: tmpDir });
+    assert.equal(result.ok, false);
+    assert.ok(result.text.includes('killed by signal'));
+    assert.ok(result.text.includes('SIGABRT') || result.text.includes('SIGTERM'));
+  });
 });
 
 // ── Bash policy tests: dangerous commands, credential exfiltration ──
@@ -125,5 +133,26 @@ describe('bash policy', () => {
     const result = registryExecuteForce('bash', { command: 'cat .env' }, ctx());
     assert.equal(result.ok, false);
     assert.ok(result.text.includes('blocked path pattern'));
+  });
+
+  it('sets http_proxy when noNetwork is true', () => {
+    const result = registryExecute(
+      'bash',
+      { command: 'echo $http_proxy' },
+      ctx({ allowShell: true, dontAsk: true, noNetwork: true }),
+    );
+    assert.equal(result.ok, true);
+    assert.ok(result.text.includes('127.0.0.1:1'));
+  });
+
+  it('does not set http_proxy when noNetwork is false', () => {
+    const result = registryExecute(
+      'bash',
+      { command: 'echo $http_proxy' },
+      ctx({ allowShell: true, dontAsk: true, noNetwork: false }),
+    );
+    assert.equal(result.ok, true);
+    // http_proxy should be empty or undefined in the default safe env
+    assert.ok(!result.text.includes('127.0.0.1'));
   });
 });

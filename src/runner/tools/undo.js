@@ -8,6 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const safety = require('../safety');
 
 function definition() {
   return {
@@ -61,6 +62,10 @@ function execute(args, ctx) {
   }
 
   // Restore mode — path argument
+  const confined = safety.confinePath(ctx, args.path);
+  if (!confined) {
+    return { ok: false, text: 'Path escapes working directory: ' + args.path };
+  }
   const targetBasename = path.basename(args.path) + '.bak';
   const backupPath = path.join(backupsDir, targetBasename);
 
@@ -68,7 +73,7 @@ function execute(args, ctx) {
     return { ok: false, text: 'No backup found for: ' + args.path };
   }
 
-  const targetPath = path.resolve(cwd, args.path);
+  const targetPath = confined;
 
   try {
     const backupContent = fs.readFileSync(backupPath);

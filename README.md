@@ -141,6 +141,10 @@ Useful runner options:
 | `--cwd <path>`          | Target project folder the tools can inspect or edit                    |
 | `--include-file <path>` | Attach a bounded file from `--cwd` before the model call               |
 | `--human-log <path>`    | Write a plain text log of the prompt, tool results, and final answer   |
+| `--plan`                | Plan mode: describe actions instead of executing them                  |
+| `--no-network`          | Block outbound HTTP/HTTPS from shell commands                          |
+| `--system-prompt <s>`   | Override the default system prompt                                     |
+| `--continue`            | Resume from the latest transcript in ~/.bridge-runner/logs/            |
 | `--stream`              | Stream assistant text live while still preserving streamed tool inputs |
 | `--accept-edits`        | Auto-approve edit/write tools                                          |
 | `--allow-shell`         | Expose the bash tool; hidden by default                                |

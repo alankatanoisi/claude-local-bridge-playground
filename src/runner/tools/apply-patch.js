@@ -12,6 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const safety = require('../safety');
 
 function definition() {
   return {
@@ -118,8 +119,12 @@ function applyBasicPatch(lines, patchText) {
 }
 
 function execute(args, ctx) {
-  const cwd = ctx.cwd || process.cwd();
-  const target = path.resolve(cwd, args.path);
+  // Validate path stays inside the project
+  const confined = safety.confinePath(ctx, args.path);
+  if (!confined) {
+    return { ok: false, text: 'Path escapes working directory: ' + args.path };
+  }
+  const target = confined;
   const patchText = args.patch_text;
 
   if (!fs.existsSync(target)) {

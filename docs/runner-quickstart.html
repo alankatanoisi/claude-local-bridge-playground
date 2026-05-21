@@ -497,6 +497,26 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td>Continue from an existing transcript</td>
             </tr>
             <tr>
+              <td><code>--plan</code></td>
+              <td>off</td>
+              <td>Plan mode: describe actions instead of executing writes and shell commands</td>
+            </tr>
+            <tr>
+              <td><code>--no-network</code></td>
+              <td>off</td>
+              <td>Block outbound network from shell commands (sets proxy env vars to block HTTP/HTTPS)</td>
+            </tr>
+            <tr>
+              <td><code>--system-prompt &lt;text&gt;</code></td>
+              <td>built-in</td>
+              <td>Override the default system prompt sent to the model</td>
+            </tr>
+            <tr>
+              <td><code>--continue</code></td>
+              <td>off</td>
+              <td>Resume from the latest transcript in <code>~/.bridge-runner/logs/</code></td>
+            </tr>
+            <tr>
               <td><code>--accept-edits</code></td>
               <td>off</td>
               <td>Auto-approve edit and write tools</td>
@@ -598,11 +618,80 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
       </section>
 
       <section>
+        <h2>Plan mode</h2>
+        <p>
+          Pass <code>--plan</code> to make the runner describe what it <em>would</em> do instead of actually doing it.
+          In plan mode, all write and shell tools return dry-run messages like
+          <em>"Plan mode: would Write src/app.js"</em>. Read tools still execute normally so the model can inspect the
+          project.
+        </p>
+        <pre><code>node bin/local-bridge-runner.js \
+  --plan \
+  --max-steps 6 \
+  "Describe what changes you would make to fix the failing test"</code></pre>
+        <p>
+          Plan mode is useful for reviewing the model's intentions before committing to changes. Combine it with
+          <code>--verbose</code> to see each step in stderr.
+        </p>
+      </section>
+
+      <section>
+        <h2>Network control</h2>
+        <p>
+          Pass <code>--no-network</code> to block outbound HTTP and HTTPS from shell commands. This sets
+          <code>http_proxy</code> and <code>https_proxy</code> to <code>127.0.0.1:1</code> in the tool's environment,
+          which prevents most <code>curl</code>, <code>wget</code>, and <code>npm</code> calls from reaching the
+          internet.
+        </p>
+        <div class="callout success">
+          <strong>Defense in depth</strong>
+          Network blocking adds a second layer beyond the deny matrix. Even if a blocked file is somehow read, the model
+          cannot exfiltrate it via <code>curl</code>. See the <a href="threat-model.html">threat model</a> for full
+          details.
+        </div>
+      </section>
+
+      <section>
+        <h2>Prompt caching and parallel execution</h2>
+        <p>
+          The runner sends <code>cache_control: { type: "ephemeral" }</code> on the system prompt each turn. If you are
+          using the Anthropic API with prompt caching enabled, this reduces repeated instruction tokens on subsequent
+          turns while staying under Anthropic's cache-control block limit.
+        </p>
+        <p>
+          Read-only tools (<code>list_files</code>, <code>read_file</code>, <code>search_text</code>,
+          <code>git_status</code>) are batched before write and shell tools. This means the model's read requests
+          execute faster without waiting for confirmation prompts.
+        </p>
+      </section>
+
+      <section>
+        <h2>Resuming sessions</h2>
+        <p>
+          Use <code>--resume &lt;path&gt;</code> to continue from a specific transcript, or <code>--continue</code> to
+          automatically pick up the latest transcript from <code>~/.bridge-runner/logs/</code>.
+        </p>
+        <pre><code>node bin/local-bridge-runner.js --continue "Now add error handling to the function we just wrote"</code></pre>
+      </section>
+
+      <section>
+        <h2>Custom system prompts</h2>
+        <p>
+          Pass <code>--system-prompt "Your custom instructions"</code> to replace the built-in system prompt entirely.
+          This is useful for specialized workflows:
+        </p>
+        <pre><code>node bin/local-bridge-runner.js \
+  --system-prompt "You are a code reviewer. Only read files and provide feedback. Do not edit files." \
+  "Review src/runner/run.js for potential bugs"</code></pre>
+      </section>
+
+      <section>
         <h2>Safety rules</h2>
         <div class="callout warn">
           <strong>Mutations are gated</strong>
           Edit tools ask for confirmation by default. Shell is disabled by default. Unsafe paths and secret-looking
-          files are blocked even when the mutation tools are enabled.
+          files are blocked even when the mutation tools are enabled. For the full threat model, see
+          <a href="threat-model.html">threat-model.md</a>.
         </div>
         <ul>
           <li>

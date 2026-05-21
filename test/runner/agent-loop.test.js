@@ -30,7 +30,7 @@ describe('run helpers', () => {
     assert.equal(tools[0].name, 'list_files');
   });
 
-  it('caps prompt cache_control blocks at Anthropic limit', () => {
+  it('applies cache_control only to the system prompt', () => {
     const tools = Array.from({ length: 10 }, (_, index) => ({
       name: 'tool_' + index,
       description: 'test tool',
@@ -38,10 +38,25 @@ describe('run helpers', () => {
     }));
 
     const { cachedSystem, cachedTools } = applyCacheControlBudget('system prompt', tools);
-    const cacheBlocks = [...cachedSystem, ...cachedTools].filter((block) => block.cache_control);
 
-    assert.equal(cacheBlocks.length, 1);
     assert.equal(cachedSystem[0].cache_control.type, 'ephemeral');
+    assert.equal(cachedTools.filter((tool) => tool.cache_control).length, 0);
+  });
+
+  it('handles cache_read and cache_creation in addUsage', () => {
+    const { addUsage } = require('../../src/runner/run');
+    const total = { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+    const usage = {
+      input_tokens: 200,
+      output_tokens: 100,
+      cache_read_input_tokens: 500,
+      cache_creation_input_tokens: 80,
+    };
+    const result = addUsage(total, usage);
+    assert.equal(result.input_tokens, 300);
+    assert.equal(result.output_tokens, 150);
+    assert.equal(result.cache_read_input_tokens, 500);
+    assert.equal(result.cache_creation_input_tokens, 80);
   });
 });
 
@@ -149,6 +164,7 @@ describe('agent loop — read-only', () => {
   it('stops at max_steps', async () => {
     const originalPost = modelClient.post;
     const originalExitCode = process.exitCode;
+    const transcriptPath = path.join(tmpDir, 'max.jsonl');
     modelClient.post = async () => ({
       content: [{ type: 'tool_use', id: 'tu1', name: 'list_files', input: { path: '.' } }],
     });
@@ -166,11 +182,12 @@ describe('agent loop — read-only', () => {
         model: 'test',
         maxTokens: 10,
         maxSteps: 2,
-        transcriptPath: path.join(tmpDir, 'max.jsonl'),
+        transcriptPath,
       });
 
       console.log = originalLog;
       assert.ok(logged.includes('max_steps'));
+      assert.ok(fs.readFileSync(transcriptPath, 'utf8').includes('Reached max_steps'));
     } finally {
       modelClient.post = originalPost;
       process.exitCode = originalExitCode;

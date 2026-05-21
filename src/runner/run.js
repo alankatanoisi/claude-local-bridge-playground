@@ -32,6 +32,9 @@ function addUsage(totalUsage, usage) {
   return {
     input_tokens: totalUsage.input_tokens + (usage.input_tokens || 0),
     output_tokens: totalUsage.output_tokens + (usage.output_tokens || 0),
+    cache_read_input_tokens: (totalUsage.cache_read_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
+    cache_creation_input_tokens:
+      (totalUsage.cache_creation_input_tokens || 0) + (usage.cache_creation_input_tokens || 0),
   };
 }
 
@@ -52,11 +55,9 @@ function makeOutput(outputFormat) {
 
 function applyCacheControlBudget(system, tools) {
   const cachedSystem =
-    typeof system === 'string' ? [{ type: 'text', text: system }] : system.map((block) => ({ ...block }));
-
-  if (cachedSystem.length > 0) {
-    cachedSystem[0] = { ...cachedSystem[0], cache_control: { type: 'ephemeral' } };
-  }
+    typeof system === 'string'
+      ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+      : system.map((block) => ({ ...block, cache_control: { type: 'ephemeral' } }));
 
   return { cachedSystem, cachedTools: tools };
 }
@@ -108,13 +109,21 @@ async function run(options) {
     humanLogPath,
     bridgeUrl,
     verbose,
+    quiet,
     acceptEdits,
     dontAsk,
     allowShell,
     shellTimeout,
     resume,
     stream,
+    noNetwork,
+    systemPromptOverride,
     plan,
+    temperature,
+    confirmTimeout,
+    allowedTools,
+    maxContextTokens,
+    maxToolCallsPerTurn,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
@@ -125,6 +134,9 @@ async function run(options) {
     allowShell: !!allowShell,
     shellTimeout: shellTimeout || 30000,
     plan: !!plan,
+    noNetwork: !!noNetwork,
+    confirmTimeout: typeof confirmTimeout === 'number' && confirmTimeout > 0 ? confirmTimeout : null,
+    allowedTools: Array.isArray(allowedTools) && allowedTools.length > 0 ? new Set(allowedTools) : null,
     undoLog: [],
   };
   const cwdCheck = safety.validateCwd(ctx.cwd);
@@ -156,10 +168,10 @@ async function run(options) {
     if (transcript) transcript.append({ type: 'user_prompt', text: prompt });
   }
 
-  const tools = getDefinitions(ctx);
-  const system = buildSystem(ctx);
+  const tools = getDefinitions(ctx); // cached — ctx flags don't change across turns
+  const system = systemPromptOverride || buildSystem(ctx);
   const steps = maxSteps || DEFAULT_MAX_STEPS;
-  let totalUsage = { input_tokens: 0, output_tokens: 0 };
+  let totalUsage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
   let consecutiveToolFailures = 0;
 
   output.emit('system', { subtype: 'init', cwd: ctx.cwdRealpath, model, max_steps: steps });
@@ -178,6 +190,7 @@ async function run(options) {
       messages,
       tools: cachedTools,
       ...(stream && outputFormat === 'text' ? { stream: true } : {}),
+      ...(typeof temperature === 'number' && !isNaN(temperature) ? { temperature } : {}),
     };
 
     if (transcript) transcript.append({ type: 'request', step, model });
@@ -199,11 +212,13 @@ async function run(options) {
       console.error(msg);
       if (step < steps && consecutiveToolFailures < MAX_CONSECUTIVE_FAILURES) {
         consecutiveToolFailures++;
-        console.error(
-          '[runner] retrying after bridge error (' + consecutiveToolFailures + '/' + MAX_CONSECUTIVE_FAILURES + ')',
-        );
+        if (!quiet)
+          console.error(
+            '[runner] retrying after bridge error (' + consecutiveToolFailures + '/' + MAX_CONSECUTIVE_FAILURES + ')',
+          );
         continue;
       }
+      if (transcript) transcript.flush();
       process.exitCode = 1;
       return;
     }
@@ -211,6 +226,62 @@ async function run(options) {
     if (transcript) transcript.append({ type: 'assistant', step, content: response.content });
     if (humanLog) humanLog.writeAssistant(step, response);
     totalUsage = addUsage(totalUsage, response.usage);
+    if (
+      verbose &&
+      response.usage &&
+      (response.usage.cache_read_input_tokens || response.usage.cache_creation_input_tokens)
+    ) {
+      const parts = [];
+      if (response.usage.cache_read_input_tokens)
+        parts.push('cache hit ' + response.usage.cache_read_input_tokens + ' tokens');
+      if (response.usage.cache_creation_input_tokens)
+        parts.push('cache created ' + response.usage.cache_creation_input_tokens + ' tokens');
+      console.error('[runner] step ' + step + ': ' + parts.join(', '));
+    }
+
+    // Context token budget check
+    if (maxContextTokens) {
+      const contextTokens = totalUsage.input_tokens + totalUsage.output_tokens;
+      if (contextTokens > maxContextTokens * 2) {
+        const msg =
+          'Context token budget exceeded (2x ' +
+          maxContextTokens +
+          '). Stopping to prevent runaway costs. Use --max-steps 1 to force an answer or --continue to resume from transcript.';
+        if (transcript) transcript.append({ type: 'error', step, message: msg });
+        if (humanLog) humanLog.writeError(msg);
+        console.error('[runner] ' + msg);
+        output.emit('error', { message: msg, duration_ms: Date.now() - startedAt, num_turns: step, usage: totalUsage });
+        output.finish({
+          finalText: msg,
+          steps: step,
+          duration_ms: Date.now() - startedAt,
+          usage: totalUsage,
+          events: output.events,
+        });
+        if (transcript) transcript.flush();
+        process.exitCode = 1;
+        return {
+          finalText: msg,
+          steps: step,
+          duration_ms: Date.now() - startedAt,
+          usage: totalUsage,
+          events: output.events,
+        };
+      }
+      if (contextTokens > maxContextTokens) {
+        if (!quiet)
+          console.error(
+            '[runner] step ' +
+              step +
+              ': context tokens ' +
+              contextTokens +
+              ' / ' +
+              maxContextTokens +
+              ' budget (warning)',
+          );
+      }
+    }
+
     messages.push({ role: 'assistant', content: response.content });
     output.emit('assistant', {
       step,
@@ -225,6 +296,36 @@ async function run(options) {
     const text = extractTextBlocks(response.content);
     if (text && verbose) console.error('[runner] step ' + step + ': assistant text (' + text.length + ' chars)');
     const toolUses = extractToolUses(response.content);
+
+    // Tool call per-turn cap
+    if (maxToolCallsPerTurn && toolUses.length > maxToolCallsPerTurn) {
+      const msg =
+        'Tool call limit exceeded (' +
+        toolUses.length +
+        ' > ' +
+        maxToolCallsPerTurn +
+        '). Stopping to prevent runaway tool use.';
+      if (transcript) transcript.append({ type: 'error', step, message: msg });
+      if (humanLog) humanLog.writeError(msg);
+      console.error('[runner] ' + msg);
+      output.emit('error', { message: msg, duration_ms: Date.now() - startedAt, num_turns: step, usage: totalUsage });
+      output.finish({
+        finalText: msg,
+        steps: step,
+        duration_ms: Date.now() - startedAt,
+        usage: totalUsage,
+        events: output.events,
+      });
+      if (transcript) transcript.flush();
+      process.exitCode = 1;
+      return {
+        finalText: msg,
+        steps: step,
+        duration_ms: Date.now() - startedAt,
+        usage: totalUsage,
+        events: output.events,
+      };
+    }
 
     if (toolUses.length === 0) {
       const result = {
@@ -326,7 +427,7 @@ async function run(options) {
         if (ctx.plan) {
           result = { ok: true, text: 'Plan mode: would ' + result.proposedAction };
         } else {
-          const choice = await confirm.ask(result.proposedAction);
+          const choice = await confirm.ask(result.proposedAction, ctx.confirmTimeout);
           if (choice === 'allow') result = executeForce(toolName, args, ctx, toolUseId);
           else {
             if (transcript) transcript.append({ type: 'tool_denied', step, tool: toolName });
@@ -350,16 +451,17 @@ async function run(options) {
             transcript.append({ type: 'escalation', step, tool: toolName, failures: consecutiveToolFailures });
           console.error(escalate);
         } else {
-          console.error(
-            '[runner] tool failure (' +
-              consecutiveToolFailures +
-              '/' +
-              MAX_CONSECUTIVE_FAILURES +
-              '): ' +
-              toolName +
-              ' — ' +
-              (result.text || 'unknown error').slice(0, 200),
-          );
+          if (!quiet)
+            console.error(
+              '[runner] tool failure (' +
+                consecutiveToolFailures +
+                '/' +
+                MAX_CONSECUTIVE_FAILURES +
+                '): ' +
+                toolName +
+                ' — ' +
+                (result.text || 'unknown error').slice(0, 200),
+            );
         }
       } else {
         consecutiveToolFailures = 0;
@@ -406,7 +508,7 @@ async function run(options) {
   }
 
   const msg = 'Reached max_steps (' + steps + ') without a final answer.';
-  if (transcript) transcript.append({ type: 'final', text: msg });
+  if (transcript) transcript.writeFinal(msg);
   if (humanLog) humanLog.writeError(msg);
   output.emit('error', { message: msg, duration_ms: Date.now() - startedAt, num_turns: steps, usage: totalUsage });
   output.finish({
@@ -420,4 +522,11 @@ async function run(options) {
   return { finalText: msg, steps, duration_ms: Date.now() - startedAt, usage: totalUsage, events: output.events };
 }
 
-module.exports = { run, extractTextBlocks, extractToolUses, loadMessagesFromTranscript, applyCacheControlBudget };
+module.exports = {
+  run,
+  extractTextBlocks,
+  extractToolUses,
+  loadMessagesFromTranscript,
+  applyCacheControlBudget,
+  addUsage,
+};

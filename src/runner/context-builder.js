@@ -39,7 +39,8 @@ function buildSystem(ctx) {
   prompt += '6. If a validation step fails, read the error and try to fix the issue.\n';
   prompt += '7. Never suggest editing .env files, credentials, private keys, or git config.\n';
   prompt += '8. If you have enough information to answer without making changes, return a FINAL answer.\n';
-  prompt += '9. When you call a tool, wait for the result before calling another.\n';
+  prompt +=
+    '9. Read-only tools (list_files, read_file, search_text, git_status) may be batched by the runner for speed. Write and shell tools are always executed one at a time with confirmation.\n';
   return prompt;
 }
 
