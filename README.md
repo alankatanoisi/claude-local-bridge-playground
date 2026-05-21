@@ -6,6 +6,7 @@ Use Claude CLI with `http://localhost:11437`, and point OpenAI-style tools to `h
 
 For the local CLI runner prototype that now ships in this repo, see [docs/runner-quickstart.html](./docs/runner-quickstart.html).
 The runner can inspect this repo or any other local project by passing that project as `--cwd`.
+For fresh OpenCode sessions, start with [OPENCODE.md](./OPENCODE.md).
 
 ---
 
