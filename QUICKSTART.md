@@ -95,6 +95,39 @@ Then run `/connect` in OpenCode, search for "Claude Bridge", enter `local` as th
 
 ---
 
+## Step 5: Try the local runner carefully
+
+The runner is a small coding-agent loop that uses this bridge. In Terminal, first change into the folder that contains
+the runner:
+
+```bash
+cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+```
+
+Start with a read-only or plan-style run:
+
+```bash
+node bin/local-bridge-runner.js \
+  --cwd "/Users/alanman/path/to/project" \
+  --allowed-tools list_files,read_file,search_text,git_status \
+  --verbose \
+  "List the top-level files, summarize the project, then stop. Do not edit files."
+```
+
+What to expect: the runner prints tips and progress lines in Terminal, asks the bridge for model responses, and leaves a
+JSONL transcript under `~/.bridge-runner/logs/`. If you need a form instead of typing flags by hand, open
+`docs/command-builder.html` in a browser and copy its generated command.
+
+Safety reminders:
+
+- `--accept-edits` lets the model change project files without a write approval prompt.
+- `--allow-shell` is required before the model can use bash commands.
+- `--dont-ask` skips prompts for risky tools you already enabled; it does not enable shell by itself.
+- A run that needs approval but has no interactive Terminal input is denied instead of silently approving.
+- `--no-network` is a best-effort HTTP/HTTPS proxy guard for bash, not a true network sandbox.
+
+---
+
 ## Other Compatible Tools
 
 ### IDE Extensions

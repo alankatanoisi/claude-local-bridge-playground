@@ -13,6 +13,24 @@ const path = require('path');
 const MAX_BYTES_DEFAULT = 50000;
 const MAX_LINES_DEFAULT = 1000;
 const MAX_BYTES_HARD_CAP = 1000000;
+const MAX_LINES_HARD_CAP = Math.floor(MAX_BYTES_HARD_CAP / 80);
+
+function getLimit(value, fallback, hardCap) {
+  if (!Number.isFinite(value) || value <= 0) return fallback;
+  return Math.min(Math.floor(value), hardCap);
+}
+
+function readPrefix(target, byteLimit) {
+  const buffer = Buffer.alloc(byteLimit);
+  const fd = fs.openSync(target, 'r');
+
+  try {
+    const bytesRead = fs.readSync(fd, buffer, 0, byteLimit, 0);
+    return { bytesRead, text: buffer.subarray(0, bytesRead).toString('utf8') };
+  } finally {
+    fs.closeSync(fd);
+  }
+}
 
 function definition() {
   return {
@@ -54,18 +72,14 @@ function execute(args, ctx) {
       return { ok: false, text: `Not a file: ${args.path}` };
     }
 
-    const maxBytes = Math.min(args.max_bytes || MAX_BYTES_DEFAULT, MAX_BYTES_HARD_CAP);
-    const maxLines = Math.min(args.max_lines || MAX_LINES_DEFAULT, MAX_BYTES_HARD_CAP / 80);
+    const maxBytes = getLimit(args.max_bytes, MAX_BYTES_DEFAULT, MAX_BYTES_HARD_CAP);
+    const maxLines = getLimit(args.max_lines, MAX_LINES_DEFAULT, MAX_LINES_HARD_CAP);
+    const { bytesRead, text: prefix } = readPrefix(target, Math.min(stats.size, maxBytes));
+    let text = prefix;
 
-    const buffer = fs.readFileSync(target, 'utf8');
-    let text = buffer;
-
-    if (Buffer.byteLength(text, 'utf8') > maxBytes) {
-      text = text.slice(0, maxBytes);
-      // Trim to last full UTF-8 char to avoid corruption
-      while (Buffer.byteLength(text, 'utf8') > maxBytes) {
-        text = text.slice(0, -1);
-      }
+    if (stats.size > bytesRead) {
+      // Byte limits can stop in the middle of one UTF-8 character.
+      if (text.endsWith('\uFFFD')) text = text.slice(0, -1);
       text += '\n... (truncated by max_bytes)';
     }
 

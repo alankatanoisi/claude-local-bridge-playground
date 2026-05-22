@@ -492,6 +492,11 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td>Copy a bounded project file into the prompt context; repeat for multiple files</td>
             </tr>
             <tr>
+              <td><code>--allowed-tools &lt;list&gt;</code></td>
+              <td>all visible tools</td>
+              <td>Expose only the comma-separated tools you name</td>
+            </tr>
+            <tr>
               <td><code>--resume &lt;path&gt;</code></td>
               <td>off</td>
               <td>Continue from an existing transcript</td>
@@ -504,7 +509,7 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             <tr>
               <td><code>--no-network</code></td>
               <td>off</td>
-              <td>Block outbound network from shell commands (sets proxy env vars to block HTTP/HTTPS)</td>
+              <td>Best-effort HTTP/HTTPS proxy guard for shell commands; not a sandbox</td>
             </tr>
             <tr>
               <td><code>--system-prompt &lt;text&gt;</code></td>
@@ -571,6 +576,7 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
         <h3>Inspect a different local folder</h3>
         <pre><code>node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
+  --allowed-tools list_files,read_file,search_text,git_status \
   --verbose \
   "List the files in this project and summarize what it does. Do not edit files."</code></pre>
 
@@ -638,16 +644,16 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
       <section>
         <h2>Network control</h2>
         <p>
-          Pass <code>--no-network</code> to block outbound HTTP and HTTPS from shell commands. This sets
+          Pass <code>--no-network</code> to add a best-effort HTTP and HTTPS proxy guard to shell commands. This sets
           <code>http_proxy</code> and <code>https_proxy</code> to <code>127.0.0.1:1</code> in the tool's environment,
           which prevents most <code>curl</code>, <code>wget</code>, and <code>npm</code> calls from reaching the
           internet.
         </p>
-        <div class="callout success">
-          <strong>Defense in depth</strong>
-          Network blocking adds a second layer beyond the deny matrix. Even if a blocked file is somehow read, the model
-          cannot exfiltrate it via <code>curl</code>. See the <a href="threat-model.html">threat model</a> for full
-          details.
+        <div class="callout warn">
+          <strong>Not a sandbox</strong>
+          A shell command can unset proxy variables or use a protocol those variables do not control. Use
+          <code>--no-network</code> as defense in depth, not as a promise that bash has no network. See the
+          <a href="threat-model.html">threat model</a> for details.
         </div>
       </section>
 
@@ -695,8 +701,9 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
         </div>
         <ul>
           <li>
-            Blocked paths: <code>.env</code>, <code>*.pem</code>, <code>*.key</code>, <code>credentials*.json</code>,
-            token files, anything that looks like a secret.
+            Blocked paths: <code>.env*</code>, <code>*.pem</code>, <code>*.key</code>, <code>*.p8</code>,
+            <code>*.p12</code>, <code>credentials*.json</code>, service-account JSON, token files, and anything that
+            looks like a secret.
           </li>
           <li>Blocked escapes: absolute paths and <code>../</code> outside the working directory are rejected.</li>
           <li>
@@ -730,6 +737,13 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
           reaching a final answer, try making your prompt more specific:
         </p>
         <pre><code>"List the files and then stop. Do not call any more tools after listing."</code></pre>
+
+        <h3>Approval was denied automatically</h3>
+        <p>
+          Write and shell approvals need an interactive Terminal prompt. If another program launches the runner without
+          a usable terminal, the runner denies the action instead of guessing. Re-run it directly in Terminal, narrow
+          the task to read-only tools, or intentionally opt in with flags such as <code>--accept-edits</code>.
+        </p>
 
         <h3>Transcript files filling up</h3>
         <p>They are small JSONL files in <code>~/.bridge-runner/logs/</code>. You can delete old ones safely:</p>

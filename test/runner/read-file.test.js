@@ -29,6 +29,27 @@ describe('read_file tool', () => {
     assert.ok(result.text.length < 500);
   });
 
+  it('reads a bounded prefix without loading the whole file helper', () => {
+    const filePath = path.join(tmpDir, 'prefix-only.txt');
+    fs.writeFileSync(filePath, 'C'.repeat(1000));
+    const originalReadFileSync = fs.readFileSync;
+    fs.readFileSync = () => {
+      throw new Error('readFileSync should not load the whole file');
+    };
+
+    try {
+      const result = execute(
+        { path: 'prefix-only.txt', max_bytes: 20 },
+        { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) },
+      );
+      assert.equal(result.ok, true);
+      assert.ok(result.text.includes('truncated'));
+      assert.ok(result.text.length < 200);
+    } finally {
+      fs.readFileSync = originalReadFileSync;
+    }
+  });
+
   it('enforces hard cap even when max_bytes exceeds it', () => {
     const filePath = path.join(tmpDir, 'huge.txt');
     fs.writeFileSync(filePath, 'B'.repeat(2000));

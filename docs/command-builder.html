@@ -382,6 +382,29 @@
         display: none;
       }
 
+      .guide-list {
+        color: var(--muted);
+        font-size: 0.8rem;
+        padding-left: 1rem;
+      }
+      .guide-list li + li {
+        margin-top: 0.35rem;
+      }
+      .tool-choice {
+        align-items: flex-start;
+      }
+      .tool-choice input {
+        margin-top: 0.22rem;
+      }
+      .tool-choice span {
+        display: grid;
+        gap: 0.05rem;
+      }
+      .tool-choice small {
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
       .divider {
         border: none;
         border-top: 1px solid var(--border);
@@ -408,6 +431,11 @@
                 placeholder="e.g. Explain how src/server.js works&#10;or: Add JSDoc to every exported function"
               ></textarea>
             </div>
+            <ul class="guide-list">
+              <li>Start with a small objective and say whether files may be changed.</li>
+              <li>Use a target project folder when the runner code and the folder under review are different.</li>
+              <li>Use the generated command in Terminal after the local bridge is already running.</li>
+            </ul>
           </div>
 
           <!-- Attachments -->
@@ -477,6 +505,20 @@
                 <input type="number" id="maxTokens" value="2000" min="100" max="32000" />
               </div>
             </div>
+            <div class="row">
+              <div class="field">
+                <label for="temperature">Temperature</label>
+                <input type="number" id="temperature" placeholder="model default" min="0" max="1" step="0.1" />
+              </div>
+              <div class="field">
+                <label for="maxContextTokens">Context warning budget</label>
+                <input type="number" id="maxContextTokens" placeholder="optional" min="1000" step="1000" />
+              </div>
+            </div>
+            <div class="field">
+              <label for="maxToolCalls">Max tool calls in one turn</label>
+              <input type="number" id="maxToolCalls" placeholder="optional" min="1" max="100" />
+            </div>
           </div>
 
           <!-- Permission flags -->
@@ -527,6 +569,20 @@
               <label for="shellTimeout">Shell timeout (ms)</label>
               <input type="number" id="shellTimeout" value="30000" min="100" max="120000" step="1000" />
             </div>
+            <div class="row">
+              <div class="field">
+                <label for="confirmTimeout">Approval timeout (ms)</label>
+                <input type="number" id="confirmTimeout" placeholder="optional" min="1000" step="1000" />
+              </div>
+              <div class="field">
+                <label for="logLevel">Runtime messages</label>
+                <select id="logLevel">
+                  <option value="">normal</option>
+                  <option value="verbose">verbose</option>
+                  <option value="quiet">quiet</option>
+                </select>
+              </div>
+            </div>
 
             <hr class="divider" />
 
@@ -558,20 +614,52 @@
               Tools
               <span style="font-weight: 400; font-size: 0.75rem; color: var(--muted)">(what the model can use)</span>
             </h2>
-            <ul class="tool-list">
-              <li><span class="name">list_files</span><span class="badge badge-read">read</span></li>
-              <li><span class="name">read_file</span><span class="badge badge-read">read</span></li>
-              <li><span class="name">search_text</span><span class="badge badge-read">read</span></li>
-              <li><span class="name">git_status</span><span class="badge badge-read">read</span></li>
-              <li><span class="name">edit_file</span><span class="badge badge-write">write</span></li>
-              <li><span class="name">write_file</span><span class="badge badge-write">write</span></li>
-              <li><span class="name">apply_patch</span><span class="badge badge-write">write</span></li>
-              <li><span class="name">undo</span><span class="badge badge-recovery">recovery</span></li>
-              <li><span class="name">undo_edit</span><span class="badge badge-recovery">recovery</span></li>
-              <li id="bashToolRow" style="display: none">
-                <span class="name">bash</span><span class="badge badge-shell">shell</span>
-              </li>
-            </ul>
+            <p style="font-size: 0.78rem; color: var(--muted); margin-bottom: 0.6rem">
+              Uncheck tools you do not want the model to see. The command adds <code>--allowed-tools</code> only when
+              you narrow the default tool set.
+            </p>
+            <div class="checks" id="toolChoices">
+              <label class="check-label tool-choice">
+                <input type="checkbox" value="list_files" checked />
+                <span><strong>list_files</strong><small>Read folder entries</small></span>
+              </label>
+              <label class="check-label tool-choice">
+                <input type="checkbox" value="read_file" checked />
+                <span><strong>read_file</strong><small>Read bounded text files</small></span>
+              </label>
+              <label class="check-label tool-choice">
+                <input type="checkbox" value="search_text" checked />
+                <span><strong>search_text</strong><small>Search project text</small></span>
+              </label>
+              <label class="check-label tool-choice">
+                <input type="checkbox" value="git_status" checked />
+                <span><strong>git_status</strong><small>Inspect Git changes</small></span>
+              </label>
+              <label class="check-label tool-choice">
+                <input type="checkbox" value="edit_file" checked />
+                <span><strong>edit_file</strong><small>Exact text replacement</small></span>
+              </label>
+              <label class="check-label tool-choice">
+                <input type="checkbox" value="write_file" checked />
+                <span><strong>write_file</strong><small>Create or replace a file</small></span>
+              </label>
+              <label class="check-label tool-choice">
+                <input type="checkbox" value="apply_patch" checked />
+                <span><strong>apply_patch</strong><small>Patch a file</small></span>
+              </label>
+              <label class="check-label tool-choice">
+                <input type="checkbox" value="undo" checked />
+                <span><strong>undo</strong><small>Restore backup</small></span>
+              </label>
+              <label class="check-label tool-choice">
+                <input type="checkbox" value="undo_edit" checked />
+                <span><strong>undo_edit</strong><small>Undo one tool edit</small></span>
+              </label>
+              <label class="check-label tool-choice" id="bashToolRow" style="display: none">
+                <input type="checkbox" value="bash" />
+                <span><strong>bash</strong><small>Shell commands</small></span>
+              </label>
+            </div>
           </div>
         </div>
 
@@ -599,7 +687,7 @@
             bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>. Use
             <code style="font-size: 0.75rem">stream-json</code> when another script or agent needs to parse every runner
             event. Set a human-readable log path when you want a plain text record of the prompt, tool calls, and final
-            answer.
+            answer. <code>--no-network</code> is only a best-effort shell proxy guard; it is not a sandbox.
           </div>
         </div>
       </div>
@@ -613,6 +701,9 @@
       const model = document.getElementById('model');
       const maxSteps = document.getElementById('maxSteps');
       const maxTokens = document.getElementById('maxTokens');
+      const temperature = document.getElementById('temperature');
+      const maxContextTokens = document.getElementById('maxContextTokens');
+      const maxToolCalls = document.getElementById('maxToolCalls');
       const cwd = document.getElementById('cwd');
       const runnerPath = document.getElementById('runnerPath');
       const acceptEdits = document.getElementById('acceptEdits');
@@ -622,6 +713,8 @@
       const outputFormat = document.getElementById('outputFormat');
       const allowShell = document.getElementById('allowShell');
       const shellTimeout = document.getElementById('shellTimeout');
+      const confirmTimeout = document.getElementById('confirmTimeout');
+      const logLevel = document.getElementById('logLevel');
       const resumePath = document.getElementById('resumePath');
       const transcript = document.getElementById('transcript');
       const humanLog = document.getElementById('humanLog');
@@ -635,6 +728,7 @@
       const noNetwork = document.getElementById('noNetwork');
       const systemPrompt = document.getElementById('systemPrompt');
       const continueFromLatest = document.getElementById('continueFromLatest');
+      const toolChoices = Array.from(document.querySelectorAll('#toolChoices input[type="checkbox"]'));
 
       const DEFAULTS = {
         maxSteps: 16,
@@ -643,6 +737,8 @@
         shellTimeout: 30000,
         outputFormat: 'text',
       };
+      const DEFAULT_TOOL_NAMES = toolChoices.map((choice) => choice.value).filter((name) => name !== 'bash');
+      const READ_TOOL_NAMES = ['list_files', 'read_file', 'search_text', 'git_status'];
 
       function getAttachedPaths() {
         return attachedPaths.value
@@ -675,6 +771,9 @@
         if (model.value !== DEFAULTS.model) parts.push('--model ' + model.value);
         if (+maxTokens.value !== DEFAULTS.maxTokens) parts.push('--max-tokens ' + maxTokens.value);
         if (+maxSteps.value !== DEFAULTS.maxSteps) parts.push('--max-steps ' + maxSteps.value);
+        if (temperature.value.trim()) parts.push('--temperature ' + temperature.value.trim());
+        if (maxContextTokens.value.trim()) parts.push('--max-context-tokens ' + maxContextTokens.value.trim());
+        if (maxToolCalls.value.trim()) parts.push('--max-tool-calls-per-turn ' + maxToolCalls.value.trim());
         if (resumePath.value.trim()) parts.push('--resume ' + shellQuote(resumePath.value.trim()));
         if (transcript.value.trim() && !resumePath.value.trim())
           parts.push('--transcript ' + shellQuote(transcript.value.trim()));
@@ -690,6 +789,13 @@
           parts.push('--allow-shell');
           if (+shellTimeout.value !== DEFAULTS.shellTimeout) parts.push('--shell-timeout ' + shellTimeout.value);
         }
+        if (confirmTimeout.value.trim()) parts.push('--confirm-timeout ' + confirmTimeout.value.trim());
+        if (logLevel.value) parts.push('--log-level ' + logLevel.value);
+        const selectedTools = getSelectedTools();
+        const exposedDefaults = allowShell.checked ? [...DEFAULT_TOOL_NAMES, 'bash'] : DEFAULT_TOOL_NAMES;
+        if (!sameTools(selectedTools, exposedDefaults)) {
+          parts.push('--allowed-tools ' + shellQuote(selectedTools.join(',') || 'none'));
+        }
         if (stream.checked) parts.push('--stream');
         if (verbose.checked) parts.push('--verbose');
 
@@ -697,6 +803,16 @@
         if (promptText) parts.push(shellQuote(promptText));
 
         return parts;
+      }
+
+      function getSelectedTools() {
+        return toolChoices
+          .filter((choice) => choice.checked && (choice.value !== 'bash' || allowShell.checked))
+          .map((choice) => choice.value);
+      }
+
+      function sameTools(left, right) {
+        return left.length === right.length && left.every((name, index) => name === right[index]);
       }
 
       function buildCommandString(groupedForPipe = false) {
@@ -769,6 +885,9 @@
         model,
         maxSteps,
         maxTokens,
+        temperature,
+        maxContextTokens,
+        maxToolCalls,
         cwd,
         runnerPath,
         acceptEdits,
@@ -778,6 +897,8 @@
         outputFormat,
         allowShell,
         shellTimeout,
+        confirmTimeout,
+        logLevel,
         resumePath,
         transcript,
         humanLog,
@@ -785,6 +906,7 @@
         noNetwork,
         systemPrompt,
         continueFromLatest,
+        ...toolChoices,
       ].forEach((el) => {
         el.addEventListener('input', render);
         el.addEventListener('change', render);
@@ -821,6 +943,7 @@
           outputFormat: 'text',
           runnerPath: '',
           cwd: '',
+          tools: READ_TOOL_NAMES,
         },
         confirm: {
           prompt: 'Fix the typo in the README.',
@@ -896,6 +1019,7 @@
           outputFormat: 'stream-json',
           runnerPath: '',
           cwd: '',
+          tools: READ_TOOL_NAMES,
         },
         otherfolder: {
           prompt: 'List the top-level files, summarize what this project does, then stop. Do not edit files.',
@@ -911,6 +1035,7 @@
           outputFormat: 'text',
           runnerPath: '/Users/alanman/.codex/worktrees/runner-clean-pr',
           cwd: '/Users/alanman/path/to/another/project',
+          tools: READ_TOOL_NAMES,
         },
         resume: {
           prompt: 'Continue where we left off.',
@@ -942,6 +1067,7 @@
           outputFormat: 'text',
           runnerPath: '',
           cwd: '',
+          tools: READ_TOOL_NAMES,
         },
       };
 
@@ -967,6 +1093,18 @@
         noNetwork.checked = p.noNetwork || false;
         systemPrompt.value = p.systemPrompt || '';
         continueFromLatest.checked = p.continueFromLatest || false;
+        temperature.value = p.temperature || '';
+        maxContextTokens.value = p.maxContextTokens || '';
+        maxToolCalls.value = p.maxToolCalls || '';
+        confirmTimeout.value = p.confirmTimeout || '';
+        logLevel.value = p.logLevel || '';
+        toolChoices.forEach((choice) => {
+          if (p.tools) {
+            choice.checked = p.tools.includes(choice.value);
+          } else {
+            choice.checked = choice.value === 'bash' ? !!p.allowShell : true;
+          }
+        });
         if (Object.prototype.hasOwnProperty.call(p, 'runnerPath')) runnerPath.value = p.runnerPath;
         if (Object.prototype.hasOwnProperty.call(p, 'cwd')) cwd.value = p.cwd;
         if (p.maxStepsDefault) maxSteps.value = DEFAULTS.maxSteps;

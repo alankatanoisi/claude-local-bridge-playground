@@ -48,11 +48,8 @@ const DENY_MATRIX_PATTERNS = [
   (p) => p.includes('/.claude/') || p.endsWith('/.claude'),
   (p) => p.includes('/.gnupg/') || p.endsWith('/.gnupg'),
   (p) => p.includes('/node_modules/') || p.endsWith('/node_modules'),
-  // Blocked basenames
-  (p) => path.basename(p) === '.env',
-  (p) => path.basename(p) === '.env.local',
-  (p) => path.basename(p) === '.env.production',
-  (p) => path.basename(p) === '.env.development',
+  // Block env files conservatively: .env, .env.test, .envrc, .env.example.
+  (p) => /^\.env/i.test(path.basename(p)),
   (p) => path.basename(p) === '.netrc',
   (p) => path.basename(p) === '.npmrc',
   // Blocked basename patterns
@@ -60,7 +57,12 @@ const DENY_MATRIX_PATTERNS = [
   (p) => /^id_ed25519/.test(path.basename(p)),
   (p) => path.basename(p).endsWith('.pem'),
   (p) => path.basename(p).endsWith('.key'),
+  (p) => path.basename(p).endsWith('.p8'),
+  (p) => path.basename(p).endsWith('.p12'),
+  (p) => path.basename(p).endsWith('.pfx'),
   (p) => /^credentials.*\.json$/i.test(path.basename(p)),
+  (p) => /service[-_]?account.*\.json$/i.test(path.basename(p)),
+  (p) => /firebase.*adminsdk.*\.json$/i.test(path.basename(p)),
   (p) => /^token.*$/i.test(path.basename(p)),
   (p) => /_token$/i.test(path.basename(p)),
   (p) => /secret/i.test(path.basename(p)),

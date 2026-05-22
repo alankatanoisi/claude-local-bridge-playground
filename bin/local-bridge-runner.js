@@ -47,7 +47,7 @@ Options:\n\
   --dont-ask           Skip confirmation for already-enabled risky tools\n\
   --allow-shell        Enable the bash tool (disabled by default)\n\
   --shell-timeout <ms> Max time for shell commands in ms (default: 30000)\n\
-  --no-network         Block outbound network in shell commands (sets http_proxy=127.0.0.1:1)\n\
+  --no-network         Best-effort HTTP/HTTPS proxy guard for shell commands; not a sandbox\n\
   --system-prompt <s>  Override the default system prompt\n\
   --allowed-tools <f>  Comma-separated tool names to enable (others hidden + denied)\n\
   --max-context-tokens <n> Warn when total tokens exceed budget; halt at 2x budget\n\
@@ -67,8 +67,15 @@ Examples:\n\
   node bin/local-bridge-runner.js --cwd /path/to/project "Summarize that project"\n\
   node bin/local-bridge-runner.js --cwd /path/to/project --include-file README.md "Review the README"\n\
   node bin/local-bridge-runner.js --stream "List and explain src/server.js"\n\
+  node bin/local-bridge-runner.js --plan --allowed-tools list_files,read_file "Inspect before changing anything"\n\
   node bin/local-bridge-runner.js --resume ~/.bridge-runner/logs/run.jsonl "Continue"\n\
   node bin/local-bridge-runner.js --accept-edits --allow-shell --dont-ask "Run npm test and fix"\n\
+\n\
+Beginner notes:\n\
+  Type the command in Terminal after the local bridge is running.\n\
+  Start with --plan or read-only tools while you learn what a prompt will do.\n\
+  --accept-edits allows file changes. --allow-shell exposes bash commands.\n\
+  --dont-ask only skips prompts for tools you already enabled; it does not enable bash by itself.\n\
 ',
   );
 }
@@ -225,6 +232,18 @@ async function main() {
     pastedParts.push(readIncludedFiles(cwd, includeFiles));
   }
 
+  printRuntimeTips({
+    cwd,
+    quiet,
+    plan,
+    acceptEdits,
+    dontAsk,
+    allowShell,
+    noNetwork,
+    allowedTools,
+    outputFormat,
+  });
+
   await run({
     prompt,
     stdinText: pastedParts.filter(Boolean).join('\n\n') || undefined,
@@ -252,6 +271,35 @@ async function main() {
     maxContextTokens,
     maxToolCallsPerTurn,
   });
+}
+
+function printRuntimeTips(options) {
+  if (options.quiet) return;
+
+  console.error('[runner] target project folder: ' + options.cwd);
+  if (options.plan) {
+    console.error('[runner] tip: plan mode inspects first and returns dry-run tool results for proposed actions.');
+  } else if (!options.acceptEdits && !options.allowShell) {
+    console.error('[runner] tip: this starts conservatively; edits ask for approval and bash stays hidden.');
+  }
+
+  if (options.acceptEdits) {
+    console.error('[runner] warning: --accept-edits lets the model change files without a write confirmation.');
+  }
+  if (options.allowShell) {
+    console.error('[runner] warning: --allow-shell exposes bash. Read the proposed command before approving it.');
+  } else if (options.dontAsk) {
+    console.error('[runner] tip: --dont-ask does not enable bash. Add --allow-shell only when shell access is needed.');
+  }
+  if (options.noNetwork) {
+    console.error('[runner] warning: --no-network is a best-effort shell proxy guard, not a network sandbox.');
+  }
+  if (options.allowedTools) {
+    console.error('[runner] tip: only these tools are visible: ' + options.allowedTools.join(', ') + '.');
+  }
+  if (options.outputFormat !== 'text') {
+    console.error('[runner] tip: machine-readable output stays on stdout; runner tips and warnings stay on stderr.');
+  }
 }
 
 function readIncludedFiles(cwd, includeFiles) {
@@ -290,4 +338,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { readIncludedFiles };
+module.exports = { printRuntimeTips, readIncludedFiles };

@@ -87,8 +87,14 @@ describe('runner safety helpers', () => {
 
   it('deny matrix blocks sensitive paths and allows normal paths', () => {
     assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/.env'), true);
+    assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/.env.test'), true);
+    assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/.envrc'), true);
     assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/.ssh/id_rsa'), true);
     assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/key.pem'), true);
+    assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/AuthKey_ABC123.p8'), true);
+    assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/apple-cert.p12'), true);
+    assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/service-account.json'), true);
+    assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/firebase-adminsdk-prod.json'), true);
     assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/src/app.js'), false);
   });
 });

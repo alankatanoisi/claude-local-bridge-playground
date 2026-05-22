@@ -24,6 +24,20 @@ describe('permissions — read-only tools', () => {
     assert.ok(result.reason.includes('Blocked'));
   });
 
+  it('denies env variants and common credential files', () => {
+    for (const filePath of [
+      '.env.test',
+      '.envrc',
+      'config/service-account.json',
+      'config/firebase-adminsdk-prod.json',
+      'keys/AuthKey_ABC123.p8',
+      'keys/certificate.p12',
+    ]) {
+      const result = check('read_file', { path: filePath }, { cwd });
+      assert.equal(result.decision, 'deny', filePath);
+    }
+  });
+
   it('denies read_file for credentials.json', () => {
     const result = check('read_file', { path: 'config/credentials.json' }, { cwd });
     assert.equal(result.decision, 'deny');
@@ -61,6 +75,16 @@ describe('permissions — write tools', () => {
 
   it('edit_file allows with acceptEdits', () => {
     const result = check('edit_file', { path: 'src/app.js' }, { cwd, acceptEdits: true });
+    assert.equal(result.decision, 'allow');
+  });
+
+  it('dontAsk alone does not auto-allow writes', () => {
+    const result = check('edit_file', { path: 'src/app.js' }, { cwd, dontAsk: true });
+    assert.equal(result.decision, 'ask');
+  });
+
+  it('dontAsk and acceptEdits auto-allow writes together', () => {
+    const result = check('edit_file', { path: 'src/app.js' }, { cwd, acceptEdits: true, dontAsk: true });
     assert.equal(result.decision, 'allow');
   });
 

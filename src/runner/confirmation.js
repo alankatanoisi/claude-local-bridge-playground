@@ -3,8 +3,8 @@
 /**
  * confirmation.js — Interactive y/n prompt for write and shell tools.
  *
- * Uses raw stdin so it works even when stdin is piped (reads from /dev/tty).
- * Falls back to process.stdin if /dev/tty is unavailable.
+ * Uses /dev/tty when available so pasted stdin content is not treated as an
+ * approval answer. Non-interactive callers are denied instead of hanging.
  *
  * Public API:
  *   await ask(proposedAction) → 'allow' | 'deny'
@@ -34,12 +34,20 @@ function ask(proposedAction, timeoutMs) {
     let input = '';
     let resolved = false;
 
-    // Try to open /dev/tty for interactive input even when stdin is piped
-    let stream;
+    // Prefer the terminal device even when the runner prompt came from stdin.
+    let stream = null;
     try {
-      stream = fs.createReadStream(TTY_PATH, { encoding: 'utf8' });
+      const ttyFd = fs.openSync(TTY_PATH, 'r');
+      stream = fs.createReadStream(null, { fd: ttyFd, encoding: 'utf8', autoClose: true });
     } catch {
-      stream = process.stdin;
+      if (process.stdin.isTTY) stream = process.stdin;
+    }
+
+    if (!stream) {
+      console.error('[runner] no interactive terminal is available for approval.');
+      console.error('→ Denied');
+      resolve('deny');
+      return;
     }
 
     stream.setEncoding('utf8');
@@ -67,6 +75,11 @@ function ask(proposedAction, timeoutMs) {
       }
     }
 
+    function onUnavailable() {
+      console.error('\n[runner] confirmation input became unavailable.');
+      decide('deny');
+    }
+
     // Auto-deny timer
     let timer;
     if (timeoutMs && timeoutMs > 0) {
@@ -81,12 +94,16 @@ function ask(proposedAction, timeoutMs) {
     function cleanup() {
       if (timer) clearTimeout(timer);
       stream.removeListener('data', onData);
+      stream.removeListener('end', onUnavailable);
+      stream.removeListener('error', onUnavailable);
       if (stream !== process.stdin) {
         stream.destroy();
       }
     }
 
     stream.on('data', onData);
+    stream.on('end', onUnavailable);
+    stream.on('error', onUnavailable);
   });
 }
 
