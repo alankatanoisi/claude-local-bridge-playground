@@ -13,7 +13,7 @@ function tokenFingerprint(token) {
 
 async function initializeCallerAuth(ctx, extensionContext) {
   const config = vscode.workspace.getConfiguration('claudeLocalBridge');
-  const requireCallerAuth = config.get('requireCallerAuth', true);
+  const requireCallerAuth = config.get('requireCallerAuth', false);
   const configuredToken = String(config.get('callerAuthToken', '') || '').trim();
 
   if (!requireCallerAuth) {

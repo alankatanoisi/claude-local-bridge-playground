@@ -28,13 +28,16 @@ The bridge handles Claude credentials. The runner handles local tools and the ag
 
 ## Required Setup
 
-The bridge is protected by local caller auth. Set a predictable token in VS Code settings:
+The bridge does not require a local caller-auth token by default. That keeps simple runner commands working like before.
+
+Caller auth is optional. If you intentionally enable `claudeLocalBridge.requireCallerAuth`, set a predictable token in VS
+Code settings:
 
 ```json
 "claudeLocalBridge.callerAuthToken": "local-dev-token"
 ```
 
-Then export it in Terminal:
+Then export it in the same Terminal tab where you run commands:
 
 ```bash
 export BRIDGE_CALLER_TOKEN=local-dev-token
@@ -50,11 +53,9 @@ The runner can read that environment variable automatically. You can also pass i
 
 ```bash
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
-export BRIDGE_CALLER_TOKEN=local-dev-token
 
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
-  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --allowed-tools list_files,read_file,search_text,git_status \
   --max-steps 8 \
   --verbose \
@@ -66,7 +67,7 @@ node bin/local-bridge-runner.js \
 | Flag                          | What it means                                                           |
 | ----------------------------- | ----------------------------------------------------------------------- |
 | `--cwd <path>`                | The project folder the runner tools can inspect or edit                 |
-| `--caller-token <token>`      | Local bridge caller-auth token                                          |
+| `--caller-token <token>`      | Optional local bridge caller-auth token                                 |
 | `--allowed-tools <list>`      | Only expose these tools to the model                                    |
 | `--output-format text`        | Normal human-readable terminal output                                   |
 | `--output-format json`        | One final JSON object                                                   |
@@ -111,7 +112,6 @@ Shell only when needed:
 ```bash
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
-  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --output-format stream-json \
   --allowed-tools list_files,read_file,search_text,git_status \
   "List src/runner files and summarize each one. Do not edit files."
@@ -124,7 +124,6 @@ Each line is a JSON event. This is useful for scripts or other agents.
 ```bash
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
-  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --trace-level summary \
   --allowed-tools list_files,read_file,search_text,git_status \
   "Inspect the runner safety layer and report what it blocks. Do not edit files."
@@ -142,7 +141,6 @@ Trace files:
 ```bash
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
-  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --human-log ~/.bridge-runner/logs/runner-review.md \
   --allowed-tools list_files,read_file,search_text,git_status \
   "Review the runner docs and explain what a beginner should know. Do not edit files."
@@ -169,7 +167,10 @@ The help output should include:
 
 ### `Unauthorized: Missing Bearer token`
 
-Run:
+Caller auth is enabled. The easiest beginner fix is to disable `claudeLocalBridge.requireCallerAuth` in VS Code settings
+and restart the extension.
+
+If you want to keep caller auth enabled, run:
 
 ```bash
 export BRIDGE_CALLER_TOKEN=local-dev-token
@@ -213,11 +214,9 @@ and avoid:
 
 ```bash
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
-export BRIDGE_CALLER_TOKEN=local-dev-token
 
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
-  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --trace-level summary \
   --human-log ~/.bridge-runner/logs/safe-first-run.md \
   --allowed-tools list_files,read_file,search_text,git_status \

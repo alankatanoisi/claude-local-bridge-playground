@@ -16,15 +16,15 @@ If you are new to Terminal or this repo, start with [BEGINNER_GUIDE.md](./BEGINN
 
 Defaults below are sourced from `package.json` (`contributes.configuration.properties`).
 
-| Setting                               | Default (from package.json) | Notes                                                   |
-| ------------------------------------- | --------------------------- | ------------------------------------------------------- |
-| `claudeLocalBridge.port`              | `11437`                     | Local bridge listens on `http://localhost:11437`        |
-| `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-5`         | Used when requests omit `model`                         |
-| `claudeLocalBridge.anthropicBaseUrl`  | `https://api.anthropic.com` | Upstream Anthropic endpoint                             |
-| `claudeLocalBridge.logRequests`       | `false`                     | Verbose request/response logging                        |
-| `claudeLocalBridge.apiKey`            | `""`                        | Manual fallback key (lowest priority)                   |
-| `claudeLocalBridge.requireCallerAuth` | `true`                      | Requires `Authorization: Bearer <token>` on API routes  |
-| `claudeLocalBridge.callerAuthToken`   | `""`                        | Optional static caller token (otherwise auto-generated) |
+| Setting                               | Default (from package.json) | Notes                                            |
+| ------------------------------------- | --------------------------- | ------------------------------------------------ |
+| `claudeLocalBridge.port`              | `11437`                     | Local bridge listens on `http://localhost:11437` |
+| `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-5`         | Used when requests omit `model`                  |
+| `claudeLocalBridge.anthropicBaseUrl`  | `https://api.anthropic.com` | Upstream Anthropic endpoint                      |
+| `claudeLocalBridge.logRequests`       | `false`                     | Verbose request/response logging                 |
+| `claudeLocalBridge.apiKey`            | `""`                        | Manual fallback key (lowest priority)            |
+| `claudeLocalBridge.requireCallerAuth` | `false`                     | Optional local Bearer-token gate for API routes  |
+| `claudeLocalBridge.callerAuthToken`   | `""`                        | Optional static caller token                     |
 
 ---
 
@@ -81,18 +81,21 @@ Open **VS Code Settings** and search for `Claude Local Bridge`:
 | `claudeLocalBridge.apiKey`            | `""`                        | Manual API key (lowest priority)          |
 | `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-5`         | Default model when none is specified      |
 | `claudeLocalBridge.logRequests`       | `false`                     | Verbose request logging to Output channel |
-| `claudeLocalBridge.requireCallerAuth` | `true`                      | Enforce Bearer token for incoming callers |
+| `claudeLocalBridge.requireCallerAuth` | `false`                     | Enforce Bearer token for incoming callers |
 | `claudeLocalBridge.callerAuthToken`   | `""`                        | Static Bearer token override              |
 
-### Caller auth (important)
+### Caller auth (optional)
 
-By default, bridge endpoints require:
+By default, bridge endpoints do not require a second local caller token. This keeps local curl and runner usage simple.
+
+If you enable `claudeLocalBridge.requireCallerAuth`, bridge endpoints require:
 
 ```http
 Authorization: Bearer <your-caller-token>
 ```
 
-`GET /v1/debug` is the only unauthenticated endpoint. For predictable client setup, set `claudeLocalBridge.callerAuthToken` in VS Code settings and reuse that token in your callers.
+When caller auth is enabled, `GET /v1/debug` is the only unauthenticated endpoint. For predictable client setup, set
+`claudeLocalBridge.callerAuthToken` in VS Code settings and reuse that token in your callers.
 
 ---
 
@@ -123,10 +126,7 @@ folder that contains `bin/local-bridge-runner.js`:
 
 ```bash
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
-export BRIDGE_CALLER_TOKEN=local-dev-token
-node bin/local-bridge-runner.js \
-  --caller-token "$BRIDGE_CALLER_TOKEN" \
-  "List the files in this repo and summarize what it does."
+node bin/local-bridge-runner.js "List the files in this repo and summarize what it does."
 ```
 
 To test a different local folder, keep running the runner from this repo and point the tools at the other project with
@@ -136,7 +136,6 @@ To test a different local folder, keep running the runner from this repo and poi
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
-  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --verbose \
   "List the top-level files, summarize the project, then stop. Do not edit files."
 ```

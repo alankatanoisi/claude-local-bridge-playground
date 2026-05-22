@@ -98,10 +98,8 @@ Use this to test the runner against itself:
 
 ```bash
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
-export BRIDGE_CALLER_TOKEN=local-dev-token
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
-  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --max-steps 8 \
   --verbose \
   "List the top-level files, summarize what this project does, then stop. Do not edit files."
@@ -111,10 +109,8 @@ Use this to test another project:
 
 ```bash
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
-export BRIDGE_CALLER_TOKEN=local-dev-token
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
-  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --max-steps 8 \
   --verbose \
   "List the top-level files, summarize what this project does, then stop. Do not edit files."

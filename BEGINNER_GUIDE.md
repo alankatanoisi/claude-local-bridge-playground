@@ -81,18 +81,22 @@ and:
 "authenticated": true
 ```
 
-## Set The Local Caller Token
+## Local Caller Token Is Optional
 
-Most bridge endpoints require a local caller-auth token. This is not your Anthropic token. It is just a local password
-between your terminal command and your local bridge.
+The bridge used to require a local caller-auth token, which made simple curl and runner commands harder. The default is
+now back to the simpler behavior: no local caller token is required.
 
-In VS Code settings JSON, set:
+This token is not your Anthropic token. It is only a local password between your terminal command and your local bridge.
+
+Only use this section if you intentionally turn on `claudeLocalBridge.requireCallerAuth` in VS Code settings.
+
+If you turn caller auth on, set this in VS Code settings JSON:
 
 ```json
 "claudeLocalBridge.callerAuthToken": "local-dev-token"
 ```
 
-Then in Terminal:
+Then in the same Terminal tab where you run bridge commands:
 
 ```bash
 export BRIDGE_CALLER_TOKEN=local-dev-token
@@ -112,11 +116,10 @@ local-dev-token
 
 ## Test Models
 
-Use the caller-auth header:
+Run this:
 
 ```bash
-curl -s http://127.0.0.1:11437/v1/models \
-  -H "Authorization: Bearer $BRIDGE_CALLER_TOKEN" | python3 -m json.tool
+curl -s http://127.0.0.1:11437/v1/models | python3 -m json.tool
 ```
 
 If you see:
@@ -125,7 +128,8 @@ If you see:
 Unauthorized: Missing Bearer token
 ```
 
-then `BRIDGE_CALLER_TOKEN` is missing or empty.
+then caller auth is enabled. Either disable `claudeLocalBridge.requireCallerAuth`, or use the optional caller-token setup
+above.
 
 ## Run A Safe Read-Only Runner Test
 
@@ -133,11 +137,9 @@ Paste this:
 
 ```bash
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
-export BRIDGE_CALLER_TOKEN=local-dev-token
 
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
-  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --allowed-tools list_files,read_file,search_text,git_status \
   --max-steps 8 \
   --verbose \
@@ -163,7 +165,7 @@ Use it when you do not want to remember all the flags. Important fields:
 
 - **Runner repo folder**: `/Users/alanman/.codex/worktrees/runner-clean-pr`
 - **Target project folder**: the project you want the runner to inspect
-- **Caller auth token**: `$BRIDGE_CALLER_TOKEN` or `local-dev-token`
+- **Caller auth token**: optional local bridge password; only needed if you enabled caller auth
 - **Tools**: start with only `list_files`, `read_file`, `search_text`, `git_status`
 
 ## Common Problems
@@ -178,7 +180,10 @@ cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
 
 ### Unauthorized: Missing Bearer token
 
-You forgot caller auth. Run:
+Caller auth is enabled. The easiest beginner fix is to disable `claudeLocalBridge.requireCallerAuth` in VS Code settings,
+then restart the extension.
+
+If you want to keep caller auth enabled, run:
 
 ```bash
 export BRIDGE_CALLER_TOKEN=local-dev-token

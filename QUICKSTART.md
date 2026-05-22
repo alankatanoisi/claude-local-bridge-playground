@@ -23,16 +23,18 @@ Look for: `"authenticated": true`
 
 ---
 
-## Step 1.5: Set caller auth token (required by default)
+## Step 1.5: Caller auth is optional
 
-Bridge endpoints (except `/v1/debug`) require `Authorization: Bearer <token>`.
-Set a static token once in VS Code settings:
+The bridge no longer requires a second local caller token by default. This restores the older simple local setup.
+
+Only use this section if you intentionally enable `claudeLocalBridge.requireCallerAuth` in VS Code settings. If you do
+enable it, set a static token once:
 
 ```json
 "claudeLocalBridge.callerAuthToken": "local-dev-token"
 ```
 
-Then export it for terminal examples:
+Then export it in the same Terminal tab where you run commands:
 
 ```bash
 export BRIDGE_CALLER_TOKEN=local-dev-token
@@ -55,19 +57,19 @@ local-dev-token
 ## Step 2: Test the bridge (single line, copy-paste friendly)
 
 ```bash
-curl -s -X POST http://localhost:11437/v1/chat/completions -H "Content-Type: application/json" -H "Authorization: Bearer $BRIDGE_CALLER_TOKEN" -d '{"model":"claude-haiku-4-5","max_tokens":30,"messages":[{"role":"user","content":"say hi"}]}'
+curl -s -X POST http://localhost:11437/v1/chat/completions -H "Content-Type: application/json" -d '{"model":"claude-haiku-4-5","max_tokens":30,"messages":[{"role":"user","content":"say hi"}]}'
 ```
 
 If this returns a response → bridge works.
 
-To list models, include the same caller-auth header:
+To list models:
 
 ```bash
-curl -s http://127.0.0.1:11437/v1/models \
-  -H "Authorization: Bearer $BRIDGE_CALLER_TOKEN" | python3 -m json.tool
+curl -s http://127.0.0.1:11437/v1/models | python3 -m json.tool
 ```
 
-If you forget the header, `/v1/models` returns `Unauthorized: Missing Bearer token`. That is expected.
+If you see `Unauthorized: Missing Bearer token`, caller auth is enabled in VS Code settings. Either disable
+`claudeLocalBridge.requireCallerAuth`, or use the optional token setup above.
 
 ---
 
@@ -149,12 +151,9 @@ That older checkout can be useful as a reference, but it may not have the curren
 Start with a read-only or plan-style run:
 
 ```bash
-export BRIDGE_CALLER_TOKEN=local-dev-token
-
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/project" \
   --allowed-tools list_files,read_file,search_text,git_status \
-  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --verbose \
   "List the top-level files, summarize the project, then stop. Do not edit files."
 ```
@@ -170,7 +169,6 @@ node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/project" \
   --trace-level summary \
   --allowed-tools list_files,read_file,search_text,git_status \
-  --caller-token "$BRIDGE_CALLER_TOKEN" \
   "List the top-level files and stop. Do not edit files."
 ```
 
@@ -186,8 +184,8 @@ Safety reminders:
 - A run that needs approval but has no interactive Terminal input is denied instead of silently approving.
 - `--no-network` is a best-effort HTTP/HTTPS proxy guard for bash, not a true network sandbox.
 - Traces show what the local bridge and runner saw; they do not expose Anthropic's private server-side telemetry.
-- `--caller-token "$BRIDGE_CALLER_TOKEN"` proves the local caller is allowed to use the bridge. It is not your upstream
-  Anthropic credential.
+- `--caller-token "$BRIDGE_CALLER_TOKEN"` is only needed if you intentionally enabled local caller auth. It is not your
+  upstream Anthropic credential.
 
 ---
 

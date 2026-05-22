@@ -75,19 +75,24 @@
         },
         "claudeLocalBridge.traceLevel": {
           "type": "string",
-          "enum": ["off", "summary", "redacted", "full"],
+          "enum": [
+            "off",
+            "summary",
+            "redacted",
+            "full"
+          ],
           "default": "off",
           "description": "Write local bridge flight-recorder traces. full includes prompt and source-code payloads; auth-looking fields stay redacted."
         },
         "claudeLocalBridge.requireCallerAuth": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Require Authorization: Bearer token on bridge endpoints (except explicit unauthenticated allowlist)"
         },
         "claudeLocalBridge.callerAuthToken": {
           "type": "string",
           "default": "",
-          "description": "Static caller auth Bearer token override (leave empty to use secret storage token)"
+          "description": "Static caller auth Bearer token for local clients when caller auth is enabled"
         }
       }
     },

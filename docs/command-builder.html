@@ -627,12 +627,13 @@
               counters returned by the model. Treat redacted and full traces like source-code logs.
             </div>
             <div class="field">
-              <label for="callerToken">Caller auth token</label>
+              <label for="callerToken">Caller auth token (optional)</label>
               <input type="text" id="callerToken" placeholder="$BRIDGE_CALLER_TOKEN or local-dev-token" />
             </div>
             <div class="note show">
-              Use <code>$BRIDGE_CALLER_TOKEN</code> if you already exported it in Terminal, or paste the local dev token
-              itself. This token only unlocks your local bridge; it is not your upstream Anthropic credential.
+              Leave this blank unless you intentionally enabled caller auth in VS Code settings. If caller auth is on,
+              use <code>$BRIDGE_CALLER_TOKEN</code> after exporting it in Terminal, or paste the local dev token itself.
+              This token only unlocks your local bridge; it is not your upstream Anthropic credential.
             </div>
           </div>
 
@@ -713,8 +714,8 @@
           <div class="card" style="font-size: 0.8rem; color: var(--muted)">
             <strong>Tip:</strong> Paste this into your terminal and press Enter. The runner connects through your local
             bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>. If the bridge says
-            <code style="font-size: 0.75rem">Unauthorized: Missing Bearer token</code>, set Caller auth token to
-            <code style="font-size: 0.75rem">$BRIDGE_CALLER_TOKEN</code> or your local dev token. Use
+            <code style="font-size: 0.75rem">Unauthorized: Missing Bearer token</code>, caller auth is enabled; either
+            disable it in VS Code settings or set Caller auth token here. Use
             <code style="font-size: 0.75rem">stream-json</code> when another script or agent needs to parse every runner
             event. Set a human-readable log path when you want a plain text record of the prompt, tool calls, and final
             answer. <code>--no-network</code> is only a best-effort shell proxy guard; it is not a sandbox. Turn on a

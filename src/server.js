@@ -143,7 +143,7 @@ async function handleRequest(ctx, req, res) {
   const url = new URL(req.url, 'http://localhost');
 
   const config = vscode.workspace.getConfiguration('claudeLocalBridge');
-  const requireCallerAuth = config.get('requireCallerAuth', true);
+  const requireCallerAuth = config.get('requireCallerAuth', false);
   if (requireCallerAuth && !isCallerAuthExempt(req, url.pathname)) {
     const authHeader = req.headers['authorization'] || req.headers['Authorization'];
     const bearerToken = parseBearerToken(authHeader);

@@ -24,7 +24,7 @@ async function handleDebug(ctx, _req, res) {
     upstreamAuthMode: getCredentialAuthMode(creds),
     authenticated: !!(creds.apiKey || creds.accessToken),
     callerAuth: {
-      enabled: config.get('requireCallerAuth', true),
+      enabled: config.get('requireCallerAuth', false),
       tokenSource: ctx.callerAuthTokenSource || 'uninitialized',
       tokenLoaded: !!ctx.callerAuthToken,
       tokenRotatedAt: ctx.callerAuthTokenRotatedAt ? new Date(ctx.callerAuthTokenRotatedAt).toISOString() : null,
