@@ -3,7 +3,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('http');
-const { post, postStream } = require('../../src/runner/model-client');
+const { post, postStream, withCallerAuth } = require('../../src/runner/model-client');
 
 function createMockServer(responseBody, statusCode) {
   return new Promise((resolve) => {
@@ -23,6 +23,16 @@ function createMockServer(responseBody, statusCode) {
 }
 
 describe('model-client', () => {
+  it('adds caller auth without overriding explicit headers', () => {
+    assert.deepEqual(withCallerAuth({ 'x-test': '1' }, 'local-token'), {
+      authorization: 'Bearer local-token',
+      'x-test': '1',
+    });
+    assert.deepEqual(withCallerAuth({ authorization: 'Bearer custom' }, 'local-token'), {
+      authorization: 'Bearer custom',
+    });
+  });
+
   it('handles 200 text response', async () => {
     const response = {
       id: 'msg_01',
@@ -82,8 +92,10 @@ describe('model-client', () => {
 
   it('forwards local trace headers to the bridge', async () => {
     let traceHeader = null;
+    let authHeader = null;
     const server = http.createServer((req, res) => {
       traceHeader = req.headers['x-local-bridge-trace-level'];
+      authHeader = req.headers.authorization;
       req.resume();
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ content: [{ type: 'text', text: 'ok' }] }));
@@ -94,8 +106,10 @@ describe('model-client', () => {
     try {
       await post({ model: 'test', max_tokens: 10, messages: [] }, `http://127.0.0.1:${port}/v1/messages`, {
         headers: { 'x-local-bridge-trace-level': 'summary' },
+        callerToken: 'local-token',
       });
       assert.equal(traceHeader, 'summary');
+      assert.equal(authHeader, 'Bearer local-token');
     } finally {
       server.close();
     }

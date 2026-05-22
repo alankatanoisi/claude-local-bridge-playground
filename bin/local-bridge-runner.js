@@ -43,6 +43,7 @@ Options:\n\
   --human-log <path>   Plain-text readable log path (off by default)\n\
   --trace-level <l>    Flight recorder: off, summary, redacted, or full\n\
   --trace-path <path>  Runner trace JSONL path (bridge trace is correlated separately)\n\
+  --caller-token <t>   Local bridge caller auth token (or BRIDGE_CALLER_TOKEN env)\n\
   --include-file <p>   Include a bounded relative file in pasted context (repeatable)\n\
   --resume <path>      Resume from a transcript (appends new prompt to existing conversation)\n\
   --accept-edits       Auto-approve write/edit/patch tools (skip confirmation)\n\
@@ -98,6 +99,7 @@ async function main() {
         'human-log': { type: 'string' },
         'trace-level': { type: 'string' },
         'trace-path': { type: 'string' },
+        'caller-token': { type: 'string' },
         'include-file': { type: 'string', multiple: true },
         resume: { type: 'string' },
         'accept-edits': { type: 'boolean' },
@@ -156,6 +158,7 @@ async function main() {
   const shellTimeout = parseInt(args.values['shell-timeout'], 10) || 30000;
   const outputFormat = args.values['output-format'] || 'text';
   const traceLevel = args.values['trace-level'] || 'off';
+  const callerToken = args.values['caller-token'] || process.env.BRIDGE_CALLER_TOKEN || '';
   if (!['off', 'summary', 'redacted', 'full'].includes(traceLevel)) {
     console.error('Error: --trace-level must be one of: off, summary, redacted, full');
     process.exit(1);
@@ -266,6 +269,7 @@ async function main() {
     humanLogPath: args.values['human-log'],
     traceLevel,
     tracePath: args.values['trace-path'],
+    callerToken,
     verbose,
     quiet,
     acceptEdits,

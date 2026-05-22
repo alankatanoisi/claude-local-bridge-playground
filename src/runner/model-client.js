@@ -31,6 +31,11 @@ function responseMeta(res) {
   };
 }
 
+function withCallerAuth(headers = {}, callerToken) {
+  if (!callerToken) return headers;
+  return { authorization: 'Bearer ' + callerToken, ...headers };
+}
+
 function post(body, bridgeUrl, opts = {}) {
   const url = bridgeUrl || DEFAULT_BRIDGE_URL;
   const bodyStr = JSON.stringify(body);
@@ -45,7 +50,7 @@ function post(body, bridgeUrl, opts = {}) {
       headers: {
         'content-type': 'application/json',
         'content-length': Buffer.byteLength(bodyStr),
-        ...(opts.headers || {}),
+        ...withCallerAuth(opts.headers, opts.callerToken),
       },
       timeout: 120000,
       agent: keepAliveAgent,
@@ -102,7 +107,7 @@ function postStream(body, cb, bridgeUrl, opts) {
         'content-type': 'application/json',
         'content-length': Buffer.byteLength(bodyStr),
         accept: 'text/event-stream',
-        ...(options.headers || {}),
+        ...withCallerAuth(options.headers, options.callerToken),
       },
       timeout: 120000,
       agent: keepAliveAgent,
@@ -245,4 +250,4 @@ function postStream(body, cb, bridgeUrl, opts) {
   });
 }
 
-module.exports = { post, postStream };
+module.exports = { post, postStream, withCallerAuth };

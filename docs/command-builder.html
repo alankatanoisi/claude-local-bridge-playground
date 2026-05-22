@@ -626,6 +626,10 @@
               Traces help debug what the runner built, what the bridge forwarded, tool decisions, usage, and cache
               counters returned by the model. Treat redacted and full traces like source-code logs.
             </div>
+            <div class="field">
+              <label for="callerToken">Caller auth token</label>
+              <input type="text" id="callerToken" placeholder="$BRIDGE_CALLER_TOKEN or local-dev-token" />
+            </div>
           </div>
 
           <!-- Tool catalog -->
@@ -741,6 +745,7 @@
       const humanLog = document.getElementById('humanLog');
       const traceLevel = document.getElementById('traceLevel');
       const tracePath = document.getElementById('tracePath');
+      const callerToken = document.getElementById('callerToken');
       const cmdOutput = document.getElementById('cmdOutput');
       const copyBtn = document.getElementById('copyBtn');
       const copyFeedback = document.getElementById('copyFeedback');
@@ -804,6 +809,7 @@
         if (humanLog.value.trim()) parts.push('--human-log ' + shellQuote(humanLog.value.trim()));
         if (traceLevel.value !== DEFAULTS.traceLevel) parts.push('--trace-level ' + traceLevel.value);
         if (tracePath.value.trim()) parts.push('--trace-path ' + shellQuote(tracePath.value.trim()));
+        if (callerToken.value.trim()) parts.push('--caller-token ' + shellQuote(callerToken.value.trim()));
         if (systemPrompt.value.trim()) parts.push('--system-prompt ' + shellQuote(systemPrompt.value.trim()));
         if (continueFromLatest.checked) parts.push('--continue');
         if (acceptEdits.checked) parts.push('--accept-edits');
@@ -930,6 +936,7 @@
         humanLog,
         traceLevel,
         tracePath,
+        callerToken,
         plan,
         noNetwork,
         systemPrompt,
@@ -1118,6 +1125,7 @@
         outputFormat.value = p.outputFormat || DEFAULTS.outputFormat;
         traceLevel.value = p.traceLevel || DEFAULTS.traceLevel;
         tracePath.value = p.tracePath || '';
+        callerToken.value = p.callerToken || '';
         resumePath.value = p.resumePath || '';
         plan.checked = p.plan || false;
         noNetwork.checked = p.noNetwork || false;

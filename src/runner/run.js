@@ -135,6 +135,7 @@ async function run(options) {
     maxToolCallsPerTurn,
     traceLevel,
     tracePath,
+    callerToken,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
@@ -273,9 +274,13 @@ async function run(options) {
         response = await modelClient.postStream(requestBody, null, bridgeUrl, {
           streamOutput: true,
           headers: bridgeTraceHeaders(trace, runId, step),
+          callerToken,
         });
       } else {
-        response = await modelClient.post(requestBody, bridgeUrl, { headers: bridgeTraceHeaders(trace, runId, step) });
+        response = await modelClient.post(requestBody, bridgeUrl, {
+          headers: bridgeTraceHeaders(trace, runId, step),
+          callerToken,
+        });
       }
     } catch (err) {
       const msg = 'Bridge error on step ' + step + ': ' + err.message;

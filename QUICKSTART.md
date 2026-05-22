@@ -107,6 +107,8 @@ cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
 Start with a read-only or plan-style run:
 
 ```bash
+export BRIDGE_CALLER_TOKEN=local-dev-token
+
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/project" \
   --allowed-tools list_files,read_file,search_text,git_status \

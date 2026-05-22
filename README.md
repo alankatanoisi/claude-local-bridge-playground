@@ -144,6 +144,7 @@ Useful runner options:
 | `--human-log <path>`     | Write a plain text log of the prompt, tool results, and final answer   |
 | `--trace-level <level>`  | Write correlated flight-recorder traces: summary, redacted, or full    |
 | `--trace-path <path>`    | Choose the runner trace JSONL path; bridge trace path is correlated    |
+| `--caller-token <token>` | Local bridge caller-auth token; can also use `BRIDGE_CALLER_TOKEN` env |
 | `--plan`                 | Plan mode: describe actions instead of executing them                  |
 | `--no-network`           | Best-effort HTTP/HTTPS proxy guard for shell, not a network sandbox    |
 | `--system-prompt <s>`    | Override the default system prompt                                     |
