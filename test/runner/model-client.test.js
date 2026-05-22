@@ -34,6 +34,8 @@ describe('model-client', () => {
     try {
       const result = await post({ model: 'test', max_tokens: 10, messages: [] }, url);
       assert.equal(result.content[0].text, 'Hello world');
+      assert.equal(result._localBridge.status_code, 200);
+      assert.equal(result._localBridge.headers['content-type'], 'application/json');
     } finally {
       server.close();
     }
@@ -78,9 +80,33 @@ describe('model-client', () => {
     });
   });
 
+  it('forwards local trace headers to the bridge', async () => {
+    let traceHeader = null;
+    const server = http.createServer((req, res) => {
+      traceHeader = req.headers['x-local-bridge-trace-level'];
+      req.resume();
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ content: [{ type: 'text', text: 'ok' }] }));
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = server.address().port;
+
+    try {
+      await post({ model: 'test', max_tokens: 10, messages: [] }, `http://127.0.0.1:${port}/v1/messages`, {
+        headers: { 'x-local-bridge-trace-level': 'summary' },
+      });
+      assert.equal(traceHeader, 'summary');
+    } finally {
+      server.close();
+    }
+  });
+
   it('reconstructs streamed text and tool input deltas', async () => {
     const frames = [
-      { type: 'message_start', message: { id: 'msg_01', type: 'message', role: 'assistant', content: [] } },
+      {
+        type: 'message_start',
+        message: { id: 'msg_01', type: 'message', role: 'assistant', content: [], usage: { input_tokens: 7 } },
+      },
       { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
       { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Reading files.' } },
       { type: 'content_block_stop', index: 0 },
@@ -92,6 +118,7 @@ describe('model-client', () => {
       { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: '{"path":"src/' } },
       { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: 'runner/run.js"}' } },
       { type: 'content_block_stop', index: 1 },
+      { type: 'message_delta', usage: { output_tokens: 4, cache_read_input_tokens: 3 } },
       { type: 'message_stop' },
     ];
 
@@ -119,6 +146,9 @@ describe('model-client', () => {
         { type: 'text', text: 'Reading files.' },
         { type: 'tool_use', id: 'toolu_1', name: 'read_file', input: { path: 'src/runner/run.js' } },
       ]);
+      assert.equal(result.usage.input_tokens, 7);
+      assert.equal(result.usage.output_tokens, 4);
+      assert.equal(result.usage.cache_read_input_tokens, 3);
     } finally {
       server.close();
     }

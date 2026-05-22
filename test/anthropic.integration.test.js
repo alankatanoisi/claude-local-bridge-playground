@@ -4,6 +4,8 @@ const { describe, it, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const https = require('https');
+const fs = require('fs');
+const { defaultBridgeTracePath } = require('../src/trace-utils');
 
 function makeCtx() {
   return {
@@ -153,5 +155,42 @@ describe('anthropic pass-through integration', () => {
     assert.equal(res.headers['content-type'], 'application/json');
     const body = JSON.parse(res.writes.join(''));
     assert.equal(body.id, 'msg_1');
+  });
+
+  it('writes correlated bridge trace events when a trace header is present', async () => {
+    const traceId = 'trace_bridge_test_' + Date.now();
+    const tracePath = defaultBridgeTracePath(traceId);
+    const { handleAnthropicMessages } = loadAnthropicHandler(() => {});
+    const script = installHttpsScript([
+      {
+        statusCode: 200,
+        headers: { 'content-type': 'application/json', 'x-request-id': 'req_trace' },
+        chunks: [JSON.stringify({ type: 'message', id: 'msg_trace', content: [{ type: 'text', text: 'ok' }] })],
+      },
+    ]);
+    restoreHttps = script.restore;
+
+    const req = makeReq({ model: 'claude-sonnet-4-5', messages: [{ role: 'user', content: 'trace me' }] });
+    req.headers['x-local-bridge-trace-level'] = 'summary';
+    req.headers['x-local-bridge-trace-id'] = traceId;
+    req.headers['x-local-bridge-run-id'] = traceId;
+    req.headers['x-local-bridge-trace-turn'] = '1';
+    const res = makeRes();
+
+    try {
+      await handleAnthropicMessages(makeCtx(), req, res);
+      const events = fs
+        .readFileSync(tracePath, 'utf8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+      assert.ok(events.some((event) => event.type === 'bridge_request_received'));
+      assert.ok(events.some((event) => event.type === 'bridge_request_transformed'));
+      assert.ok(events.some((event) => event.type === 'upstream_request_started'));
+      assert.ok(events.some((event) => event.type === 'upstream_response_finished'));
+      assert.equal(events.find((event) => event.type === 'bridge_request_received').payload, undefined);
+    } finally {
+      fs.rmSync(tracePath, { force: true });
+    }
   });
 });

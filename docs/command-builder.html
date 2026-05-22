@@ -606,6 +606,26 @@
               <label for="humanLog">Human-readable log path</label>
               <input type="text" id="humanLog" placeholder="~/.bridge-runner/logs/run-notes.md" />
             </div>
+
+            <div class="row">
+              <div class="field">
+                <label for="traceLevel">Flight recorder trace level</label>
+                <select id="traceLevel">
+                  <option value="off">off - no trace files</option>
+                  <option value="summary">summary - metadata only</option>
+                  <option value="redacted">redacted - scrubbed payloads</option>
+                  <option value="full">full - broad local evidence</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="tracePath">Runner trace path</label>
+                <input type="text" id="tracePath" placeholder="~/.bridge-runner/traces/run.runner.jsonl" />
+              </div>
+            </div>
+            <div class="note show">
+              Traces help debug what the runner built, what the bridge forwarded, tool decisions, usage, and cache
+              counters returned by the model. Treat redacted and full traces like source-code logs.
+            </div>
           </div>
 
           <!-- Tool catalog -->
@@ -687,7 +707,8 @@
             bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>. Use
             <code style="font-size: 0.75rem">stream-json</code> when another script or agent needs to parse every runner
             event. Set a human-readable log path when you want a plain text record of the prompt, tool calls, and final
-            answer. <code>--no-network</code> is only a best-effort shell proxy guard; it is not a sandbox.
+            answer. <code>--no-network</code> is only a best-effort shell proxy guard; it is not a sandbox. Turn on a
+            <code>summary</code> trace when you need a flight recorder without writing prompt bodies.
           </div>
         </div>
       </div>
@@ -718,6 +739,8 @@
       const resumePath = document.getElementById('resumePath');
       const transcript = document.getElementById('transcript');
       const humanLog = document.getElementById('humanLog');
+      const traceLevel = document.getElementById('traceLevel');
+      const tracePath = document.getElementById('tracePath');
       const cmdOutput = document.getElementById('cmdOutput');
       const copyBtn = document.getElementById('copyBtn');
       const copyFeedback = document.getElementById('copyFeedback');
@@ -736,6 +759,7 @@
         model: 'claude-sonnet-4-6',
         shellTimeout: 30000,
         outputFormat: 'text',
+        traceLevel: 'off',
       };
       const DEFAULT_TOOL_NAMES = toolChoices.map((choice) => choice.value).filter((name) => name !== 'bash');
       const READ_TOOL_NAMES = ['list_files', 'read_file', 'search_text', 'git_status'];
@@ -778,6 +802,8 @@
         if (transcript.value.trim() && !resumePath.value.trim())
           parts.push('--transcript ' + shellQuote(transcript.value.trim()));
         if (humanLog.value.trim()) parts.push('--human-log ' + shellQuote(humanLog.value.trim()));
+        if (traceLevel.value !== DEFAULTS.traceLevel) parts.push('--trace-level ' + traceLevel.value);
+        if (tracePath.value.trim()) parts.push('--trace-path ' + shellQuote(tracePath.value.trim()));
         if (systemPrompt.value.trim()) parts.push('--system-prompt ' + shellQuote(systemPrompt.value.trim()));
         if (continueFromLatest.checked) parts.push('--continue');
         if (acceptEdits.checked) parts.push('--accept-edits');
@@ -902,6 +928,8 @@
         resumePath,
         transcript,
         humanLog,
+        traceLevel,
+        tracePath,
         plan,
         noNetwork,
         systemPrompt,
@@ -1088,6 +1116,8 @@
         stream.checked = p.stream || false;
         verbose.checked = p.verbose;
         outputFormat.value = p.outputFormat || DEFAULTS.outputFormat;
+        traceLevel.value = p.traceLevel || DEFAULTS.traceLevel;
+        tracePath.value = p.tracePath || '';
         resumePath.value = p.resumePath || '';
         plan.checked = p.plan || false;
         noNetwork.checked = p.noNetwork || false;

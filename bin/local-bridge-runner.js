@@ -41,6 +41,8 @@ Options:\n\
       ')\n\
   --transcript <path>  JSONL transcript path (default: ~/.bridge-runner/logs/<ts>.jsonl)\n\
   --human-log <path>   Plain-text readable log path (off by default)\n\
+  --trace-level <l>    Flight recorder: off, summary, redacted, or full\n\
+  --trace-path <path>  Runner trace JSONL path (bridge trace is correlated separately)\n\
   --include-file <p>   Include a bounded relative file in pasted context (repeatable)\n\
   --resume <path>      Resume from a transcript (appends new prompt to existing conversation)\n\
   --accept-edits       Auto-approve write/edit/patch tools (skip confirmation)\n\
@@ -76,6 +78,7 @@ Beginner notes:\n\
   Start with --plan or read-only tools while you learn what a prompt will do.\n\
   --accept-edits allows file changes. --allow-shell exposes bash commands.\n\
   --dont-ask only skips prompts for tools you already enabled; it does not enable bash by itself.\n\
+  redacted/full traces are local files that can contain prompts and source-code details.\n\
 ',
   );
 }
@@ -93,6 +96,8 @@ async function main() {
         'max-steps': { type: 'string' },
         transcript: { type: 'string' },
         'human-log': { type: 'string' },
+        'trace-level': { type: 'string' },
+        'trace-path': { type: 'string' },
         'include-file': { type: 'string', multiple: true },
         resume: { type: 'string' },
         'accept-edits': { type: 'boolean' },
@@ -150,6 +155,11 @@ async function main() {
   const allowShell = !!args.values['allow-shell'];
   const shellTimeout = parseInt(args.values['shell-timeout'], 10) || 30000;
   const outputFormat = args.values['output-format'] || 'text';
+  const traceLevel = args.values['trace-level'] || 'off';
+  if (!['off', 'summary', 'redacted', 'full'].includes(traceLevel)) {
+    console.error('Error: --trace-level must be one of: off, summary, redacted, full');
+    process.exit(1);
+  }
   const stream = !!args.values.stream;
   const includeFiles = args.values['include-file'] || [];
   const noNetwork = !!args.values['no-network'];
@@ -242,6 +252,7 @@ async function main() {
     noNetwork,
     allowedTools,
     outputFormat,
+    traceLevel,
   });
 
   await run({
@@ -253,6 +264,8 @@ async function main() {
     maxSteps,
     transcriptPath,
     humanLogPath: args.values['human-log'],
+    traceLevel,
+    tracePath: args.values['trace-path'],
     verbose,
     quiet,
     acceptEdits,
@@ -299,6 +312,9 @@ function printRuntimeTips(options) {
   }
   if (options.outputFormat !== 'text') {
     console.error('[runner] tip: machine-readable output stays on stdout; runner tips and warnings stay on stderr.');
+  }
+  if (options.traceLevel && options.traceLevel !== 'off') {
+    console.error('[runner] tip: flight-recorder traces stay local; treat redacted/full traces as sensitive.');
   }
 }
 

@@ -118,7 +118,18 @@ async function handleRequest(ctx, req, res) {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader(
       'Access-Control-Allow-Headers',
-      'Content-Type, Authorization, x-api-key, anthropic-version, anthropic-beta, x-goog-api-key',
+      [
+        'Content-Type',
+        'Authorization',
+        'x-api-key',
+        'anthropic-version',
+        'anthropic-beta',
+        'x-goog-api-key',
+        'x-local-bridge-trace-id',
+        'x-local-bridge-run-id',
+        'x-local-bridge-trace-turn',
+        'x-local-bridge-trace-level',
+      ].join(', '),
     );
     res.setHeader('Vary', 'Origin');
   }
@@ -173,8 +184,6 @@ async function handleRequest(ctx, req, res) {
     error: { message: `Unknown: ${req.method} ${url.pathname}`, type: 'not_found' },
   });
 }
-
-
 
 function parseBearerToken(authHeader) {
   if (!authHeader || typeof authHeader !== 'string') return null;

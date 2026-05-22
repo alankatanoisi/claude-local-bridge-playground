@@ -118,6 +118,20 @@ What to expect: the runner prints tips and progress lines in Terminal, asks the 
 JSONL transcript under `~/.bridge-runner/logs/`. If you need a form instead of typing flags by hand, open
 `docs/command-builder.html` in a browser and copy its generated command.
 
+To keep a metadata flight recorder for a test run, add `--trace-level summary`:
+
+```bash
+node bin/local-bridge-runner.js \
+  --cwd "/Users/alanman/path/to/project" \
+  --trace-level summary \
+  --allowed-tools list_files,read_file,search_text,git_status \
+  "List the top-level files and stop. Do not edit files."
+```
+
+The runner prints its trace path in Terminal. A correlated bridge trace is written under
+`~/.claude-local-bridge/traces/`. `summary` avoids prompt bodies. `redacted` and `full` can include source-code and prompt
+details, so treat those files as sensitive.
+
 Safety reminders:
 
 - `--accept-edits` lets the model change project files without a write approval prompt.
@@ -125,6 +139,7 @@ Safety reminders:
 - `--dont-ask` skips prompts for risky tools you already enabled; it does not enable shell by itself.
 - A run that needs approval but has no interactive Terminal input is denied instead of silently approving.
 - `--no-network` is a best-effort HTTP/HTTPS proxy guard for bash, not a true network sandbox.
+- Traces show what the local bridge and runner saw; they do not expose Anthropic's private server-side telemetry.
 
 ---
 

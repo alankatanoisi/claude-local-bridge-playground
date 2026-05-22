@@ -94,4 +94,45 @@ describe('runner output formats', () => {
       modelClient.post = originalPost;
     }
   });
+
+  it('writes a correlated runner trace when flight recorder is enabled', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-trace-'));
+    const tracePath = path.join(tmpDir, 'trace.jsonl');
+    const originalPost = modelClient.post;
+    modelClient.post = async () => ({
+      id: 'msg_trace',
+      content: [{ type: 'text', text: 'trace final' }],
+      usage: { input_tokens: 5, output_tokens: 2, cache_creation_input_tokens: 4 },
+      _localBridge: { status_code: 200, headers: { 'x-request-id': 'req_trace' } },
+    });
+
+    try {
+      await captureStdout(() =>
+        run({
+          prompt: 'trace this',
+          cwd: tmpDir,
+          model: 'test',
+          maxTokens: 10,
+          maxSteps: 2,
+          outputFormat: 'json',
+          traceLevel: 'summary',
+          tracePath,
+          quiet: true,
+        }),
+      );
+      const events = fs
+        .readFileSync(tracePath, 'utf8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+      assert.ok(events.some((event) => event.type === 'run_started'));
+      assert.ok(events.some((event) => event.type === 'runner_model_request_built'));
+      assert.ok(events.some((event) => event.type === 'runner_model_response_received'));
+      assert.ok(events.some((event) => event.type === 'run_completed'));
+      assert.equal(events.find((event) => event.type === 'runner_model_request_built').payload, undefined);
+      assert.equal(events.find((event) => event.type === 'run_completed').usage.input_tokens, 5);
+    } finally {
+      modelClient.post = originalPost;
+    }
+  });
 });

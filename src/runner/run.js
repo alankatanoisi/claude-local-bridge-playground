@@ -9,6 +9,15 @@ const confirm = require('./confirmation');
 const safety = require('./safety');
 const { CATEGORIES } = require('./permissions');
 const { HumanLog } = require('./human-log');
+const {
+  JsonlTrace,
+  bodySummary,
+  bytes,
+  defaultRunnerTracePath,
+  headerSummary,
+  makeTraceId,
+  normalizeTraceLevel,
+} = require('../trace-utils');
 
 const DEFAULT_MAX_STEPS = 16;
 const MAX_CONSECUTIVE_FAILURES = 2;
@@ -124,6 +133,8 @@ async function run(options) {
     allowedTools,
     maxContextTokens,
     maxToolCallsPerTurn,
+    traceLevel,
+    tracePath,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
@@ -151,6 +162,18 @@ async function run(options) {
   const humanLog = humanLogPath ? new HumanLog(humanLogPath) : null;
   const output = makeOutput(outputFormat);
   const startedAt = Date.now();
+  const normalizedTraceLevel = normalizeTraceLevel(traceLevel);
+  const runId = makeTraceId(options.runId);
+  const trace =
+    normalizedTraceLevel === 'off'
+      ? null
+      : new JsonlTrace({
+          filePath: tracePath || defaultRunnerTracePath(runId),
+          level: normalizedTraceLevel,
+          traceId: runId,
+          layer: 'runner',
+        });
+  if (trace && !quiet) console.error('[runner] flight recorder: ' + trace.filePath);
 
   let messages;
   if (resume && transcriptPath) {
@@ -175,6 +198,44 @@ async function run(options) {
   let consecutiveToolFailures = 0;
 
   output.emit('system', { subtype: 'init', cwd: ctx.cwdRealpath, model, max_steps: steps });
+  if (trace) {
+    trace.append('run_started', {
+      run_id: runId,
+      cwd: ctx.cwdRealpath,
+      model,
+      max_steps: steps,
+      output_format: outputFormat,
+      flags: {
+        allow_shell: ctx.allowShell,
+        accept_edits: ctx.acceptEdits,
+        dont_ask: ctx.dontAsk,
+        no_network: ctx.noNetwork,
+        plan: ctx.plan,
+      },
+      artifacts: {
+        runner_trace: trace.filePath,
+        bridge_trace: 'bridge writes ~/.claude-local-bridge/traces/' + runId + '.bridge.jsonl',
+      },
+      visibility_notes: {
+        runner_only: ['cwd validation', 'permission decisions', 'local file and shell effects'],
+        bridge_only: ['credential source', 'auth header injection', 'upstream host and forwarded header names'],
+        upstream_bound: [
+          'Anthropic Messages body after bridge transformation',
+          'upstream auth and fingerprint headers',
+        ],
+      },
+    });
+    trace.append('runner_context_prepared', {
+      run_id: runId,
+      prompt_bytes: bytes(prompt || ''),
+      stdin_bytes: bytes(stdinText || ''),
+      messages_count: messages.length,
+      system_bytes: bytes(system),
+      tools: tools.map((tool) => tool.name),
+      prompt: trace.capture(prompt || ''),
+      stdin_text: trace.capture(stdinText || ''),
+    });
+  }
   if (humanLog) {
     humanLog.writeRunStart({ cwd: ctx.cwdRealpath, model, maxSteps: steps, outputFormat });
     humanLog.writeUserPrompt(prompt, stdinText);
@@ -193,6 +254,15 @@ async function run(options) {
       ...(typeof temperature === 'number' && !isNaN(temperature) ? { temperature } : {}),
     };
 
+    if (trace) {
+      trace.append('runner_model_request_built', {
+        run_id: runId,
+        turn: step,
+        boundary: 'runner_to_bridge',
+        request: bodySummary(requestBody),
+        payload: trace.capture(requestBody),
+      });
+    }
     if (transcript) transcript.append({ type: 'request', step, model });
     output.emit('model_request', { step, model });
     if (verbose) console.error('[runner] step ' + step + ': sending request to bridge');
@@ -200,15 +270,18 @@ async function run(options) {
     let response;
     try {
       if (stream && outputFormat === 'text') {
-        response = await modelClient.postStream(requestBody, null, bridgeUrl, { streamOutput: true });
-        response = { id: 'streamed', type: 'message', role: 'assistant', content: response.content || [] };
+        response = await modelClient.postStream(requestBody, null, bridgeUrl, {
+          streamOutput: true,
+          headers: bridgeTraceHeaders(trace, runId, step),
+        });
       } else {
-        response = await modelClient.post(requestBody, bridgeUrl);
+        response = await modelClient.post(requestBody, bridgeUrl, { headers: bridgeTraceHeaders(trace, runId, step) });
       }
     } catch (err) {
       const msg = 'Bridge error on step ' + step + ': ' + err.message;
       if (transcript) transcript.append({ type: 'error', step, message: msg });
       if (humanLog) humanLog.writeError(msg);
+      if (trace) trace.append('runner_bridge_error', { run_id: runId, turn: step, message: msg });
       console.error(msg);
       if (step < steps && consecutiveToolFailures < MAX_CONSECUTIVE_FAILURES) {
         consecutiveToolFailures++;
@@ -226,6 +299,19 @@ async function run(options) {
     if (transcript) transcript.append({ type: 'assistant', step, content: response.content });
     if (humanLog) humanLog.writeAssistant(step, response);
     totalUsage = addUsage(totalUsage, response.usage);
+    if (trace) {
+      trace.append('runner_model_response_received', {
+        run_id: runId,
+        turn: step,
+        boundary: 'bridge_to_runner',
+        response_bytes: bytes(response),
+        bridge_response: response._localBridge
+          ? { status_code: response._localBridge.status_code, headers: headerSummary(response._localBridge.headers) }
+          : null,
+        usage: response.usage || {},
+        payload: trace.capture(response),
+      });
+    }
     if (
       verbose &&
       response.usage &&
@@ -345,6 +431,7 @@ async function run(options) {
         usage: totalUsage,
       });
       output.finish(result);
+      if (trace) trace.append('run_completed', { run_id: runId, ...traceRunResult(result) });
       return result;
     }
 
@@ -364,6 +451,7 @@ async function run(options) {
       console.error('[runner] step ' + step + ': executing ' + readTools.length + ' read-only tools as a batch');
     }
     for (const tu of readTools) {
+      if (trace) trace.append('tool_requested', traceToolUse(runId, step, tu, trace));
       let result = execute(tu.name, tu.input || {}, ctx, tu.id);
       if (result.needsConfirmation && ctx.plan) {
         result = { ok: true, text: 'Plan mode: would ' + result.proposedAction };
@@ -390,6 +478,7 @@ async function run(options) {
         });
       }
       if (humanLog) humanLog.writeToolResult(step, tu.name, tu.id, result);
+      if (trace) trace.append('tool_finished', traceToolResult(runId, step, tu, result, trace));
       toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: result.text || '', is_error: !result.ok });
       if (verbose)
         console.error(
@@ -409,6 +498,7 @@ async function run(options) {
       const args = toolUse.input || {};
       const toolUseId = toolUse.id;
       output.emit('tool_use', { step, tool_use_id: toolUseId, name: toolName, input: args });
+      if (trace) trace.append('tool_requested', traceToolUse(runId, step, toolUse, trace));
       if (transcript) transcript.append({ type: 'tool_call', step, tool: toolName, args, toolUseId });
       if (verbose)
         console.error('[runner] step ' + step + ': tool_call ' + toolName + '(' + JSON.stringify(args) + ')');
@@ -416,6 +506,15 @@ async function run(options) {
       let result = execute(toolName, args, ctx, toolUseId);
 
       if (result.needsConfirmation) {
+        if (trace)
+          trace.append('permission_decision', {
+            run_id: runId,
+            turn: step,
+            tool_use_id: toolUseId,
+            tool: toolName,
+            decision: 'approval_required',
+            proposed_action: trace.capture(result.proposedAction),
+          });
         output.emit('approval_required', {
           step,
           tool_use_id: toolUseId,
@@ -428,6 +527,14 @@ async function run(options) {
           result = { ok: true, text: 'Plan mode: would ' + result.proposedAction };
         } else {
           const choice = await confirm.ask(result.proposedAction, ctx.confirmTimeout);
+          if (trace)
+            trace.append('approval_resolved', {
+              run_id: runId,
+              turn: step,
+              tool_use_id: toolUseId,
+              tool: toolName,
+              decision: choice,
+            });
           if (choice === 'allow') result = executeForce(toolName, args, ctx, toolUseId);
           else {
             if (transcript) transcript.append({ type: 'tool_denied', step, tool: toolName });
@@ -478,6 +585,7 @@ async function run(options) {
           toolUseId,
         });
       if (humanLog) humanLog.writeToolResult(step, toolName, toolUseId, result);
+      if (trace) trace.append('tool_finished', traceToolResult(runId, step, toolUse, result, trace));
       if (verbose)
         console.error(
           '[runner] step ' +
@@ -519,7 +627,58 @@ async function run(options) {
     events: output.events,
   });
   process.exitCode = 1;
+  if (trace)
+    trace.append('run_failed', {
+      run_id: runId,
+      final_text: trace.capture(msg),
+      steps,
+      duration_ms: Date.now() - startedAt,
+      usage: totalUsage,
+    });
   return { finalText: msg, steps, duration_ms: Date.now() - startedAt, usage: totalUsage, events: output.events };
+}
+
+function bridgeTraceHeaders(trace, runId, turn) {
+  if (!trace) return {};
+  return {
+    'x-local-bridge-trace-id': runId,
+    'x-local-bridge-run-id': runId,
+    'x-local-bridge-trace-turn': String(turn),
+    'x-local-bridge-trace-level': trace.level,
+  };
+}
+
+function traceToolUse(runId, turn, toolUse, trace) {
+  return {
+    run_id: runId,
+    turn,
+    tool_use_id: toolUse.id,
+    tool: toolUse.name,
+    input_bytes: bytes(toolUse.input || {}),
+    input: trace.capture(toolUse.input || {}),
+  };
+}
+
+function traceToolResult(runId, turn, toolUse, result, trace) {
+  return {
+    run_id: runId,
+    turn,
+    tool_use_id: toolUse.id,
+    tool: toolUse.name,
+    ok: !!result.ok,
+    bytes: result.bytes,
+    result_bytes: bytes(result.text || ''),
+    result: trace.capture(result.text || ''),
+  };
+}
+
+function traceRunResult(result) {
+  return {
+    steps: result.steps,
+    duration_ms: result.duration_ms,
+    usage: result.usage,
+    final_text_bytes: bytes(result.finalText || ''),
+  };
 }
 
 module.exports = {

@@ -487,6 +487,18 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td>Where to write a plain text log that is easier for a human to read</td>
             </tr>
             <tr>
+              <td><code>--trace-level &lt;level&gt;</code></td>
+              <td><code>off</code></td>
+              <td>
+                Write flight-recorder traces with <code>summary</code>, <code>redacted</code>, or <code>full</code>
+              </td>
+            </tr>
+            <tr>
+              <td><code>--trace-path &lt;path&gt;</code></td>
+              <td>automatic</td>
+              <td>Choose the runner trace JSONL path; the bridge writes a correlated trace separately</td>
+            </tr>
+            <tr>
               <td><code>--include-file &lt;path&gt;</code></td>
               <td>off</td>
               <td>Copy a bounded project file into the prompt context; repeat for multiple files</td>
@@ -595,6 +607,12 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
   --human-log ~/.bridge-runner/logs/server-review.md \
   "Explain src/server.js and summarize the answer clearly"</code></pre>
 
+        <h3>Record metadata at each local boundary</h3>
+        <pre><code>node bin/local-bridge-runner.js \
+  --trace-level summary \
+  --allowed-tools list_files,read_file,search_text,git_status \
+  "Inspect this repo and stop without editing files."</code></pre>
+
         <h3>Search-first workflow</h3>
         <pre><code>node bin/local-bridge-runner.js \
   --max-tokens 4096 \
@@ -621,6 +639,30 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
   --model claude-opus-4-7 \
   --max-tokens 4096 \
   "Give me a deep dive on the proxy module"</code></pre>
+      </section>
+
+      <section>
+        <h2>Flight recorder traces</h2>
+        <p>
+          Use <code>--trace-level summary</code> when you want evidence about a run without logging prompt bodies. The
+          runner writes a JSONL trace under <code>~/.bridge-runner/traces/</code> and asks the bridge to write a
+          correlated trace under <code>~/.claude-local-bridge/traces/</code>.
+        </p>
+        <p>
+          Summary traces record turn counts, tool decisions, request sizes, visible tool names, response status
+          metadata, and model usage or cache counters returned to the runner. <code>redacted</code> adds scrubbed
+          request, response, tool-input, and tool-result payloads. <code>full</code> keeps the widest local payload
+          evidence while still redacting authorization and key-looking fields.
+        </p>
+        <p>
+          These traces show what this local runner and bridge can observe. They do not expose Anthropic's internal
+          detection logic or server-side telemetry. Treat redacted and full traces like source-code logs.
+        </p>
+        <p>
+          The runner adds correlation headers automatically. A direct Anthropic <code>/v1/messages</code> bridge client
+          can instead set the VS Code setting <code>claudeLocalBridge.traceLevel</code> or send
+          <code>x-local-bridge-trace-level: summary</code> with an authenticated local request.
+        </p>
       </section>
 
       <section>

@@ -73,6 +73,12 @@
           "default": false,
           "description": "Enable verbose request/response logging to the Output channel"
         },
+        "claudeLocalBridge.traceLevel": {
+          "type": "string",
+          "enum": ["off", "summary", "redacted", "full"],
+          "default": "off",
+          "description": "Write local bridge flight-recorder traces. full includes prompt and source-code payloads; auth-looking fields stay redacted."
+        },
         "claudeLocalBridge.requireCallerAuth": {
           "type": "boolean",
           "default": true,

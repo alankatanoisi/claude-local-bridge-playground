@@ -142,6 +142,8 @@ Useful runner options:
 | `--allowed-tools <list>` | Hide every tool except the comma-separated tools you name              |
 | `--include-file <path>`  | Attach a bounded file from `--cwd` before the model call               |
 | `--human-log <path>`     | Write a plain text log of the prompt, tool results, and final answer   |
+| `--trace-level <level>`  | Write correlated flight-recorder traces: summary, redacted, or full    |
+| `--trace-path <path>`    | Choose the runner trace JSONL path; bridge trace path is correlated    |
 | `--plan`                 | Plan mode: describe actions instead of executing them                  |
 | `--no-network`           | Best-effort HTTP/HTTPS proxy guard for shell, not a network sandbox    |
 | `--system-prompt <s>`    | Override the default system prompt                                     |
@@ -153,6 +155,22 @@ Useful runner options:
 Open [docs/command-builder.html](./docs/command-builder.html) in your browser if you prefer a form that builds these
 commands for you. A conservative first run is read-only or `--plan`; use `--accept-edits` only when file changes are
 intended, and add `--allow-shell` only when the runner needs commands such as tests.
+
+### Runner flight recorder
+
+Pass `--trace-level summary` when you need a local audit trail of one runner call without writing prompt bodies. It
+records runner turns, local tool decisions, Anthropic usage and cache counters returned to the runner, bridge request
+boundaries, forwarded header names, and upstream status metadata. The correlated files default to
+`~/.bridge-runner/traces/*.runner.jsonl` and `~/.claude-local-bridge/traces/*.bridge.jsonl`.
+
+`redacted` adds scrubbed request, response, tool-input, and tool-result payloads. `full` keeps the broadest local payload
+evidence while still redacting authorization and key-looking fields. Neither mode reveals Anthropic's internal
+classification logic or server-side telemetry; it records what this local runner and bridge can observe at their own
+boundaries. Treat redacted and full traces as sensitive source-code logs.
+
+The runner sends correlation headers to the bridge automatically. For a direct Anthropic `/v1/messages` bridge client,
+either set the VS Code setting `claudeLocalBridge.traceLevel` or send `x-local-bridge-trace-level: summary` with an
+authenticated local request.
 
 ## Using with third-party OpenAI-compatible tools
 

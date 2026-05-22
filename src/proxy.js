@@ -5,6 +5,7 @@ const { URL } = require('url');
 const vscode = require('vscode');
 const { getCredentials, clearCredentialsCache, buildAuthHeaders } = require('./credentials');
 const { log, verboseLog } = require('./utils');
+const { PREVIEW_BYTES, headerSummary } = require('./trace-utils');
 
 // Reuse a single keep-alive agent so repeated tool-use loops do not pay for a
 // fresh TLS handshake every time. This matters most when the bridge is hit many
@@ -31,7 +32,7 @@ const sharedAgent = new https.Agent({ keepAlive: true, maxSockets: 6 });
  * @param {boolean} [retry] Internal — true when retrying after a 401
  * @returns {Promise<void>}
  */
-async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false) {
+async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false, trace = null) {
   const config = vscode.workspace.getConfiguration('claudeLocalBridge');
   const configuredBaseUrl = config.get('anthropicBaseUrl', 'https://api.anthropic.com');
 
@@ -46,6 +47,20 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false) {
   const authHeaders = buildAuthHeaders(ctx, creds);
 
   verboseLog(ctx, `→ ${url.hostname}${url.pathname}  model=${tryExtractModel(bodyStr)}  source=${creds.source}`);
+  if (trace) {
+    trace.append('upstream_request_started', {
+      run_id: trace.runId,
+      turn: trace.turn,
+      boundary: 'bridge_to_upstream',
+      upstream_host: url.hostname,
+      upstream_path: url.pathname + url.search,
+      model: tryExtractModel(bodyStr),
+      credential_source: creds.source,
+      retry,
+      upstream_header_names: headerSummary(authHeaders),
+      request_bytes: Buffer.byteLength(bodyStr, 'utf8'),
+    });
+  }
 
   const bodyBuf = Buffer.from(bodyStr, 'utf8');
 
@@ -65,6 +80,17 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false) {
   return new Promise((resolve, reject) => {
     const upReq = https.request(reqOptions, (upRes) => {
       verboseLog(ctx, `← ${upRes.statusCode} ${url.pathname}`);
+      if (trace) {
+        trace.append('upstream_response_headers', {
+          run_id: trace.runId,
+          turn: trace.turn,
+          boundary: 'upstream_to_bridge',
+          status_code: upRes.statusCode,
+          headers: headerSummary(upRes.headers),
+          request_id: upRes.headers['x-request-id'] || null,
+          retry,
+        });
+      }
 
       // On 401, force a fresh credential lookup and retry once. Destroying the
       // upstream response is deliberate here: we do not want to keep reading a
@@ -79,7 +105,7 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false) {
           // supports resume(). Falling back keeps the retry semantics intact.
           upRes.resume();
         }
-        proxyToAnthropic(ctx, res, apiPath, bodyStr, true).then(resolve).catch(reject);
+        proxyToAnthropic(ctx, res, apiPath, bodyStr, true, trace).then(resolve).catch(reject);
         return;
       }
 
@@ -117,14 +143,41 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false) {
       }
 
       // Pipe upstream → client (true streaming, no buffering)
+      let responseBytes = 0;
+      let preview = Buffer.alloc(0);
       upRes.on('data', (chunk) => {
+        const data = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        responseBytes += data.length;
+        if (trace && preview.length < PREVIEW_BYTES) {
+          preview = Buffer.concat([preview, data.subarray(0, PREVIEW_BYTES - preview.length)]);
+        }
         if (!res.writableEnded) res.write(chunk);
       });
       upRes.on('end', () => {
+        if (trace) {
+          trace.append('upstream_response_finished', {
+            run_id: trace.runId,
+            turn: trace.turn,
+            boundary: 'upstream_to_bridge',
+            status_code: upRes.statusCode,
+            response_bytes: responseBytes,
+            response_preview: trace.preview(preview),
+            preview_truncated: responseBytes > preview.length,
+          });
+        }
         if (!res.writableEnded) res.end();
         resolve();
       });
       upRes.on('error', (err) => {
+        if (trace) {
+          trace.append('upstream_response_error', {
+            run_id: trace.runId,
+            turn: trace.turn,
+            boundary: 'upstream_to_bridge',
+            message: err.message,
+            response_bytes: responseBytes,
+          });
+        }
         log(ctx, `Upstream response error: ${err.message}`, true);
         if (!res.writableEnded) res.end();
         resolve();
@@ -132,11 +185,28 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false) {
     });
 
     upReq.on('error', (err) => {
+      if (trace) {
+        trace.append('upstream_request_error', {
+          run_id: trace.runId,
+          turn: trace.turn,
+          boundary: 'bridge_to_upstream',
+          message: err.message,
+          retry,
+        });
+      }
       log(ctx, `Upstream request error: ${err.message}`, true);
       reject(err);
     });
 
     upReq.on('timeout', () => {
+      if (trace) {
+        trace.append('upstream_request_timeout', {
+          run_id: trace.runId,
+          turn: trace.turn,
+          boundary: 'bridge_to_upstream',
+          retry,
+        });
+      }
       log(ctx, 'Upstream request timed out', true);
       upReq.destroy(new Error('Upstream request timed out'));
     });

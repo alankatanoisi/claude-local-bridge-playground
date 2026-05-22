@@ -106,6 +106,11 @@ The model can make unlimited tool calls within `max_steps`. There's no per-secon
 
 Transcript JSONL files include tool results (file contents, shell output). These contain project source code. Treat transcripts as sensitive.
 
+Flight-recorder traces are a separate opt-in artifact. `summary` traces keep metadata such as sizes, tool names,
+permission decisions, usage counters, response statuses, and header names. `redacted` and `full` traces can also contain
+scrubbed prompt bodies, model payloads, tool inputs, tool results, and upstream response previews. Treat those trace
+files as sensitive local evidence even though authorization and key-looking fields are redacted.
+
 ### 6. Command injection in search_text (mitigated)
 
 The `search_text` tool constructs shell commands from the user's pattern. Shell metacharacters are now properly escaped using single-quote wrapping with internal quote escaping.

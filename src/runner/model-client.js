@@ -19,7 +19,19 @@ const DEFAULT_BRIDGE_URL = 'http://127.0.0.1:11437/v1/messages';
 // TCP connection instead of paying a handshake penalty on every turn.
 const keepAliveAgent = new http.Agent({ keepAlive: true, maxSockets: 1 });
 
-function post(body, bridgeUrl) {
+function responseMeta(res) {
+  return {
+    status_code: res.statusCode,
+    headers: {
+      'content-type': res.headers['content-type'] || null,
+      'x-request-id': res.headers['x-request-id'] || null,
+      'anthropic-ratelimit-requests-remaining': res.headers['anthropic-ratelimit-requests-remaining'] || null,
+      'anthropic-ratelimit-tokens-remaining': res.headers['anthropic-ratelimit-tokens-remaining'] || null,
+    },
+  };
+}
+
+function post(body, bridgeUrl, opts = {}) {
   const url = bridgeUrl || DEFAULT_BRIDGE_URL;
   const bodyStr = JSON.stringify(body);
 
@@ -33,6 +45,7 @@ function post(body, bridgeUrl) {
       headers: {
         'content-type': 'application/json',
         'content-length': Buffer.byteLength(bodyStr),
+        ...(opts.headers || {}),
       },
       timeout: 120000,
       agent: keepAliveAgent,
@@ -49,6 +62,7 @@ function post(body, bridgeUrl) {
         }
         try {
           const parsed = JSON.parse(raw);
+          parsed._localBridge = responseMeta(res);
           resolve(parsed);
         } catch {
           reject(new Error('Invalid JSON from bridge: ' + raw.slice(0, 500)));
@@ -88,6 +102,7 @@ function postStream(body, cb, bridgeUrl, opts) {
         'content-type': 'application/json',
         'content-length': Buffer.byteLength(bodyStr),
         accept: 'text/event-stream',
+        ...(options.headers || {}),
       },
       timeout: 120000,
       agent: keepAliveAgent,
@@ -108,6 +123,8 @@ function postStream(body, cb, bridgeUrl, opts) {
       const fullContent = [];
       const toolInputBuffers = new Map();
       let lastText = '';
+      let messageMeta = {};
+      let usage = {};
 
       res.on('data', (chunk) => {
         buffer += chunk.toString('utf8');
@@ -127,6 +144,17 @@ function postStream(body, cb, bridgeUrl, opts) {
 
           try {
             const event = JSON.parse(data);
+            if (event.type === 'message_start' && event.message) {
+              messageMeta = {
+                id: event.message.id,
+                role: event.message.role,
+                type: event.message.type,
+              };
+              usage = { ...usage, ...(event.message.usage || {}) };
+            }
+            if (event.type === 'message_delta' && event.usage) {
+              usage = { ...usage, ...event.usage };
+            }
             if (event.type === 'content_block_start' && typeof event.index === 'number' && event.content_block) {
               fullContent[event.index] = event.content_block;
               if (event.content_block.type === 'tool_use') {
@@ -192,7 +220,13 @@ function postStream(body, cb, bridgeUrl, opts) {
         if (options.streamOutput && lastText) {
           process.stdout.write('\n');
         }
-        resolve({ streamed: true, content: fullContent.filter(Boolean) });
+        resolve({
+          streamed: true,
+          ...messageMeta,
+          content: fullContent.filter(Boolean),
+          usage,
+          _localBridge: responseMeta(res),
+        });
       });
 
       res.on('error', (err) => {
