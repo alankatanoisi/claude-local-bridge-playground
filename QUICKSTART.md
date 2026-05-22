@@ -2,6 +2,19 @@
 
 ## Step 1: Verify the bridge is running
 
+First, make sure Terminal is in the clean runner checkout. This matters because the older checkout does not understand
+new flags like `--output-format`, `--trace-level`, and `--caller-token`.
+
+```bash
+cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+```
+
+If you see this folder in your prompt, you are in the right place:
+
+```text
+runner-clean-pr
+```
+
 ```bash
 curl -s http://localhost:11437/v1/debug | python3 -m json.tool
 ```
@@ -25,6 +38,18 @@ Then export it for terminal examples:
 export BRIDGE_CALLER_TOKEN=local-dev-token
 ```
 
+Quick check:
+
+```bash
+echo "$BRIDGE_CALLER_TOKEN"
+```
+
+You should see:
+
+```text
+local-dev-token
+```
+
 ---
 
 ## Step 2: Test the bridge (single line, copy-paste friendly)
@@ -34,6 +59,15 @@ curl -s -X POST http://localhost:11437/v1/chat/completions -H "Content-Type: app
 ```
 
 If this returns a response → bridge works.
+
+To list models, include the same caller-auth header:
+
+```bash
+curl -s http://127.0.0.1:11437/v1/models \
+  -H "Authorization: Bearer $BRIDGE_CALLER_TOKEN" | python3 -m json.tool
+```
+
+If you forget the header, `/v1/models` returns `Unauthorized: Missing Bearer token`. That is expected.
 
 ---
 
@@ -104,6 +138,14 @@ the runner:
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
 ```
 
+Do not run these runner commands from:
+
+```text
+/Users/alanman/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/claude-local-bridge
+```
+
+That older checkout can be useful as a reference, but it may not have the current runner flags.
+
 Start with a read-only or plan-style run:
 
 ```bash
@@ -112,6 +154,7 @@ export BRIDGE_CALLER_TOKEN=local-dev-token
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/project" \
   --allowed-tools list_files,read_file,search_text,git_status \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --verbose \
   "List the top-level files, summarize the project, then stop. Do not edit files."
 ```
@@ -127,6 +170,7 @@ node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/project" \
   --trace-level summary \
   --allowed-tools list_files,read_file,search_text,git_status \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   "List the top-level files and stop. Do not edit files."
 ```
 
@@ -142,6 +186,8 @@ Safety reminders:
 - A run that needs approval but has no interactive Terminal input is denied instead of silently approving.
 - `--no-network` is a best-effort HTTP/HTTPS proxy guard for bash, not a true network sandbox.
 - Traces show what the local bridge and runner saw; they do not expose Anthropic's private server-side telemetry.
+- `--caller-token "$BRIDGE_CALLER_TOKEN"` proves the local caller is allowed to use the bridge. It is not your upstream
+  Anthropic credential.
 
 ---
 

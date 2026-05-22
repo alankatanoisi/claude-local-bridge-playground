@@ -46,6 +46,9 @@ Ask OpenCode to read these before editing:
 
 - `AGENTS.md`
 - `README.md`
+- `QUICKSTART.md`
+- `BEGINNER_GUIDE.md`
+- `HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md`
 - `docs/runner-quickstart.html`
 - `docs/command-builder.html`
 - `docs/threat-model.md`
@@ -95,8 +98,10 @@ Use this to test the runner against itself:
 
 ```bash
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+export BRIDGE_CALLER_TOKEN=local-dev-token
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --max-steps 8 \
   --verbose \
   "List the top-level files, summarize what this project does, then stop. Do not edit files."
@@ -106,8 +111,10 @@ Use this to test another project:
 
 ```bash
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+export BRIDGE_CALLER_TOKEN=local-dev-token
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --max-steps 8 \
   --verbose \
   "List the top-level files, summarize what this project does, then stop. Do not edit files."

@@ -53,6 +53,9 @@ If `git status --short` shows only `.DS_Store` files, treat them as unrelated lo
 Read these before substantial edits:
 
 - `README.md`
+- `QUICKSTART.md`
+- `BEGINNER_GUIDE.md`
+- `HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md`
 - `OPENCODE.md`
 - `docs/runner-quickstart.html`
 - `docs/command-builder.html`
@@ -154,8 +157,10 @@ Read-only test against this repo:
 
 ```bash
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+export BRIDGE_CALLER_TOKEN=local-dev-token
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --max-steps 8 \
   --verbose \
   "List the top-level files, summarize what this project does, then stop. Do not edit files."
@@ -165,8 +170,10 @@ Read-only test against another local folder:
 
 ```bash
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+export BRIDGE_CALLER_TOKEN=local-dev-token
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --max-steps 8 \
   --verbose \
   "List the top-level files, summarize what this project does, then stop. Do not edit files."
@@ -176,8 +183,10 @@ Attach files from the target folder:
 
 ```bash
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+export BRIDGE_CALLER_TOKEN=local-dev-token
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --include-file README.md \
   --include-file package.json \
   "Review the attached files and explain the project setup. Do not edit files."

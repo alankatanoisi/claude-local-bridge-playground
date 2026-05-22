@@ -630,6 +630,10 @@
               <label for="callerToken">Caller auth token</label>
               <input type="text" id="callerToken" placeholder="$BRIDGE_CALLER_TOKEN or local-dev-token" />
             </div>
+            <div class="note show">
+              Use <code>$BRIDGE_CALLER_TOKEN</code> if you already exported it in Terminal, or paste the local dev token
+              itself. This token only unlocks your local bridge; it is not your upstream Anthropic credential.
+            </div>
           </div>
 
           <!-- Tool catalog -->
@@ -708,7 +712,9 @@
           </div>
           <div class="card" style="font-size: 0.8rem; color: var(--muted)">
             <strong>Tip:</strong> Paste this into your terminal and press Enter. The runner connects through your local
-            bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>. Use
+            bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>. If the bridge says
+            <code style="font-size: 0.75rem">Unauthorized: Missing Bearer token</code>, set Caller auth token to
+            <code style="font-size: 0.75rem">$BRIDGE_CALLER_TOKEN</code> or your local dev token. Use
             <code style="font-size: 0.75rem">stream-json</code> when another script or agent needs to parse every runner
             event. Set a human-readable log path when you want a plain text record of the prompt, tool calls, and final
             answer. <code>--no-network</code> is only a best-effort shell proxy guard; it is not a sandbox. Turn on a
@@ -809,7 +815,7 @@
         if (humanLog.value.trim()) parts.push('--human-log ' + shellQuote(humanLog.value.trim()));
         if (traceLevel.value !== DEFAULTS.traceLevel) parts.push('--trace-level ' + traceLevel.value);
         if (tracePath.value.trim()) parts.push('--trace-path ' + shellQuote(tracePath.value.trim()));
-        if (callerToken.value.trim()) parts.push('--caller-token ' + shellQuote(callerToken.value.trim()));
+        if (callerToken.value.trim()) parts.push('--caller-token ' + shellQuoteOrEnv(callerToken.value.trim()));
         if (systemPrompt.value.trim()) parts.push('--system-prompt ' + shellQuote(systemPrompt.value.trim()));
         if (continueFromLatest.checked) parts.push('--continue');
         if (acceptEdits.checked) parts.push('--accept-edits');
@@ -892,6 +898,11 @@
       function shellQuote(s) {
         if (s.includes("'")) return '"' + s.replace(/"/g, '\\"') + '"';
         return "'" + s + "'";
+      }
+
+      function shellQuoteOrEnv(s) {
+        if (/^\$[A-Z_][A-Z0-9_]*$/.test(s)) return '"' + s + '"';
+        return shellQuote(s);
       }
 
       function updateAttachmentNote() {

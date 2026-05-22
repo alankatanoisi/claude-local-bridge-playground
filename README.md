@@ -7,6 +7,8 @@ Use Claude CLI with `http://localhost:11437`, and point OpenAI-style tools to `h
 For the local CLI runner prototype that now ships in this repo, see [docs/runner-quickstart.html](./docs/runner-quickstart.html).
 The runner can inspect this repo or any other local project by passing that project as `--cwd`.
 For fresh OpenCode sessions, start with [OPENCODE.md](./OPENCODE.md).
+If you are new to Terminal or this repo, start with [BEGINNER_GUIDE.md](./BEGINNER_GUIDE.md) and then
+[HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md](./HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md).
 
 ---
 
@@ -120,7 +122,11 @@ The runner is an experimental local coding-agent loop that uses this bridge as i
 folder that contains `bin/local-bridge-runner.js`:
 
 ```bash
-node bin/local-bridge-runner.js "List the files in this repo and summarize what it does."
+cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+export BRIDGE_CALLER_TOKEN=local-dev-token
+node bin/local-bridge-runner.js \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
+  "List the files in this repo and summarize what it does."
 ```
 
 To test a different local folder, keep running the runner from this repo and point the tools at the other project with
@@ -130,6 +136,7 @@ To test a different local folder, keep running the runner from this repo and poi
 cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --verbose \
   "List the top-level files, summarize the project, then stop. Do not edit files."
 ```

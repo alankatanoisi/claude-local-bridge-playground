@@ -288,6 +288,9 @@
         </p>
         <pre><code>curl -s http://localhost:11437/v1/debug | python3 -m json.tool</code></pre>
         <p>Look for <code>"authenticated": true</code>. If you see it, you are ready.</p>
+        <p>If caller auth is enabled, also set the local caller token in Terminal before runner commands:</p>
+        <pre><code>export BRIDGE_CALLER_TOKEN=local-dev-token</code></pre>
+        <p>That token authorizes your local terminal to call your local bridge. It is not your Anthropic credential.</p>
       </section>
 
       <section>
@@ -297,7 +300,11 @@
           <div class="step-number">1</div>
           <div class="step-body">
             <p><strong>Ask a simple question</strong> (no tools needed)</p>
-            <pre><code>node bin/local-bridge-runner.js "What is 2 + 2?"</code></pre>
+            <pre><code>cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+export BRIDGE_CALLER_TOKEN=local-dev-token
+node bin/local-bridge-runner.js \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
+  "What is 2 + 2?"</code></pre>
             <p>The model should answer immediately with no tool calls.</p>
           </div>
         </div>
@@ -307,6 +314,7 @@
           <div class="step-body">
             <p><strong>Ask about your project</strong> (triggers inspection tools)</p>
             <pre><code>node bin/local-bridge-runner.js \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --verbose \
   "List the main files in this repo and explain what each does"</code></pre>
             <p>
@@ -353,8 +361,10 @@
 
         <h3>Read-only smoke test against any project</h3>
         <pre><code>cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+export BRIDGE_CALLER_TOKEN=local-dev-token
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --max-steps 8 \
   --verbose \
   "List the top-level files, summarize what this project does, then stop. Do not edit files."</code></pre>
@@ -366,16 +376,20 @@ node bin/local-bridge-runner.js \
 
         <h3>Attach files from that target project</h3>
         <pre><code>cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+export BRIDGE_CALLER_TOKEN=local-dev-token
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --include-file README.md \
   --include-file package.json \
   "Review the attached files and explain the project setup. Do not edit files."</code></pre>
 
         <h3>Use stdin from that target project</h3>
         <pre><code>cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+export BRIDGE_CALLER_TOKEN=local-dev-token
 cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   "Summarize this README and suggest one next thing to inspect."</code></pre>
 
         <div class="callout warn">
@@ -504,6 +518,11 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td>Copy a bounded project file into the prompt context; repeat for multiple files</td>
             </tr>
             <tr>
+              <td><code>--caller-token &lt;token&gt;</code></td>
+              <td><code>BRIDGE_CALLER_TOKEN</code></td>
+              <td>Token your local runner sends to the local bridge when caller auth is enabled</td>
+            </tr>
+            <tr>
               <td><code>--allowed-tools &lt;list&gt;</code></td>
               <td>all visible tools</td>
               <td>Expose only the comma-separated tools you name</td>
@@ -582,12 +601,14 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
 
         <h3>Explain a specific file</h3>
         <pre><code>node bin/local-bridge-runner.js \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --verbose \
   "Explain what src/server.js does. Do not edit files."</code></pre>
 
         <h3>Inspect a different local folder</h3>
         <pre><code>node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
+  --caller-token "$BRIDGE_CALLER_TOKEN" \
   --allowed-tools list_files,read_file,search_text,git_status \
   --verbose \
   "List the files in this project and summarize what it does. Do not edit files."</code></pre>
