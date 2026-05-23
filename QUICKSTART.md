@@ -6,7 +6,7 @@ First, make sure Terminal is in the clean runner checkout. This matters because 
 new flags like `--output-format`, `--trace-level`, and `--caller-token`.
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 ```
 
 If you see this folder in your prompt, you are in the right place:
@@ -137,7 +137,7 @@ The runner is a small coding-agent loop that uses this bridge. In Terminal, firs
 the runner:
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 ```
 
 Do not run these runner commands from:

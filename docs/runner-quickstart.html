@@ -303,7 +303,7 @@
           <div class="step-number">1</div>
           <div class="step-body">
             <p><strong>Ask a simple question</strong> (no tools needed)</p>
-            <pre><code>cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+            <pre><code>cd "/Users/alanman/Developer/claude-local-bridge"
 node bin/local-bridge-runner.js "What is 2 + 2?"</code></pre>
             <p>The model should answer immediately with no tool calls.</p>
           </div>
@@ -359,7 +359,7 @@ node bin/local-bridge-runner.js "What is 2 + 2?"</code></pre>
         </table>
 
         <h3>Read-only smoke test against any project</h3>
-        <pre><code>cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+        <pre><code>cd "/Users/alanman/Developer/claude-local-bridge"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   --max-steps 8 \
@@ -372,7 +372,7 @@ node bin/local-bridge-runner.js \
         </p>
 
         <h3>Attach files from that target project</h3>
-        <pre><code>cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+        <pre><code>cd "/Users/alanman/Developer/claude-local-bridge"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   --include-file README.md \
@@ -380,7 +380,7 @@ node bin/local-bridge-runner.js \
   "Review the attached files and explain the project setup. Do not edit files."</code></pre>
 
         <h3>Use stdin from that target project</h3>
-        <pre><code>cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+        <pre><code>cd "/Users/alanman/Developer/claude-local-bridge"
 cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   "Summarize this README and suggest one next thing to inspect."</code></pre>

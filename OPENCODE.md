@@ -8,12 +8,13 @@ Use this file as the startup checklist for a fresh OpenCode session.
 Read AGENTS.md and OPENCODE.md before doing any work.
 
 Work in:
-/Users/alanman/.codex/worktrees/runner-clean-pr
+/Users/alanman/Developer/claude-local-bridge
 
 Expected branch:
 codex/runner-clean-pr
 
 Do not use the old claude-local-bridge-runner-test repo except as historical reference.
+Do not use the iCloud claude-local-bridge checkout for active runner work unless Alan explicitly asks.
 Do not modify bridge auth/proxy/interceptor internals unless Alan explicitly asks.
 Keep changes scoped to runner/docs/tests.
 Preserve safety defaults.
@@ -25,7 +26,7 @@ Before handoff, run targeted tests, npm test, npm run lint, and Prettier check f
 Type these in Terminal from any folder. The first command moves Terminal into the correct project folder.
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 pwd
 git branch --show-current
 git status --short
@@ -34,11 +35,14 @@ git pull --ff-only origin codex/runner-clean-pr
 
 Success looks like:
 
-- `pwd` prints `/Users/alanman/.codex/worktrees/runner-clean-pr`
+- `pwd` prints `/Users/alanman/Developer/claude-local-bridge`
 - branch prints `codex/runner-clean-pr`
 - pull either updates cleanly or says it is already up to date
 
 If `git status --short` shows `.DS_Store`, ignore it unless Alan asks to clean it.
+
+Use `/Users/alanman/Developer/claude-local-bridge-playground` only for disposable experiments. That clone has push
+disabled on purpose.
 
 ## Files OpenCode Should Read
 
@@ -97,9 +101,9 @@ If OpenCode cannot run a check, it should say exactly which check was skipped an
 Use this to test the runner against itself:
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge" \
   --max-steps 8 \
   --verbose \
   "List the top-level files, summarize what this project does, then stop. Do not edit files."
@@ -108,7 +112,7 @@ node bin/local-bridge-runner.js \
 Use this to test another project:
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   --max-steps 8 \

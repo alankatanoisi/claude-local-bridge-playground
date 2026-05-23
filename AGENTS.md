@@ -20,7 +20,7 @@ When adding new JavaScript in the runner, short beginner-friendly `//` comments 
 The current canonical runner branch/worktree is:
 
 ```bash
-/Users/alanman/.codex/worktrees/runner-clean-pr
+/Users/alanman/Developer/claude-local-bridge
 ```
 
 Expected branch:
@@ -29,13 +29,29 @@ Expected branch:
 codex/runner-clean-pr
 ```
 
+The disposable experiment clone is:
+
+```bash
+/Users/alanman/Developer/claude-local-bridge-playground
+```
+
+Use the playground only when Alan explicitly wants freeform experiments. It is intentionally on
+`playground/local-runner-chaos`, and its push URL is disabled so experimental work is not accidentally published.
+
 The older prototype repo is historical reference only:
 
 ```bash
 /Users/alanman/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/claude-local-bridge-runner-test
 ```
 
-Do not implement there unless Alan explicitly asks. If you discover you are in that folder by accident, stop and tell Alan.
+The iCloud checkout is also reference-only for active runner work:
+
+```bash
+/Users/alanman/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/claude-local-bridge
+```
+
+Do not implement in either iCloud folder unless Alan explicitly asks. If you discover you are in one of those folders by
+accident, stop and tell Alan.
 
 ## Startup Checklist
 
@@ -156,9 +172,9 @@ npx prettier --write <files>
 Read-only test against this repo:
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge" \
   --max-steps 8 \
   --verbose \
   "List the top-level files, summarize what this project does, then stop. Do not edit files."
@@ -167,7 +183,7 @@ node bin/local-bridge-runner.js \
 Read-only test against another local folder:
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   --max-steps 8 \
@@ -178,7 +194,7 @@ node bin/local-bridge-runner.js \
 Attach files from the target folder:
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   --include-file README.md \

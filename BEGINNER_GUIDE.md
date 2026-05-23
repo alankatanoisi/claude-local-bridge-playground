@@ -24,7 +24,7 @@ The **runner** is a command-line agent loop in this repo. It can ask the model w
 For the current runner work, use this folder:
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 ```
 
 You are in the right folder if this command:
@@ -36,7 +36,7 @@ pwd
 prints:
 
 ```text
-/Users/alanman/.codex/worktrees/runner-clean-pr
+/Users/alanman/Developer/claude-local-bridge
 ```
 
 If you run from the older CloudDocs checkout, you may see errors like:
@@ -136,10 +136,10 @@ above.
 Paste this:
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge" \
   --allowed-tools list_files,read_file,search_text,git_status \
   --max-steps 8 \
   --verbose \
@@ -158,12 +158,12 @@ What should happen:
 Open this file in a browser:
 
 ```text
-/Users/alanman/.codex/worktrees/runner-clean-pr/docs/command-builder.html
+/Users/alanman/Developer/claude-local-bridge/docs/command-builder.html
 ```
 
 Use it when you do not want to remember all the flags. Important fields:
 
-- **Runner repo folder**: `/Users/alanman/.codex/worktrees/runner-clean-pr`
+- **Runner repo folder**: `/Users/alanman/Developer/claude-local-bridge`
 - **Target project folder**: the project you want the runner to inspect
 - **Caller auth token**: optional local bridge password; only needed if you enabled caller auth
 - **Tools**: start with only `list_files`, `read_file`, `search_text`, `git_status`
@@ -175,7 +175,7 @@ Use it when you do not want to remember all the flags. Important fields:
 You are in the wrong folder. Run:
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 ```
 
 ### Unauthorized: Missing Bearer token

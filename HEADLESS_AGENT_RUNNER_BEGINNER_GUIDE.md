@@ -6,7 +6,7 @@ This guide covers the current runner in this branch. It is a **CLI runner**, not
 Use this folder:
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 ```
 
 ## Mental Model
@@ -52,10 +52,10 @@ The runner can read that environment variable automatically. You can also pass i
 ## Safe First Run
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge" \
   --allowed-tools list_files,read_file,search_text,git_status \
   --max-steps 8 \
   --verbose \
@@ -111,7 +111,7 @@ Shell only when needed:
 
 ```bash
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge" \
   --output-format stream-json \
   --allowed-tools list_files,read_file,search_text,git_status \
   "List src/runner files and summarize each one. Do not edit files."
@@ -123,7 +123,7 @@ Each line is a JSON event. This is useful for scripts or other agents.
 
 ```bash
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge" \
   --trace-level summary \
   --allowed-tools list_files,read_file,search_text,git_status \
   "Inspect the runner safety layer and report what it blocks. Do not edit files."
@@ -140,7 +140,7 @@ Trace files:
 
 ```bash
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge" \
   --human-log ~/.bridge-runner/logs/runner-review.md \
   --allowed-tools list_files,read_file,search_text,git_status \
   "Review the runner docs and explain what a beginner should know. Do not edit files."
@@ -153,7 +153,7 @@ node bin/local-bridge-runner.js \
 You are running an old file. Run:
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 node bin/local-bridge-runner.js --help
 ```
 
@@ -213,10 +213,10 @@ and avoid:
 ## Best Starter Command
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/.codex/worktrees/runner-clean-pr" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge" \
   --trace-level summary \
   --human-log ~/.bridge-runner/logs/safe-first-run.md \
   --allowed-tools list_files,read_file,search_text,git_status \

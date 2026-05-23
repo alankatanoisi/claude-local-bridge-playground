@@ -10,6 +10,12 @@ For fresh OpenCode sessions, start with [OPENCODE.md](./OPENCODE.md).
 If you are new to Terminal or this repo, start with [BEGINNER_GUIDE.md](./BEGINNER_GUIDE.md) and then
 [HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md](./HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md).
 
+Alan's active local lanes are:
+
+- Serious/canonical local work: `/Users/alanman/Developer/claude-local-bridge`
+- Disposable experiments: `/Users/alanman/Developer/claude-local-bridge-playground`
+- iCloud checkout: reference-only, not for active runner work
+
 ---
 
 ## Defaults at a glance
@@ -125,7 +131,7 @@ The runner is an experimental local coding-agent loop that uses this bridge as i
 folder that contains `bin/local-bridge-runner.js`:
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 node bin/local-bridge-runner.js "List the files in this repo and summarize what it does."
 ```
 
@@ -133,7 +139,7 @@ To test a different local folder, keep running the runner from this repo and poi
 `--cwd`:
 
 ```bash
-cd "/Users/alanman/.codex/worktrees/runner-clean-pr"
+cd "/Users/alanman/Developer/claude-local-bridge"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   --verbose \
