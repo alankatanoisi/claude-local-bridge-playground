@@ -9,6 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const fileCache = require('./_file-cache');
 
 const MAX_BYTES_DEFAULT = 50000;
 const MAX_LINES_DEFAULT = 1000;
@@ -74,8 +75,22 @@ function execute(args, ctx) {
 
     const maxBytes = getLimit(args.max_bytes, MAX_BYTES_DEFAULT, MAX_BYTES_HARD_CAP);
     const maxLines = getLimit(args.max_lines, MAX_LINES_DEFAULT, MAX_LINES_HARD_CAP);
-    const { bytesRead, text: prefix } = readPrefix(target, Math.min(stats.size, maxBytes));
-    let text = prefix;
+
+    // Try the shared file cache first. It only serves files that fit under
+    // its per-entry cap; oversize files fall through to the bounded prefix
+    // read path below. Returning null means "miss or uncacheable."
+    const cached = fileCache.readCached(target);
+    let bytesRead;
+    let text;
+    if (cached) {
+      const slice = cached.subarray(0, Math.min(cached.length, maxBytes));
+      bytesRead = slice.length;
+      text = slice.toString('utf8');
+    } else {
+      const fresh = readPrefix(target, Math.min(stats.size, maxBytes));
+      bytesRead = fresh.bytesRead;
+      text = fresh.text;
+    }
 
     if (stats.size > bytesRead) {
       // Byte limits can stop in the middle of one UTF-8 character.

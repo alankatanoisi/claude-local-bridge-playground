@@ -75,3 +75,63 @@ describe('read_file tool', () => {
     assert.ok(result.text.includes('Missing'));
   });
 });
+
+describe('read_file tool — file cache', () => {
+  const fileCache = require('../../src/runner/tools/_file-cache');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'readfile-cache-'));
+  const ctx = { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) };
+
+  it('serves repeat reads from the cache', () => {
+    fileCache.clear();
+    const filePath = path.join(tmpDir, 'hot.txt');
+    fs.writeFileSync(filePath, 'cached payload');
+
+    const first = execute({ path: 'hot.txt' }, ctx);
+    const second = execute({ path: 'hot.txt' }, ctx);
+
+    assert.equal(first.ok, true);
+    assert.equal(second.ok, true);
+    assert.equal(second.text, first.text);
+
+    const stats = fileCache.getStats();
+    assert.equal(stats.misses, 1, 'one disk read');
+    assert.equal(stats.hits, 1, 'one cache hit');
+  });
+
+  it('invalidates when mtime changes', () => {
+    fileCache.clear();
+    const filePath = path.join(tmpDir, 'edited.txt');
+    fs.writeFileSync(filePath, 'before');
+
+    const first = execute({ path: 'edited.txt' }, ctx);
+    assert.ok(first.text.includes('before'));
+
+    // Bump mtime forward to guarantee detection on coarse-mtime filesystems
+    const futureMs = Date.now() + 5000;
+    fs.writeFileSync(filePath, 'after');
+    fs.utimesSync(filePath, futureMs / 1000, futureMs / 1000);
+
+    const second = execute({ path: 'edited.txt' }, ctx);
+    assert.ok(second.text.includes('after'), 'reflects post-edit content');
+
+    const stats = fileCache.getStats();
+    assert.equal(stats.hits, 0, 'no cache hits — mtime changed');
+    assert.equal(stats.misses, 2, 'two fresh reads');
+  });
+
+  it('bypasses the cache for files above the per-entry cap', () => {
+    fileCache.clear();
+    const filePath = path.join(tmpDir, 'huge.bin');
+    // One byte over the cap is enough to be skipped.
+    const buf = Buffer.alloc(fileCache.MAX_CACHEABLE_BYTES + 1, 0x41);
+    fs.writeFileSync(filePath, buf);
+
+    // Use a small max_bytes so the test stays fast; we only care that the
+    // file did not enter the cache.
+    const result = execute({ path: 'huge.bin', max_bytes: 256 }, ctx);
+    assert.equal(result.ok, true);
+    const stats = fileCache.getStats();
+    assert.equal(stats.entries, 0, 'oversize file not cached');
+    assert.ok(stats.bypassed >= 1, 'bypass counter incremented');
+  });
+});
