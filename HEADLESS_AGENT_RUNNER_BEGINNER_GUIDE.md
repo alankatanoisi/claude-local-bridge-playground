@@ -3,15 +3,22 @@
 This guide covers the current runner in this branch. It is a **CLI runner**, not the older experimental
 `/v1/agent/runs` HTTP API.
 
-Use this folder:
+## Which folder?
+
+| Folder                                                    | Purpose                                                           |
+| --------------------------------------------------------- | ----------------------------------------------------------------- |
+| `/Users/alanman/Developer/claude-local-bridge`            | Canonical bridge + runner (merge target)                          |
+| `/Users/alanman/Developer/claude-local-bridge-playground` | **Agent OS experiments** — coordinator, session store, compaction |
+
+This guide uses the **playground** paths when showing new harness features. Swap the path if you work in canonical only.
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 ```
 
 ## Mental Model
 
-Think of the runner like this:
+### Simple kernel loop (every run)
 
 ```text
 you type one objective
@@ -21,10 +28,26 @@ you type one objective
         -> runner executes allowed tools
           -> runner sends tool results back to model
             -> model continues
-              -> final answer
+              -> final answer (stopReason: success)
 ```
 
 The bridge handles Claude credentials. The runner handles local tools and the agent loop.
+
+### Top-level agent (playground — optional coordinator)
+
+```text
+your objective
+  -> Coordinator: research (read-only worker, optional)
+  -> Coordinator: synthesize (builds a spec — no vague "based on findings")
+  -> Agent kernel: execute (main tool loop)
+  -> Coordinator: verify (read-only worker, optional)
+  -> final answer + session file saved
+```
+
+Think of **two CLIs**:
+
+- `bin/local-bridge-runner.js` — single kernel run (one tool loop)
+- `bin/local-bridge-coordinator.js` — phased orchestration above the kernel
 
 ## Required Setup
 
@@ -52,34 +75,82 @@ The runner can read that environment variable automatically. You can also pass i
 ## Safe First Run
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/Developer/claude-local-bridge" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
   --allowed-tools list_files,read_file,search_text,git_status \
   --max-steps 8 \
   --verbose \
   "List the files under src/runner/ and read the first 15 lines of run.js. Do not edit files."
 ```
 
+## Session persistence (playground)
+
+Use a **session id** so resume uses canonical state, not just transcript replay:
+
+```bash
+node bin/local-bridge-runner.js \
+  --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
+  --session-id my-session-1 \
+  --allowed-tools list_files,read_file \
+  --max-steps 4 \
+  "List files in src/runner/kernel"
+
+node bin/local-bridge-runner.js \
+  --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
+  --session-id my-session-1 \
+  --resume ~/.bridge-runner/logs/any.jsonl \
+  --allowed-tools list_files,read_file \
+  --max-steps 4 \
+  "What was the first thing I asked in this session?"
+```
+
+Session files live here:
+
+```text
+~/.bridge-runner/sessions/<session-id>.state.json
+```
+
+Transcripts in `~/.bridge-runner/logs/` are still an **audit log**. The `.state.json` file is the **source of truth** for resume when `--session-id` is set.
+
+## Coordinator example (playground)
+
+```bash
+node bin/local-bridge-coordinator.js \
+  --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
+  --session-id coord-demo-1 \
+  --no-workers \
+  --phases research,synthesize,execute \
+  "Summarize how permissions.js works. Do not edit files."
+```
+
+- `--no-workers` skips background subprocess workers (good for beginners).
+- Omit `--phases` to use the default phased pipeline.
+
 ## Useful Flags
 
-| Flag                          | What it means                                                           |
-| ----------------------------- | ----------------------------------------------------------------------- |
-| `--cwd <path>`                | The project folder the runner tools can inspect or edit                 |
-| `--caller-token <token>`      | Optional local bridge caller-auth token                                 |
-| `--allowed-tools <list>`      | Only expose these tools to the model                                    |
-| `--output-format text`        | Normal human-readable terminal output                                   |
-| `--output-format json`        | One final JSON object                                                   |
-| `--output-format stream-json` | One JSON event per line for automation                                  |
-| `--human-log <path>`          | Write a plain text run log                                              |
-| `--trace-level summary`       | Write local metadata traces without prompt bodies                       |
-| `--trace-level redacted`      | Include scrubbed request/tool payloads                                  |
-| `--trace-level full`          | Include broad local payload evidence; still redacts auth-looking fields |
-| `--plan`                      | Dry-run risky tools instead of executing them                           |
-| `--accept-edits`              | Let write tools modify files without prompting                          |
-| `--allow-shell`               | Expose the bash tool                                                    |
-| `--dont-ask`                  | Skip prompts for tools that are already enabled                         |
+| Flag                            | What it means                                                              |
+| ------------------------------- | -------------------------------------------------------------------------- |
+| `--cwd <path>`                  | The project folder the runner tools can inspect or edit                    |
+| `--session-id <id>`             | Save/load canonical session at `~/.bridge-runner/sessions/<id>.state.json` |
+| `--session-path <path>`         | Explicit path to a session state JSON file                                 |
+| `--trusted-workspace`           | Enable hooks from `.bridge-runner/hooks.json` in the target project        |
+| `--caller-token <token>`        | Optional local bridge caller-auth token                                    |
+| `--allowed-tools <list>`        | Only expose these tools to the model                                       |
+| `--output-format text`          | Normal human-readable terminal output                                      |
+| `--output-format json`          | One final JSON object (includes `stopReason` when available)               |
+| `--output-format stream-json`   | One JSON event per line for automation                                     |
+| `--human-log <path>`            | Write a plain text run log                                                 |
+| `--trace-level summary`         | Write local metadata traces without prompt bodies                          |
+| `--trace-level redacted`        | Include scrubbed request/tool payloads                                     |
+| `--trace-level full`            | Include broad local payload evidence; still redacts auth-looking fields    |
+| `--plan`                        | Dry-run risky tools instead of executing them                              |
+| `--accept-edits`                | Let write tools modify files without prompting                             |
+| `--allow-shell`                 | Expose the bash tool                                                       |
+| `--dont-ask`                    | Skip prompts for tools that are already enabled                            |
+| `--max-context-tokens <n>`      | Warn near budget; halt at 2× budget                                        |
+| `--max-tool-calls-per-turn <n>` | Cap tool calls per model response                                          |
 
 ## Tool Sets I Recommend
 
@@ -111,19 +182,20 @@ Shell only when needed:
 
 ```bash
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/Developer/claude-local-bridge" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
   --output-format stream-json \
   --allowed-tools list_files,read_file,search_text,git_status \
   "List src/runner files and summarize each one. Do not edit files."
 ```
 
-Each line is a JSON event. This is useful for scripts or other agents.
+Each line is a JSON event. Event types include `system`, `assistant`, `tool_use`, `tool_result`, `compaction`, and `result`.
+Useful for scripts or other agents.
 
 ## Flight Recorder Example
 
 ```bash
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/Developer/claude-local-bridge" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
   --trace-level summary \
   --allowed-tools list_files,read_file,search_text,git_status \
   "Inspect the runner safety layer and report what it blocks. Do not edit files."
@@ -140,20 +212,32 @@ Trace files:
 
 ```bash
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/Developer/claude-local-bridge" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
   --human-log ~/.bridge-runner/logs/runner-review.md \
   --allowed-tools list_files,read_file,search_text,git_status \
   "Review the runner docs and explain what a beginner should know. Do not edit files."
 ```
 
+## Stop reasons (automation)
+
+When using `--output-format json`, the final object may include `stopReason`:
+
+| Value                     | Meaning                           |
+| ------------------------- | --------------------------------- |
+| `success`                 | Model finished without more tools |
+| `max_steps`               | Hit `--max-steps` limit           |
+| `context_budget_exceeded` | Token budget guard tripped        |
+| `max_tool_calls_per_turn` | Too many tools in one turn        |
+| `bridge_error`            | Local bridge request failed       |
+
 ## What To Do When Something Breaks
 
-### `Unknown option '--output-format'`
+### `Unknown option '--output-format'` or `--session-id'`
 
 You are running an old file. Run:
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js --help
 ```
 
@@ -162,6 +246,7 @@ The help output should include:
 ```text
 --output-format <f>
 --trace-level <l>
+--session-id <id>
 --caller-token <t>
 ```
 
@@ -210,13 +295,24 @@ and avoid:
 --accept-edits
 ```
 
+### Resume did not remember the conversation
+
+Prefer **session id** over transcript-only resume:
+
+```bash
+--session-id my-run-1
+```
+
+Check that `~/.bridge-runner/sessions/my-run-1.state.json` exists and grew after the first run.
+
 ## Best Starter Command
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/Developer/claude-local-bridge" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
+  --session-id beginner-safe-1 \
   --trace-level summary \
   --human-log ~/.bridge-runner/logs/safe-first-run.md \
   --allowed-tools list_files,read_file,search_text,git_status \
@@ -224,3 +320,9 @@ node bin/local-bridge-runner.js \
   --verbose \
   "Explain this repo at a high level. Do not edit files."
 ```
+
+## Further reading (playground)
+
+- `lab-notes/AGENT_OS_ARCHITECTURE.md` — layer diagram and module map
+- `lab-notes/HARNESS_VISION.md` — long-term harness roadmap
+- `lab-notes/CHAOS_ORCHESTRATION.md` — parallel experiment tracks

@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const safety = require('./safety');
+const { formatHint } = require('./beginner-hints');
 
 function textFromContent(content) {
   if (typeof content === 'string') return content;
@@ -19,8 +20,10 @@ function toolUsesFromContent(content) {
 }
 
 class HumanLog {
-  constructor(filePath) {
+  constructor(filePath, options = {}) {
     this.filePath = filePath;
+    this.verbose = !!options.verbose;
+    this.quiet = !!options.quiet;
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, '# Local Bridge Runner Log\n\n');
   }
@@ -85,8 +88,17 @@ class HumanLog {
     this.appendSection('Final Answer', text || '');
   }
 
-  writeError(message) {
-    this.appendSection('Error', message || 'unknown error');
+  writeError(message, options = {}) {
+    const hint = formatHint(options.stopReason || null, {
+      rawMessage: message,
+      verbose: this.verbose,
+      quiet: this.quiet,
+    });
+    let body = message || 'unknown error';
+    if (!this.quiet && hint.formatted && hint.formatted !== body) {
+      body += '\n\n--- Beginner hint ---\n' + hint.formatted;
+    }
+    this.appendSection('Error', body);
   }
 }
 

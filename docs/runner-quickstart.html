@@ -263,6 +263,7 @@
         separate API key setup is required for the runner itself.
       </p>
       <span class="badge read-only">CLI Runner</span>
+      <span class="badge read-only" style="background: #6366f1; margin-left: 0.5rem">Agent OS (playground)</span>
     </header>
 
     <main>
@@ -277,6 +278,39 @@
           <strong>Key benefit</strong>
           You can run agent-style queries from the terminal without setting up a separate Anthropic API key. The bridge
           handles upstream authentication.
+        </div>
+        <p>
+          In the <strong>playground</strong> checkout, the runner is layered like a small agent OS: an optional
+          <strong>coordinator</strong> runs phased work (research → synthesize → execute → verify), the
+          <strong>kernel</strong> is the core tool loop, and a <strong>session store</strong> keeps canonical
+          <code>*.state.json</code> files for reliable resume.
+        </p>
+      </section>
+
+      <section>
+        <h2>Which folder to use</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Folder</th>
+              <th>When to use it</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>/Users/alanman/Developer/claude-local-bridge</code></td>
+              <td>Canonical bridge + runner work you may merge to main.</td>
+            </tr>
+            <tr>
+              <td><code>/Users/alanman/Developer/claude-local-bridge-playground</code></td>
+              <td>Experiments: <code>--session-id</code>, context compaction, coordinator CLI, hooks, skills index.</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout warn">
+          <strong>Unknown option <code>--session-id</code>?</strong>
+          You are in an older checkout. Use the playground folder for harness flags, or run
+          <code>node bin/local-bridge-runner.js --help</code> to see what your copy supports.
         </div>
       </section>
 
@@ -329,6 +363,10 @@ node bin/local-bridge-runner.js "What is 2 + 2?"</code></pre>
             <p><strong>Check the transcript</strong></p>
             <pre><code>ls ~/.bridge-runner/logs/</code></pre>
             <p>Every run writes a timestamped JSONL file so you can review what the model did.</p>
+            <p>
+              In the playground, also try <code>--session-id my-run</code> — session state is saved separately at
+              <code>~/.bridge-runner/sessions/my-run.state.json</code>.
+            </p>
           </div>
         </div>
       </section>
@@ -526,6 +564,83 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td>Continue from an existing transcript</td>
             </tr>
             <tr>
+              <td><code>--session-id &lt;id&gt;</code></td>
+              <td>off</td>
+              <td>
+                Playground: save/load canonical session at <code>~/.bridge-runner/sessions/&lt;id&gt;.state.json</code>
+              </td>
+            </tr>
+            <tr>
+              <td><code>--session-path &lt;path&gt;</code></td>
+              <td>off</td>
+              <td>Playground: explicit path to a session state JSON file</td>
+            </tr>
+            <tr>
+              <td><code>--trusted-workspace</code></td>
+              <td>off</td>
+              <td>Playground: enable hooks from <code>.bridge-runner/hooks.json</code> in the target project</td>
+            </tr>
+            <tr>
+              <td><code>--trust-workspace</code></td>
+              <td>off</td>
+              <td>
+                Record workspace trust consent for <code>--cwd</code> (required in CI/non-interactive). Blocks all tools until trusted.
+              </td>
+            </tr>
+            <tr>
+              <td><code>--chaos-ok</code></td>
+              <td>off</td>
+              <td>
+                Allow risky combo: <code>--allow-shell --accept-edits --dont-ask</code>. Never bypasses
+                <code>.env</code> / <code>.ssh</code> hard denies.
+              </td>
+            </tr>
+            <tr>
+              <td><code>--max-wall-clock-ms &lt;n&gt;</code></td>
+              <td>off</td>
+              <td>Stop after N milliseconds (wall-clock budget)</td>
+            </tr>
+            <tr>
+              <td><code>--max-cost-usd &lt;n&gt;</code></td>
+              <td>off</td>
+              <td>Stop after estimated API cost exceeds N USD (advisory pricing table)</td>
+            </tr>
+            <tr>
+              <td><code>--agent &lt;profile&gt;</code></td>
+              <td>off</td>
+              <td>Built-in profile: explore, plan, implement, verify, test, replay, extractor</td>
+            </tr>
+            <tr>
+              <td><code>--review-memory</code></td>
+              <td>off</td>
+              <td>List pending memory promotions for approval (no prompt required)</td>
+            </tr>
+            <tr>
+              <td><code>--session-extract</code></td>
+              <td>off</td>
+              <td>After run, queue session learning proposals (requires trusted workspace)</td>
+            </tr>
+            <tr>
+              <td><code>--replay</code></td>
+              <td>off</td>
+              <td>Read-only ledger verification (requires <code>--session-id</code> or <code>--session-path</code>)</td>
+            </tr>
+            <tr>
+              <td><code>--repair</code></td>
+              <td>off</td>
+              <td>Ledger repair plan (requires session; approval-gated in v1)</td>
+            </tr>
+            <tr>
+              <td><code>--max-context-tokens &lt;n&gt;</code></td>
+              <td>off</td>
+              <td>Warn near budget; halt at 2× budget (playground compaction)</td>
+            </tr>
+            <tr>
+              <td><code>--max-tool-calls-per-turn &lt;n&gt;</code></td>
+              <td>off</td>
+              <td>Cap tool calls per model response</td>
+            </tr>
+            <tr>
               <td><code>--plan</code></td>
               <td>off</td>
               <td>Plan mode: describe actions instead of executing writes and shell commands</td>
@@ -635,6 +750,31 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
         <pre><code>node bin/local-bridge-runner.js \
   --output-format stream-json \
   "List the files and summarize the repo" | jq -c .</code></pre>
+        <p>
+          Stream events include <code>compaction</code> when the playground compactor trims context, and the final
+          <code>result</code> may include <code>stopReason</code> (for example <code>success</code>,
+          <code>max_steps</code>, <code>context_budget_exceeded</code>).
+        </p>
+
+        <h3>Session persistence (playground)</h3>
+        <pre><code>cd "/Users/alanman/Developer/claude-local-bridge-playground"
+node bin/local-bridge-runner.js \
+  --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
+  --session-id quickstart-demo \
+  --allowed-tools list_files,read_file,search_text,git_status \
+  --max-steps 6 \
+  "List src/runner files and summarize. Do not edit files."</code></pre>
+        <p>Check <code>~/.bridge-runner/sessions/quickstart-demo.state.json</code> after the run.</p>
+
+        <h3>Top-level coordinator (playground)</h3>
+        <pre><code>cd "/Users/alanman/Developer/claude-local-bridge-playground"
+node bin/local-bridge-coordinator.js \
+  --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
+  --session-id coord-demo \
+  --no-workers \
+  --phases research,synthesize,execute \
+  "Summarize how permissions.js works. Do not edit files."</code></pre>
+        <p><code>--no-workers</code> skips background read-only subprocess workers — a good default while learning.</p>
 
         <h3>Safe edit with confirmation</h3>
         <pre><code>node bin/local-bridge-runner.js \
@@ -732,6 +872,24 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
           automatically pick up the latest transcript from <code>~/.bridge-runner/logs/</code>.
         </p>
         <pre><code>node bin/local-bridge-runner.js --continue "Now add error handling to the function we just wrote"</code></pre>
+        <p>
+          In the playground, prefer <code>--session-id</code> for reliable resume. The JSONL transcript is an audit log;
+          the <code>*.state.json</code> file under <code>~/.bridge-runner/sessions/</code> is the canonical conversation
+          state when a session id is set.
+        </p>
+        <pre><code>node bin/local-bridge-runner.js \
+  --session-id my-project-1 \
+  --resume ~/.bridge-runner/logs/2025-05-24T12-00-00.jsonl \
+  "What did we decide in the last run?"</code></pre>
+      </section>
+
+      <section>
+        <h2>Context compaction (playground)</h2>
+        <p>
+          Long runs can exceed context limits. The playground compactor applies a ladder: <strong>clip</strong> (trim
+          old tool output), <strong>snip</strong> (collapse middle turns), then <strong>ghost</strong> (summary
+          placeholder). Set <code>--max-context-tokens</code> to get warnings before hard stops.
+        </p>
       </section>
 
       <section>
@@ -807,18 +965,23 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
       <section>
         <h2>Next steps</h2>
         <p>
-          This runner now covers inspection, guarded edits, transcript logging, resume, and optional shell validation.
-          Natural next features still include:
+          The runner covers inspection, guarded edits, transcript logging, resume, optional shell validation, and (in
+          the playground) session persistence, compaction, coordinator phases, hooks, and skills metadata.
         </p>
         <ul>
-          <li>A project-wide <code>semantic_search</code> tool</li>
-          <li>HTTP endpoints that expose the same runner loop outside the CLI</li>
-          <li>A TUI (terminal UI) for interactive use</li>
+          <li><code>lab-notes/AGENT_OS_ARCHITECTURE.md</code> — layer diagram and module map</li>
+          <li>
+            <code>BEGINNER_GUIDE.md</code> and <code>HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md</code> — plain-language
+            walkthroughs
+          </li>
+          <li>
+            <a href="command-builder.html">Command builder</a> — form that generates runner or coordinator commands
+          </li>
         </ul>
         <div class="callout">
           <strong>Happy building</strong>
-          If something breaks, check the transcript and run with <code>--verbose</code>. The runner is intentionally
-          simple so you can read the code and understand every step.
+          If something breaks, check the transcript and run with <code>--verbose</code>. Use
+          <code>--session-id</code> in the playground when you want resume to feel like a real chat thread.
         </div>
       </section>
     </main>

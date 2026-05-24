@@ -3,12 +3,23 @@
 const fs = require('fs');
 const { buildSystem, buildUserMessage } = require('./context-builder');
 const modelClient = require('./model-client');
-const { getDefinitions, execute, executeForce } = require('./tool-registry');
+const { getDefinitions, execute, executeForce, executeReadOnlyBatch } = require('./tool-registry');
 const { Transcript } = require('./transcript');
 const confirm = require('./confirmation');
 const safety = require('./safety');
 const { CATEGORIES } = require('./permissions');
 const { HumanLog } = require('./human-log');
+const { STOP_REASONS } = require('./kernel/contract');
+const { SessionStore, resolveSessionPath } = require('./session-store');
+const { applyCompactionLadder, DEFAULT_POLICY } = require('./context-compactor');
+const { HookDispatcher } = require('./hooks/hook-dispatcher');
+const { runBootstrap } = require('./bootstrap');
+const { SessionLedger, makeEffectId } = require('./session-ledger');
+const { emitHint } = require('./beginner-hints');
+const { buildAutopsy, writeAutopsyFile, detectSemanticCycles, estimateTokensAdvisory } = require('./loop-autopsy');
+const { estimateCostUsd } = require('./model-pricing');
+const { loadInstructionMemory } = require('./memory/instruction-memory');
+const { assertForkAllowed, applyProfileToRunOptions } = require('./agents/registry');
 const {
   JsonlTrace,
   bodySummary,
@@ -106,7 +117,48 @@ function loadMessagesFromTranscript(filePath) {
   return messages;
 }
 
+function persistSession(sessionStore, messages, ctx) {
+  if (!sessionStore) return;
+  sessionStore.setMessages(messages);
+  sessionStore.updateRunner({
+    undoLog: ctx.undoLog || [],
+    consecutiveToolFailures: ctx._consecutiveToolFailures || 0,
+  });
+  sessionStore.save();
+}
+
+function appendLedger(ledger, hooks, type, payload) {
+  if (!ledger) return null;
+  const ev = ledger.append(type, payload);
+  if (hooks && ev) hooks.noteLedgerEvent({ type, seq: ev.seq, ts: ev.ts, ...payload });
+  return ev;
+}
+
+function maybeRunSessionExtract(sessionExtract, ctx, autopsy, sessionPath) {
+  if (!sessionExtract || !ctx.trustedWorkspace || !sessionPath) return null;
+  const { queuePromotion } = require('./memory-review');
+  return queuePromotion(ctx.cwdRealpath, {
+    type: 'reference',
+    topicId: 'extract_' + Date.now(),
+    body:
+      'Proposed session learning (requires --review-memory approval):\n' +
+      JSON.stringify(
+        {
+          stopReason: autopsy?.stopReason,
+          steps: autopsy?.steps,
+          toolCallCount: autopsy?.toolCallCount,
+        },
+        null,
+        2,
+      ),
+    source: 'session-extract',
+  });
+}
+
 async function run(options) {
+  if (options.agentProfile) {
+    options = applyProfileToRunOptions(options.agentProfile, options);
+  }
   const {
     prompt,
     stdinText,
@@ -136,6 +188,17 @@ async function run(options) {
     traceLevel,
     tracePath,
     callerToken,
+    sessionPath,
+    sessionId,
+    compactionPolicy,
+    trustWorkspace,
+    trustedWorkspace,
+    chaosOk,
+    maxWallClockMs,
+    maxCostUsd,
+    spawnDepth,
+    sessionExtract,
+    skipTrustGate,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
@@ -150,21 +213,104 @@ async function run(options) {
     confirmTimeout: typeof confirmTimeout === 'number' && confirmTimeout > 0 ? confirmTimeout : null,
     allowedTools: Array.isArray(allowedTools) && allowedTools.length > 0 ? new Set(allowedTools) : null,
     undoLog: [],
+    spawnDepth: spawnDepth || 0,
+    workspaceTrusted: false,
   };
+
+  if (!skipTrustGate && process.env.BRIDGE_RUNNER_TEST !== '1') {
+    const boot = await runBootstrap({
+      cwd: cwd || process.cwd(),
+      allowShell: !!allowShell,
+      acceptEdits: !!acceptEdits,
+      dontAsk: !!dontAsk,
+      chaosOk: !!chaosOk,
+      trustWorkspace: !!trustWorkspace,
+      trustedWorkspace: !!trustedWorkspace,
+      quiet: !!quiet,
+      sessionPath,
+      sessionId,
+      resume: !!resume,
+      systemPromptOverride,
+      allowedTools,
+    });
+    if (boot.blocked) {
+      const stopReason = boot.stopReason || STOP_REASONS.CWD_INVALID;
+      emitHint(boot.blockReason, { quiet, verbose, stopReason });
+      process.exitCode = 1;
+      return {
+        stopReason,
+        finalText: boot.blockReason,
+        steps: 0,
+        duration_ms: 0,
+        usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+        events: [],
+      };
+    }
+    ctx.cwd = boot.ctx.cwdRealpath;
+    ctx.cwdRealpath = boot.ctx.cwdRealpath;
+    ctx.workspaceTrusted = boot.ctx.workspaceTrusted;
+    ctx.instructionMemory = boot.instructionMemory;
+    ctx.trustedWorkspace = boot.ctx.trustedWorkspace;
+  } else {
+    const cwdCheck = safety.validateCwd(ctx.cwd);
+    if (!cwdCheck.valid) {
+      emitHint(cwdCheck.reason, { quiet, verbose, stopReason: STOP_REASONS.CWD_INVALID });
+      process.exitCode = 1;
+      return;
+    }
+    ctx.cwdRealpath = cwdCheck.realpath;
+    ctx.instructionMemory = loadInstructionMemory(ctx.cwdRealpath);
+  }
+
+  try {
+    assertForkAllowed(ctx.spawnDepth);
+  } catch (err) {
+    emitHint(err.message, { quiet, verbose, stopReason: 'fork_depth_exceeded' });
+    process.exitCode = 1;
+    return {
+      stopReason: STOP_REASONS.CANCELLED,
+      finalText: err.message,
+      steps: 0,
+      duration_ms: 0,
+      usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+      events: [],
+    };
+  }
+
   const cwdCheck = safety.validateCwd(ctx.cwd);
   if (!cwdCheck.valid) {
-    console.error('[runner] ' + cwdCheck.reason);
+    emitHint(cwdCheck.reason, { quiet, verbose, stopReason: STOP_REASONS.CWD_INVALID });
     process.exitCode = 1;
     return;
   }
   ctx.cwdRealpath = cwdCheck.realpath;
 
+  const runId = makeTraceId(options.runId);
+  const resolvedSessionPath = resolveSessionPath({ sessionPath, sessionId });
+  const sessionStore = resolvedSessionPath ? new SessionStore(resolvedSessionPath) : null;
+  const ledger = resolvedSessionPath ? new SessionLedger(resolvedSessionPath) : null;
+  const hooks = new HookDispatcher(ctx.cwdRealpath, {
+    trustedWorkspace: !!options.trustedWorkspace,
+    workspaceTrusted: ctx.workspaceTrusted,
+  });
+  if (ledger) {
+    appendLedger(ledger, hooks, 'session_started', { runId, cwd: ctx.cwdRealpath });
+    const pending = ledger.getPendingIntents();
+    if (pending.length && !quiet) {
+      emitHint('Recovered from incomplete prior run (' + pending.length + ' pending effects).', {
+        quiet,
+        verbose,
+        stopReason: 'ledger_crash_recovery',
+      });
+    }
+  }
+  hooks.dispatch('session_start', { runId: options.runId, cwd: ctx.cwdRealpath });
+
   const transcript = transcriptPath ? new Transcript(transcriptPath) : null;
-  const humanLog = humanLogPath ? new HumanLog(humanLogPath) : null;
+  const humanLog = humanLogPath ? new HumanLog(humanLogPath, { verbose, quiet }) : null;
   const output = makeOutput(outputFormat);
   const startedAt = Date.now();
   const normalizedTraceLevel = normalizeTraceLevel(traceLevel);
-  const runId = makeTraceId(options.runId);
   const trace =
     normalizedTraceLevel === 'off'
       ? null
@@ -177,26 +323,61 @@ async function run(options) {
   if (trace && !quiet) console.error('[runner] flight recorder: ' + trace.filePath);
 
   let messages;
-  if (resume && transcriptPath) {
-    const loaded = loadMessagesFromTranscript(transcriptPath);
-    if (!loaded || loaded.length === 0) {
-      console.error('Could not resume: no valid conversation in transcript.');
+  if (resume && sessionStore && sessionStore.exists()) {
+    sessionStore.load();
+    messages = sessionStore.messages.length ? [...sessionStore.messages] : null;
+    if (!messages || messages.length === 0) {
+      emitHint('Could not resume: no valid ledger or session checkpoint.', {
+        quiet,
+        verbose,
+        stopReason: STOP_REASONS.RESUME_FAILED,
+      });
       process.exitCode = 1;
-      return;
+      return {
+        stopReason: STOP_REASONS.RESUME_FAILED,
+        finalText: 'Could not resume: no valid ledger or session checkpoint.',
+        steps: 0,
+        duration_ms: 0,
+        usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+        events: [],
+      };
     }
-    messages = loaded;
     messages.push(buildUserMessage(prompt, stdinText));
-    console.error('[runner] resumed ' + loaded.length + ' messages from ' + transcriptPath);
+    if (!quiet) console.error('[runner] resumed ' + messages.length + ' messages from session ' + resolvedSessionPath);
+  } else if (resume && transcriptPath) {
+    emitHint('Transcript resume is deprecated. Use --session-id or --session-path.', {
+      quiet,
+      verbose,
+      stopReason: STOP_REASONS.RESUME_FAILED,
+    });
+    process.exitCode = 1;
+    return {
+      stopReason: STOP_REASONS.RESUME_FAILED,
+      finalText: 'Transcript resume is deprecated. Use session store.',
+      steps: 0,
+      duration_ms: 0,
+      usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+      events: [],
+    };
   } else {
     messages = [buildUserMessage(prompt, stdinText)];
     if (transcript) transcript.append({ type: 'user_prompt', text: prompt });
+    if (sessionStore) {
+      sessionStore.load();
+      sessionStore.setMessages(messages);
+      sessionStore.updateMetadata({ cwd: ctx.cwdRealpath, model });
+      sessionStore.save();
+    }
   }
 
-  const tools = getDefinitions(ctx); // cached — ctx flags don't change across turns
-  const system = systemPromptOverride || buildSystem(ctx);
+  const tools = getDefinitions(ctx);
+  const system = systemPromptOverride || buildSystem(ctx, { progressive: true });
   const steps = maxSteps || DEFAULT_MAX_STEPS;
   let totalUsage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
   let consecutiveToolFailures = 0;
+  const toolHistory = [];
+
+  if (ledger) appendLedger(ledger, hooks, 'user_prompt', { runId, prompt: prompt.slice(0, 500) });
 
   output.emit('system', { subtype: 'init', cwd: ctx.cwdRealpath, model, max_steps: steps });
   if (trace) {
@@ -243,7 +424,51 @@ async function run(options) {
   }
 
   for (let step = 1; step <= steps; step++) {
-    const { cachedSystem, cachedTools } = applyCacheControlBudget(system, tools);
+    hooks.dispatch('pre_model_request', { step, runId });
+
+    const compaction = applyCompactionLadder(messages, system, {
+      ...DEFAULT_POLICY,
+      ...(compactionPolicy || {}),
+      compactionGeneration: sessionStore ? sessionStore.data().runner.compactionGeneration : 0,
+    });
+    if (compaction.changed && sessionStore) {
+      sessionStore.updateRunner({ compactionGeneration: compaction.generation });
+    }
+    if (compaction.stagesApplied.length) {
+      output.emit('compaction', {
+        step,
+        stages: compaction.stagesApplied,
+        tokensEstimated: compaction.tokensEstimated,
+      });
+      if (ledger) {
+        appendLedger(ledger, hooks, 'compaction_applied', {
+          runId,
+          step,
+          stages: compaction.stagesApplied,
+          tokensEstimated: compaction.tokensEstimated,
+        });
+      }
+      if (!quiet) {
+        emitHint('Compaction applied: ' + compaction.stagesApplied.join(', '), {
+          quiet,
+          verbose,
+          stopReason: 'compaction_applied',
+        });
+      }
+    }
+    messages = compaction.messages;
+    const systemForRequest = compaction.system;
+
+    const { cachedSystem, cachedTools } = applyCacheControlBudget(systemForRequest, tools);
+
+    const advisoryTokens = estimateTokensAdvisory(messages);
+    if (maxContextTokens && advisoryTokens > maxContextTokens && !quiet) {
+      emitHint('Approaching context budget (~' + advisoryTokens + ' tokens estimated).', {
+        quiet,
+        verbose,
+        stopReason: 'predictive_context_budget_exceeded',
+      });
+    }
 
     const requestBody = {
       model,
@@ -284,10 +509,11 @@ async function run(options) {
       }
     } catch (err) {
       const msg = 'Bridge error on step ' + step + ': ' + err.message;
+      const hint = emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.BRIDGE_ERROR });
       if (transcript) transcript.append({ type: 'error', step, message: msg });
-      if (humanLog) humanLog.writeError(msg);
+      if (humanLog) humanLog.writeError(msg, { stopReason: STOP_REASONS.BRIDGE_ERROR });
       if (trace) trace.append('runner_bridge_error', { run_id: runId, turn: step, message: msg });
-      console.error(msg);
+      output.emit('error', { message: msg, hint: hint ? { whatHappened: hint.whatHappened, tip: hint.tip } : null });
       if (step < steps && consecutiveToolFailures < MAX_CONSECUTIVE_FAILURES) {
         consecutiveToolFailures++;
         if (!quiet)
@@ -297,9 +523,19 @@ async function run(options) {
         continue;
       }
       if (transcript) transcript.flush();
+      hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.BRIDGE_ERROR });
       process.exitCode = 1;
-      return;
+      return {
+        stopReason: STOP_REASONS.BRIDGE_ERROR,
+        finalText: msg,
+        steps: step,
+        duration_ms: Date.now() - startedAt,
+        usage: totalUsage,
+        events: output.events,
+      };
     }
+
+    hooks.dispatch('post_model_response', { step, runId });
 
     if (transcript) transcript.append({ type: 'assistant', step, content: response.content });
     if (humanLog) humanLog.writeAssistant(step, response);
@@ -350,8 +586,11 @@ async function run(options) {
           events: output.events,
         });
         if (transcript) transcript.flush();
+        persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
+        hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.CONTEXT_BUDGET_EXCEEDED });
         process.exitCode = 1;
         return {
+          stopReason: STOP_REASONS.CONTEXT_BUDGET_EXCEEDED,
           finalText: msg,
           steps: step,
           duration_ms: Date.now() - startedAt,
@@ -374,6 +613,7 @@ async function run(options) {
     }
 
     messages.push({ role: 'assistant', content: response.content });
+    persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
     output.emit('assistant', {
       step,
       message: {
@@ -408,8 +648,11 @@ async function run(options) {
         events: output.events,
       });
       if (transcript) transcript.flush();
+      persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
+      hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.MAX_TOOL_CALLS_PER_TURN });
       process.exitCode = 1;
       return {
+        stopReason: STOP_REASONS.MAX_TOOL_CALLS_PER_TURN,
         finalText: msg,
         steps: step,
         duration_ms: Date.now() - startedAt,
@@ -420,6 +663,7 @@ async function run(options) {
 
     if (toolUses.length === 0) {
       const result = {
+        stopReason: STOP_REASONS.SUCCESS,
         finalText: text,
         steps: step,
         duration_ms: Date.now() - startedAt,
@@ -437,6 +681,19 @@ async function run(options) {
       });
       output.finish(result);
       if (trace) trace.append('run_completed', { run_id: runId, ...traceRunResult(result) });
+      hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.SUCCESS });
+      if (ledger) appendLedger(ledger, hooks, 'run_stopped', { runId, stopReason: STOP_REASONS.SUCCESS });
+      const autopsy = buildAutopsy({
+        toolHistory,
+        stopReason: STOP_REASONS.SUCCESS,
+        steps: step,
+        usage: totalUsage,
+        duration_ms: result.duration_ms,
+      });
+      if (resolvedSessionPath) writeAutopsyFile(resolvedSessionPath, autopsy);
+      maybeRunSessionExtract(sessionExtract, ctx, autopsy, resolvedSessionPath);
+      result.autopsy = autopsy;
+      persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
       return result;
     }
 
@@ -451,16 +708,35 @@ async function run(options) {
       else writeTools.push(tu);
     }
 
-    // ── Step A: batched read-only tools ──
+    // ── Step A: parallel read-only tools ──
     if (readTools.length > 0 && verbose) {
-      console.error('[runner] step ' + step + ': executing ' + readTools.length + ' read-only tools as a batch');
+      console.error('[runner] step ' + step + ': executing ' + readTools.length + ' read-only tools in parallel');
     }
     for (const tu of readTools) {
+      appendLedger(ledger, hooks, 'tool_effect_intent', {
+        runId,
+        step,
+        tool: tu.name,
+        toolUseId: tu.id,
+        effectId: makeEffectId(),
+      });
+      hooks.dispatch('pre_tool', { step, tool: tu.name, toolUseId: tu.id });
+    }
+    const readBatch = readTools.length > 0 ? await executeReadOnlyBatch(readTools, ctx) : [];
+    for (const { toolUse: tu, result } of readBatch) {
+      appendLedger(ledger, hooks, 'tool_effect_result', {
+        runId,
+        step,
+        tool: tu.name,
+        toolUseId: tu.id,
+        ok: result.ok,
+      });
       if (trace) trace.append('tool_requested', traceToolUse(runId, step, tu, trace));
-      let result = execute(tu.name, tu.input || {}, ctx, tu.id);
       if (result.needsConfirmation && ctx.plan) {
-        result = { ok: true, text: 'Plan mode: would ' + result.proposedAction };
+        result.ok = true;
+        result.text = 'Plan mode: would ' + result.proposedAction;
       }
+      toolHistory.push({ name: tu.name, args: tu.input || {}, ok: result.ok });
       output.emit('tool_use', { step, tool_use_id: tu.id, name: tu.name, input: tu.input || {} });
       output.emit('tool_result', {
         step,
@@ -469,6 +745,8 @@ async function run(options) {
         content: result.text || '',
         is_error: !result.ok,
         bytes: result.bytes,
+        envelope: result.envelope,
+        permission: result.permission,
       });
       if (transcript) {
         transcript.append({ type: 'tool_call', step, tool: tu.name, args: tu.input, toolUseId: tu.id });
@@ -484,6 +762,7 @@ async function run(options) {
       }
       if (humanLog) humanLog.writeToolResult(step, tu.name, tu.id, result);
       if (trace) trace.append('tool_finished', traceToolResult(runId, step, tu, result, trace));
+      hooks.dispatch('post_tool', { step, tool: tu.name, ok: result.ok });
       toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: result.text || '', is_error: !result.ok });
       if (verbose)
         console.error(
@@ -497,11 +776,71 @@ async function run(options) {
         );
     }
 
+    const cycle = detectSemanticCycles(toolHistory);
+    if (cycle) {
+      const msg = 'Semantic cycle detected: repeated ' + cycle.key;
+      emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.SEMANTIC_CYCLE_DETECTED });
+      if (ledger)
+        appendLedger(ledger, hooks, 'run_stopped', { runId, stopReason: STOP_REASONS.SEMANTIC_CYCLE_DETECTED });
+      const autopsy = buildAutopsy({
+        toolHistory,
+        stopReason: STOP_REASONS.SEMANTIC_CYCLE_DETECTED,
+        steps: step,
+        usage: totalUsage,
+        duration_ms: Date.now() - startedAt,
+      });
+      if (resolvedSessionPath) writeAutopsyFile(resolvedSessionPath, autopsy);
+      process.exitCode = 1;
+      return {
+        stopReason: STOP_REASONS.SEMANTIC_CYCLE_DETECTED,
+        finalText: msg,
+        steps: step,
+        duration_ms: Date.now() - startedAt,
+        usage: totalUsage,
+        events: output.events,
+        autopsy,
+      };
+    }
+
+    if (maxWallClockMs && Date.now() - startedAt > maxWallClockMs) {
+      const msg = 'Wall clock budget exceeded';
+      emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.WALL_CLOCK_BUDGET_EXCEEDED });
+      process.exitCode = 1;
+      return {
+        stopReason: STOP_REASONS.WALL_CLOCK_BUDGET_EXCEEDED,
+        finalText: msg,
+        steps: step,
+        duration_ms: Date.now() - startedAt,
+        usage: totalUsage,
+        events: output.events,
+      };
+    }
+
+    if (maxCostUsd) {
+      const cost = estimateCostUsd(model, totalUsage);
+      if (cost > maxCostUsd) {
+        const msg = 'Cost budget exceeded (~$' + cost.toFixed(4) + ')';
+        emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.COST_BUDGET_EXCEEDED });
+        process.exitCode = 1;
+        return {
+          stopReason: STOP_REASONS.COST_BUDGET_EXCEEDED,
+          finalText: msg,
+          steps: step,
+          duration_ms: Date.now() - startedAt,
+          usage: totalUsage,
+          events: output.events,
+        };
+      }
+    }
+
     // ── Step B: write/shell tools serially (with confirmation) ──
     for (const toolUse of writeTools) {
       const toolName = toolUse.name;
       const args = toolUse.input || {};
       const toolUseId = toolUse.id;
+      const effectId = makeEffectId();
+      appendLedger(ledger, hooks, 'tool_effect_intent', { runId, step, tool: toolName, toolUseId, effectId });
+      hooks.dispatch('pre_tool', { step, tool: toolName, toolUseId });
       output.emit('tool_use', { step, tool_use_id: toolUseId, name: toolName, input: args });
       if (trace) trace.append('tool_requested', traceToolUse(runId, step, toolUse, trace));
       if (transcript) transcript.append({ type: 'tool_call', step, tool: toolName, args, toolUseId });
@@ -519,6 +858,7 @@ async function run(options) {
             tool: toolName,
             decision: 'approval_required',
             proposed_action: trace.capture(result.proposedAction),
+            permission: result.permission,
           });
         output.emit('approval_required', {
           step,
@@ -591,6 +931,15 @@ async function run(options) {
         });
       if (humanLog) humanLog.writeToolResult(step, toolName, toolUseId, result);
       if (trace) trace.append('tool_finished', traceToolResult(runId, step, toolUse, result, trace));
+      appendLedger(ledger, hooks, 'tool_effect_result', {
+        runId,
+        step,
+        tool: toolName,
+        toolUseId,
+        effectId,
+        ok: result.ok,
+      });
+      hooks.dispatch('post_tool', { step, tool: toolName, ok: result.ok });
       if (verbose)
         console.error(
           '[runner] step ' +
@@ -618,11 +967,13 @@ async function run(options) {
     }
 
     messages.push({ role: 'user', content: toolResults });
+    persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
   }
 
   const msg = 'Reached max_steps (' + steps + ') without a final answer.';
+  emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.MAX_STEPS });
   if (transcript) transcript.writeFinal(msg);
-  if (humanLog) humanLog.writeError(msg);
+  if (humanLog) humanLog.writeError(msg, { stopReason: STOP_REASONS.MAX_STEPS });
   output.emit('error', { message: msg, duration_ms: Date.now() - startedAt, num_turns: steps, usage: totalUsage });
   output.finish({
     finalText: msg,
@@ -640,7 +991,26 @@ async function run(options) {
       duration_ms: Date.now() - startedAt,
       usage: totalUsage,
     });
-  return { finalText: msg, steps, duration_ms: Date.now() - startedAt, usage: totalUsage, events: output.events };
+  hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.MAX_STEPS });
+  appendLedger(ledger, hooks, 'run_stopped', { runId, stopReason: STOP_REASONS.MAX_STEPS });
+  const autopsy = buildAutopsy({
+    toolHistory,
+    stopReason: STOP_REASONS.MAX_STEPS,
+    steps,
+    usage: totalUsage,
+    duration_ms: Date.now() - startedAt,
+  });
+  if (resolvedSessionPath) writeAutopsyFile(resolvedSessionPath, autopsy);
+  persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
+  return {
+    stopReason: STOP_REASONS.MAX_STEPS,
+    finalText: msg,
+    steps,
+    duration_ms: Date.now() - startedAt,
+    usage: totalUsage,
+    events: output.events,
+    autopsy,
+  };
 }
 
 function bridgeTraceHeaders(trace, runId, turn) {

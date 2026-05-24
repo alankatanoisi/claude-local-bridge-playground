@@ -461,6 +461,8 @@
             <h2>Quick presets</h2>
             <div class="presets" id="presets">
               <button class="preset-btn" data-preset="readonly">Read-only exploration</button>
+              <button class="preset-btn" data-preset="session">Session persistence</button>
+              <button class="preset-btn" data-preset="coordinator">Coordinator (playground)</button>
               <button class="preset-btn" data-preset="confirm">Edit with confirmation</button>
               <button class="preset-btn" data-preset="auto">Auto-approve edits</button>
               <button class="preset-btn" data-preset="full">Full agent + shell</button>
@@ -469,6 +471,29 @@
               <button class="preset-btn" data-preset="otherfolder">Other local folder</button>
               <button class="preset-btn" data-preset="resume">Resume session</button>
               <button class="preset-btn" data-preset="debug">Verbose debug</button>
+            </div>
+          </div>
+
+          <!-- CLI mode -->
+          <div class="card">
+            <h2>CLI mode</h2>
+            <div class="field">
+              <label for="cliMode">Which binary?</label>
+              <select id="cliMode">
+                <option value="runner">local-bridge-runner.js — single kernel loop</option>
+                <option value="coordinator">local-bridge-coordinator.js — phased top agent (playground)</option>
+              </select>
+            </div>
+            <div id="coordinatorFields" style="display: none">
+              <div class="field">
+                <label for="coordinatorPhases">Phases (comma-separated)</label>
+                <input type="text" id="coordinatorPhases" placeholder="research,synthesize,execute,verify" />
+              </div>
+              <div class="checks">
+                <label class="check-label">
+                  <input type="checkbox" id="noWorkers" checked /> --no-workers (skip background workers)
+                </label>
+              </div>
             </div>
           </div>
 
@@ -493,7 +518,11 @@
             </div>
             <div class="field">
               <label for="runnerPath">Runner repo folder</label>
-              <input type="text" id="runnerPath" placeholder="/Users/alanman/Developer/claude-local-bridge" />
+              <input
+                type="text"
+                id="runnerPath"
+                placeholder="/Users/alanman/Developer/claude-local-bridge-playground"
+              />
             </div>
             <div class="row">
               <div class="field">
@@ -585,6 +614,55 @@
             </div>
 
             <hr class="divider" />
+
+            <div class="field">
+              <label for="sessionId">Session id (playground)</label>
+              <input type="text" id="sessionId" placeholder="my-run-1" />
+            </div>
+            <div class="field">
+              <label for="sessionPath">Session path (optional override)</label>
+              <input type="text" id="sessionPath" placeholder="~/.bridge-runner/sessions/my-run-1.state.json" />
+            </div>
+            <div class="checks" style="margin-top: 0.5rem">
+              <label class="check-label">
+                <input type="checkbox" id="trustedWorkspace" /> --trusted-workspace (enable project hooks)
+              </label>
+              <label class="check-label">
+                <input type="checkbox" id="trustWorkspace" /> --trust-workspace (record cwd consent)
+              </label>
+              <label class="check-label">
+                <input type="checkbox" id="chaosOk" /> --chaos-ok (risky flag combo)
+              </label>
+              <label class="check-label">
+                <input type="checkbox" id="sessionExtract" /> --session-extract (queue learning after run)
+              </label>
+              <label class="check-label">
+                <input type="checkbox" id="reviewMemory" /> --review-memory (list promotions, no prompt)
+              </label>
+            </div>
+            <div class="row">
+              <div class="field">
+                <label for="agentProfile">Agent profile</label>
+                <select id="agentProfile">
+                  <option value="">(default)</option>
+                  <option value="explore">explore</option>
+                  <option value="plan">plan</option>
+                  <option value="implement">implement</option>
+                  <option value="verify">verify</option>
+                  <option value="test">test</option>
+                  <option value="replay">replay</option>
+                  <option value="extractor">extractor</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="maxWallClockMs">Max wall clock (ms)</label>
+                <input type="text" id="maxWallClockMs" placeholder="600000" />
+              </div>
+              <div class="field">
+                <label for="maxCostUsd">Max cost USD</label>
+                <input type="text" id="maxCostUsd" placeholder="2.00" />
+              </div>
+            </div>
 
             <div class="field">
               <label for="resumePath">Resume from transcript</label>
@@ -713,13 +791,13 @@
           </div>
           <div class="card" style="font-size: 0.8rem; color: var(--muted)">
             <strong>Tip:</strong> Paste this into your terminal and press Enter. The runner connects through your local
-            bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>. If the bridge says
+            bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>. Use the
+            <strong>playground</strong> folder for <code>--session-id</code> and the coordinator CLI. If the bridge says
             <code style="font-size: 0.75rem">Unauthorized: Missing Bearer token</code>, caller auth is enabled; either
             disable it in VS Code settings or set Caller auth token here. Use
             <code style="font-size: 0.75rem">stream-json</code> when another script or agent needs to parse every runner
-            event. Set a human-readable log path when you want a plain text record of the prompt, tool calls, and final
-            answer. <code>--no-network</code> is only a best-effort shell proxy guard; it is not a sandbox. Turn on a
-            <code>summary</code> trace when you need a flight recorder without writing prompt bodies.
+            event (including <code>compaction</code> and <code>stopReason</code>). Set a human-readable log path when
+            you want a plain text record of the prompt, tool calls, and final answer.
           </div>
         </div>
       </div>
@@ -764,6 +842,20 @@
       const systemPrompt = document.getElementById('systemPrompt');
       const continueFromLatest = document.getElementById('continueFromLatest');
       const toolChoices = Array.from(document.querySelectorAll('#toolChoices input[type="checkbox"]'));
+      const cliMode = document.getElementById('cliMode');
+      const coordinatorFields = document.getElementById('coordinatorFields');
+      const coordinatorPhases = document.getElementById('coordinatorPhases');
+      const noWorkers = document.getElementById('noWorkers');
+      const sessionId = document.getElementById('sessionId');
+      const sessionPath = document.getElementById('sessionPath');
+      const trustedWorkspace = document.getElementById('trustedWorkspace');
+      const trustWorkspace = document.getElementById('trustWorkspace');
+      const chaosOk = document.getElementById('chaosOk');
+      const sessionExtract = document.getElementById('sessionExtract');
+      const reviewMemory = document.getElementById('reviewMemory');
+      const agentProfile = document.getElementById('agentProfile');
+      const maxWallClockMs = document.getElementById('maxWallClockMs');
+      const maxCostUsd = document.getElementById('maxCostUsd');
 
       const DEFAULTS = {
         maxSteps: 16,
@@ -796,9 +888,38 @@
       }
 
       function buildCommandParts() {
-        const parts = ['node bin/local-bridge-runner.js'];
+        const isCoordinator = cliMode.value === 'coordinator';
+        const binary = isCoordinator ? 'node bin/local-bridge-coordinator.js' : 'node bin/local-bridge-runner.js';
+        const parts = [binary];
 
         if (cwd.value.trim()) parts.push('--cwd ' + shellQuote(cwd.value.trim()));
+        if (sessionId.value.trim()) parts.push('--session-id ' + shellQuote(sessionId.value.trim()));
+        if (!isCoordinator && sessionPath.value.trim())
+          parts.push('--session-path ' + shellQuote(sessionPath.value.trim()));
+        if (!isCoordinator && trustedWorkspace.checked) parts.push('--trusted-workspace');
+        if (!isCoordinator && trustWorkspace.checked) parts.push('--trust-workspace');
+        if (!isCoordinator && chaosOk.checked) parts.push('--chaos-ok');
+        if (!isCoordinator && sessionExtract.checked) parts.push('--session-extract');
+        if (!isCoordinator && reviewMemory.checked) {
+          parts.push('--review-memory');
+          return parts;
+        }
+        if (!isCoordinator && agentProfile.value) parts.push('--agent ' + agentProfile.value);
+        if (!isCoordinator && maxWallClockMs.value.trim())
+          parts.push('--max-wall-clock-ms ' + maxWallClockMs.value.trim());
+        if (!isCoordinator && maxCostUsd.value.trim()) parts.push('--max-cost-usd ' + maxCostUsd.value.trim());
+
+        if (isCoordinator) {
+          if (coordinatorPhases.value.trim()) parts.push('--phases ' + shellQuote(coordinatorPhases.value.trim()));
+          if (noWorkers.checked) parts.push('--no-workers');
+          if (model.value !== DEFAULTS.model) parts.push('--model ' + model.value);
+          if (+maxTokens.value !== DEFAULTS.maxTokens) parts.push('--max-tokens ' + maxTokens.value);
+          if (outputFormat.value !== DEFAULTS.outputFormat) parts.push('--output-format ' + outputFormat.value);
+          const promptText = buildPromptText();
+          if (promptText) parts.push(shellQuote(promptText));
+          return parts;
+        }
+
         if (attachmentMode.value === 'include') {
           for (const filePath of getAttachedPaths()) {
             parts.push('--include-file ' + shellQuote(filePath));
@@ -873,6 +994,9 @@
 
       // ── Render command ──
       function render() {
+        const isCoordinator = cliMode.value === 'coordinator';
+        coordinatorFields.style.display = isCoordinator ? 'block' : 'none';
+
         const raw = buildRawCommand();
         cmdOutput.innerHTML = '<span class="dim">$</span> ' + esc(raw);
 
@@ -953,6 +1077,19 @@
         noNetwork,
         systemPrompt,
         continueFromLatest,
+        cliMode,
+        coordinatorPhases,
+        noWorkers,
+        sessionId,
+        sessionPath,
+        trustedWorkspace,
+        trustWorkspace,
+        chaosOk,
+        sessionExtract,
+        reviewMemory,
+        agentProfile,
+        maxWallClockMs,
+        maxCostUsd,
         ...toolChoices,
       ].forEach((el) => {
         el.addEventListener('input', render);
@@ -990,6 +1127,45 @@
           outputFormat: 'text',
           runnerPath: '',
           cwd: '',
+          cliMode: 'runner',
+          tools: READ_TOOL_NAMES,
+        },
+        session: {
+          prompt: 'List files under src/runner and summarize. Do not edit files.',
+          maxSteps: 8,
+          maxTokens: 2000,
+          maxStepsDefault: true,
+          maxTokensDefault: true,
+          acceptEdits: false,
+          dontAsk: false,
+          allowShell: false,
+          stream: false,
+          verbose: true,
+          outputFormat: 'text',
+          runnerPath: '/Users/alanman/Developer/claude-local-bridge-playground',
+          cwd: '/Users/alanman/Developer/claude-local-bridge-playground',
+          sessionId: 'command-builder-demo',
+          cliMode: 'runner',
+          tools: READ_TOOL_NAMES,
+        },
+        coordinator: {
+          prompt: 'Summarize how permissions.js works. Do not edit files.',
+          maxSteps: 8,
+          maxTokens: 2000,
+          maxStepsDefault: true,
+          maxTokensDefault: true,
+          acceptEdits: false,
+          dontAsk: false,
+          allowShell: false,
+          stream: false,
+          verbose: false,
+          outputFormat: 'text',
+          runnerPath: '/Users/alanman/Developer/claude-local-bridge-playground',
+          cwd: '/Users/alanman/Developer/claude-local-bridge-playground',
+          sessionId: 'coord-demo-1',
+          cliMode: 'coordinator',
+          coordinatorPhases: 'research,synthesize,execute',
+          noWorkers: true,
           tools: READ_TOOL_NAMES,
         },
         confirm: {
@@ -1129,6 +1305,12 @@
         btn.classList.add('active');
 
         prompt.value = p.prompt;
+        cliMode.value = p.cliMode || 'runner';
+        sessionId.value = p.sessionId || '';
+        sessionPath.value = p.sessionPath || '';
+        trustedWorkspace.checked = p.trustedWorkspace || false;
+        coordinatorPhases.value = p.coordinatorPhases || '';
+        noWorkers.checked = Object.prototype.hasOwnProperty.call(p, 'noWorkers') ? p.noWorkers : true;
         acceptEdits.checked = p.acceptEdits;
         dontAsk.checked = p.dontAsk;
         allowShell.checked = p.allowShell;

@@ -46,6 +46,16 @@ Options:\n\
   --caller-token <t>   Local bridge caller auth token (or BRIDGE_CALLER_TOKEN env)\n\
   --include-file <p>   Include a bounded relative file in pasted context (repeatable)\n\
   --resume <path>      Resume from a transcript (appends new prompt to existing conversation)\n\
+  --session-id <id>    Canonical session id (*.state.json under ~/.bridge-runner/sessions/)\n\
+  --session-path <p>   Explicit path to session state JSON file\n\
+  --trusted-workspace  Enable hooks from .bridge-runner/hooks.json in cwd\n\
+  --trust-workspace    Record trust consent for cwd (required in CI/non-interactive)\n\
+  --chaos-ok           Allow risky flag combo: --allow-shell --accept-edits --dont-ask\n\
+  --max-wall-clock-ms <n> Stop after N milliseconds\n\
+  --max-cost-usd <n>    Stop after estimated cost exceeds N USD\n\
+  --agent <profile>     Built-in agent profile: explore, plan, implement, verify, test, replay\n\
+  --review-memory       List pending memory promotions for approval\n\
+  --session-extract     Run background session extraction after completion\n\
   --accept-edits       Auto-approve write/edit/patch tools (skip confirmation)\n\
   --dont-ask           Skip confirmation for already-enabled risky tools\n\
   --allow-shell        Enable the bash tool (disabled by default)\n\
@@ -102,6 +112,18 @@ async function main() {
         'caller-token': { type: 'string' },
         'include-file': { type: 'string', multiple: true },
         resume: { type: 'string' },
+        'session-id': { type: 'string' },
+        'session-path': { type: 'string' },
+        'trusted-workspace': { type: 'boolean' },
+        'trust-workspace': { type: 'boolean' },
+        'chaos-ok': { type: 'boolean' },
+        'max-wall-clock-ms': { type: 'string' },
+        'max-cost-usd': { type: 'string' },
+        agent: { type: 'string' },
+        replay: { type: 'boolean' },
+        repair: { type: 'boolean' },
+        'review-memory': { type: 'boolean' },
+        'session-extract': { type: 'boolean' },
         'accept-edits': { type: 'boolean' },
         'dont-ask': { type: 'boolean' },
         'allow-shell': { type: 'boolean' },
@@ -133,9 +155,46 @@ async function main() {
   }
 
   const prompt = args.positionals.join(' ').trim();
-  if (!prompt) {
+
+  if (args.values['review-memory']) {
+    const { formatReviewSummary } = require('../src/runner/memory-review');
+    console.log(formatReviewSummary(path.resolve(args.values.cwd || process.cwd())));
+    process.exit(0);
+  }
+
+  if (args.values.replay) {
+    const { resolveSessionPath } = require('../src/runner/session-store');
+    const { replayFromLedger } = require('../src/runner/replay-simulator');
+    const sp = resolveSessionPath({ sessionPath: args.values['session-path'], sessionId: args.values['session-id'] });
+    if (!sp) {
+      console.error('Error: --replay requires --session-id or --session-path');
+      process.exit(1);
+    }
+    console.log(JSON.stringify(replayFromLedger(sp), null, 2));
+    process.exit(0);
+  }
+
+  if (args.values.repair) {
+    const { resolveSessionPath } = require('../src/runner/session-store');
+    const { planRepair, applyRepair } = require('../src/runner/ledger-repair');
+    const sp = resolveSessionPath({ sessionPath: args.values['session-path'], sessionId: args.values['session-id'] });
+    if (!sp) {
+      console.error('Error: --repair requires --session-id or --session-path');
+      process.exit(1);
+    }
+    const plan = planRepair(sp);
+    console.log(JSON.stringify(applyRepair(sp, plan.repairPlan, false), null, 2));
+    process.exit(0);
+  }
+
+  if (!prompt && !args.values.help) {
     console.error('Error: no prompt provided. Use --help for usage.');
     process.exit(1);
+  }
+
+  if (!prompt) {
+    showHelp();
+    process.exit(0);
   }
 
   const cwd = path.resolve(args.values.cwd || process.cwd());
@@ -287,6 +346,16 @@ async function main() {
     allowedTools,
     maxContextTokens,
     maxToolCallsPerTurn,
+    sessionId: args.values['session-id'],
+    sessionPath: args.values['session-path'],
+    trustedWorkspace: !!args.values['trusted-workspace'],
+    trustWorkspace: !!args.values['trust-workspace'],
+    chaosOk: !!args.values['chaos-ok'],
+    maxWallClockMs: parseInt(args.values['max-wall-clock-ms'], 10) || undefined,
+    maxCostUsd: parseFloat(args.values['max-cost-usd']) || undefined,
+    agentProfile: args.values.agent || undefined,
+    sessionExtract: !!args.values['session-extract'],
+    skipTrustGate: process.env.BRIDGE_RUNNER_TEST === '1' && !args.values['trust-workspace'],
   });
 }
 

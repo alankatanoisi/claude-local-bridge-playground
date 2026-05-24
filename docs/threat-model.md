@@ -43,13 +43,14 @@ Path patterns that are **always denied** for both read and write:
 ```
 User prompt
   → validateCwd() rejects system dirs and non-existent paths
+  → evaluateWorkspaceTrust() — no tools until cwd is consented (--trust-workspace or interactive y)
   → Agent loop sends request to bridge
   → Model returns tool_use blocks
   → permissions.check():
       1. confinePath() — realpath containment → deny on escape
-      2. isPathBlockedByDenyMatrix() — glob patterns → deny on match
-      3. Shell arg scanning — command text inspection → deny on pattern
-      4. Category-based decision — allow/ask/deny
+      2. isPathBlockedByDenyMatrix() — glob patterns → deny on match (severity: hard_deny)
+      3. Shell arg scanning — command text inspection → deny on pattern (severity: hard_deny)
+      4. Category-based decision — allow/ask/deny with severity metadata
   → If ask: user confirms interactively
   → tool.execute() runs with:
       - safeEnv for shell commands (stripped process.env)
@@ -57,6 +58,30 @@ User prompt
   → runAndScrub() redacts secrets from result text
   → Result flows into messages, transcript, stream-json
 ```
+
+## Workspace trust gate (P0)
+
+Before any tool runs, the runner checks whether `--cwd` has been explicitly trusted on this machine.
+
+| Mode | Behavior |
+| ---- | -------- |
+| Interactive TTY | Prompts once; records consent in `~/.bridge-runner/trust.json` |
+| CI / non-interactive | Requires `--trust-workspace`; fail closed with `workspace_not_trusted` |
+| Prior consent | Skips prompt when fingerprint matches stored record |
+
+**Effect:** Untrusted workspaces cannot read or write files — not even read-only tools. Hooks and auto-memory writes also require workspace trust plus `--trusted-workspace` where applicable.
+
+## Permission severity
+
+| Severity | Meaning | Bypass |
+| -------- | ------- | ------ |
+| `hard_deny` | Deny matrix paths, path escapes, shell scanner hits | Never — survives `--accept-edits`, `--dont-ask`, and `--chaos-ok` |
+| `bypassable_ask` | Write/shell in default mode | `--accept-edits` or user confirmation |
+| `bypassable_deny` | Shell disabled | `--allow-shell` |
+
+## `--chaos-ok` (explicit risky mode)
+
+The flag `--chaos-ok` is required to combine `--allow-shell`, `--accept-edits`, and `--dont-ask` in one run. It removes most interactive prompts but **does not** disable `hard_deny` path guards (`.env`, `.ssh/`, credentials, etc.).
 
 ## Secret redaction (defense in depth)
 

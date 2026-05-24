@@ -1,24 +1,11 @@
 'use strict';
 
 /**
- * permissions.js — Category-based safety gate with realpath confinement.
- *
- * Returns one of:
- *   { decision: 'allow' }
- *   { decision: 'ask',   proposedAction: string }   — needs user confirmation
- *   { decision: 'deny',  reason: string }
- *
- * Path checking now uses realpath (via safety.confinePath) to defeat symlink
- * escapes. The deny matrix (safety.isPathBlockedByDenyMatrix) handles
- * glob-like patterns: ** /.env*, ** /.ssh/**, ** /id_rsa*, ** /*.pem, etc.
+ * permissions.js — Category-based safety gate with severity levels and explainer metadata.
  */
 
 const path = require('path');
 const safety = require('./safety');
-
-// ---------------------------------------------------------------------------
-// Categories — these govern the default decision for each tool
-// ---------------------------------------------------------------------------
 
 const CATEGORIES = {
   list_files: 'read-only',
@@ -33,10 +20,6 @@ const CATEGORIES = {
   bash: 'shell',
 };
 
-// ---------------------------------------------------------------------------
-// Mode-based policy — declarative rules for each permission mode
-// ---------------------------------------------------------------------------
-
 const MODES = {
   default: { 'read-only': 'allow', write: 'ask', shell: 'ask', recovery: 'allow' },
   acceptEdits: { 'read-only': 'allow', write: 'allow', shell: 'ask', recovery: 'allow' },
@@ -49,10 +32,6 @@ const MODES = {
     recovery: 'plan_only',
   },
 };
-
-// ---------------------------------------------------------------------------
-// Legacy exports for existing tests (these are superseded by safety.js)
-// ---------------------------------------------------------------------------
 
 const BLOCKED_BASENAMES = ['.env', '.env.local', '.env.production', '.env.development', '.envrc'];
 const BLOCKED_PATTERNS = [
@@ -90,147 +69,189 @@ function isBlockedDir(basename) {
   return BLOCKED_DIRS.includes(basename);
 }
 
-// ---------------------------------------------------------------------------
-// Main check — enhanced with realpath and deny matrix
-// ---------------------------------------------------------------------------
+function activeMode(ctx) {
+  if (ctx.plan) return 'plan';
+  if (ctx.acceptEdits && ctx.dontAsk) return 'acceptEditsAndDontAsk';
+  if (ctx.dontAsk) return 'dontAsk';
+  if (ctx.acceptEdits) return 'acceptEdits';
+  return 'default';
+}
 
-/**
- * Decide whether to allow, ask, or deny a tool call.
- *
- * Path confinement now uses fs.realpathSync to catch symlink escapes.
- * The deny matrix catches sensitive paths regardless of basename.
- *
- * @param {string} toolName
- * @param {object}  args     — tool arguments
- * @param {object}  ctx      — { cwd, cwdRealpath?, acceptEdits?, dontAsk?, allowShell? }
- * @returns {{ decision: string, reason?: string, proposedAction?: string }}
- */
+function enrichDecision(base, extra = {}) {
+  return {
+    category: extra.category,
+    mode: extra.mode,
+    ruleId: extra.ruleId,
+    matchedGuards: extra.matchedGuards || [],
+    severity: extra.severity || 'bypassable_ask',
+    explanation: extra.explanation || base.reason || 'Permission evaluated.',
+    ...base,
+  };
+}
+
 function check(toolName, args, ctx) {
-  // Ensure cwdRealpath is set (populated by validateCwd at startup)
   if (!ctx.cwdRealpath && ctx.cwd) {
     try {
       const fs = require('fs');
       ctx.cwdRealpath = fs.realpathSync(ctx.cwd);
     } catch {
-      ctx.cwdRealpath = ctx.cwd; // fallback
+      ctx.cwdRealpath = ctx.cwd;
     }
   }
 
-  // --- Path-based guardrails (applies to any tool that has a 'path' arg) ---
+  const mode = activeMode(ctx);
+  const category = CATEGORIES[toolName];
   const requestedPath = args && args.path;
+
   if (requestedPath) {
-    // Step 1: realpath-based containment (catches symlink escapes)
     const confined = safety.confinePath(ctx, requestedPath);
     if (!confined) {
-      return { decision: 'deny', reason: 'Path escapes working directory: ' + requestedPath };
+      return enrichDecision(
+        { decision: 'deny', reason: 'Path escapes working directory: ' + requestedPath },
+        {
+          category: category || 'unknown',
+          mode,
+          ruleId: 'path_guard',
+          matchedGuards: ['path_confinement'],
+          severity: 'hard_deny',
+          explanation: 'That path is outside --cwd. The runner only accesses files inside the working directory.',
+        },
+      );
     }
-
-    // Step 2: deny matrix (glob-like patterns for sensitive paths)
     if (safety.isPathBlockedByDenyMatrix(confined)) {
-      return { decision: 'deny', reason: 'Blocked file type (potential secret): ' + path.basename(requestedPath) };
+      return enrichDecision(
+        { decision: 'deny', reason: 'Blocked file type (potential secret): ' + path.basename(requestedPath) },
+        {
+          category: category || 'unknown',
+          mode,
+          ruleId: 'deny_matrix',
+          matchedGuards: ['secret_pattern'],
+          severity: 'hard_deny',
+          explanation:
+            'Sensitive files (.env, credentials, keys) are always blocked, even with --accept-edits or --chaos-ok.',
+        },
+      );
     }
   }
 
-  // --- Shell argument scanning: reject commands that reference deny-matrix paths ---
   if (toolName === 'bash' && args && args.command) {
-    const cmd = args.command;
-    // Check for attempts to access sensitive paths in the command text
-    const blockedSegments = [
-      '.env',
-      '.ssh/',
-      '.aws/',
-      '.claude/',
-      '.gnupg/',
-      'id_rsa',
-      'id_ed25519',
-      '.pem',
-      '.key',
-      '.p8',
-      '.p12',
-      '.pfx',
-      '.netrc',
-      '.npmrc',
-      'credentials.json',
-      'service-account',
-      'service_account',
-      'adminsdk',
-    ];
-    for (const seg of blockedSegments) {
-      if (cmd.includes(seg)) {
-        return { decision: 'deny', reason: 'Shell command references a blocked path pattern: ' + seg };
+    const { scanShellCommand } = require('./shell-policy');
+    const scan = scanShellCommand(args.command, ctx);
+    for (const issue of scan.issues) {
+      if (issue.kind === 'hard_deny_path' || issue.kind === 'blocked_path_pattern') {
+        return enrichDecision(
+          {
+            decision: 'deny',
+            reason:
+              issue.kind === 'hard_deny_path'
+                ? 'Shell command references a blocked path pattern: ' + issue.segment
+                : 'Shell command references a blocked path pattern: ' + (issue.token || issue.segment || 'sensitive path'),
+          },
+          {
+            category: 'shell',
+            mode,
+            ruleId: 'shell_hard_deny',
+            matchedGuards: ['shell_scanner'],
+            severity: 'hard_deny',
+            explanation: 'Shell cannot touch protected files or directories like .env, .ssh, or credentials.',
+          },
+        );
       }
-    }
-    // Block attempts to read env vars that would leak credentials
-    const blockedEnvRefs = [
-      '$SSH_AUTH_SOCK',
-      '${SSH_AUTH_SOCK}',
-      '$AWS_ACCESS_KEY_ID',
-      '${AWS_ACCESS_KEY_ID}',
-      '$ANTHROPIC_API_KEY',
-      '${ANTHROPIC_API_KEY}',
-      '$GH_TOKEN',
-      '${GH_TOKEN}',
-    ];
-    for (const ref of blockedEnvRefs) {
-      if (cmd.includes(ref)) {
-        return { decision: 'deny', reason: 'Shell command references a blocked environment variable: ' + ref };
+      if (issue.kind === 'blocked_env_var') {
+        return enrichDecision(
+          { decision: 'deny', reason: 'Shell command references a blocked environment variable' },
+          {
+            category: 'shell',
+            mode,
+            ruleId: 'shell_env_deny',
+            matchedGuards: ['shell_scanner'],
+            severity: 'hard_deny',
+            explanation: 'Shell cannot read credential environment variables.',
+          },
+        );
+      }
+      if (issue.kind === 'network_command' && ctx.noNetwork) {
+        return enrichDecision(
+          { decision: 'deny', reason: 'Network command blocked under --no-network: ' + args.command.slice(0, 80) },
+          {
+            category: 'shell',
+            mode,
+            ruleId: 'no_network',
+            matchedGuards: ['network_scanner'],
+            severity: 'hard_deny',
+            explanation: 'Network commands are blocked when --no-network is set.',
+          },
+        );
       }
     }
   }
 
-  // --- Category-based decision via policy object ---
-  const category = CATEGORIES[toolName];
   if (!category) {
-    return { decision: 'deny', reason: "Tool '" + toolName + "' is not in the allow-list." };
+    return enrichDecision(
+      { decision: 'deny', reason: "Tool '" + toolName + "' is not in the allow-list." },
+      { category: 'unknown', mode, ruleId: 'allowed_tools', severity: 'hard_deny', explanation: 'Unknown tool.' },
+    );
   }
 
   if (category === 'shell' && !ctx.allowShell) {
-    return { decision: 'deny', reason: 'Shell commands are disabled. Use --allow-shell to enable.' };
+    return enrichDecision(
+      { decision: 'deny', reason: 'Shell commands are disabled. Use --allow-shell to enable.' },
+      {
+        category,
+        mode,
+        ruleId: 'shell_disabled',
+        severity: 'bypassable_deny',
+        explanation: 'Shell is hidden by default. Add --allow-shell when you need terminal commands.',
+      },
+    );
   }
 
-  // Restrict to allowed-tools whitelist if one is set
   if (ctx.allowedTools && !ctx.allowedTools.has(toolName)) {
-    return { decision: 'deny', reason: "Tool '" + toolName + "' is not in the allowed-tools list." };
+    return enrichDecision(
+      { decision: 'deny', reason: "Tool '" + toolName + "' is not in the allowed-tools list." },
+      { category, mode, ruleId: 'allowed_tools', severity: 'hard_deny', explanation: 'Tool not in --allowed-tools list.' },
+    );
   }
 
-  // Pick the active policy mode from ctx flags
-  let activeMode = 'default';
-  if (ctx.plan) {
-    activeMode = 'plan';
-  } else if (ctx.acceptEdits && ctx.dontAsk) {
-    activeMode = 'acceptEditsAndDontAsk';
-  } else if (ctx.dontAsk) {
-    activeMode = 'dontAsk';
-  } else if (ctx.acceptEdits) {
-    activeMode = 'acceptEdits';
-  }
-
-  const rule = MODES[activeMode];
+  const rule = MODES[mode];
   const decision = rule[category] || 'deny';
 
   if (decision === 'allow') {
-    return { decision: 'allow' };
+    return enrichDecision(
+      { decision: 'allow' },
+      {
+        category,
+        mode,
+        ruleId: 'mode_policy',
+        severity: 'bypassable_ask',
+        explanation: 'Allowed by current permission mode.',
+      },
+    );
   }
 
   if (decision === 'plan_only') {
-    return {
-      decision: 'ask',
-      proposedAction:
-        '(plan mode) ' + (category === 'shell' ? describeShellAction(args) : describeWriteAction(toolName, args)),
-    };
+    return enrichDecision(
+      {
+        decision: 'ask',
+        proposedAction:
+          '(plan mode) ' + (category === 'shell' ? describeShellAction(args) : describeWriteAction(toolName, args)),
+      },
+      { category, mode, ruleId: 'mode_policy', severity: 'bypassable_ask', explanation: 'Plan mode — dry run only.' },
+    );
   }
 
-  // 'ask' for write, shell, or any category not 'allow'
   if (category === 'shell') {
-    return { decision: 'ask', proposedAction: describeShellAction(args) };
+    return enrichDecision(
+      { decision: 'ask', proposedAction: describeShellAction(args) },
+      { category, mode, ruleId: 'mode_policy', severity: 'bypassable_ask', explanation: 'Shell commands require approval.' },
+    );
   }
 
-  return { decision: 'ask', proposedAction: describeWriteAction(toolName, args) };
+  return enrichDecision(
+    { decision: 'ask', proposedAction: describeWriteAction(toolName, args) },
+    { category, mode, ruleId: 'mode_policy', severity: 'bypassable_ask', explanation: 'Write tools require approval unless --accept-edits is set.' },
+  );
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function describeWriteAction(toolName, args) {
   const file = args.path || args.file_path || '(unknown file)';
@@ -253,8 +274,14 @@ function describeShellAction(args) {
   return 'Run: ' + (cmd.length > 100 ? cmd.slice(0, 97) + '...' : cmd);
 }
 
+/** Hard denies survive force execution. */
+function isHardDeny(perm) {
+  return perm && perm.severity === 'hard_deny';
+}
+
 module.exports = {
   check,
+  isHardDeny,
   isInsideProject,
   isBlockedBasename,
   isBlockedDir,
