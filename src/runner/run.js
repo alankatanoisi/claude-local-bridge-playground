@@ -75,13 +75,51 @@ function makeOutput(outputFormat) {
   return { events, emit, finish };
 }
 
-function applyCacheControlBudget(system, tools) {
+// Mark cache_control breakpoints so the bridge/Anthropic side can serve a
+// prompt-cache read instead of reprocessing the whole prefix every turn.
+// Budget: Anthropic allows 4 breakpoints per request. We use up to 3 —
+//   1. last block of system prompt
+//   2. last tool definition (caches the whole tools array prefix)
+//   3. last block of the second-most-recent message (the most recent message
+//      is the freshly-appended turn that would invalidate the cache).
+//
+// We never mutate the inputs: only the touched message is shallow-cloned.
+function applyCacheControlBudget(system, tools, messages) {
   const cachedSystem =
     typeof system === 'string'
       ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
-      : system.map((block) => ({ ...block, cache_control: { type: 'ephemeral' } }));
+      : markLastBlock(system);
 
-  return { cachedSystem, cachedTools: tools };
+  const cachedTools =
+    Array.isArray(tools) && tools.length > 0
+      ? tools.map((tool, i, arr) => (i === arr.length - 1 ? { ...tool, cache_control: { type: 'ephemeral' } } : tool))
+      : tools;
+
+  const cachedMessages = Array.isArray(messages) ? markStableTranscriptPrefix(messages) : messages;
+
+  return { cachedSystem, cachedTools, cachedMessages };
+}
+
+function markLastBlock(blocks) {
+  if (!Array.isArray(blocks) || blocks.length === 0) return blocks;
+  return blocks.map((block, i, arr) =>
+    i === arr.length - 1 ? { ...block, cache_control: { type: 'ephemeral' } } : block,
+  );
+}
+
+// Walk back from the second-to-last message to find one with array content
+// we can mark. Skipping the most recent message keeps the cache stable across
+// the turn that appends the new tool_result / assistant block.
+function markStableTranscriptPrefix(messages) {
+  if (messages.length < 2) return messages;
+  for (let i = messages.length - 2; i >= 0; i--) {
+    const msg = messages[i];
+    if (!Array.isArray(msg.content) || msg.content.length === 0) continue;
+    const cloned = messages.slice();
+    cloned[i] = { ...msg, content: markLastBlock(msg.content) };
+    return cloned;
+  }
+  return messages;
 }
 
 function loadMessagesFromTranscript(filePath) {
@@ -511,7 +549,7 @@ async function run(options) {
     messages = compaction.messages;
     const systemForRequest = compaction.system;
 
-    const { cachedSystem, cachedTools } = applyCacheControlBudget(systemForRequest, tools);
+    const { cachedSystem, cachedTools, cachedMessages } = applyCacheControlBudget(systemForRequest, tools, messages);
 
     const advisoryTokens = estimateTokensAdvisory(messages);
     if (maxContextTokens && advisoryTokens > maxContextTokens && !quiet) {
@@ -526,7 +564,7 @@ async function run(options) {
       model,
       max_tokens: maxTokens,
       system: cachedSystem,
-      messages,
+      messages: cachedMessages,
       tools: cachedTools,
       ...(stream && outputFormat === 'text' ? { stream: true } : {}),
       ...(typeof temperature === 'number' && !isNaN(temperature) ? { temperature } : {}),

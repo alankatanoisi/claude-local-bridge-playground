@@ -30,17 +30,65 @@ describe('run helpers', () => {
     assert.equal(tools[0].name, 'list_files');
   });
 
-  it('applies cache_control only to the system prompt', () => {
+  it('marks cache_control on system, last tool, and stable transcript prefix', () => {
     const tools = Array.from({ length: 10 }, (_, index) => ({
       name: 'tool_' + index,
       description: 'test tool',
       input_schema: { type: 'object', properties: {} },
     }));
+    const messages = [
+      { role: 'user', content: 'initial prompt' },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'reading' },
+          { type: 'tool_use', id: 't1', name: 'tool_0', input: {} },
+        ],
+      },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', content: 'ok' }] },
+    ];
 
-    const { cachedSystem, cachedTools } = applyCacheControlBudget('system prompt', tools);
+    const { cachedSystem, cachedTools, cachedMessages } = applyCacheControlBudget('system prompt', tools, messages);
 
     assert.equal(cachedSystem[0].cache_control.type, 'ephemeral');
-    assert.equal(cachedTools.filter((tool) => tool.cache_control).length, 0);
+
+    const cachedToolMarkers = cachedTools.filter((tool) => tool.cache_control);
+    assert.equal(cachedToolMarkers.length, 1, 'exactly one tool breakpoint');
+    assert.equal(cachedToolMarkers[0].name, 'tool_9', 'breakpoint sits on the last tool');
+
+    // The stable prefix marker sits on the second-to-most-recent message
+    // (the assistant turn). The most recent message must stay untouched so
+    // the next turn can append without invalidating the cache.
+    const assistantBlocks = cachedMessages[1].content;
+    assert.equal(assistantBlocks[assistantBlocks.length - 1].cache_control.type, 'ephemeral');
+    const latestBlocks = cachedMessages[2].content;
+    assert.ok(
+      latestBlocks.every((b) => !b.cache_control),
+      'most recent message stays uncached',
+    );
+  });
+
+  it('does not mutate caller inputs when marking cache_control', () => {
+    const tools = [{ name: 't', description: 'd', input_schema: { type: 'object', properties: {} } }];
+    const messages = [
+      { role: 'user', content: 'hello' },
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'ack' }],
+      },
+    ];
+    const snapshot = JSON.parse(JSON.stringify(messages));
+
+    applyCacheControlBudget('system', tools, messages);
+
+    assert.deepEqual(messages, snapshot, 'messages array and contents unchanged');
+    assert.equal(tools[0].cache_control, undefined, 'tools array unchanged');
+  });
+
+  it('skips message-prefix marker when no message has array content', () => {
+    const messages = [{ role: 'user', content: 'just a string' }];
+    const { cachedMessages } = applyCacheControlBudget('system', [], messages);
+    assert.equal(cachedMessages, messages, 'returns same reference when nothing to mark');
   });
 
   it('handles cache_read and cache_creation in addUsage', () => {
