@@ -1,17 +1,17 @@
 # CLAUDE.md
 
-Claude-specific instructions for this repository. For the full shared agent guide, read `AGENTS.md` first — especially **Human Context** (Alan is a novice; over-explain by default).
+Claude-specific instructions for this repository. For the full shared agent guide, read `AGENTS.md` first — especially **Human Context** and [`lab-notes/ALAN_OPERATOR_PROFILE.md`](lab-notes/ALAN_OPERATOR_PROFILE.md) (Alan is a novice; over-explain by default).
 
 ## Which clone is this?
 
 Run `pwd` before assuming:
 
-| Path ends with | This clone | Expected branch |
-| -------------- | ---------- | ----------------- |
-| `claude-local-bridge-playground` | **Playground** (this is often the experiment copy) | `playground/local-runner-chaos` |
-| `claude-local-bridge` | **Canonical** | `codex/runner-clean-pr` |
+| Path ends with | This clone | GitHub | Expected branch |
+| -------------- | ---------- | ------ | ----------------- |
+| `claude-local-bridge-playground` | **Playground** | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main` |
+| `claude-local-bridge` | **Canonical** | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge) | `codex/runner-clean-pr` |
 
-If you are in **playground**, do not treat paths or docs that mention canonical as interchangeable. See `BEGINNER_GUIDE.md` cheat sheet and `lab-notes/PLAYGROUND_GIT_REMOTE.md`.
+If you are in **playground**, PRs go to the playground repo only — see `lab-notes/PLAYGROUND_PR_POLICY.md`.
 
 ## Human Context
 

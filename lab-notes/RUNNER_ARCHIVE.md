@@ -29,6 +29,8 @@ Every normal runner exit writes a structured archive (unless disabled). This is 
 
 Legacy JSONL logs are imported with `runId: legacy-<filename-stem>`.
 
+Related: [PERF_PARITY_HANDOFF.md](./PERF_PARITY_HANDOFF.md) (turn latency bench, prompt cache metrics).
+
 ## Disable auto-export
 
 - Tests: `BRIDGE_RUNNER_ARCHIVE=0` (set in `test/setup.js`)

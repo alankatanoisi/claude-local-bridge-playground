@@ -5,7 +5,7 @@ Use this file as the startup checklist for a fresh OpenCode session.
 ## Paste This First
 
 ```text
-Read AGENTS.md and OPENCODE.md before doing any work.
+Read AGENTS.md, lab-notes/ALAN_OPERATOR_PROFILE.md, and OPENCODE.md before doing any work.
 
 Work in:
 /Users/alanman/Developer/claude-local-bridge
@@ -23,7 +23,7 @@ Before handoff, run targeted tests, npm test, npm run lint, and Prettier check f
 
 ## Startup Commands
 
-Type these in Terminal from any folder. The first command moves Terminal into the correct project folder.
+**Canonical lane** — type in Terminal:
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge"
@@ -33,21 +33,30 @@ git status --short
 git pull --ff-only origin codex/runner-clean-pr
 ```
 
+**Playground lane** — type in Terminal:
+
+```bash
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
+pwd
+git branch --show-current
+git status --short
+git pull --ff-only origin main
+```
+
 Success looks like:
 
-- `pwd` prints `/Users/alanman/Developer/claude-local-bridge`
-- branch prints `codex/runner-clean-pr`
-- pull either updates cleanly or says it is already up to date
+- `pwd` prints the folder you intended
+- pull either updates cleanly or says already up to date
 
 If `git status --short` shows `.DS_Store`, ignore it unless Alan asks to clean it.
 
-Use `/Users/alanman/Developer/claude-local-bridge-playground` only for disposable experiments. That clone has push
-disabled on purpose.
+Playground uses GitHub repo [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground). PRs belong there, not on canonical `main`. See `lab-notes/PLAYGROUND_PR_POLICY.md`.
 
 ## Files OpenCode Should Read
 
 Ask OpenCode to read these before editing:
 
+- `lab-notes/ALAN_OPERATOR_PROFILE.md`
 - `AGENTS.md`
 - `README.md`
 - `QUICKSTART.md`

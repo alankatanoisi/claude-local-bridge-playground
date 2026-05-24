@@ -10,11 +10,18 @@ For fresh OpenCode sessions, start with [OPENCODE.md](./OPENCODE.md).
 If you are new to Terminal or this repo, start with [BEGINNER_GUIDE.md](./BEGINNER_GUIDE.md) and then
 [HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md](./HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md).
 
-Alan's active local lanes are:
+## Repository lanes (read this first)
 
-- Serious/canonical local work: `/Users/alanman/Developer/claude-local-bridge`
-- Disposable experiments: `/Users/alanman/Developer/claude-local-bridge-playground` (branch `playground/local-runner-chaos`; push enabled for personal GitHub backup — see [lab-notes/PLAYGROUND_GIT_REMOTE.md](./lab-notes/PLAYGROUND_GIT_REMOTE.md))
-- iCloud checkout: reference-only, not for active runner work
+| Lane | Local folder | GitHub | Branch | Use for |
+|------|--------------|--------|--------|---------|
+| **Playground (this repo)** | `~/Developer/claude-local-bridge-playground` | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main` | Experiments, harness chaos, personal backup |
+| **Canonical** | `~/Developer/claude-local-bridge` | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge) | `codex/runner-clean-pr` | Extension, clean runner, serious work |
+
+- Playground PRs and drafts belong in **this** GitHub repo only — see [lab-notes/PLAYGROUND_PR_POLICY.md](./lab-notes/PLAYGROUND_PR_POLICY.md).
+- Canonical GitHub `main` is archival/posterity — not the target for playground PRs.
+- Porting playground → canonical: [lab-notes/PROMOTION_RITUAL.md](./lab-notes/PROMOTION_RITUAL.md).
+
+iCloud checkout: reference-only, not for active runner work.
 
 ---
 
@@ -194,7 +201,14 @@ After each run, the runner writes a searchable archive under `~/.bridge-runner/a
 - **Import old logs:** `node bin/local-bridge-archive.js ingest-legacy`
 - **Disable:** `--no-archive` or `BRIDGE_RUNNER_ARCHIVE=0`
 
-See [lab-notes/RUNNER_ARCHIVE.md](./lab-notes/RUNNER_ARCHIVE.md) for the full layout.
+See [lab-notes/RUNNER_ARCHIVE.md](./lab-notes/RUNNER_ARCHIVE.md) for the full layout. Complementary perf observability: [lab-notes/PERF_PARITY_HANDOFF.md](./lab-notes/PERF_PARITY_HANDOFF.md).
+
+### Runner perf parity (prompt cache, file cache, shell)
+
+- **Prompt cache:** Automatic on every model request (system + tools + stable message prefix breakpoints).
+- **File cache:** In-memory LRU for `read_file` (invalidates on file change).
+- **Persistent shell:** Opt-in only — `BRIDGE_RUNNER_PERSISTENT_SHELL=1` (default stays spawn-per-command).
+- **Bench:** `node --require ./test/setup.js test/runner/bench/turn-latency.bench.js`
 
 ## Using with third-party OpenAI-compatible tools
 

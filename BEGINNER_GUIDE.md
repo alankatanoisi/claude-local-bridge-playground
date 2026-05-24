@@ -16,13 +16,17 @@ pwd
 git branch --show-current
 ```
 
-| If `pwd` ends with… | You are in… | Branch should be… | What it’s for |
-| ------------------- | ----------- | ----------------- | ------------- |
-| `claude-local-bridge-playground` | **Playground** (alternate universe) | `playground/local-runner-chaos` | Your personal experiments — never production |
-| `claude-local-bridge` (no `-playground`) | **Canonical** (serious lane) | `codex/runner-clean-pr` | Cleaner work you might port or merge later |
-| Anything under `iCloud` or `claude-local-bridge-runner-test` | **Reference only** | (varies) | Don’t edit here unless you mean to |
+| If `pwd` ends with… | You are in… | GitHub repo | Branch | What it’s for |
+| ------------------- | ----------- | ----------- | ------ | ------------- |
+| `claude-local-bridge-playground` | **Playground** | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main` | Experiments — never production |
+| `claude-local-bridge` (no `-playground`) | **Canonical** | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge) | `codex/runner-clean-pr` | Serious extension + clean runner |
+| Anything under `iCloud` or `claude-local-bridge-runner-test` | **Reference only** | — | (varies) | Don’t edit here unless you mean to |
 
-**Quick jump commands:**
+**Claude Code Insights (for you):** Open [`lab-notes/claude-code-insights/report.html`](./lab-notes/claude-code-insights/report.html) in a browser. Agents read [`lab-notes/ALAN_OPERATOR_PROFILE.md`](./lab-notes/ALAN_OPERATOR_PROFILE.md) instead.
+
+**Push safety:** Playground pushes go to the **playground GitHub repo**, branch `main`. Details: [lab-notes/PLAYGROUND_GIT_REMOTE.md](./lab-notes/PLAYGROUND_GIT_REMOTE.md).
+
+**Quick jump commands** (paste in Terminal):
 
 ```bash
 # Playground (experiments, harness, coordinator)
@@ -32,11 +36,7 @@ cd "/Users/alanman/Developer/claude-local-bridge-playground"
 cd "/Users/alanman/Developer/claude-local-bridge"
 ```
 
-**Push safety:** Only push from playground if you mean to back up *experiments*. Playground uses branch `playground/local-runner-chaos`. Details: [lab-notes/PLAYGROUND_GIT_REMOTE.md](./lab-notes/PLAYGROUND_GIT_REMOTE.md).
-
 **Wrong-folder symptoms:**
-
-- `Unknown option '--session-id'` → you’re probably in canonical, not playground.
 - Agent edited files you didn’t expect → ask which folder they used in their handoff.
 
 ---

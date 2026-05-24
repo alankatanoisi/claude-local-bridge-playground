@@ -23,6 +23,14 @@ Alan is using agents to learn and build. He is a strong systems thinker, but a *
 
 Alan explicitly wants agents to treat him like a beginner. Do not optimize for brevity at the cost of clarity.
 
+**Before substantial work, also read [`lab-notes/ALAN_OPERATOR_PROFILE.md`](lab-notes/ALAN_OPERATOR_PROFILE.md)** (agent ground truth from Claude Code Insights). Optional deep dive: HTML in `lab-notes/claude-code-insights/`.
+
+## Playground git (when pwd ends with `claude-local-bridge-playground`)
+
+- GitHub: [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground), push to **`main`**.
+- **MUST NOT** open PRs on canonical repo `alankatanoisi/claude-local-bridge` for playground experiments.
+- See [`lab-notes/PLAYGROUND_PR_POLICY.md`](lab-notes/PLAYGROUND_PR_POLICY.md) and [`lab-notes/PLAYGROUND_GIT_REMOTE.md`](lab-notes/PLAYGROUND_GIT_REMOTE.md).
+
 When handing work back, be explicit:
 
 - Say which folder you worked in.
@@ -54,9 +62,7 @@ The disposable experiment clone is:
 /Users/alanman/Developer/claude-local-bridge-playground
 ```
 
-Use the playground only when Alan explicitly wants freeform experiments. It is on branch
-`playground/local-runner-chaos`. Push is **enabled** for Alan's personal GitHub backup on that branch only — see
-`lab-notes/PLAYGROUND_GIT_REMOTE.md`. Do not push playground work to canonical branches.
+Separate GitHub repo: [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground), default branch **`main`**. See `lab-notes/PLAYGROUND_GIT_REMOTE.md` and `lab-notes/PLAYGROUND_PR_POLICY.md`. Do not PR playground work to canonical `main`.
 
 The older prototype repo is historical reference only:
 
@@ -87,7 +93,7 @@ Then pull the branch that matches **this folder**:
 
 ```bash
 # If pwd ends with claude-local-bridge-playground:
-git pull --ff-only origin playground/local-runner-chaos
+git pull --ff-only origin main
 
 # If pwd ends with claude-local-bridge (canonical, no -playground):
 git pull --ff-only origin codex/runner-clean-pr
@@ -97,10 +103,12 @@ If `git status --short` shows only `.DS_Store` files, treat them as unrelated lo
 
 Read these before substantial edits:
 
+- `lab-notes/ALAN_OPERATOR_PROFILE.md` (required for agents)
 - `README.md`
 - `BEGINNER_GUIDE.md` (folder cheat sheet at the top)
 - `HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md`
 - `lab-notes/PLAYGROUND_GIT_REMOTE.md` (when in playground)
+- `lab-notes/PLAYGROUND_PR_POLICY.md` (when in playground)
 
 ## Project Overview
 
