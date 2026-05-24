@@ -58,9 +58,11 @@ Cross-cutting: **beginner hints** on every new error path (`beginner-hints.test.
 
 ## Playground-Specific Rules
 
-- Playground push URL is disabled — promotion is always a **manual** canonical PR.
-- `--chaos-ok` never bypasses `hard_deny` path guards (verify with `permission-explainer.test.js`).
-- Transcript resume is **not** a supported continuity path; ledger + session checkpoint only.
+## Playground push policy
+
+Playground **push is intentionally re-enabled** for Alan's personal backup on branch `playground/local-runner-chaos`. It is not for production and must not overwrite canonical branches. See `lab-notes/PLAYGROUND_GIT_REMOTE.md` for the full rationale and safe push steps.
+
+Promotion to canonical remains **manual** — optional port after review, not an automatic merge.
 
 ## Post-Promotion
 

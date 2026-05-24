@@ -13,7 +13,7 @@ If you are new to Terminal or this repo, start with [BEGINNER_GUIDE.md](./BEGINN
 Alan's active local lanes are:
 
 - Serious/canonical local work: `/Users/alanman/Developer/claude-local-bridge`
-- Disposable experiments: `/Users/alanman/Developer/claude-local-bridge-playground`
+- Disposable experiments: `/Users/alanman/Developer/claude-local-bridge-playground` (branch `playground/local-runner-chaos`; push enabled for personal GitHub backup — see [lab-notes/PLAYGROUND_GIT_REMOTE.md](./lab-notes/PLAYGROUND_GIT_REMOTE.md))
 - iCloud checkout: reference-only, not for active runner work
 
 ---
