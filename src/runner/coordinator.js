@@ -76,6 +76,9 @@ class Coordinator {
           error: 'Spec compilation rejected: ' + compiled.reason,
           artifacts,
           events: this.eventBus.getHistory(),
+          objective: input.objective,
+          cwd: input.cwd,
+          model: input.model,
         };
       }
       synthesisSpec = compiled.spec;
@@ -131,7 +134,7 @@ class Coordinator {
 
     store.save();
 
-    return {
+    const result = {
       sessionId,
       sessionPath,
       phases,
@@ -141,7 +144,22 @@ class Coordinator {
       kernelResult,
       artifacts,
       events: this.eventBus.getHistory(),
+      objective: input.objective,
+      cwd: input.cwd,
+      model: input.model,
+      error: null,
     };
+
+    if (process.env.BRIDGE_RUNNER_ARCHIVE !== '0' && !input.noArchive) {
+      try {
+        const { archiveCoordinatorSummary } = require('./archive/run-exporter');
+        archiveCoordinatorSummary(result);
+      } catch (err) {
+        console.error('[coordinator archive] ' + err.message);
+      }
+    }
+
+    return result;
   }
 }
 

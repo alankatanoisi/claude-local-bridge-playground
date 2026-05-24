@@ -156,7 +156,11 @@ Preserve conservative safety defaults:
 - `src/runner/transcript.js`: JSONL event transcript.
 - `src/runner/human-log.js`: readable plain text log.
 - `bin/local-bridge-runner.js`: CLI entrypoint.
+- `bin/local-bridge-archive.js`: list/search/import runner archives under `~/.bridge-runner/archive/`.
+- `src/runner/archive/**`: per-turn export, catalog index, legacy JSONL ingest, CSV/XLSX rebuild.
 - `docs/command-builder.html`: browser form that builds runner commands.
+
+Auto-archive runs unless `BRIDGE_RUNNER_ARCHIVE=0` (tests) or `--no-archive`. Shared sessions live in `~/.bridge-runner/sessions/`; archive rollups mirror session ids under `archive/sessions/`.
 
 ## Development Commands
 

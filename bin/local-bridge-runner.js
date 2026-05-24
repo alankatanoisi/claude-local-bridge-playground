@@ -56,6 +56,7 @@ Options:\n\
   --agent <profile>     Built-in agent profile: explore, plan, implement, verify, test, replay\n\
   --review-memory       List pending memory promotions for approval\n\
   --session-extract     Run background session extraction after completion\n\
+  --no-archive          Skip writing per-turn archive under ~/.bridge-runner/archive/\n\
   --accept-edits       Auto-approve write/edit/patch tools (skip confirmation)\n\
   --dont-ask           Skip confirmation for already-enabled risky tools\n\
   --allow-shell        Enable the bash tool (disabled by default)\n\
@@ -124,6 +125,7 @@ async function main() {
         repair: { type: 'boolean' },
         'review-memory': { type: 'boolean' },
         'session-extract': { type: 'boolean' },
+        'no-archive': { type: 'boolean' },
         'accept-edits': { type: 'boolean' },
         'dont-ask': { type: 'boolean' },
         'allow-shell': { type: 'boolean' },
@@ -356,6 +358,7 @@ async function main() {
     agentProfile: args.values.agent || undefined,
     sessionExtract: !!args.values['session-extract'],
     skipTrustGate: process.env.BRIDGE_RUNNER_TEST === '1' && !args.values['trust-workspace'],
+    noArchive: !!args.values['no-archive'],
   });
 }
 

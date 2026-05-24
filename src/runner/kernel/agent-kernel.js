@@ -66,6 +66,7 @@ async function runKernel(input) {
     skipTrustGate: input.skipTrustGate,
     agentProfile: input.agentProfile,
     sessionExtract: input.sessionExtract,
+    noArchive: input.noArchive,
   };
 
   const exitCodeBefore = process.exitCode;

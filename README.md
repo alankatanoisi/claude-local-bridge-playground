@@ -164,6 +164,7 @@ Useful runner options:
 | `--stream`               | Stream assistant text live while still preserving streamed tool inputs |
 | `--accept-edits`         | Auto-approve edit/write tools                                          |
 | `--allow-shell`          | Expose the bash tool; hidden by default                                |
+| `--no-archive`           | Skip per-turn archive export to `~/.bridge-runner/archive/`            |
 
 Open [docs/command-builder.html](./docs/command-builder.html) in your browser if you prefer a form that builds these
 commands for you. A conservative first run is read-only or `--plan`; use `--accept-edits` only when file changes are
@@ -184,6 +185,16 @@ boundaries. Treat redacted and full traces as sensitive source-code logs.
 The runner sends correlation headers to the bridge automatically. For a direct Anthropic `/v1/messages` bridge client,
 either set the VS Code setting `claudeLocalBridge.traceLevel` or send `x-local-bridge-trace-level: summary` with an
 authenticated local request.
+
+### Runner archive (per-turn JSON)
+
+After each run, the runner writes a searchable archive under `~/.bridge-runner/archive/` (one folder per `runId`, per-turn JSON files, and a catalog index). This is in addition to the JSONL transcript in `~/.bridge-runner/logs/`.
+
+- **Browse:** `node bin/local-bridge-archive.js list`
+- **Import old logs:** `node bin/local-bridge-archive.js ingest-legacy`
+- **Disable:** `--no-archive` or `BRIDGE_RUNNER_ARCHIVE=0`
+
+See [lab-notes/RUNNER_ARCHIVE.md](./lab-notes/RUNNER_ARCHIVE.md) for the full layout.
 
 ## Using with third-party OpenAI-compatible tools
 

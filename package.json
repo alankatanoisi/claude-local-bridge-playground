@@ -114,5 +114,8 @@
         "title": "Claude Local Bridge: Show Credential Source"
       }
     ]
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
   }
 }

@@ -29,6 +29,8 @@ const {
   makeTraceId,
   normalizeTraceLevel,
 } = require('../trace-utils');
+const { isArchiveEnabled, RunArchiveCollector } = require('./archive/collector');
+const { finalizeArchiveExport } = require('./archive/run-exporter');
 
 const DEFAULT_MAX_STEPS = 16;
 const MAX_CONSECUTIVE_FAILURES = 2;
@@ -199,6 +201,7 @@ async function run(options) {
     spawnDepth,
     sessionExtract,
     skipTrustGate,
+    noArchive,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
@@ -286,6 +289,8 @@ async function run(options) {
   ctx.cwdRealpath = cwdCheck.realpath;
 
   const runId = makeTraceId(options.runId);
+  const archiveEnabled = isArchiveEnabled({ noArchive });
+  let archiveCollector = null;
   const resolvedSessionPath = resolveSessionPath({ sessionPath, sessionId });
   const sessionStore = resolvedSessionPath ? new SessionStore(resolvedSessionPath) : null;
   const ledger = resolvedSessionPath ? new SessionLedger(resolvedSessionPath) : null;
@@ -322,6 +327,53 @@ async function run(options) {
         });
   if (trace && !quiet) console.error('[runner] flight recorder: ' + trace.filePath);
 
+  if (archiveEnabled) {
+    archiveCollector = new RunArchiveCollector({
+      runId,
+      sessionId: sessionId || null,
+      cwd: ctx.cwdRealpath,
+      model,
+      prompt,
+      stdinText,
+      flags: {
+        allowShell: ctx.allowShell,
+        acceptEdits: ctx.acceptEdits,
+        dontAsk: ctx.dontAsk,
+        plan: ctx.plan,
+        noNetwork: ctx.noNetwork,
+      },
+      agentProfile: options.agentProfile,
+      transcriptPath,
+      tracePath: trace?.filePath || null,
+      sessionPath: resolvedSessionPath,
+      ledgerPath: ledger?.filePath || null,
+      startedAt: new Date(startedAt).toISOString(),
+    });
+    archiveCollector.recordUser(prompt, stdinText);
+  }
+
+  function completeRun(result) {
+    if (archiveCollector) {
+      try {
+        finalizeArchiveExport(archiveCollector, {
+          stopReason: result.stopReason,
+          finalText: result.finalText,
+          steps: result.steps,
+          duration_ms: result.duration_ms,
+          usage: result.usage,
+          estimatedCostUsd: estimateCostUsd(model, result.usage),
+          transcriptPath: transcript?.filePath,
+          tracePath: trace?.filePath,
+          sessionPath: resolvedSessionPath,
+          ledgerPath: ledger?.filePath || null,
+        });
+      } catch (err) {
+        if (!quiet) console.error('[runner archive] export failed: ' + err.message);
+      }
+    }
+    return result;
+  }
+
   let messages;
   if (resume && sessionStore && sessionStore.exists()) {
     sessionStore.load();
@@ -333,14 +385,14 @@ async function run(options) {
         stopReason: STOP_REASONS.RESUME_FAILED,
       });
       process.exitCode = 1;
-      return {
+      return completeRun({
         stopReason: STOP_REASONS.RESUME_FAILED,
         finalText: 'Could not resume: no valid ledger or session checkpoint.',
         steps: 0,
         duration_ms: 0,
         usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
         events: [],
-      };
+      });
     }
     messages.push(buildUserMessage(prompt, stdinText));
     if (!quiet) console.error('[runner] resumed ' + messages.length + ' messages from session ' + resolvedSessionPath);
@@ -351,14 +403,14 @@ async function run(options) {
       stopReason: STOP_REASONS.RESUME_FAILED,
     });
     process.exitCode = 1;
-    return {
+    return completeRun({
       stopReason: STOP_REASONS.RESUME_FAILED,
       finalText: 'Transcript resume is deprecated. Use session store.',
       steps: 0,
       duration_ms: 0,
       usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
       events: [],
-    };
+    });
   } else {
     messages = [buildUserMessage(prompt, stdinText)];
     if (transcript) transcript.append({ type: 'user_prompt', text: prompt });
@@ -509,6 +561,7 @@ async function run(options) {
       }
     } catch (err) {
       const msg = 'Bridge error on step ' + step + ': ' + err.message;
+      if (archiveCollector) archiveCollector.recordError(step, msg);
       const hint = emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.BRIDGE_ERROR });
       if (transcript) transcript.append({ type: 'error', step, message: msg });
       if (humanLog) humanLog.writeError(msg, { stopReason: STOP_REASONS.BRIDGE_ERROR });
@@ -525,18 +578,19 @@ async function run(options) {
       if (transcript) transcript.flush();
       hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.BRIDGE_ERROR });
       process.exitCode = 1;
-      return {
+      return completeRun({
         stopReason: STOP_REASONS.BRIDGE_ERROR,
         finalText: msg,
         steps: step,
         duration_ms: Date.now() - startedAt,
         usage: totalUsage,
         events: output.events,
-      };
+      });
     }
 
     hooks.dispatch('post_model_response', { step, runId });
 
+    if (archiveCollector) archiveCollector.recordAssistant(step, response);
     if (transcript) transcript.append({ type: 'assistant', step, content: response.content });
     if (humanLog) humanLog.writeAssistant(step, response);
     totalUsage = addUsage(totalUsage, response.usage);
@@ -589,14 +643,15 @@ async function run(options) {
         persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
         hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.CONTEXT_BUDGET_EXCEEDED });
         process.exitCode = 1;
-        return {
+        if (archiveCollector) archiveCollector.recordError(step, msg);
+        return completeRun({
           stopReason: STOP_REASONS.CONTEXT_BUDGET_EXCEEDED,
           finalText: msg,
           steps: step,
           duration_ms: Date.now() - startedAt,
           usage: totalUsage,
           events: output.events,
-        };
+        });
       }
       if (contextTokens > maxContextTokens) {
         if (!quiet)
@@ -651,14 +706,15 @@ async function run(options) {
       persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
       hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.MAX_TOOL_CALLS_PER_TURN });
       process.exitCode = 1;
-      return {
+      if (archiveCollector) archiveCollector.recordError(step, msg);
+      return completeRun({
         stopReason: STOP_REASONS.MAX_TOOL_CALLS_PER_TURN,
         finalText: msg,
         steps: step,
         duration_ms: Date.now() - startedAt,
         usage: totalUsage,
         events: output.events,
-      };
+      });
     }
 
     if (toolUses.length === 0) {
@@ -694,7 +750,8 @@ async function run(options) {
       maybeRunSessionExtract(sessionExtract, ctx, autopsy, resolvedSessionPath);
       result.autopsy = autopsy;
       persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
-      return result;
+      if (archiveCollector) archiveCollector.recordFinal(text || '');
+      return completeRun(result);
     }
 
     const toolResults = [];
@@ -762,6 +819,7 @@ async function run(options) {
       }
       if (humanLog) humanLog.writeToolResult(step, tu.name, tu.id, result);
       if (trace) trace.append('tool_finished', traceToolResult(runId, step, tu, result, trace));
+      if (archiveCollector) archiveCollector.recordTool(step, tu.name, tu.id, tu.input, result);
       hooks.dispatch('post_tool', { step, tool: tu.name, ok: result.ok });
       toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: result.text || '', is_error: !result.ok });
       if (verbose)
@@ -791,7 +849,8 @@ async function run(options) {
       });
       if (resolvedSessionPath) writeAutopsyFile(resolvedSessionPath, autopsy);
       process.exitCode = 1;
-      return {
+      if (archiveCollector) archiveCollector.recordError(step, msg);
+      return completeRun({
         stopReason: STOP_REASONS.SEMANTIC_CYCLE_DETECTED,
         finalText: msg,
         steps: step,
@@ -799,21 +858,22 @@ async function run(options) {
         usage: totalUsage,
         events: output.events,
         autopsy,
-      };
+      });
     }
 
     if (maxWallClockMs && Date.now() - startedAt > maxWallClockMs) {
       const msg = 'Wall clock budget exceeded';
       emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.WALL_CLOCK_BUDGET_EXCEEDED });
       process.exitCode = 1;
-      return {
+      if (archiveCollector) archiveCollector.recordError(step, msg);
+      return completeRun({
         stopReason: STOP_REASONS.WALL_CLOCK_BUDGET_EXCEEDED,
         finalText: msg,
         steps: step,
         duration_ms: Date.now() - startedAt,
         usage: totalUsage,
         events: output.events,
-      };
+      });
     }
 
     if (maxCostUsd) {
@@ -822,14 +882,15 @@ async function run(options) {
         const msg = 'Cost budget exceeded (~$' + cost.toFixed(4) + ')';
         emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.COST_BUDGET_EXCEEDED });
         process.exitCode = 1;
-        return {
+        if (archiveCollector) archiveCollector.recordError(step, msg);
+        return completeRun({
           stopReason: STOP_REASONS.COST_BUDGET_EXCEEDED,
           finalText: msg,
           steps: step,
           duration_ms: Date.now() - startedAt,
           usage: totalUsage,
           events: output.events,
-        };
+        });
       }
     }
 
@@ -931,6 +992,7 @@ async function run(options) {
         });
       if (humanLog) humanLog.writeToolResult(step, toolName, toolUseId, result);
       if (trace) trace.append('tool_finished', traceToolResult(runId, step, toolUse, result, trace));
+      if (archiveCollector) archiveCollector.recordTool(step, toolName, toolUseId, args, result);
       appendLedger(ledger, hooks, 'tool_effect_result', {
         runId,
         step,
@@ -1002,7 +1064,8 @@ async function run(options) {
   });
   if (resolvedSessionPath) writeAutopsyFile(resolvedSessionPath, autopsy);
   persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
-  return {
+  if (archiveCollector) archiveCollector.recordError(steps, msg);
+  return completeRun({
     stopReason: STOP_REASONS.MAX_STEPS,
     finalText: msg,
     steps,
@@ -1010,7 +1073,7 @@ async function run(options) {
     usage: totalUsage,
     events: output.events,
     autopsy,
-  };
+  });
 }
 
 function bridgeTraceHeaders(trace, runId, turn) {
