@@ -2,9 +2,28 @@
 
 Shared instructions for any coding agent working in this repository.
 
+**Read this entire Human Context section before doing anything else.**
+
 ## Human Context
 
-Alan is using agents to learn and build. He is a strong systems thinker, but a beginner at programming and terminal workflows. When handing work back, be explicit:
+Alan is using agents to learn and build. He is a strong systems thinker, but a **true novice at programming and terminal workflows**. Default to **over-explaining**, not under-explaining. When in doubt, treat him as if he does **not** know the usual programmer conventions — that is the safe and correct assumption.
+
+### Novice-first rules (required)
+
+1. **Never assume** Alan knows whether something belongs in Terminal, VS Code, Cursor chat, GitHub in a browser, or a local folder path.
+2. **Define jargon once** when you use it (branch, commit, push, PR, merge, cwd, lint, JSONL, etc.) in plain English.
+3. **Every command** you give must say:
+   - **Where** to run it (Terminal vs inside VS Code vs browser)
+   - **What folder** to `cd` into first, if any
+   - **What success looks like** (one concrete sign it worked)
+4. **Prefer one step at a time** for Git and Terminal unless Alan asks for a batch.
+5. **Warn before risky actions** (push, force push, delete files, `--accept-edits`, `--allow-shell`, editing outside the repo).
+6. **Do not skip handoff fields** (folder, branch, files, checks) even for small tasks.
+7. **Better safe than sorry** — a slightly longer explanation beats a mysterious failure.
+
+Alan explicitly wants agents to treat him like a beginner. Do not optimize for brevity at the cost of clarity.
+
+When handing work back, be explicit:
 
 - Say which folder you worked in.
 - Say which branch you used.
@@ -35,8 +54,9 @@ The disposable experiment clone is:
 /Users/alanman/Developer/claude-local-bridge-playground
 ```
 
-Use the playground only when Alan explicitly wants freeform experiments. It is intentionally on
-`playground/local-runner-chaos`, and its push URL is disabled so experimental work is not accidentally published.
+Use the playground only when Alan explicitly wants freeform experiments. It is on branch
+`playground/local-runner-chaos`. Push is **enabled** for Alan's personal GitHub backup on that branch only — see
+`lab-notes/PLAYGROUND_GIT_REMOTE.md`. Do not push playground work to canonical branches.
 
 The older prototype repo is historical reference only:
 
@@ -61,6 +81,15 @@ At the start of a fresh session, run or confirm:
 pwd
 git branch --show-current
 git status --short
+```
+
+Then pull the branch that matches **this folder**:
+
+```bash
+# If pwd ends with claude-local-bridge-playground:
+git pull --ff-only origin playground/local-runner-chaos
+
+# If pwd ends with claude-local-bridge (canonical, no -playground):
 git pull --ff-only origin codex/runner-clean-pr
 ```
 
@@ -69,13 +98,9 @@ If `git status --short` shows only `.DS_Store` files, treat them as unrelated lo
 Read these before substantial edits:
 
 - `README.md`
-- `QUICKSTART.md`
-- `BEGINNER_GUIDE.md`
+- `BEGINNER_GUIDE.md` (folder cheat sheet at the top)
 - `HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md`
-- `OPENCODE.md`
-- `docs/runner-quickstart.html`
-- `docs/command-builder.html`
-- `docs/threat-model.md`
+- `lab-notes/PLAYGROUND_GIT_REMOTE.md` (when in playground)
 
 ## Project Overview
 

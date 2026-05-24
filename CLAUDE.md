@@ -1,32 +1,26 @@
 # CLAUDE.md
 
-Claude-specific instructions for this repository. For the full shared agent guide, read `AGENTS.md` first.
+Claude-specific instructions for this repository. For the full shared agent guide, read `AGENTS.md` first — especially **Human Context** (Alan is a novice; over-explain by default).
 
-## Start Here
+## Which clone is this?
 
-This worktree is the canonical clean runner branch:
+Run `pwd` before assuming:
 
-```bash
-/Users/alanman/.codex/worktrees/runner-clean-pr
-```
+| Path ends with | This clone | Expected branch |
+| -------------- | ---------- | ----------------- |
+| `claude-local-bridge-playground` | **Playground** (this is often the experiment copy) | `playground/local-runner-chaos` |
+| `claude-local-bridge` | **Canonical** | `codex/runner-clean-pr` |
 
-Expected branch:
-
-```bash
-codex/runner-clean-pr
-```
-
-The old prototype repo is historical reference only:
-
-```bash
-/Users/alanman/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/claude-local-bridge-runner-test
-```
-
-Do not implement in the old prototype folder unless Alan explicitly asks.
+If you are in **playground**, do not treat paths or docs that mention canonical as interchangeable. See `BEGINNER_GUIDE.md` cheat sheet and `lab-notes/PLAYGROUND_GIT_REMOTE.md`.
 
 ## Human Context
 
-Alan is a beginner at programming and terminal workflows. Be clear and concrete. When you give commands, say where they should be run and what success looks like. Use plain explanations for Git, Terminal, branch, commit, push, and test output.
+Alan is a beginner at programming and terminal workflows. **It is correct to treat him as if he does not understand usual programmer stuff.** Better safe than sorry:
+
+- Say where each command runs (Terminal vs VS Code vs browser).
+- Say what success looks like in plain language.
+- Explain Git words (commit, push, branch, merge) when you use them.
+- Never assume he knows which app or folder a step belongs in.
 
 ## Architecture Boundary
 

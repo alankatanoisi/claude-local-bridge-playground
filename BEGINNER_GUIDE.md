@@ -5,6 +5,42 @@ This guide is intentionally basic. It assumes you are on a Mac and you may not b
 When this guide says **Terminal**, it means the Mac app named **Terminal**. Do not paste commands into Spotlight, a
 browser address bar, or the VS Code search box.
 
+---
+
+## Cheat sheet: which folder am I in?
+
+**Run this first** whenever you (or an agent) are about to edit, commit, or push:
+
+```bash
+pwd
+git branch --show-current
+```
+
+| If `pwd` ends with… | You are in… | Branch should be… | What it’s for |
+| ------------------- | ----------- | ----------------- | ------------- |
+| `claude-local-bridge-playground` | **Playground** (alternate universe) | `playground/local-runner-chaos` | Your personal experiments — never production |
+| `claude-local-bridge` (no `-playground`) | **Canonical** (serious lane) | `codex/runner-clean-pr` | Cleaner work you might port or merge later |
+| Anything under `iCloud` or `claude-local-bridge-runner-test` | **Reference only** | (varies) | Don’t edit here unless you mean to |
+
+**Quick jump commands:**
+
+```bash
+# Playground (experiments, harness, coordinator)
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
+
+# Canonical (serious runner work)
+cd "/Users/alanman/Developer/claude-local-bridge"
+```
+
+**Push safety:** Only push from playground if you mean to back up *experiments*. Playground uses branch `playground/local-runner-chaos`. Details: [lab-notes/PLAYGROUND_GIT_REMOTE.md](./lab-notes/PLAYGROUND_GIT_REMOTE.md).
+
+**Wrong-folder symptoms:**
+
+- `Unknown option '--session-id'` → you’re probably in canonical, not playground.
+- Agent edited files you didn’t expect → ask which folder they used in their handoff.
+
+---
+
 ## What This Project Is
 
 The **bridge** is a local server on your Mac. It usually listens here:
@@ -29,6 +65,8 @@ Context compactor                 →  clip / snip / ghost when context grows
 ```
 
 ## Which Folder To Use
+
+See the **cheat sheet at the top** of this guide. Short version:
 
 | Folder                                                    | When to use it                                             |
 | --------------------------------------------------------- | ---------------------------------------------------------- |
