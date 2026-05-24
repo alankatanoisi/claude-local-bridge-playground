@@ -15,6 +15,7 @@
 
 const { spawnSync } = require('child_process');
 const safety = require('../safety');
+const persistentShell = require('./persistent-shell');
 
 const DEFAULT_SHELL_TIMEOUT = 30000;
 const MAX_SHELL_TIMEOUT = 120000;
@@ -42,14 +43,7 @@ function definition() {
   };
 }
 
-function execute(args, ctx) {
-  const cwd = ctx.cwd || process.cwd();
-  const command = args.command;
-
-  // Use the configured timeout, clamped to a safe maximum
-  const timeout = Math.min(ctx.shellTimeout || DEFAULT_SHELL_TIMEOUT, MAX_SHELL_TIMEOUT);
-
-  // Build environment: filtered + optional network block
+function buildEnv(ctx) {
   const env = safety.buildSafeEnv();
   if (ctx.noNetwork) {
     env.http_proxy = '127.0.0.1:1';
@@ -59,7 +53,66 @@ function execute(args, ctx) {
     env.no_proxy = 'localhost,127.0.0.1';
     env.NO_PROXY = 'localhost,127.0.0.1';
   }
+  return env;
+}
 
+function shapeOutput(stdout, stderr) {
+  const so = (stdout || '').trim();
+  const se = (stderr || '').trim();
+  let text = so;
+  if (se) text += (text ? '\n' : '') + '[stderr] ' + se;
+  if (text.length === 0) return '(command completed with no output)';
+  if (text.length > MAX_OUTPUT_CHARS) {
+    return text.slice(0, MAX_OUTPUT_CHARS) + '\n... (output truncated at ' + MAX_OUTPUT_CHARS + ' chars)';
+  }
+  return text;
+}
+
+// Async fast path that routes through a long-lived bash child. Returns
+// null when the persistent shell decides it cannot serve the call (busy,
+// stream error, etc); callers must then fall back to spawnSync.
+async function executeViaPersistentShell(command, cwd, env, timeout) {
+  const shell = persistentShell.getShell(cwd, env);
+  const res = await shell.run(command, { timeout, maxBytes: DEFAULT_MAX_BUFFER });
+  if (res.fallback) return null;
+  if (res.timedOut) {
+    return { ok: false, text: 'Command timed out after ' + timeout / 1000 + 's', command };
+  }
+  if (res.overflowed) {
+    return {
+      ok: false,
+      text: 'Command exceeded output limit. Partial output:\n' + shapeOutput(res.stdout, res.stderr),
+      command,
+    };
+  }
+  if (res.exitCode !== 0) {
+    let errorText = 'Command exited with code ' + res.exitCode;
+    if (res.stdout) errorText += '\nstdout:\n' + res.stdout.slice(0, MAX_OUTPUT_CHARS);
+    if (res.stderr) errorText += '\nstderr:\n' + res.stderr.slice(0, MAX_OUTPUT_CHARS);
+    return { ok: false, text: errorText, command };
+  }
+  return { ok: true, text: shapeOutput(res.stdout, res.stderr), command };
+}
+
+// Returns the bash result synchronously when the persistent shell is off
+// (preserving the historical contract) and as a Promise when it is on.
+// The registry awaits either path uniformly.
+function execute(args, ctx) {
+  const cwd = ctx.cwd || process.cwd();
+  const command = args.command;
+  const timeout = Math.min(ctx.shellTimeout || DEFAULT_SHELL_TIMEOUT, MAX_SHELL_TIMEOUT);
+  const env = buildEnv(ctx);
+
+  if (persistentShell.isEnabled()) {
+    return executeViaPersistentShell(command, cwd, env, timeout).then(
+      (res) => res || executeSpawnSync(command, cwd, env, timeout),
+      () => executeSpawnSync(command, cwd, env, timeout),
+    );
+  }
+  return executeSpawnSync(command, cwd, env, timeout);
+}
+
+function executeSpawnSync(command, cwd, env, timeout) {
   try {
     // Use spawnSync with shell to capture stdout and stderr separately
     const result = spawnSync(command, [], {
@@ -111,4 +164,4 @@ function execute(args, ctx) {
   }
 }
 
-module.exports = { definition, execute };
+module.exports = { definition, execute, executeSpawnSync };

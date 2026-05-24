@@ -40,10 +40,14 @@ function getDefinitions(ctx) {
     .map(([, tool]) => tool.definition());
 }
 
-function runAndScrub(tool, args, ctx, toolUseId) {
+// Tools may return either a plain result or a Promise<result>. The shell
+// tool needs the async path when the persistent-shell fast path is on;
+// every other tool stays sync. Awaiting a non-Promise is a no-op, so
+// this transparently handles both.
+async function runAndScrub(tool, args, ctx, toolUseId) {
   const started = Date.now();
   const toolCtx = toolUseId ? { ...ctx, toolUseId } : ctx;
-  const result = tool.execute(args, toolCtx);
+  const result = await tool.execute(args, toolCtx);
   if (result.text) {
     result.text = safety.scrubSecrets(result.text);
   }
@@ -75,7 +79,7 @@ function wrapPermissionResult(perm, toolName, args) {
   return null;
 }
 
-function execute(toolName, args, ctx, toolUseId) {
+async function execute(toolName, args, ctx, toolUseId) {
   const resolved = resolveToolName(toolName);
   const canonical = resolved.canonical;
   const perm = permissions.check(canonical, args, ctx);
@@ -88,7 +92,7 @@ function execute(toolName, args, ctx, toolUseId) {
   }
 
   try {
-    const result = runAndScrub(tool, args, ctx, toolUseId);
+    const result = await runAndScrub(tool, args, ctx, toolUseId);
     if (WRITE_TOOLS.has(canonical) && result.ok) invalidateContextCache();
     if (resolved.aliasUsed) {
       result.envelope.aliasUsed = resolved.aliasUsed;
@@ -101,7 +105,7 @@ function execute(toolName, args, ctx, toolUseId) {
   }
 }
 
-function executeForce(toolName, args, ctx, toolUseId) {
+async function executeForce(toolName, args, ctx, toolUseId) {
   const resolved = resolveToolName(toolName);
   const canonical = resolved.canonical;
   const perm = permissions.check(canonical, args, { ...ctx, acceptEdits: true, dontAsk: true });
@@ -118,7 +122,7 @@ function executeForce(toolName, args, ctx, toolUseId) {
   }
 
   try {
-    const result = runAndScrub(tool, args, ctx, toolUseId);
+    const result = await runAndScrub(tool, args, ctx, toolUseId);
     if (WRITE_TOOLS.has(canonical) && result.ok) invalidateContextCache();
     result.permission = perm;
     return result;

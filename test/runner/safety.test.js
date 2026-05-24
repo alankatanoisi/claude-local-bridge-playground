@@ -107,12 +107,12 @@ describe('runner secret redaction integration', () => {
   const ANTHROPIC_KEY = 'sk-ant-abc123def456ghi789jkl012mno345pqr678stu';
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'redact-'));
 
-  it('tool-registry.execute scrubs secrets from read_file results', () => {
+  it('tool-registry.execute scrubs secrets from read_file results', async () => {
     const filePath = path.join(tmpDir, 'leaky-config.js');
     fs.writeFileSync(filePath, 'const key = "' + ANTHROPIC_KEY + '";\nconst normal = "hello";\n');
 
     const ctx = { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) };
-    const result = execute('read_file', { path: 'leaky-config.js' }, ctx, 'tu-test');
+    const result = await execute('read_file', { path: 'leaky-config.js' }, ctx, 'tu-test');
 
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('normal'));
@@ -120,23 +120,23 @@ describe('runner secret redaction integration', () => {
     assert.ok(!result.text.includes(ANTHROPIC_KEY));
   });
 
-  it('tool-registry.executeForce still scrubs secrets', () => {
+  it('tool-registry.executeForce still scrubs secrets', async () => {
     const ctx = { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) };
-    const result = executeForce('read_file', { path: 'leaky-config.js' }, ctx, 'tu-test');
+    const result = await executeForce('read_file', { path: 'leaky-config.js' }, ctx, 'tu-test');
 
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('[REDACTED:anthropic_key]'));
     assert.ok(!result.text.includes(ANTHROPIC_KEY));
   });
 
-  it('scrubs secrets from bash tool stdout', () => {
+  it('scrubs secrets from bash tool stdout', async () => {
     const ctx = {
       cwd: tmpDir,
       cwdRealpath: fs.realpathSync(tmpDir),
       allowShell: true,
       dontAsk: true,
     };
-    const result = execute('bash', { command: 'cat leaky-config.js' }, ctx);
+    const result = await execute('bash', { command: 'cat leaky-config.js' }, ctx);
 
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('normal'));
@@ -144,17 +144,17 @@ describe('runner secret redaction integration', () => {
     assert.ok(!result.text.includes(ANTHROPIC_KEY));
   });
 
-  it('scrubs secrets from search_text results', () => {
+  it('scrubs secrets from search_text results', async () => {
     const ctx = { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) };
-    const result = execute('search_text', { pattern: ANTHROPIC_KEY.slice(0, 10) }, ctx);
+    const result = await execute('search_text', { pattern: ANTHROPIC_KEY.slice(0, 10) }, ctx);
 
     assert.equal(result.ok, true);
     assert.ok(!result.text.includes(ANTHROPIC_KEY));
   });
 
-  it('secret basename is denied even before tool execution', () => {
+  it('secret basename is denied even before tool execution', async () => {
     const ctx = { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) };
-    const result = execute('read_file', { path: '.env' }, ctx);
+    const result = await execute('read_file', { path: '.env' }, ctx);
 
     assert.equal(result.ok, false);
     assert.ok(result.text.includes('Permission denied'));

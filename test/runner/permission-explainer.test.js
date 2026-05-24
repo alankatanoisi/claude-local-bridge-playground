@@ -29,8 +29,8 @@ describe('permission explainer', () => {
 describe('chaos-ok path guards', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'chaos-'));
 
-  it('hard_deny survives executeForce with chaos flags', () => {
-    const result = executeForce(
+  it('hard_deny survives executeForce with chaos flags', async () => {
+    const result = await executeForce(
       'bash',
       { command: 'cat .env' },
       {

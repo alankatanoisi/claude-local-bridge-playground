@@ -946,7 +946,7 @@ async function run(options) {
       if (verbose)
         console.error('[runner] step ' + step + ': tool_call ' + toolName + '(' + JSON.stringify(args) + ')');
 
-      let result = execute(toolName, args, ctx, toolUseId);
+      let result = await execute(toolName, args, ctx, toolUseId);
 
       if (result.needsConfirmation) {
         if (trace)
@@ -979,7 +979,7 @@ async function run(options) {
               tool: toolName,
               decision: choice,
             });
-          if (choice === 'allow') result = executeForce(toolName, args, ctx, toolUseId);
+          if (choice === 'allow') result = await executeForce(toolName, args, ctx, toolUseId);
           else {
             if (transcript) transcript.append({ type: 'tool_denied', step, tool: toolName });
             result = { ok: false, text: 'User denied this action.' };

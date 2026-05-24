@@ -37,88 +37,92 @@ describe('tool-registry', () => {
     assert.ok(names.includes('bash'));
   });
 
-  it('list_files returns entries', () => {
-    const result = execute('list_files', { path: '.' }, ctx);
+  it('list_files returns entries', async () => {
+    const result = await execute('list_files', { path: '.' }, ctx);
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('README.md'));
   });
 
-  it('read_file returns file contents', () => {
-    const result = execute('read_file', { path: 'src/app.js' }, ctx);
+  it('read_file returns file contents', async () => {
+    const result = await execute('read_file', { path: 'src/app.js' }, ctx);
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('hello'));
   });
 
-  it('read_file reports a clear error when path is missing', () => {
-    const result = execute('read_file', {}, ctx);
+  it('read_file reports a clear error when path is missing', async () => {
+    const result = await execute('read_file', {}, ctx);
     assert.equal(result.ok, false);
     assert.match(result.text, /Missing required path argument/);
   });
 
-  it('read_file denies secret file', () => {
+  it('read_file denies secret file', async () => {
     fs.writeFileSync(path.join(tmpDir, '.env'), 'SECRET=1\n');
-    const result = execute('read_file', { path: '.env' }, ctx);
+    const result = await execute('read_file', { path: '.env' }, ctx);
     assert.equal(result.ok, false);
     assert.ok(result.text.includes('Permission denied'));
     fs.unlinkSync(path.join(tmpDir, '.env'));
   });
 
-  it('search_text finds pattern', () => {
-    const result = execute('search_text', { pattern: 'hello' }, ctx);
+  it('search_text finds pattern', async () => {
+    const result = await execute('search_text', { pattern: 'hello' }, ctx);
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('hello'));
   });
 
-  it('execute denies unknown tool', () => {
-    const result = execute('some_fake_tool', {}, ctx);
+  it('execute denies unknown tool', async () => {
+    const result = await execute('some_fake_tool', {}, ctx);
     assert.equal(result.ok, false);
     assert.ok(result.text.includes('not in the allow-list'));
   });
 
-  it('edit_file asks for confirmation (returns needsConfirmation)', () => {
-    const result = execute('edit_file', { path: 'src/app.js', old_string: 'hello', new_string: 'hi' }, ctx);
+  it('edit_file asks for confirmation (returns needsConfirmation)', async () => {
+    const result = await execute('edit_file', { path: 'src/app.js', old_string: 'hello', new_string: 'hi' }, ctx);
     assert.equal(result.ok, false);
     assert.equal(result.needsConfirmation, true);
     assert.equal(result.toolName, 'edit_file');
   });
 
-  it('edit_file auto-allows with acceptEdits', () => {
+  it('edit_file auto-allows with acceptEdits', async () => {
     const ctxApproved = { ...ctx, acceptEdits: true };
-    const result = execute('edit_file', { path: 'src/app.js', old_string: 'hello', new_string: 'hi' }, ctxApproved);
+    const result = await execute(
+      'edit_file',
+      { path: 'src/app.js', old_string: 'hello', new_string: 'hi' },
+      ctxApproved,
+    );
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('edited'));
   });
 
-  it('write_file creates a new file with acceptEdits', () => {
+  it('write_file creates a new file with acceptEdits', async () => {
     const ctxApproved = { ...ctx, acceptEdits: true };
-    const result = execute('write_file', { path: 'new.js', content: '// hi' }, ctxApproved);
+    const result = await execute('write_file', { path: 'new.js', content: '// hi' }, ctxApproved);
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('created'));
     fs.unlinkSync(path.join(tmpDir, 'new.js'));
   });
 
-  it('executeForce skips permission check', () => {
-    const result = executeForce('write_file', { path: 'forced.js', content: '// forced' }, ctx);
+  it('executeForce skips permission check', async () => {
+    const result = await executeForce('write_file', { path: 'forced.js', content: '// forced' }, ctx);
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('created'));
     fs.unlinkSync(path.join(tmpDir, 'forced.js'));
   });
 
-  it('executeForce still respects hard safety denies', () => {
-    const result = executeForce('write_file', { path: '.env', content: 'SECRET=1' }, ctx);
+  it('executeForce still respects hard safety denies', async () => {
+    const result = await executeForce('write_file', { path: '.env', content: 'SECRET=1' }, ctx);
     assert.equal(result.ok, false);
     assert.ok(result.text.includes('Permission denied'));
   });
 
-  it('bash is denied when allowShell is false', () => {
-    const result = execute('bash', { command: 'echo hi' }, ctx);
+  it('bash is denied when allowShell is false', async () => {
+    const result = await execute('bash', { command: 'echo hi' }, ctx);
     assert.equal(result.ok, false);
     assert.ok(result.text.includes('--allow-shell'));
   });
 
-  it('bash works with allowShell and dontAsk', () => {
+  it('bash works with allowShell and dontAsk', async () => {
     const ctxShell = { ...ctx, allowShell: true, dontAsk: true };
-    const result = execute('bash', { command: 'echo hello' }, ctxShell);
+    const result = await execute('bash', { command: 'echo hello' }, ctxShell);
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('hello'));
   });
