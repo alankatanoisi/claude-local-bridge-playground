@@ -10,6 +10,7 @@ const { execFileSync } = require('child_process');
 const { loadInstructionMemory } = require('./memory/instruction-memory');
 const { buildSkillsIndex } = require('./skills/skills-index');
 const { buildToolSummarySection, capSkillListing, applyContextBudget } = require('./context-budget');
+const { buildRepoMap } = require('./repo-map');
 
 function buildFullToolSection(allowShell) {
   let prompt = '## Available tools\n\n';
@@ -112,6 +113,18 @@ function buildRepoContextBlock(ctx) {
   }
   if (ctx.instructionHash) fpLines.push('instruction_hash: ' + ctx.instructionHash);
   parts.push('### Workspace fingerprint\n' + fpLines.join('\n'));
+
+  // Ext-5: repo map at session start. One-pass scan, capped at ~2KB, lives
+  // inside the same session-stable block so it rides the E1 cache breakpoint.
+  try {
+    const map = buildRepoMap(ctx.cwd);
+    if (map) {
+      parts.push(map);
+      hasContent = true;
+    }
+  } catch {
+    // best-effort; absence of repo map never blocks session start
+  }
 
   if (!hasContent) return null;
   return '## Repository context (cached for the session)\n\n' + parts.join('\n\n');
