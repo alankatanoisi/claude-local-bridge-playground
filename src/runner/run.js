@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const path = require('path');
 const { buildSystem, buildUserMessage, buildRepoContextBlock } = require('./context-builder');
 const modelClient = require('./model-client');
 const { getDefinitions, execute, executeForce, executeReadOnlyBatch } = require('./tool-registry');
@@ -215,6 +216,55 @@ function loadMessagesFromTranscript(filePath, options = {}) {
   }
   while (messages.length > 0 && messages[messages.length - 1].role !== 'user') messages.pop();
   return messages;
+}
+
+// B3: path-disjoint detection over canonicalized paths. Two paths are
+// disjoint iff neither is identical to the other and neither is a
+// prefix-with-separator of the other (catches parent/child conflicts).
+// confinePath returns realpath-anchored absolute paths, so symlink aliasing
+// is mostly defused at the source.
+function _arePathsDisjoint(paths) {
+  for (let i = 0; i < paths.length; i++) {
+    for (let j = i + 1; j < paths.length; j++) {
+      const a = paths[i];
+      const b = paths[j];
+      if (!a || !b) return false;
+      if (a === b) return false;
+      if (a.startsWith(b + path.sep)) return false;
+      if (b.startsWith(a + path.sep)) return false;
+    }
+  }
+  return true;
+}
+
+function _groupDisjointWrites(writeTools, ctx) {
+  const groups = [];
+  let current = [];
+  let currentPaths = [];
+  for (const tu of writeTools) {
+    const args = tu.input || {};
+    const canonical = args.path ? safety.confinePath(ctx, args.path) : null;
+    if (!canonical) {
+      if (current.length) {
+        groups.push(current);
+        current = [];
+        currentPaths = [];
+      }
+      groups.push([tu]);
+      continue;
+    }
+    const candidatePaths = [...currentPaths, canonical];
+    if (_arePathsDisjoint(candidatePaths)) {
+      current.push(tu);
+      currentPaths.push(canonical);
+    } else {
+      if (current.length) groups.push(current);
+      current = [tu];
+      currentPaths = [canonical];
+    }
+  }
+  if (current.length) groups.push(current);
+  return groups;
 }
 
 function persistSession(sessionStore, messages, ctx) {
@@ -1015,6 +1065,31 @@ async function run(options) {
     }
 
     // ── Step B: write/shell tools serially (with confirmation) ──
+    // B3: when --accept-edits is on, pre-execute groups of consecutive
+    // writes whose canonical paths are disjoint via Promise.all. The serial
+    // loop below consumes cached results so ledger / transcript / output
+    // events still fire in the model's emitted order.
+    const _parallelResults = new Map();
+    if (ctx.acceptEdits === true && writeTools.length > 1) {
+      const _groups = _groupDisjointWrites(writeTools, ctx);
+      for (const _g of _groups) {
+        if (_g.length < 2) continue;
+        if (ledger) {
+          appendLedger(ledger, hooks, 'tool_use_group', {
+            runId,
+            step,
+            toolUseIds: _g.map((t) => t.id),
+            tools: _g.map((t) => t.name),
+          });
+        }
+        const _groupResults = await Promise.all(
+          _g.map((tu) => executeForce(tu.name, tu.input || {}, ctx, tu.id)),
+        );
+        for (let _i = 0; _i < _g.length; _i++) {
+          _parallelResults.set(_g[_i].id, _groupResults[_i]);
+        }
+      }
+    }
     for (const toolUse of writeTools) {
       const toolName = toolUse.name;
       const args = toolUse.input || {};
@@ -1028,7 +1103,9 @@ async function run(options) {
       if (verbose)
         console.error('[runner] step ' + step + ': tool_call ' + toolName + '(' + JSON.stringify(args) + ')');
 
-      let result = await execute(toolName, args, ctx, toolUseId);
+      let result = _parallelResults.has(toolUseId)
+        ? _parallelResults.get(toolUseId)
+        : await execute(toolName, args, ctx, toolUseId);
 
       if (result.needsConfirmation) {
         if (trace)
@@ -1246,4 +1323,6 @@ module.exports = {
   loadMessagesFromTranscript,
   applyCacheControlBudget,
   addUsage,
+  _arePathsDisjoint,
+  _groupDisjointWrites,
 };
