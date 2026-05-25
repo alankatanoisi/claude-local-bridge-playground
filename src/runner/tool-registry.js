@@ -14,6 +14,7 @@ const permissions = require('./permissions');
 const safety = require('./safety');
 const { normalizeToolResult, resolveToolName } = require('./tool-envelope');
 const { invalidateContextCache } = require('./context-budget');
+const { maybeSummarize } = require('./tool-result-summarizers');
 
 const TOOLS = {
   list_files: listFiles,
@@ -93,6 +94,27 @@ async function runAndScrub(tool, args, ctx, toolUseId) {
     result.bytes = bytes;
   } else if (result && result.text) {
     result.text = safety.scrubSecrets(result.text);
+  }
+
+  // E4: boundary auto-summarization. Runs *after* scrubbing so dropped bytes
+  // can't smuggle a secret past the redactor. Tools opt-in via the registry
+  // in tool-result-summarizers.js; unregistered tools pass through unchanged.
+  if (result && result.text) {
+    let toolName = tool.name;
+    if (!toolName && typeof tool.definition === 'function') {
+      try {
+        toolName = tool.definition().name;
+      } catch {
+        toolName = 'unknown';
+      }
+    }
+    const summarized = maybeSummarize(toolName, result.text);
+    if (summarized) {
+      result._originalBytes = summarized.originalBytes;
+      result.text = summarized.summary;
+      result.summarized = true;
+      result.droppedBytes = summarized.droppedBytes;
+    }
   }
 
   const envelope = normalizeToolResult(result, {
