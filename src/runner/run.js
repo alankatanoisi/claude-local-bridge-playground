@@ -1,7 +1,8 @@
 'use strict';
 
 const fs = require('fs');
-const { buildSystem, buildUserMessage } = require('./context-builder');
+const path = require('path');
+const { buildSystem, buildUserMessage, buildRepoContextBlock } = require('./context-builder');
 const modelClient = require('./model-client');
 const { getDefinitions, execute, executeForce, executeReadOnlyBatch } = require('./tool-registry');
 const { Transcript } = require('./transcript');
@@ -84,11 +85,26 @@ function makeOutput(outputFormat) {
 //      is the freshly-appended turn that would invalidate the cache).
 //
 // We never mutate the inputs: only the touched message is shallow-cloned.
-function applyCacheControlBudget(system, tools, messages) {
-  const cachedSystem =
-    typeof system === 'string'
-      ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
-      : markLastBlock(system);
+// E1: optional repoContextBlock string occupies the fourth cache breakpoint,
+// prepended to the system message and marked separately from the last-block
+// breakpoint that already lived there.
+function applyCacheControlBudget(system, tools, messages, repoContextBlock) {
+  let cachedSystem;
+  if (repoContextBlock) {
+    const repoBlock = { type: 'text', text: repoContextBlock, cache_control: { type: 'ephemeral' } };
+    if (typeof system === 'string') {
+      cachedSystem = [repoBlock, { type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
+    } else if (Array.isArray(system)) {
+      cachedSystem = [repoBlock, ...markLastBlock(system)];
+    } else {
+      cachedSystem = [repoBlock];
+    }
+  } else {
+    cachedSystem =
+      typeof system === 'string'
+        ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+        : markLastBlock(system);
+  }
 
   const cachedTools =
     Array.isArray(tools) && tools.length > 0
@@ -97,7 +113,33 @@ function applyCacheControlBudget(system, tools, messages) {
 
   const cachedMessages = Array.isArray(messages) ? markStableTranscriptPrefix(messages) : messages;
 
+  // Anthropic allows up to 4 cache_control markers per request. Throw loud
+  // rather than rely on silent server-side eviction if a future change adds
+  // a fifth breakpoint without demoting one.
+  const used = _countCacheControlBreakpoints(cachedSystem, cachedTools, cachedMessages);
+  if (used > 4) {
+    throw new Error('applyCacheControlBudget: ' + used + ' cache_control breakpoints exceeds Anthropic limit of 4');
+  }
+
   return { cachedSystem, cachedTools, cachedMessages };
+}
+
+function _countCacheControlBreakpoints(cachedSystem, cachedTools, cachedMessages) {
+  let n = 0;
+  if (Array.isArray(cachedSystem)) {
+    for (const b of cachedSystem) if (b && b.cache_control) n++;
+  }
+  if (Array.isArray(cachedTools)) {
+    for (const t of cachedTools) if (t && t.cache_control) n++;
+  }
+  if (Array.isArray(cachedMessages)) {
+    for (const msg of cachedMessages) {
+      if (Array.isArray(msg.content)) {
+        for (const b of msg.content) if (b && b.cache_control) n++;
+      }
+    }
+  }
+  return n;
 }
 
 function markLastBlock(blocks) {
@@ -122,13 +164,32 @@ function markStableTranscriptPrefix(messages) {
   return messages;
 }
 
-function loadMessagesFromTranscript(filePath) {
+// C3: when called with `options.ledgerCursor`, stop processing transcript
+// lines once we've consumed roughly cursor.seq * 4 events — a conservative
+// upper bound on how many transcript events a single ledger entry can produce
+// (tool turns emit user_prompt + request + assistant + tool_call + tool_result).
+// On missing/corrupt cursor the function falls back to reading the whole file.
+function loadMessagesFromTranscript(filePath, options = {}) {
   if (!fs.existsSync(filePath)) return null;
-  const lines = fs.readFileSync(filePath, 'utf8').trim().split('\n');
-  const events = lines.map((l) => JSON.parse(l));
+  const text = fs.readFileSync(filePath, 'utf8').trim();
+  if (!text) return [];
+  const lines = text.split('\n');
+  const cursor = options && options.ledgerCursor ? options.ledgerCursor : null;
+  const cursorSeq = cursor && typeof cursor.seq === 'number' && cursor.seq > 0 ? cursor.seq : null;
+  const lineCap = cursorSeq ? cursorSeq * 4 : Infinity;
+
   const messages = [];
   let isFirstUser = true;
-  for (const ev of events) {
+  let processed = 0;
+  for (const line of lines) {
+    if (processed >= lineCap) break;
+    processed++;
+    let ev;
+    try {
+      ev = JSON.parse(line);
+    } catch {
+      continue;
+    }
     if (ev.type === 'user_prompt' && isFirstUser) {
       messages.push({ role: 'user', content: ev.text });
       isFirstUser = false;
@@ -157,6 +218,55 @@ function loadMessagesFromTranscript(filePath) {
   return messages;
 }
 
+// B3: path-disjoint detection over canonicalized paths. Two paths are
+// disjoint iff neither is identical to the other and neither is a
+// prefix-with-separator of the other (catches parent/child conflicts).
+// confinePath returns realpath-anchored absolute paths, so symlink aliasing
+// is mostly defused at the source.
+function _arePathsDisjoint(paths) {
+  for (let i = 0; i < paths.length; i++) {
+    for (let j = i + 1; j < paths.length; j++) {
+      const a = paths[i];
+      const b = paths[j];
+      if (!a || !b) return false;
+      if (a === b) return false;
+      if (a.startsWith(b + path.sep)) return false;
+      if (b.startsWith(a + path.sep)) return false;
+    }
+  }
+  return true;
+}
+
+function _groupDisjointWrites(writeTools, ctx) {
+  const groups = [];
+  let current = [];
+  let currentPaths = [];
+  for (const tu of writeTools) {
+    const args = tu.input || {};
+    const canonical = args.path ? safety.confinePath(ctx, args.path) : null;
+    if (!canonical) {
+      if (current.length) {
+        groups.push(current);
+        current = [];
+        currentPaths = [];
+      }
+      groups.push([tu]);
+      continue;
+    }
+    const candidatePaths = [...currentPaths, canonical];
+    if (_arePathsDisjoint(candidatePaths)) {
+      current.push(tu);
+      currentPaths.push(canonical);
+    } else {
+      if (current.length) groups.push(current);
+      current = [tu];
+      currentPaths = [canonical];
+    }
+  }
+  if (current.length) groups.push(current);
+  return groups;
+}
+
 function persistSession(sessionStore, messages, ctx) {
   if (!sessionStore) return;
   sessionStore.setMessages(messages);
@@ -164,7 +274,7 @@ function persistSession(sessionStore, messages, ctx) {
     undoLog: ctx.undoLog || [],
     consecutiveToolFailures: ctx._consecutiveToolFailures || 0,
   });
-  sessionStore.save();
+  sessionStore.saveSoon();
 }
 
 function appendLedger(ledger, hooks, type, payload) {
@@ -391,6 +501,20 @@ async function run(options) {
   }
 
   function completeRun(result) {
+    if (sessionStore) {
+      try {
+        sessionStore.flushSync();
+      } catch {
+        // best-effort durability
+      }
+    }
+    if (ledger) {
+      try {
+        ledger.close();
+      } catch {
+        // best-effort fd release
+      }
+    }
     if (archiveCollector) {
       try {
         finalizeArchiveExport(archiveCollector, {
@@ -462,6 +586,9 @@ async function run(options) {
 
   const tools = getDefinitions(ctx);
   const system = systemPromptOverride || buildSystem(ctx, { progressive: true });
+  // E1: session-stable repo-context block; computed once, reused as the
+  // fourth cache_control breakpoint for the lifetime of this run.
+  const repoContextBlock = buildRepoContextBlock(ctx);
   const steps = maxSteps || DEFAULT_MAX_STEPS;
   let totalUsage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
   let consecutiveToolFailures = 0;
@@ -549,7 +676,12 @@ async function run(options) {
     messages = compaction.messages;
     const systemForRequest = compaction.system;
 
-    const { cachedSystem, cachedTools, cachedMessages } = applyCacheControlBudget(systemForRequest, tools, messages);
+    const { cachedSystem, cachedTools, cachedMessages } = applyCacheControlBudget(
+      systemForRequest,
+      tools,
+      messages,
+      repoContextBlock,
+    );
 
     const advisoryTokens = estimateTokensAdvisory(messages);
     if (maxContextTokens && advisoryTokens > maxContextTokens && !quiet) {
@@ -933,6 +1065,31 @@ async function run(options) {
     }
 
     // ── Step B: write/shell tools serially (with confirmation) ──
+    // B3: when --accept-edits is on, pre-execute groups of consecutive
+    // writes whose canonical paths are disjoint via Promise.all. The serial
+    // loop below consumes cached results so ledger / transcript / output
+    // events still fire in the model's emitted order.
+    const _parallelResults = new Map();
+    if (ctx.acceptEdits === true && writeTools.length > 1) {
+      const _groups = _groupDisjointWrites(writeTools, ctx);
+      for (const _g of _groups) {
+        if (_g.length < 2) continue;
+        if (ledger) {
+          appendLedger(ledger, hooks, 'tool_use_group', {
+            runId,
+            step,
+            toolUseIds: _g.map((t) => t.id),
+            tools: _g.map((t) => t.name),
+          });
+        }
+        const _groupResults = await Promise.all(
+          _g.map((tu) => executeForce(tu.name, tu.input || {}, ctx, tu.id)),
+        );
+        for (let _i = 0; _i < _g.length; _i++) {
+          _parallelResults.set(_g[_i].id, _groupResults[_i]);
+        }
+      }
+    }
     for (const toolUse of writeTools) {
       const toolName = toolUse.name;
       const args = toolUse.input || {};
@@ -946,7 +1103,9 @@ async function run(options) {
       if (verbose)
         console.error('[runner] step ' + step + ': tool_call ' + toolName + '(' + JSON.stringify(args) + ')');
 
-      let result = await execute(toolName, args, ctx, toolUseId);
+      let result = _parallelResults.has(toolUseId)
+        ? _parallelResults.get(toolUseId)
+        : await execute(toolName, args, ctx, toolUseId);
 
       if (result.needsConfirmation) {
         if (trace)
@@ -1164,4 +1323,6 @@ module.exports = {
   loadMessagesFromTranscript,
   applyCacheControlBudget,
   addUsage,
+  _arePathsDisjoint,
+  _groupDisjointWrites,
 };

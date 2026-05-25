@@ -63,21 +63,21 @@ User prompt
 
 Before any tool runs, the runner checks whether `--cwd` has been explicitly trusted on this machine.
 
-| Mode | Behavior |
-| ---- | -------- |
-| Interactive TTY | Prompts once; records consent in `~/.bridge-runner/trust.json` |
+| Mode                 | Behavior                                                               |
+| -------------------- | ---------------------------------------------------------------------- |
+| Interactive TTY      | Prompts once; records consent in `~/.bridge-runner/trust.json`         |
 | CI / non-interactive | Requires `--trust-workspace`; fail closed with `workspace_not_trusted` |
-| Prior consent | Skips prompt when fingerprint matches stored record |
+| Prior consent        | Skips prompt when fingerprint matches stored record                    |
 
 **Effect:** Untrusted workspaces cannot read or write files — not even read-only tools. Hooks and auto-memory writes also require workspace trust plus `--trusted-workspace` where applicable.
 
 ## Permission severity
 
-| Severity | Meaning | Bypass |
-| -------- | ------- | ------ |
-| `hard_deny` | Deny matrix paths, path escapes, shell scanner hits | Never — survives `--accept-edits`, `--dont-ask`, and `--chaos-ok` |
-| `bypassable_ask` | Write/shell in default mode | `--accept-edits` or user confirmation |
-| `bypassable_deny` | Shell disabled | `--allow-shell` |
+| Severity          | Meaning                                             | Bypass                                                            |
+| ----------------- | --------------------------------------------------- | ----------------------------------------------------------------- |
+| `hard_deny`       | Deny matrix paths, path escapes, shell scanner hits | Never — survives `--accept-edits`, `--dont-ask`, and `--chaos-ok` |
+| `bypassable_ask`  | Write/shell in default mode                         | `--accept-edits` or user confirmation                             |
+| `bypassable_deny` | Shell disabled                                      | `--allow-shell`                                                   |
 
 ## `--chaos-ok` (explicit risky mode)
 
@@ -104,6 +104,22 @@ Redacted patterns:
 | `Bearer ...` (OAuth tokens)              | `Bearer [REDACTED]`            |
 | `eyJ...` (JWTs)                          | `[REDACTED:jwt]`               |
 | `SECRET=...` / `TOKEN=...` assignments   | `*= [REDACTED]`                |
+
+## Performance pack behaviors (PR #1)
+
+These are additive runner optimizations on the playground branch. They do not weaken `hard_deny` guards.
+
+### Parallel writes (B3)
+
+When `--accept-edits` is set, consecutive write tools whose canonical paths are **disjoint** (no parent/child overlap) may execute concurrently via `executeForce`. Interactive confirmation mode (default without `--accept-edits`) stays fully serial. Ledger events and transcript tool-result order remain in the model's emitted sequence; a `tool_use_group` ledger event records parallel batches.
+
+### Tool-result summarization (E4)
+
+After `scrubSecrets()`, tool output larger than `BRIDGE_RUNNER_SUMMARIZE_THRESHOLD` bytes (default 64000) may be shortened by deterministic per-tool summarizers (`bash`, `search_text`, `list_files`). `read_file` is never summarized. Set the threshold to `0` to disable. The model may lose detail in very large logs — treat this as a context tradeoff, not a secrecy bypass.
+
+### Streaming tool output (B4)
+
+Large cold `read_file` results may stream through `makeStreamingScrubber()` (4 KB sliding window) before assembly. Hard cap 10 MB. Streaming scrubbing assumes secret patterns do not span more than the window horizon (true for current patterns).
 
 ## Known limitations
 

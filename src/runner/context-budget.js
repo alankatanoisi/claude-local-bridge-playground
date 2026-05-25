@@ -2,41 +2,82 @@
 
 /**
  * Context budget — progressive disclosure and memoized system prompt cache.
+ *
+ * The cache is split into a static slice (compaction-independent) and a
+ * dynamic tail (compaction-dependent). The dynamic tail is empty today but
+ * the seam lets future commits inject per-turn hints without nuking the
+ * whole prompt across compactionGeneration bumps.
  */
+
+const crypto = require('crypto');
 
 const DEFAULT_CONTEXT_BUDGET_CHARS = 32_000;
 const SKILL_ENTRY_MAX_CHARS = 250;
 const SKILL_LISTING_BUDGET_FRACTION = 0.01;
 
-let systemPromptCache = null;
-let cacheKey = null;
+let staticPromptCache = null;
+let staticCacheKey = null;
+let dynamicTailCache = null;
+let dynamicCacheKey = null;
 
-function makeCacheKey(ctx) {
+function _toolRegistryHash(ctx) {
+  const allowShell = ctx && ctx.allowShell ? '1' : '0';
+  const allowed = ctx && ctx.allowedTools ? [...ctx.allowedTools].sort().join(',') : '*';
+  const names = Object.keys(TOOL_SUMMARIES).sort().join(',');
+  return crypto
+    .createHash('sha1')
+    .update(allowShell + '|' + allowed + '|' + names)
+    .digest('hex')
+    .slice(0, 8);
+}
+
+function makeStaticKey(ctx) {
   return [
     ctx.cwdRealpath || ctx.cwd,
-    !!ctx.allowShell,
-    ctx.allowedTools ? [...ctx.allowedTools].sort().join(',') : '*',
     ctx.instructionHash || '',
-    ctx.compactionGeneration || 0,
     ctx.trustState || '',
+    _toolRegistryHash(ctx),
   ].join('|');
 }
 
+function makeDynamicKey(ctx) {
+  return [makeStaticKey(ctx), ctx.compactionGeneration || 0].join('||');
+}
+
 function invalidateContextCache() {
-  systemPromptCache = null;
-  cacheKey = null;
+  staticPromptCache = null;
+  staticCacheKey = null;
+  dynamicTailCache = null;
+  dynamicCacheKey = null;
+}
+
+function invalidateDynamicOnly() {
+  dynamicTailCache = null;
+  dynamicCacheKey = null;
 }
 
 function getCachedSystemPrompt(ctx) {
-  const key = makeCacheKey(ctx);
-  if (systemPromptCache && cacheKey === key) return systemPromptCache;
+  const key = makeStaticKey(ctx);
+  if (staticPromptCache && staticCacheKey === key) return staticPromptCache;
   return null;
 }
 
 function setCachedSystemPrompt(ctx, prompt) {
-  cacheKey = makeCacheKey(ctx);
-  systemPromptCache = prompt;
+  staticCacheKey = makeStaticKey(ctx);
+  staticPromptCache = prompt;
   return prompt;
+}
+
+function getCachedDynamicTail(ctx) {
+  const key = makeDynamicKey(ctx);
+  if (dynamicTailCache && dynamicCacheKey === key) return dynamicTailCache;
+  return null;
+}
+
+function setCachedDynamicTail(ctx, tail) {
+  dynamicCacheKey = makeDynamicKey(ctx);
+  dynamicTailCache = tail;
+  return tail;
 }
 
 /** One-line tool summaries for progressive disclosure (full schemas stay in API tools array). */
@@ -102,8 +143,13 @@ module.exports = {
   DEFAULT_CONTEXT_BUDGET_CHARS,
   SKILL_ENTRY_MAX_CHARS,
   invalidateContextCache,
+  invalidateDynamicOnly,
   getCachedSystemPrompt,
   setCachedSystemPrompt,
+  getCachedDynamicTail,
+  setCachedDynamicTail,
+  makeStaticKey,
+  makeDynamicKey,
   buildToolSummarySection,
   capSkillListing,
   applyContextBudget,

@@ -16,11 +16,11 @@ pwd
 git branch --show-current
 ```
 
-| If `pwd` ends with… | You are in… | GitHub repo | Branch | What it’s for |
-| ------------------- | ----------- | ----------- | ------ | ------------- |
-| `claude-local-bridge-playground` | **Playground** | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main` | Experiments — never production |
-| `claude-local-bridge` (no `-playground`) | **Canonical** | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge) | `codex/runner-clean-pr` | Serious extension + clean runner |
-| Anything under `iCloud` or `claude-local-bridge-runner-test` | **Reference only** | — | (varies) | Don’t edit here unless you mean to |
+| If `pwd` ends with…                                          | You are in…        | GitHub repo                                                                                       | Branch                  | What it’s for                      |
+| ------------------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------- | ----------------------- | ---------------------------------- |
+| `claude-local-bridge-playground`                             | **Playground**     | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main`                  | Experiments — never production     |
+| `claude-local-bridge` (no `-playground`)                     | **Canonical**      | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | `codex/runner-clean-pr` | Serious extension + clean runner   |
+| Anything under `iCloud` or `claude-local-bridge-runner-test` | **Reference only** | —                                                                                                 | (varies)                | Don’t edit here unless you mean to |
 
 **Claude Code Insights (for you):** Open [`lab-notes/claude-code-insights/report.html`](./lab-notes/claude-code-insights/report.html) in a browser. Agents read [`lab-notes/ALAN_OPERATOR_PROFILE.md`](./lab-notes/ALAN_OPERATOR_PROFILE.md) instead.
 
@@ -37,6 +37,7 @@ cd "/Users/alanman/Developer/claude-local-bridge"
 ```
 
 **Wrong-folder symptoms:**
+
 - Agent edited files you didn’t expect → ask which folder they used in their handoff.
 
 ---
@@ -68,26 +69,26 @@ Context compactor                 →  clip / snip / ghost when context grows
 
 See the **cheat sheet at the top** of this guide. Short version:
 
-| Folder                                                    | When to use it                                             |
-| --------------------------------------------------------- | ---------------------------------------------------------- |
-| `/Users/alanman/Developer/claude-local-bridge`            | Canonical bridge + runner work you may merge               |
-| `/Users/alanman/Developer/claude-local-bridge-playground` | Experiments: coordinator, session store, compaction, hooks |
+| Folder                                                    | When to use it                                           |
+| --------------------------------------------------------- | -------------------------------------------------------- |
+| `/Users/alanman/Developer/claude-local-bridge-playground` | **Default:** experiments, harness, perf pack (PR #1)     |
+| `/Users/alanman/Developer/claude-local-bridge`            | Canonical bridge + runner (merge target — not for chaos) |
 
-If you see `Unknown option '--session-id'`, you are in an older checkout. The new harness flags live in the
+If you see `Unknown option '--session-id'`, you are in an older checkout. New harness and perf flags land in the
 **playground** folder first.
 
-## The Correct Folder (canonical runner)
+## The Correct Folder (playground default)
 
-For everyday runner work on the clean branch, use:
-
-```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
-```
-
-For **playground experiments** (coordinator, session store, agent kernel):
+For runner experiments and the perf pack on this repo, use:
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge-playground"
+```
+
+For **canonical** bridge + runner work you may merge elsewhere:
+
+```bash
+cd "/Users/alanman/Developer/claude-local-bridge"
 ```
 
 ## Open Terminal
@@ -176,20 +177,20 @@ above.
 
 ## Run A Safe Read-Only Runner Test
 
-Paste this (canonical folder):
+Paste this in the **playground** folder (default lane for harness + perf pack):
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/Developer/claude-local-bridge" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
   --allowed-tools list_files,read_file,search_text,git_status \
   --max-steps 8 \
   --verbose \
   "List the top-level files, summarize this project, then stop. Do not edit files."
 ```
 
-**Playground** — same test with session persistence:
+**With session persistence** (same folder, add `--session-id`):
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge-playground"
@@ -211,17 +212,23 @@ ls ~/.bridge-runner/sessions/
 
 You should see `safe-readonly-demo.state.json` — that is the **canonical session file** (not the JSONL transcript).
 
+## Performance pack (playground PR #1)
+
+Most perf features run automatically on this branch (prompt cache, search cache, parallel writes with `--accept-edits`, etc.). Some env vars (**prefetch**, **test watch**) are **infrastructure only** — the code exists but the main loop does not call them yet, so setting those vars today does nothing.
+
+Read [lab-notes/PERF_CONTINUATION.md](./lab-notes/PERF_CONTINUATION.md) for the full wired vs deferred table and env var list.
+
 ## Use The Command Builder
 
 Open this file in a browser:
 
 ```text
-/Users/alanman/Developer/claude-local-bridge/docs/command-builder.html
+/Users/alanman/Developer/claude-local-bridge-playground/docs/command-builder.html
 ```
 
 Use it when you do not want to remember all the flags. Important fields:
 
-- **Runner repo folder**: `/Users/alanman/Developer/claude-local-bridge` (or playground for new harness flags)
+- **Runner repo folder**: `/Users/alanman/Developer/claude-local-bridge-playground`
 - **Target project folder**: the project you want the runner to inspect
 - **Caller auth token**: optional local bridge password; only needed if you enabled caller auth
 - **Tools**: start with only `list_files`, `read_file`, `search_text`, `git_status`
@@ -246,14 +253,21 @@ Add `--no-workers` while learning — it skips background subprocess workers and
 
 ### Unknown option `--output-format` or `--session-id`
 
-You are in the wrong folder or an old checkout. Run:
+You are in the wrong folder or an old checkout. Try playground first:
+
+```bash
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
+node bin/local-bridge-runner.js --help
+```
+
+For canonical runner only:
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge"
 node bin/local-bridge-runner.js --help
 ```
 
-For playground harness flags (`--session-id`, coordinator), use:
+For playground harness flags (`--session-id`, coordinator, perf pack), stay in:
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge-playground"

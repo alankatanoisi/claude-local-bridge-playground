@@ -18,6 +18,51 @@ const fs = require('fs');
 const path = require('path');
 
 // ---------------------------------------------------------------------------
+// D2: per-session realpath cache. Keyed on the ctx object itself so the cache
+// is GC'd with the session. Permission checks stay synchronous; cache lookups
+// are Map.get/set, not Promises — no TOCTOU regression because the deny
+// matrix still runs on every call.
+// ---------------------------------------------------------------------------
+
+const _realpathCacheByCtx = new WeakMap();
+
+function _getRealpathCache(ctx) {
+  if (!ctx) return null;
+  let m = _realpathCacheByCtx.get(ctx);
+  if (!m) {
+    m = new Map();
+    _realpathCacheByCtx.set(ctx, m);
+  }
+  return m;
+}
+
+function cachedRealpathSync(ctx, p) {
+  const cache = _getRealpathCache(ctx);
+  if (!cache) return fs.realpathSync(p);
+  const hit = cache.get(p);
+  if (hit !== undefined) return hit;
+  const real = fs.realpathSync(p);
+  cache.set(p, real);
+  return real;
+}
+
+function invalidateRealpathCache(ctx, paths) {
+  if (!ctx) return;
+  const cache = _realpathCacheByCtx.get(ctx);
+  if (!cache) return;
+  if (!paths || paths.length === 0) {
+    cache.clear();
+    return;
+  }
+  for (const p of paths) {
+    cache.delete(p);
+    if (!path.isAbsolute(p) && ctx.cwdRealpath) {
+      cache.delete(path.resolve(ctx.cwdRealpath, p));
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // System directories that the runner must never operate inside
 // ---------------------------------------------------------------------------
 
@@ -199,7 +244,7 @@ function confinePath(ctx, inputPath) {
 
   let realCwd;
   try {
-    realCwd = fs.realpathSync(cwdAbs);
+    realCwd = cachedRealpathSync(ctx, cwdAbs);
   } catch {
     return resolved;
   }
@@ -211,7 +256,7 @@ function confinePath(ctx, inputPath) {
   }
 
   try {
-    const realAnchor = fs.realpathSync(anchor);
+    const realAnchor = cachedRealpathSync(ctx, anchor);
     if (!realAnchor.startsWith(realCwd + path.sep) && realAnchor !== realCwd) {
       return null; // containment violation
     }
@@ -239,6 +284,49 @@ function scrubSecrets(text) {
     text = text.replace(pattern, replacement);
   }
   return text;
+}
+
+// ---------------------------------------------------------------------------
+// makeStreamingScrubber — sliding-window scrubber for chunked tool outputs
+// ---------------------------------------------------------------------------
+
+const STREAM_SCRUB_WINDOW = 4096;
+
+/**
+ * Create a streaming scrubber that emits scrubbed chunks while holding a
+ * trailing window in case a secret straddles a chunk boundary. push() returns
+ * the scrubbed prefix safe to emit; end() returns whatever's left.
+ *
+ * Correctness depends on no secret pattern matching more than
+ * STREAM_SCRUB_WINDOW bytes — true for the current SECRET_PATTERNS, which
+ * top out a few hundred chars for PEM blocks.
+ */
+function makeStreamingScrubber() {
+  let buffer = '';
+  function scrubFull(text) {
+    if (!text) return text;
+    let out = text;
+    for (const { pattern, replacement } of SECRET_PATTERNS) {
+      out = out.replace(pattern, replacement);
+    }
+    return out;
+  }
+  return {
+    push(chunk) {
+      if (!chunk) return '';
+      buffer += chunk;
+      if (buffer.length <= STREAM_SCRUB_WINDOW) return '';
+      const safeEnd = buffer.length - STREAM_SCRUB_WINDOW;
+      const head = buffer.slice(0, safeEnd);
+      buffer = buffer.slice(safeEnd);
+      return scrubFull(head);
+    },
+    end() {
+      const out = scrubFull(buffer);
+      buffer = '';
+      return out;
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -288,6 +376,10 @@ module.exports = {
   scrubSecrets,
   buildSafeEnv,
   isPathBlockedByDenyMatrix,
+  cachedRealpathSync,
+  invalidateRealpathCache,
+  makeStreamingScrubber,
+  STREAM_SCRUB_WINDOW,
   SYSTEM_DIRS,
   DENY_MATRIX_PATTERNS,
   SCRUBBED_ENV_VARS,

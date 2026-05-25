@@ -11,6 +11,29 @@ const path = require('path');
 const crypto = require('crypto');
 
 const SCHEMA_VERSION = 1;
+const DEFAULT_DEBOUNCE_MS = 75;
+
+const _trackedStores = new Set();
+let _exitHookAttached = false;
+
+function _attachExitHookOnce() {
+  if (_exitHookAttached) return;
+  _exitHookAttached = true;
+  const flushAll = () => {
+    for (const store of _trackedStores) {
+      try {
+        store.flushSync();
+      } catch {
+        // best-effort
+      }
+    }
+  };
+  process.on('exit', flushAll);
+  process.on('uncaughtException', (err) => {
+    flushAll();
+    throw err;
+  });
+}
 
 function makeSessionId() {
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
@@ -61,6 +84,10 @@ class SessionStore {
   constructor(filePath) {
     this.filePath = filePath;
     this._data = null;
+    this._dirty = false;
+    this._timer = null;
+    const envMs = parseInt(process.env.BRIDGE_RUNNER_SESSION_DEBOUNCE_MS, 10);
+    this._debounceMs = Number.isFinite(envMs) && envMs >= 0 ? envMs : DEFAULT_DEBOUNCE_MS;
   }
 
   exists() {
@@ -113,12 +140,56 @@ class SessionStore {
 
   touch() {
     this.data().updatedAt = new Date().toISOString();
+    this._dirty = true;
   }
 
   save() {
     if (!this._data) return;
     this.touch();
     atomicWriteJson(this.filePath, this._data);
+    this._dirty = false;
+    if (this._timer) {
+      clearTimeout(this._timer);
+      this._timer = null;
+    }
+  }
+
+  saveSoon() {
+    if (!this._data) return;
+    this._dirty = true;
+    if (this._debounceMs === 0) {
+      this.save();
+      return;
+    }
+    if (this._timer) return;
+    _trackedStores.add(this);
+    _attachExitHookOnce();
+    this._timer = setTimeout(() => {
+      this._timer = null;
+      if (!this._dirty || !this._data) return;
+      try {
+        atomicWriteJson(this.filePath, this._data);
+        this._dirty = false;
+      } catch {
+        // swallow — next saveSoon/flushSync will retry
+      }
+    }, this._debounceMs);
+    if (typeof this._timer.unref === 'function') this._timer.unref();
+  }
+
+  flushSync() {
+    if (this._timer) {
+      clearTimeout(this._timer);
+      this._timer = null;
+    }
+    if (!this._dirty || !this._data) return;
+    atomicWriteJson(this.filePath, this._data);
+    this._dirty = false;
+  }
+
+  dispose() {
+    this.flushSync();
+    _trackedStores.delete(this);
   }
 
   /** Fork this session to a new file; returns new SessionStore. */

@@ -73,6 +73,15 @@ function compileSpec(objective, workerResults = []) {
     openQuestions: findings.length === 0 ? ['Need more research before implementation'] : [],
     verificationPlan: 'Re-read changed files and run tests if available',
     synthesisNotes,
+    // D1: phasePlan introduces a dep schema so the coordinator can fan out
+    // independent phases via Promise.all. Compiled today as a serial chain
+    // matching taskPlan; richer dep parsing can land in a future PR without
+    // changing the executor.
+    phasePlan: [
+      { id: 'inspect', deps: [], description: 'Inspect relevant files' },
+      { id: 'apply', deps: ['inspect'], description: 'Apply minimal changes' },
+      { id: 'verify', deps: ['apply'], description: 'Verify outcome' },
+    ],
   };
 
   const spec =
