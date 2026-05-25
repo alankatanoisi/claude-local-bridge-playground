@@ -298,12 +298,15 @@
           </thead>
           <tbody>
             <tr>
-              <td><code>/Users/alanman/Developer/claude-local-bridge</code></td>
-              <td>Canonical bridge + runner work you may merge to main.</td>
+              <td><code>/Users/alanman/Developer/claude-local-bridge-playground</code></td>
+              <td>
+                <strong>Default for experiments and perf pack:</strong> <code>--session-id</code>, compaction,
+                coordinator CLI, hooks, PR #1 perf features.
+              </td>
             </tr>
             <tr>
-              <td><code>/Users/alanman/Developer/claude-local-bridge-playground</code></td>
-              <td>Experiments: <code>--session-id</code>, context compaction, coordinator CLI, hooks, skills index.</td>
+              <td><code>/Users/alanman/Developer/claude-local-bridge</code></td>
+              <td>Canonical bridge + runner work you may merge (separate repo/branch).</td>
             </tr>
           </tbody>
         </table>
@@ -337,7 +340,7 @@
           <div class="step-number">1</div>
           <div class="step-body">
             <p><strong>Ask a simple question</strong> (no tools needed)</p>
-            <pre><code>cd "/Users/alanman/Developer/claude-local-bridge"
+            <pre><code>cd "/Users/alanman/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js "What is 2 + 2?"</code></pre>
             <p>The model should answer immediately with no tool calls.</p>
           </div>
@@ -397,7 +400,7 @@ node bin/local-bridge-runner.js "What is 2 + 2?"</code></pre>
         </table>
 
         <h3>Read-only smoke test against any project</h3>
-        <pre><code>cd "/Users/alanman/Developer/claude-local-bridge"
+        <pre><code>cd "/Users/alanman/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   --max-steps 8 \
@@ -410,7 +413,7 @@ node bin/local-bridge-runner.js \
         </p>
 
         <h3>Attach files from that target project</h3>
-        <pre><code>cd "/Users/alanman/Developer/claude-local-bridge"
+        <pre><code>cd "/Users/alanman/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   --include-file README.md \
@@ -418,7 +421,7 @@ node bin/local-bridge-runner.js \
   "Review the attached files and explain the project setup. Do not edit files."</code></pre>
 
         <h3>Use stdin from that target project</h3>
-        <pre><code>cd "/Users/alanman/Developer/claude-local-bridge"
+        <pre><code>cd "/Users/alanman/Developer/claude-local-bridge-playground"
 cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   "Summarize this README and suggest one next thing to inspect."</code></pre>
@@ -584,7 +587,8 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td><code>--trust-workspace</code></td>
               <td>off</td>
               <td>
-                Record workspace trust consent for <code>--cwd</code> (required in CI/non-interactive). Blocks all tools until trusted.
+                Record workspace trust consent for <code>--cwd</code> (required in CI/non-interactive). Blocks all tools
+                until trusted.
               </td>
             </tr>
             <tr>
@@ -791,6 +795,90 @@ node bin/local-bridge-coordinator.js \
   --model claude-opus-4-7 \
   --max-tokens 4096 \
   "Give me a deep dive on the proxy module"</code></pre>
+      </section>
+
+      <section>
+        <h2>Performance pack (PR #1)</h2>
+        <p>
+          The playground branch includes a perf continuation pack (23 commits). Most features run automatically; a few
+          ship as <strong>infrastructure only</strong> — code and tests exist, but the main loop does not call them yet.
+          Full detail: <code>lab-notes/PERF_CONTINUATION.md</code>.
+        </p>
+
+        <h3>Works today (no extra env)</h3>
+        <ul>
+          <li>Fourth prompt-cache breakpoint (repo context: CLAUDE.md, git HEAD, repo map)</li>
+          <li>Parallel writes on disjoint paths when you pass <code>--accept-edits</code></li>
+          <li>Streaming large <code>read_file</code> results with secret scrubbing</li>
+          <li>Search cache, permission/realpath caches, debounced session saves</li>
+          <li>Auto-summarization of huge tool output (default 64 KB threshold, after scrubbing)</li>
+        </ul>
+
+        <h3>Environment variables</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Variable</th>
+              <th>Default</th>
+              <th>Active?</th>
+              <th>Meaning</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>BRIDGE_RUNNER_SESSION_DEBOUNCE_MS</code></td>
+              <td><code>75</code></td>
+              <td>Yes</td>
+              <td>Coalesce session file writes; <code>0</code> = sync every touch</td>
+            </tr>
+            <tr>
+              <td><code>BRIDGE_RUNNER_SUMMARIZE_THRESHOLD</code></td>
+              <td><code>64000</code></td>
+              <td>Yes</td>
+              <td>Shorten huge tool output after scrub; <code>0</code> = off</td>
+            </tr>
+            <tr>
+              <td><code>BRIDGE_RUNNER_PERSISTENT_SHELL</code></td>
+              <td>off</td>
+              <td>Yes if <code>1</code></td>
+              <td>Reuse one bash process</td>
+            </tr>
+            <tr>
+              <td><code>BRIDGE_BENCH_LIVE_MAX_USD</code></td>
+              <td><code>0.50</code></td>
+              <td>Bench only</td>
+              <td>Spend cap for <code>--live</code> bench</td>
+            </tr>
+            <tr>
+              <td><code>BRIDGE_RUNNER_PREFETCH</code></td>
+              <td>off</td>
+              <td><strong>No</strong> (infra)</td>
+              <td>Reserved — prefetch not wired into loop</td>
+            </tr>
+            <tr>
+              <td><code>BRIDGE_RUNNER_TEST_WATCH</code></td>
+              <td>off</td>
+              <td><strong>No</strong> (infra)</td>
+              <td>Reserved — auto-test after writes not wired</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Bench harness</h3>
+        <pre><code>cd "/Users/alanman/Developer/claude-local-bridge-playground"
+
+# Stubbed (CI-safe)
+node --require ./test/setup.js test/runner/bench/turn-latency.bench.js --runs 50 --steps 8 --json
+
+# Live (costs real money — bridge must be up; do NOT run in CI)
+BRIDGE_BENCH_LIVE_MAX_USD=0.50 node --require ./test/setup.js test/runner/bench/turn-latency.bench.js \
+  --live --model claude-sonnet-4-6 --runs 12</code></pre>
+
+        <div class="callout warn">
+          <strong>Parallel writes</strong>
+          With <code>--accept-edits</code>, the runner may apply writes to unrelated paths in the same turn
+          concurrently. Path overlap (parent/child) stays serial. Interactive confirmation mode stays fully serial.
+        </div>
       </section>
 
       <section>

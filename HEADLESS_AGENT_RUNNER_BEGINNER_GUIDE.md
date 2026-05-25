@@ -72,6 +72,23 @@ The runner can read that environment variable automatically. You can also pass i
 --caller-token "$BRIDGE_CALLER_TOKEN"
 ```
 
+## Performance pack (PR #1)
+
+Most perf features on this branch run automatically (prompt cache, search cache, parallel writes with `--accept-edits`, tool-output summarization, etc.). Some env vars are **infrastructure only** — the code and tests exist, but the main loop does not call them yet, so setting them today does nothing:
+
+- `BRIDGE_RUNNER_PREFETCH=1` — prefetch not wired
+- `BRIDGE_RUNNER_TEST_WATCH=1` — auto-test after writes not wired
+
+**Active env vars** you may export before a run:
+
+```bash
+export BRIDGE_RUNNER_SESSION_DEBOUNCE_MS=75      # session file coalescing (0 = sync every touch)
+export BRIDGE_RUNNER_SUMMARIZE_THRESHOLD=64000   # shorten huge tool output after scrub (0 = off)
+export BRIDGE_RUNNER_PERSISTENT_SHELL=1          # reuse one bash process
+```
+
+Full wired vs deferred table: [lab-notes/PERF_CONTINUATION.md](./lab-notes/PERF_CONTINUATION.md).
+
 ## Safe First Run
 
 ```bash
