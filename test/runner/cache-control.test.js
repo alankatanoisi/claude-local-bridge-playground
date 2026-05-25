@@ -44,11 +44,13 @@ describe('applyCacheControlBudget', () => {
       baseMessages,
       repo,
     );
-    assert.equal(countCC(cachedSystem), 2, 'two breakpoints on system (repo + last block)');
+    assert.equal(countCC(cachedSystem), 1, 'one breakpoint on system (repo only; bridge OAuth reserve)');
     assert.equal(countCC(cachedTools), 1);
     assert.equal(countCCInMessages(cachedMessages), 1);
     assert.equal(cachedSystem[0].text, repo, 'repo block is first');
     assert.ok(cachedSystem[0].cache_control, 'repo block has cache_control');
+    assert.equal(cachedSystem[0].cache_control.ttl, '1h', 'TTL matches bridge OAuth path');
+    assert.equal(cachedSystem[1].cache_control, undefined, 'main system text uncached when repo block present');
   });
 
   it('works when system is already an array (post-compaction)', () => {
@@ -57,7 +59,7 @@ describe('applyCacheControlBudget', () => {
       { type: 'text', text: 'ghost summary' },
     ];
     const { cachedSystem } = applyCacheControlBudget(sysArray, baseTools, baseMessages, 'repo');
-    assert.equal(countCC(cachedSystem), 2);
+    assert.equal(countCC(cachedSystem), 1, 'repo only when E1 active');
     assert.equal(cachedSystem[0].text, 'repo');
     assert.equal(cachedSystem[cachedSystem.length - 1].text, 'ghost summary');
   });

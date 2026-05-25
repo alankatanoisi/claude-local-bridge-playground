@@ -76,6 +76,11 @@ function makeOutput(outputFormat) {
   return { events, emit, finish };
 }
 
+// Shared TTL for all runner-side cache_control markers. Must match the bridge
+// OAuth path (prependClaudeCodeSystem uses ttl: '1h'). Anthropic rejects mixed
+// TTL ordering (e.g. default 5m on tools before 1h on system).
+const RUNNER_CACHE_CONTROL = Object.freeze({ type: 'ephemeral', ttl: '1h' });
+
 // Mark cache_control breakpoints so the bridge/Anthropic side can serve a
 // prompt-cache read instead of reprocessing the whole prefix every turn.
 // Budget: Anthropic allows 4 breakpoints per request. We use up to 3 —
@@ -88,27 +93,34 @@ function makeOutput(outputFormat) {
 // E1: optional repoContextBlock string occupies the fourth cache breakpoint,
 // prepended to the system message and marked separately from the last-block
 // breakpoint that already lived there.
+// Anthropic allows 4 cache_control markers per request. The OAuth bridge prepends
+// a cached identity block (see prependClaudeCodeSystem) — reserve one slot so
+// runner + bridge stay within the limit.
+const BRIDGE_OAUTH_CACHE_RESERVE = 1;
+
 function applyCacheControlBudget(system, tools, messages, repoContextBlock) {
   let cachedSystem;
   if (repoContextBlock) {
-    const repoBlock = { type: 'text', text: repoContextBlock, cache_control: { type: 'ephemeral' } };
+    const repoBlock = { type: 'text', text: repoContextBlock, cache_control: RUNNER_CACHE_CONTROL };
     if (typeof system === 'string') {
-      cachedSystem = [repoBlock, { type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
+      // Repo block is the only runner system marker when E1 is active — a second
+      // system breakpoint would exceed 4 once the bridge identity block is added.
+      cachedSystem = [repoBlock, { type: 'text', text: system }];
     } else if (Array.isArray(system)) {
-      cachedSystem = [repoBlock, ...markLastBlock(system)];
+      cachedSystem = [repoBlock, ...system];
     } else {
       cachedSystem = [repoBlock];
     }
   } else {
     cachedSystem =
       typeof system === 'string'
-        ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+        ? [{ type: 'text', text: system, cache_control: RUNNER_CACHE_CONTROL }]
         : markLastBlock(system);
   }
 
   const cachedTools =
     Array.isArray(tools) && tools.length > 0
-      ? tools.map((tool, i, arr) => (i === arr.length - 1 ? { ...tool, cache_control: { type: 'ephemeral' } } : tool))
+      ? tools.map((tool, i, arr) => (i === arr.length - 1 ? { ...tool, cache_control: RUNNER_CACHE_CONTROL } : tool))
       : tools;
 
   const cachedMessages = Array.isArray(messages) ? markStableTranscriptPrefix(messages) : messages;
@@ -117,8 +129,11 @@ function applyCacheControlBudget(system, tools, messages, repoContextBlock) {
   // rather than rely on silent server-side eviction if a future change adds
   // a fifth breakpoint without demoting one.
   const used = _countCacheControlBreakpoints(cachedSystem, cachedTools, cachedMessages);
-  if (used > 4) {
-    throw new Error('applyCacheControlBudget: ' + used + ' cache_control breakpoints exceeds Anthropic limit of 4');
+  const maxRunner = 4 - BRIDGE_OAUTH_CACHE_RESERVE;
+  if (used > maxRunner) {
+    throw new Error(
+      'applyCacheControlBudget: ' + used + ' cache_control breakpoints exceeds runner budget of ' + maxRunner,
+    );
   }
 
   return { cachedSystem, cachedTools, cachedMessages };
@@ -145,7 +160,7 @@ function _countCacheControlBreakpoints(cachedSystem, cachedTools, cachedMessages
 function markLastBlock(blocks) {
   if (!Array.isArray(blocks) || blocks.length === 0) return blocks;
   return blocks.map((block, i, arr) =>
-    i === arr.length - 1 ? { ...block, cache_control: { type: 'ephemeral' } } : block,
+    i === arr.length - 1 ? { ...block, cache_control: RUNNER_CACHE_CONTROL } : block,
   );
 }
 
