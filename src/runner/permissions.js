@@ -92,8 +92,7 @@ function enrichDecision(base, extra = {}) {
 function check(toolName, args, ctx) {
   if (!ctx.cwdRealpath && ctx.cwd) {
     try {
-      const fs = require('fs');
-      ctx.cwdRealpath = fs.realpathSync(ctx.cwd);
+      ctx.cwdRealpath = safety.cachedRealpathSync(ctx, ctx.cwd);
     } catch {
       ctx.cwdRealpath = ctx.cwd;
     }

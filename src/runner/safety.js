@@ -18,6 +18,51 @@ const fs = require('fs');
 const path = require('path');
 
 // ---------------------------------------------------------------------------
+// D2: per-session realpath cache. Keyed on the ctx object itself so the cache
+// is GC'd with the session. Permission checks stay synchronous; cache lookups
+// are Map.get/set, not Promises — no TOCTOU regression because the deny
+// matrix still runs on every call.
+// ---------------------------------------------------------------------------
+
+const _realpathCacheByCtx = new WeakMap();
+
+function _getRealpathCache(ctx) {
+  if (!ctx) return null;
+  let m = _realpathCacheByCtx.get(ctx);
+  if (!m) {
+    m = new Map();
+    _realpathCacheByCtx.set(ctx, m);
+  }
+  return m;
+}
+
+function cachedRealpathSync(ctx, p) {
+  const cache = _getRealpathCache(ctx);
+  if (!cache) return fs.realpathSync(p);
+  const hit = cache.get(p);
+  if (hit !== undefined) return hit;
+  const real = fs.realpathSync(p);
+  cache.set(p, real);
+  return real;
+}
+
+function invalidateRealpathCache(ctx, paths) {
+  if (!ctx) return;
+  const cache = _realpathCacheByCtx.get(ctx);
+  if (!cache) return;
+  if (!paths || paths.length === 0) {
+    cache.clear();
+    return;
+  }
+  for (const p of paths) {
+    cache.delete(p);
+    if (!path.isAbsolute(p) && ctx.cwdRealpath) {
+      cache.delete(path.resolve(ctx.cwdRealpath, p));
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // System directories that the runner must never operate inside
 // ---------------------------------------------------------------------------
 
@@ -199,7 +244,7 @@ function confinePath(ctx, inputPath) {
 
   let realCwd;
   try {
-    realCwd = fs.realpathSync(cwdAbs);
+    realCwd = cachedRealpathSync(ctx, cwdAbs);
   } catch {
     return resolved;
   }
@@ -211,7 +256,7 @@ function confinePath(ctx, inputPath) {
   }
 
   try {
-    const realAnchor = fs.realpathSync(anchor);
+    const realAnchor = cachedRealpathSync(ctx, anchor);
     if (!realAnchor.startsWith(realCwd + path.sep) && realAnchor !== realCwd) {
       return null; // containment violation
     }
@@ -288,6 +333,8 @@ module.exports = {
   scrubSecrets,
   buildSafeEnv,
   isPathBlockedByDenyMatrix,
+  cachedRealpathSync,
+  invalidateRealpathCache,
   SYSTEM_DIRS,
   DENY_MATRIX_PATTERNS,
   SCRUBBED_ENV_VARS,

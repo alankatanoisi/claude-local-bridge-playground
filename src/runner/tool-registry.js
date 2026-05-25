@@ -93,7 +93,10 @@ async function execute(toolName, args, ctx, toolUseId) {
 
   try {
     const result = await runAndScrub(tool, args, ctx, toolUseId);
-    if (WRITE_TOOLS.has(canonical) && result.ok) invalidateContextCache();
+    if (WRITE_TOOLS.has(canonical) && result.ok) {
+      invalidateContextCache();
+      if (args && args.path) safety.invalidateRealpathCache(ctx, [args.path]);
+    }
     if (resolved.aliasUsed) {
       result.envelope.aliasUsed = resolved.aliasUsed;
       result.envelope.canonicalTool = canonical;
@@ -123,7 +126,10 @@ async function executeForce(toolName, args, ctx, toolUseId) {
 
   try {
     const result = await runAndScrub(tool, args, ctx, toolUseId);
-    if (WRITE_TOOLS.has(canonical) && result.ok) invalidateContextCache();
+    if (WRITE_TOOLS.has(canonical) && result.ok) {
+      invalidateContextCache();
+      if (args && args.path) safety.invalidateRealpathCache(ctx, [args.path]);
+    }
     result.permission = perm;
     return result;
   } catch (err) {
