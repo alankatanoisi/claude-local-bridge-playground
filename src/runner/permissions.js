@@ -89,6 +89,53 @@ function enrichDecision(base, extra = {}) {
   };
 }
 
+// Ext-8: full permission-decision cache. D2 cached just the realpath; this
+// caches the entire decision keyed on (tool, canonical args, ctx flags) per
+// session. Only allow/deny outcomes get cached — never `ask`, since the
+// confirmation flow must always reach the user. Invalidation: any successful
+// write through tool-registry drops cached entries for that path.
+const _decisionCacheByCtx = new WeakMap();
+
+function _getDecisionCache(ctx) {
+  if (!ctx) return null;
+  let m = _decisionCacheByCtx.get(ctx);
+  if (!m) {
+    m = new Map();
+    _decisionCacheByCtx.set(ctx, m);
+  }
+  return m;
+}
+
+function _decisionKey(toolName, args, ctx) {
+  const flags = (ctx.acceptEdits ? 'A' : '') + (ctx.dontAsk ? 'D' : '') + (ctx.allowShell ? 'S' : '');
+  let argsKey;
+  try {
+    argsKey = JSON.stringify(args || {});
+  } catch {
+    argsKey = '<unserializable>';
+  }
+  return toolName + '|' + flags + '|' + argsKey;
+}
+
+function invalidateDecisionCache(ctx, paths) {
+  if (!ctx) return;
+  const cache = _decisionCacheByCtx.get(ctx);
+  if (!cache) return;
+  if (!paths || paths.length === 0) {
+    cache.clear();
+    return;
+  }
+  // Drop entries whose canonical args.path matches any invalidated path.
+  for (const [k] of cache) {
+    for (const p of paths) {
+      if (k.includes('"path":"' + p + '"') || k.includes('"path":' + JSON.stringify(p))) {
+        cache.delete(k);
+        break;
+      }
+    }
+  }
+}
+
 function check(toolName, args, ctx) {
   if (!ctx.cwdRealpath && ctx.cwd) {
     try {
@@ -98,6 +145,31 @@ function check(toolName, args, ctx) {
     }
   }
 
+  const cache = _getDecisionCache(ctx);
+  const cacheKey = cache ? _decisionKey(toolName, args, ctx) : null;
+  if (cache && cacheKey) {
+    const hit = cache.get(cacheKey);
+    if (hit) {
+      cache.delete(cacheKey);
+      cache.set(cacheKey, hit);
+      return hit;
+    }
+  }
+
+  const decision = _checkUncached(toolName, args, ctx);
+  // Cache only stable outcomes: allow + hard_deny. `ask` decisions reach the
+  // user via the confirmation flow each time and must not be memoized.
+  if (cache && cacheKey && decision && decision.decision !== 'ask') {
+    cache.set(cacheKey, decision);
+    if (cache.size > 512) {
+      const oldest = cache.keys().next().value;
+      if (oldest !== undefined) cache.delete(oldest);
+    }
+  }
+  return decision;
+}
+
+function _checkUncached(toolName, args, ctx) {
   const mode = activeMode(ctx);
   const category = CATEGORIES[toolName];
   const requestedPath = args && args.path;
@@ -284,6 +356,7 @@ module.exports = {
   isInsideProject,
   isBlockedBasename,
   isBlockedDir,
+  invalidateDecisionCache,
   BLOCKED_DIRS,
   CATEGORIES,
   MODES,

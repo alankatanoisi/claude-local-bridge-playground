@@ -214,6 +214,7 @@ async function execute(toolName, args, ctx, toolUseId) {
       invalidateContextCache();
       if (args && args.path) {
         safety.invalidateRealpathCache(ctx, [args.path]);
+        permissions.invalidateDecisionCache(ctx, [args.path]);
         const path = require('path');
         const absPath = path.isAbsolute(args.path) ? args.path : path.resolve(ctx.cwdRealpath || ctx.cwd || process.cwd(), args.path);
         searchCache.invalidateForPath(absPath);
@@ -252,6 +253,7 @@ async function executeForce(toolName, args, ctx, toolUseId) {
       invalidateContextCache();
       if (args && args.path) {
         safety.invalidateRealpathCache(ctx, [args.path]);
+        permissions.invalidateDecisionCache(ctx, [args.path]);
         const path = require('path');
         const absPath = path.isAbsolute(args.path) ? args.path : path.resolve(ctx.cwdRealpath || ctx.cwd || process.cwd(), args.path);
         searchCache.invalidateForPath(absPath);
