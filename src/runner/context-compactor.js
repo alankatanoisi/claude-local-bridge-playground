@@ -23,6 +23,19 @@ const DEFAULT_POLICY = Object.freeze({
   preserveRecentTurns: 6,
 });
 
+const _blockCharCache = new WeakMap();
+
+function estimateBlockChars(block) {
+  const cached = _blockCharCache.get(block);
+  if (cached !== undefined) return cached;
+  let n = 0;
+  if (block.text) n += block.text.length;
+  if (block.content) n += String(block.content).length;
+  if (block.input) n += JSON.stringify(block.input).length;
+  _blockCharCache.set(block, n);
+  return n;
+}
+
 function estimateTokens(messages) {
   let chars = 0;
   for (const msg of messages) {
@@ -30,9 +43,7 @@ function estimateTokens(messages) {
       chars += msg.content.length;
     } else if (Array.isArray(msg.content)) {
       for (const block of msg.content) {
-        if (block.text) chars += block.text.length;
-        if (block.content) chars += String(block.content).length;
-        if (block.input) chars += JSON.stringify(block.input).length;
+        chars += estimateBlockChars(block);
       }
     }
   }
