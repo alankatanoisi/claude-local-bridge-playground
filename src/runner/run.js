@@ -163,13 +163,32 @@ function markStableTranscriptPrefix(messages) {
   return messages;
 }
 
-function loadMessagesFromTranscript(filePath) {
+// C3: when called with `options.ledgerCursor`, stop processing transcript
+// lines once we've consumed roughly cursor.seq * 4 events — a conservative
+// upper bound on how many transcript events a single ledger entry can produce
+// (tool turns emit user_prompt + request + assistant + tool_call + tool_result).
+// On missing/corrupt cursor the function falls back to reading the whole file.
+function loadMessagesFromTranscript(filePath, options = {}) {
   if (!fs.existsSync(filePath)) return null;
-  const lines = fs.readFileSync(filePath, 'utf8').trim().split('\n');
-  const events = lines.map((l) => JSON.parse(l));
+  const text = fs.readFileSync(filePath, 'utf8').trim();
+  if (!text) return [];
+  const lines = text.split('\n');
+  const cursor = options && options.ledgerCursor ? options.ledgerCursor : null;
+  const cursorSeq = cursor && typeof cursor.seq === 'number' && cursor.seq > 0 ? cursor.seq : null;
+  const lineCap = cursorSeq ? cursorSeq * 4 : Infinity;
+
   const messages = [];
   let isFirstUser = true;
-  for (const ev of events) {
+  let processed = 0;
+  for (const line of lines) {
+    if (processed >= lineCap) break;
+    processed++;
+    let ev;
+    try {
+      ev = JSON.parse(line);
+    } catch {
+      continue;
+    }
     if (ev.type === 'user_prompt' && isFirstUser) {
       messages.push({ role: 'user', content: ev.text });
       isFirstUser = false;
