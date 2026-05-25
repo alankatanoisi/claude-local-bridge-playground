@@ -2,6 +2,11 @@
 
 /**
  * Append-only session ledger with monotonic sequence numbers.
+ *
+ * C2: writes go through a kept-open fd (openSync + writeSync) instead of
+ * appendFileSync, which would open+close on every event. A small cursor
+ * sidecar (`<ledger>.cursor.json`) tracks { seq, offset, pendingIntents }
+ * so resume can skip the full file scan.
  */
 
 const fs = require('fs');
@@ -14,14 +19,70 @@ function ledgerPathForSession(sessionPath) {
   return sessionPath.replace(/\.state\.json$/, '.ledger.jsonl');
 }
 
+function cursorPathForLedger(ledgerPath) {
+  if (!ledgerPath) return null;
+  return ledgerPath + '.cursor.json';
+}
+
 class SessionLedger {
   constructor(sessionPath) {
     this.sessionPath = sessionPath;
     this.filePath = ledgerPathForSession(sessionPath);
+    this.cursorPath = cursorPathForLedger(this.filePath);
     this.lastSeq = 0;
     this.pendingIntents = [];
+    this._fd = null;
+    this._offset = 0;
+    this._cursorSource = null; // 'cursor' | 'scan' | null
+
     if (this.filePath && fs.existsSync(this.filePath)) {
-      this._loadLastSeq();
+      const restored = this._restoreFromCursor();
+      if (!restored) this._loadLastSeq();
+    }
+  }
+
+  _restoreFromCursor() {
+    if (!this.cursorPath || !fs.existsSync(this.cursorPath)) return false;
+    let cursor;
+    try {
+      cursor = JSON.parse(fs.readFileSync(this.cursorPath, 'utf8'));
+    } catch {
+      return false;
+    }
+    if (cursor.v !== LEDGER_VERSION) return false;
+    if (typeof cursor.seq !== 'number' || typeof cursor.offset !== 'number') return false;
+    let fileSize;
+    try {
+      fileSize = fs.statSync(this.filePath).size;
+    } catch {
+      return false;
+    }
+    if (cursor.offset > fileSize) {
+      // cursor ahead of file → corruption; fall back to full scan
+      return false;
+    }
+    this.lastSeq = cursor.seq;
+    this.pendingIntents = Array.isArray(cursor.pendingIntents) ? cursor.pendingIntents : [];
+    this._offset = cursor.offset;
+    this._cursorSource = 'cursor';
+    return true;
+  }
+
+  _writeCursor() {
+    if (!this.cursorPath) return;
+    const cursor = {
+      v: LEDGER_VERSION,
+      seq: this.lastSeq,
+      offset: this._offset,
+      ts: new Date().toISOString(),
+      pendingIntents: this.pendingIntents,
+    };
+    const tmp = this.cursorPath + '.tmp.' + process.pid;
+    try {
+      fs.writeFileSync(tmp, JSON.stringify(cursor) + '\n', 'utf8');
+      fs.renameSync(tmp, this.cursorPath);
+    } catch {
+      // best-effort; cursor is an optimization, never a source of truth
     }
   }
 
@@ -41,6 +102,27 @@ class SessionLedger {
         // skip corrupt line
       }
     }
+    try {
+      this._offset = fs.statSync(this.filePath).size;
+    } catch {
+      this._offset = 0;
+    }
+    this._cursorSource = 'scan';
+  }
+
+  _ensureFd() {
+    if (this._fd !== null) return;
+    if (!this.filePath) return;
+    const dir = path.dirname(this.filePath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    this._fd = fs.openSync(this.filePath, 'a');
+    if (this._offset === 0) {
+      try {
+        this._offset = fs.statSync(this.filePath).size;
+      } catch {
+        this._offset = 0;
+      }
+    }
   }
 
   append(type, payload = {}) {
@@ -53,9 +135,10 @@ class SessionLedger {
       type,
       ...payload,
     };
-    const dir = path.dirname(this.filePath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.appendFileSync(this.filePath, JSON.stringify(event) + '\n', 'utf8');
+    const line = JSON.stringify(event) + '\n';
+    this._ensureFd();
+    fs.writeSync(this._fd, line);
+    this._offset += Buffer.byteLength(line, 'utf8');
 
     if (type.endsWith('_intent') && payload.effectId) {
       this.pendingIntents.push({ seq, type, id: payload.effectId });
@@ -63,6 +146,7 @@ class SessionLedger {
     if (type.endsWith('_result') && payload.effectId) {
       this.pendingIntents = this.pendingIntents.filter((p) => p.id !== payload.effectId);
     }
+    this._writeCursor();
     return event;
   }
 
@@ -87,6 +171,16 @@ class SessionLedger {
     return [...this.pendingIntents];
   }
 
+  getCursor() {
+    return {
+      v: LEDGER_VERSION,
+      seq: this.lastSeq,
+      offset: this._offset,
+      pendingIntents: this.pendingIntents,
+      source: this._cursorSource,
+    };
+  }
+
   detectGaps() {
     const events = this.readAll();
     const gaps = [];
@@ -97,6 +191,17 @@ class SessionLedger {
     }
     return gaps;
   }
+
+  close() {
+    if (this._fd !== null) {
+      try {
+        fs.closeSync(this._fd);
+      } catch {
+        // best-effort
+      }
+      this._fd = null;
+    }
+  }
 }
 
 function makeEffectId() {
@@ -106,6 +211,7 @@ function makeEffectId() {
 module.exports = {
   LEDGER_VERSION,
   ledgerPathForSession,
+  cursorPathForLedger,
   SessionLedger,
   makeEffectId,
 };

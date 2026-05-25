@@ -439,6 +439,13 @@ async function run(options) {
         // best-effort durability
       }
     }
+    if (ledger) {
+      try {
+        ledger.close();
+      } catch {
+        // best-effort fd release
+      }
+    }
     if (archiveCollector) {
       try {
         finalizeArchiveExport(archiveCollector, {
