@@ -287,6 +287,49 @@ function scrubSecrets(text) {
 }
 
 // ---------------------------------------------------------------------------
+// makeStreamingScrubber — sliding-window scrubber for chunked tool outputs
+// ---------------------------------------------------------------------------
+
+const STREAM_SCRUB_WINDOW = 4096;
+
+/**
+ * Create a streaming scrubber that emits scrubbed chunks while holding a
+ * trailing window in case a secret straddles a chunk boundary. push() returns
+ * the scrubbed prefix safe to emit; end() returns whatever's left.
+ *
+ * Correctness depends on no secret pattern matching more than
+ * STREAM_SCRUB_WINDOW bytes — true for the current SECRET_PATTERNS, which
+ * top out a few hundred chars for PEM blocks.
+ */
+function makeStreamingScrubber() {
+  let buffer = '';
+  function scrubFull(text) {
+    if (!text) return text;
+    let out = text;
+    for (const { pattern, replacement } of SECRET_PATTERNS) {
+      out = out.replace(pattern, replacement);
+    }
+    return out;
+  }
+  return {
+    push(chunk) {
+      if (!chunk) return '';
+      buffer += chunk;
+      if (buffer.length <= STREAM_SCRUB_WINDOW) return '';
+      const safeEnd = buffer.length - STREAM_SCRUB_WINDOW;
+      const head = buffer.slice(0, safeEnd);
+      buffer = buffer.slice(safeEnd);
+      return scrubFull(head);
+    },
+    end() {
+      const out = scrubFull(buffer);
+      buffer = '';
+      return out;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // buildSafeEnv — filtered process.env for execSync
 // ---------------------------------------------------------------------------
 
@@ -335,6 +378,8 @@ module.exports = {
   isPathBlockedByDenyMatrix,
   cachedRealpathSync,
   invalidateRealpathCache,
+  makeStreamingScrubber,
+  STREAM_SCRUB_WINDOW,
   SYSTEM_DIRS,
   DENY_MATRIX_PATTERNS,
   SCRUBBED_ENV_VARS,

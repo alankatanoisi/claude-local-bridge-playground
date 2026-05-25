@@ -40,17 +40,61 @@ function getDefinitions(ctx) {
     .map(([, tool]) => tool.definition());
 }
 
-// Tools may return either a plain result or a Promise<result>. The shell
-// tool needs the async path when the persistent-shell fast path is on;
-// every other tool stays sync. Awaiting a non-Promise is a no-op, so
-// this transparently handles both.
+// Tools may return:
+//   - a plain { ok, text, ... } result (sync or async via Promise)
+//   - a streaming { ok, isStreaming:true, stream: AsyncIterable<string>, ... }
+//     result, which runAndScrub coalesces through a sliding-window scrubber
+//     into a final `text` while honoring an optional chunk consumer on ctx.
 async function runAndScrub(tool, args, ctx, toolUseId) {
   const started = Date.now();
   const toolCtx = toolUseId ? { ...ctx, toolUseId } : ctx;
   const result = await tool.execute(args, toolCtx);
-  if (result.text) {
+
+  if (result && result.isStreaming && result.stream) {
+    const scrubber = safety.makeStreamingScrubber();
+    let assembled = '';
+    let bytes = 0;
+    const HARD_CAP = 10 * 1024 * 1024;
+    for await (const chunk of result.stream) {
+      if (chunk === null || chunk === undefined) continue;
+      const chunkStr = typeof chunk === 'string' ? chunk : Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+      bytes += Buffer.byteLength(chunkStr, 'utf8');
+      if (bytes > HARD_CAP) {
+        assembled += scrubber.end();
+        assembled += '\n[stream truncated at ' + HARD_CAP + ' bytes]';
+        break;
+      }
+      const scrubbed = scrubber.push(chunkStr);
+      if (scrubbed) {
+        assembled += scrubbed;
+        if (ctx && typeof ctx.onToolChunk === 'function') {
+          try {
+            ctx.onToolChunk({ toolUseId, chunk: scrubbed });
+          } catch {
+            // chunk-consumer errors must not break the tool result
+          }
+        }
+      }
+    }
+    const tail = scrubber.end();
+    if (tail) {
+      assembled += tail;
+      if (ctx && typeof ctx.onToolChunk === 'function') {
+        try {
+          ctx.onToolChunk({ toolUseId, chunk: tail });
+        } catch {
+          // chunk-consumer errors must not break the tool result
+        }
+      }
+    }
+    delete result.stream;
+    result.isStreaming = false;
+    result.text = assembled;
+    result.bytes = bytes;
+  } else if (result && result.text) {
     result.text = safety.scrubSecrets(result.text);
   }
+
   const envelope = normalizeToolResult(result, {
     timing_ms: Date.now() - started,
     toolName: tool.name || 'unknown',
