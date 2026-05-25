@@ -7,7 +7,7 @@
  * Ghost blocks tell the model what was intentionally compressed.
  */
 
-const COMPACTION_STAGES = Object.freeze(['none', 'clip', 'snip', 'ghost', 'summarize']);
+const COMPACTION_STAGES = Object.freeze(['none', 'clip', 'snip', 'cost', 'ghost', 'summarize']);
 
 const DEFAULT_POLICY = Object.freeze({
   /** Approximate token budget before first action (heuristic: chars / 4). */
@@ -93,6 +93,80 @@ function snipOldToolResults(messages, snipAfter, preserveRecent) {
     return { ...msg, content };
   });
   return { messages: out, stage: changed ? 'snip' : 'none', changed };
+}
+
+/**
+ * Ext-12: cost-aware drop stage. Replaces tool_result content for read-only
+ * tool calls whose target path was subsequently written by a later tool_use
+ * in the same conversation. Such reads are stale by construction — the file
+ * on disk no longer matches what the model is looking at — so keeping their
+ * content wastes tokens without providing usable information.
+ *
+ * Only fires on tool_results outside the preserved-recent window. The model
+ * sees a stale marker telling it to re-read if needed.
+ */
+const _READ_TOOLS = new Set(['read_file', 'list_files', 'search_text', 'git_status']);
+const _WRITE_TOOLS = new Set(['write_file', 'edit_file', 'apply_patch']);
+
+function _walkToolEvents(messages, fn) {
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (!Array.isArray(msg.content)) continue;
+    for (const block of msg.content) {
+      if (block.type === 'tool_use' && block.id && block.name) {
+        fn({ kind: 'use', msgIdx: i, id: block.id, name: block.name, path: block.input && block.input.path });
+      } else if (block.type === 'tool_result' && block.tool_use_id) {
+        fn({ kind: 'result', msgIdx: i, id: block.tool_use_id, content: block.content });
+      }
+    }
+  }
+}
+
+function dropStaleToolResults(messages, preserveRecent) {
+  const idToUse = new Map(); // tool_use_id -> { msgIdx, name, path }
+  _walkToolEvents(messages, (ev) => {
+    if (ev.kind === 'use') idToUse.set(ev.id, { msgIdx: ev.msgIdx, name: ev.name, path: ev.path });
+  });
+
+  const writesByPath = new Map(); // path -> [msgIdx]
+  for (const use of idToUse.values()) {
+    if (_WRITE_TOOLS.has(use.name) && use.path) {
+      if (!writesByPath.has(use.path)) writesByPath.set(use.path, []);
+      writesByPath.get(use.path).push(use.msgIdx);
+    }
+  }
+
+  const cutoff = Math.max(0, messages.length - preserveRecent * 2);
+  let changed = false;
+  const staleIds = new Set();
+  for (const [id, use] of idToUse) {
+    if (use.msgIdx >= cutoff) continue;
+    if (!_READ_TOOLS.has(use.name)) continue;
+    if (!use.path) continue;
+    const writes = writesByPath.get(use.path);
+    if (!writes) continue;
+    if (writes.some((widx) => widx > use.msgIdx)) staleIds.add(id);
+  }
+  if (staleIds.size === 0) return { messages, stage: 'none', changed: false, dropped: 0 };
+
+  const out = messages.map((msg) => {
+    if (msg.role !== 'user' || !Array.isArray(msg.content)) return msg;
+    const content = msg.content.map((block) => {
+      if (block.type !== 'tool_result' || !block.tool_use_id) return block;
+      if (!staleIds.has(block.tool_use_id)) return block;
+      const orig = String(block.content || '');
+      changed = true;
+      return {
+        ...block,
+        content:
+          '[compaction:cost-aware] Stale tool_result (' +
+          orig.length +
+          ' chars) — a later turn wrote to the same path. Re-read if you need current contents.',
+      };
+    });
+    return { ...msg, content };
+  });
+  return { messages: out, stage: changed ? 'cost' : 'none', changed, dropped: staleIds.size };
 }
 
 function buildGhostBlock(messages, generation) {
@@ -189,6 +263,17 @@ function applyCompactionLadder(messages, system, policy = {}) {
     result.changed = true;
   }
 
+  // Ext-12: cost-aware drop runs after the cheap stages. Targets stale
+  // tool_results superseded by later writes — cheapest possible bytes to drop
+  // because the model can't usefully reference their content anyway.
+  const cost = dropStaleToolResults(current, p.preserveRecentTurns);
+  if (cost.changed) {
+    current = cost.messages;
+    result.stagesApplied.push('cost');
+    result.costDropped = cost.dropped;
+    result.changed = true;
+  }
+
   if (messages.length >= p.ghostAfterMessages || tokens >= p.warnTokens) {
     const ghost = buildGhostBlock(current, result.generation + 1);
     sys = injectGhostSystemBlock(sys, ghost);
@@ -221,6 +306,7 @@ module.exports = {
   estimateTokens,
   clipToolResults,
   snipOldToolResults,
+  dropStaleToolResults,
   buildGhostBlock,
   injectGhostSystemBlock,
   summarizeOldTurns,
