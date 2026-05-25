@@ -1082,9 +1082,7 @@ async function run(options) {
             tools: _g.map((t) => t.name),
           });
         }
-        const _groupResults = await Promise.all(
-          _g.map((tu) => executeForce(tu.name, tu.input || {}, ctx, tu.id)),
-        );
+        const _groupResults = await Promise.all(_g.map((tu) => executeForce(tu.name, tu.input || {}, ctx, tu.id)));
         for (let _i = 0; _i < _g.length; _i++) {
           _parallelResults.set(_g[_i].id, _groupResults[_i]);
         }

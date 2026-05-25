@@ -118,7 +118,8 @@ function buildAdaptiveAuthHeaders(ctx, creds) {
   };
 
   if (creds.apiKey) {
-    headers['x-api-key'] = creds.apiKey;
+    // The playground is OAuth-only. If a caller accidentally passes API-key
+    // credentials into this helper, do not turn them into upstream auth.
     return headers;
   }
 

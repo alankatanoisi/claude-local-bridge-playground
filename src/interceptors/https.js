@@ -1,6 +1,7 @@
 'use strict';
 
 const https = require('https');
+const crypto = require('crypto');
 const { log } = require('../utils');
 const { extractFingerprint, updateFingerprint } = require('../fingerprint');
 
@@ -10,7 +11,7 @@ const { extractFingerprint, updateFingerprint } = require('../fingerprint');
 // Patches both https.request() and globalThis.fetch to observe every
 // outgoing HTTPS call made by any VS Code extension in this process.
 // When Claude Code makes a request to an Anthropic endpoint, we capture:
-//   • The auth header (Bearer token or x-api-key)
+//   • The OAuth Bearer auth header
 //   • The exact target hostname Claude Code is actually calling
 //   • The full request fingerprint (user-agent, stainless headers, etc.)
 //
@@ -46,15 +47,20 @@ function extractAuthFromHeaders(headers) {
     return extractAuthFromHeaders(Object.fromEntries(headers));
   }
 
-  const apiKey = headers['x-api-key'] || headers['X-Api-Key'];
-  if (apiKey) return { token: apiKey, headerType: 'api-key', source: 'intercepted:x-api-key' };
-
   const auth = headers['authorization'] || headers['Authorization'];
   if (auth && auth.startsWith('Bearer ')) {
     return { token: auth.slice(7), headerType: 'bearer', source: 'intercepted:bearer' };
   }
 
   return null;
+}
+
+function fingerprintSecret(secret) {
+  if (!secret) return null;
+
+  // A fingerprint lets logs say "same token or new token" without printing
+  // the actual OAuth token.
+  return `sha256:${crypto.createHash('sha256').update(secret).digest('hex').slice(0, 16)}`;
 }
 
 function captureAuth(ctx, url, headers) {
@@ -93,6 +99,8 @@ function captureAuth(ctx, url, headers) {
         ctx.interceptedToken = cred.token;
         ctx.interceptedHeaderType = cred.headerType;
         ctx.interceptedSource = cred.source;
+        ctx.rejectedInterceptedToken = null;
+        ctx.rejectedInterceptedAt = 0;
 
         // Store the exact host Claude Code is calling so proxy.js mirrors it
         ctx.interceptedHost = host;
@@ -102,12 +110,12 @@ function captureAuth(ctx, url, headers) {
         ctx.cachedCredentials = null;
         ctx.credentialsCachedAt = 0;
 
-        const preview = cred.token.slice(0, 8) + '...' + cred.token.slice(-4);
+        const fingerprint = fingerprintSecret(cred.token);
         log(
           ctx,
           wasEmpty
-            ? `🔑 [INTERCEPT] Captured Claude Code auth from ${host} (${cred.source}): ${preview}`
-            : `🔑 [INTERCEPT] Auth rotated from ${host} (${cred.source}): ${preview}`,
+            ? `🔑 [INTERCEPT] Captured Claude Code OAuth from ${host} (${cred.source}): ${fingerprint}`
+            : `🔑 [INTERCEPT] OAuth rotated from ${host} (${cred.source}): ${fingerprint}`,
         );
         log(ctx, `🔍 [FINGERPRINT] Captured ${Object.keys(fingerprint || {}).length} header values from ${host}`);
       }
@@ -160,6 +168,8 @@ function createInterceptedRequest(ctx) {
           ctx.interceptedToken = cred.token;
           ctx.interceptedHeaderType = cred.headerType;
           ctx.interceptedSource = cred.source;
+          ctx.rejectedInterceptedToken = null;
+          ctx.rejectedInterceptedAt = 0;
 
           // Store the exact host Claude Code is calling so proxy.js mirrors it
           ctx.interceptedHost = host;
@@ -169,12 +179,12 @@ function createInterceptedRequest(ctx) {
           ctx.cachedCredentials = null;
           ctx.credentialsCachedAt = 0;
 
-          const preview = cred.token.slice(0, 8) + '...' + cred.token.slice(-4);
+          const fingerprint = fingerprintSecret(cred.token);
           log(
             ctx,
             wasEmpty
-              ? `🔑 [INTERCEPT] Captured Claude Code auth from ${host} (${cred.source}): ${preview}`
-              : `🔑 [INTERCEPT] Auth rotated from ${host} (${cred.source}): ${preview}`,
+              ? `🔑 [INTERCEPT] Captured Claude Code OAuth from ${host} (${cred.source}): ${fingerprint}`
+              : `🔑 [INTERCEPT] OAuth rotated from ${host} (${cred.source}): ${fingerprint}`,
           );
         }
       }

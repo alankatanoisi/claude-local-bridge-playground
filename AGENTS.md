@@ -36,6 +36,21 @@ Use this repo as the active harness lab unless Alan explicitly asks for canonica
 - **MUST NOT** open PRs on canonical repo `alankatanoisi/claude-local-bridge` for playground experiments.
 - See [`lab-notes/PLAYGROUND_PR_POLICY.md`](lab-notes/PLAYGROUND_PR_POLICY.md) and [`lab-notes/PLAYGROUND_GIT_REMOTE.md`](lab-notes/PLAYGROUND_GIT_REMOTE.md).
 
+## Active Research Direction: OAuth-Only Bridge Evidence
+
+The current project direction is to keep the playground as an **OAuth-only evidence harness** for Alan's Anthropic policy
+discussion. The goal is to test and document whether local bridge/runner traffic can be carried solely by Alan's own
+Claude Code OAuth session, without Anthropic Console API keys or other billing-path noise.
+
+Required implications:
+
+- Do not add or restore upstream `ANTHROPIC_API_KEY` fallback behavior.
+- Do not add or restore `claudeLocalBridge.apiKey` as an upstream credential source.
+- Do not capture or replay upstream `x-api-key` credentials as a success path.
+- Treat dummy client keys such as `local` as local placeholders only; they must not become upstream Anthropic auth.
+- Keep debug/trace/log surfaces redacted because OAuth tokens and fingerprints are sensitive local account state.
+- Document policy risk plainly: this is personal research / disclosure context, not proof of Anthropic approval.
+
 When handing work back, be explicit:
 
 - Say which folder you worked in.
@@ -128,6 +143,7 @@ Read these before substantial edits:
 - `HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md`
 - `lab-notes/PLAYGROUND_GIT_REMOTE.md` (when in playground)
 - `lab-notes/PLAYGROUND_PR_POLICY.md` (when in playground)
+- `lab-notes/OAUTH_ONLY_DIRECTION.md` (current bridge/runner research direction)
 
 ## Project Overview
 
@@ -143,7 +159,8 @@ The bridge owns OAuth/keychain/interceptor/proxy behavior. The runner owns the l
 
 ## Hard Boundaries
 
-Do not modify bridge/auth/proxy internals unless Alan explicitly asks:
+Do not modify bridge/auth/proxy internals unless Alan explicitly asks. Alan has explicitly asked for the OAuth-only
+directional change, so bridge/auth/proxy changes are in scope when they preserve the rules above:
 
 - `src/credentials.js`
 - `src/proxy.js`

@@ -46,7 +46,11 @@ describe('context budget', () => {
     const base = { cwd: '/tmp/z', instructionHash: 'h2' };
     setCachedSystemPrompt({ ...base, allowShell: false }, 'p-noshell');
     assert.equal(getCachedSystemPrompt({ ...base, allowShell: false }), 'p-noshell');
-    assert.equal(getCachedSystemPrompt({ ...base, allowShell: true }), null, 'allowShell flip changes toolRegistryHash');
+    assert.equal(
+      getCachedSystemPrompt({ ...base, allowShell: true }),
+      null,
+      'allowShell flip changes toolRegistryHash',
+    );
   });
 
   it('invalidateDynamicOnly preserves the static slice (A3)', () => {

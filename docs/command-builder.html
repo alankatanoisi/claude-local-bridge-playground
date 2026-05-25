@@ -435,6 +435,10 @@
               <li>Start with a small objective and say whether files may be changed.</li>
               <li>Use a target project folder when the runner code and the folder under review are different.</li>
               <li>Use the generated command in Terminal after the local bridge is already running.</li>
+              <li>
+                The playground bridge is OAuth-only: dummy client keys are local placeholders, not upstream Anthropic
+                API keys.
+              </li>
             </ul>
           </div>
 
@@ -711,16 +715,6 @@
               use <code>$BRIDGE_CALLER_TOKEN</code> after exporting it in Terminal, or paste the local dev token itself.
               This token only unlocks your local bridge; it is not your upstream Anthropic credential.
             </div>
-            <div class="note show">
-              <strong>Performance toggles (optional):</strong> export before running. Active today:
-              <code>BRIDGE_RUNNER_SESSION_DEBOUNCE_MS=75</code>,
-              <code>BRIDGE_RUNNER_SUMMARIZE_THRESHOLD=64000</code> (<code>0</code> = off),
-              <code>BRIDGE_RUNNER_PERSISTENT_SHELL=1</code>. Bench only:
-              <code>BRIDGE_BENCH_LIVE_MAX_USD=0.50</code> with
-              <code>test/runner/bench/turn-latency.bench.js --live</code>. Infrastructure only (no effect yet):
-              <code>BRIDGE_RUNNER_PREFETCH</code>, <code>BRIDGE_RUNNER_TEST_WATCH</code>. See
-              <code>lab-notes/PERF_CONTINUATION.md</code>.
-            </div>
           </div>
 
           <!-- Tool catalog -->
@@ -799,7 +793,8 @@
           </div>
           <div class="card" style="font-size: 0.8rem; color: var(--muted)">
             <strong>Tip:</strong> Paste this into your terminal and press Enter. The runner connects through your local
-            bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>. Use the
+            bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>. The bridge must have a Claude Code OAuth
+            token available; it will not fall back to a real Anthropic API key. Use the
             <strong>playground</strong> folder for <code>--session-id</code> and the coordinator CLI. If the bridge says
             <code style="font-size: 0.75rem">Unauthorized: Missing Bearer token</code>, caller auth is enabled; either
             disable it in VS Code settings or set Caller auth token here. Use
@@ -1264,7 +1259,7 @@
           stream: true,
           verbose: true,
           outputFormat: 'text',
-          runnerPath: '/Users/alanman/Developer/claude-local-bridge-playground',
+          runnerPath: '/Users/alanman/Developer/claude-local-bridge',
           cwd: '/Users/alanman/path/to/another/project',
           tools: READ_TOOL_NAMES,
         },

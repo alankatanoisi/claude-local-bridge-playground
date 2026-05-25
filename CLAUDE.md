@@ -6,10 +6,10 @@ Claude-specific instructions for this repository. For the full shared agent guid
 
 Run `pwd` before assuming:
 
-| Path ends with | This clone | GitHub | Expected branch |
-| -------------- | ---------- | ------ | ----------------- |
-| `claude-local-bridge-playground` | **Playground** | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main` |
-| `claude-local-bridge` | **Canonical** | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge) | `codex/runner-clean-pr` |
+| Path ends with                   | This clone     | GitHub                                                                                            | Expected branch         |
+| -------------------------------- | -------------- | ------------------------------------------------------------------------------------------------- | ----------------------- |
+| `claude-local-bridge-playground` | **Playground** | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main`                  |
+| `claude-local-bridge`            | **Canonical**  | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | `codex/runner-clean-pr` |
 
 If you are in **playground**, PRs go to the playground repo only — see `lab-notes/PLAYGROUND_PR_POLICY.md`.
 
@@ -28,6 +28,15 @@ Claude Local Bridge has two layers:
 
 - Bridge layer: VS Code extension, local HTTP server, OAuth/keychain/interceptor/proxy behavior.
 - Runner layer: local CLI agent loop, tools, permissions, transcripts, readable logs, docs, command builder.
+
+## Current Research Direction
+
+The playground is currently an **OAuth-only evidence harness**. Do not restore Anthropic Console API-key fallback paths.
+Upstream model calls should use Claude Code OAuth Bearer credentials only: live intercepted Bearer token,
+`CLAUDE_CODE_OAUTH_TOKEN`, macOS Keychain, or `~/.claude/.credentials.json`.
+
+Dummy API-key strings such as `local` are only local client placeholders for tools that require a field. They must not be
+forwarded upstream as `x-api-key`.
 
 Do not modify bridge/auth/proxy internals unless explicitly requested:
 

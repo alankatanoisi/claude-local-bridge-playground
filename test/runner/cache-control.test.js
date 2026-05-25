@@ -64,12 +64,7 @@ describe('applyCacheControlBudget', () => {
 
   it('never exceeds the Anthropic budget of 4 breakpoints', () => {
     const repo = 'repo';
-    const { cachedSystem, cachedTools, cachedMessages } = applyCacheControlBudget(
-      'sys',
-      baseTools,
-      baseMessages,
-      repo,
-    );
+    const { cachedSystem, cachedTools, cachedMessages } = applyCacheControlBudget('sys', baseTools, baseMessages, repo);
     const total = countCC(cachedSystem) + countCC(cachedTools) + countCCInMessages(cachedMessages);
     assert.ok(total <= 4, 'budget within 4');
   });

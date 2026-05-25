@@ -2,7 +2,7 @@
 
 **Repo:** `/Users/alanman/Developer/claude-local-bridge-playground`  
 **Branch:** `main`  
-**Status:** Planning only — no tests run, no bridge gateway calls.
+**Status:** Updated direction note; no bridge gateway calls made by this document.
 
 > Alan: this is your **experiment lab**. The serious runner lives in `claude-local-bridge` on `codex/runner-clean-pr`. Here we are allowed to break things on purpose.
 
@@ -20,7 +20,16 @@
 
 ## A. One-sentence north star
 
-**Turn the playground runner into a local “agent operating system shell” — where the bridge is just the phone line, and every session is a durable, forkable, observable experiment you can steer safely from Cursor or Terminal.**
+**Turn the playground runner into a local “agent operating system shell” — where the bridge is an OAuth-only evidence transport, and every session is a durable, forkable, observable experiment you can steer safely from Cursor or Terminal.**
+
+## A.1 Current OAuth-only policy experiment
+
+The May 25, 2026 direction change is explicit: this playground should use Alan's Claude Code OAuth path only. API-key
+fallbacks are intentionally disabled so test runs do not mix Anthropic Console/API billing with the subscription OAuth
+path being discussed with Anthropic.
+
+This does not remove policy risk. It makes the experiment cleaner: a run either used OAuth/Bearer credentials or it did
+not. Do not present this as production guidance or Anthropic approval.
 
 ## B. Gap table (current vs targets)
 
@@ -177,10 +186,13 @@ node bin/local-bridge-runner.js --cwd "$(pwd)" --output-format stream-json --tra
 
 _(Commands 2–3 need the VS Code bridge extension running if you want a live model reply; otherwise use them only after bridge is up.)_
 
-## G. Explicit anti-goals (playground)
+## G. Explicit anti-goals and boundaries (playground)
 
-- **No** fingerprint mimicry, OAuth interception tricks, or “look like Claude Code” header spoofing research in runner code.
-- **No** edits to bridge auth/proxy/server/interceptors (transport stays upstream).
+- **No** API-key fallback for upstream Anthropic calls while this policy experiment is active.
+- **No** commercial bypass guidance or claims that this is approved by Anthropic.
+- **No** unredacted OAuth tokens in debug output, traces, transcripts, or docs.
+- **No** edits that make dummy local client keys such as `local` become upstream `x-api-key` auth.
+- Bridge auth/proxy/server/interceptor edits are allowed only when they preserve the OAuth-only evidence path, local hardening, and redaction rules.
 - **No** auto-approve classifier copying Anthropic `auto` mode.
 - **No** claiming parity with Claude Code product surface (mobile, plugins marketplace, etc.).
 - **No** merging playground into canonical branch without a deliberate promotion ritual.

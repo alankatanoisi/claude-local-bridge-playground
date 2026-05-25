@@ -66,11 +66,7 @@ function invalidateForPath(absolutePath) {
   for (const [k, entry] of _entries) {
     const { root } = _splitKey(k);
     if (!root) continue;
-    if (
-      absolutePath === root ||
-      absolutePath.startsWith(root + path.sep) ||
-      root.startsWith(absolutePath + path.sep)
-    ) {
+    if (absolutePath === root || absolutePath.startsWith(root + path.sep) || root.startsWith(absolutePath + path.sep)) {
       _totalBytes -= entry.bytes || 0;
       _entries.delete(k);
       dropped++;

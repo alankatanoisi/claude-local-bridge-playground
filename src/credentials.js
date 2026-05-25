@@ -4,25 +4,29 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const vscode = require('vscode');
 const { log } = require('./utils');
 const { buildAdaptiveAuthHeaders, getLiveSystemBlocks, adaptiveMessagesPath } = require('./fingerprint');
 
 // ─────────────────────────────────────────────
 // Credential Discovery
 //
-// Priority order:
-//   1. ANTHROPIC_API_KEY env var         → x-api-key header
+// Priority order for this playground:
+//   1. Intercepted Claude Code OAuth Bearer token
 //   2. CLAUDE_CODE_OAUTH_TOKEN env var   → Bearer header
 //   3. macOS Keychain (Claude Code-credentials)
 //   4. ~/.claude/.credentials.json       (Linux/Windows, also macOS fallback)
-//   5. VS Code setting claudeLocalBridge.apiKey
 //
-// Returns: { apiKey?, accessToken?, source }
+// API-key sources are intentionally ignored. This repo is now an OAuth-only
+// evidence harness so test traffic cannot accidentally come from Console/API
+// billing and contaminate the Anthropic policy experiment.
+//
+// Returns: { accessToken?, source }
 // ─────────────────────────────────────────────
 
 /**
  * @typedef {{ apiKey?: string, accessToken?: string, source: string }} Credentials
+ * `apiKey` stays in this type only so defensive tests can prove API keys are
+ * ignored. Normal discovery in this playground returns OAuth `accessToken`s.
  */
 
 /**
@@ -77,59 +81,52 @@ function readCredentialsFile() {
   }
 }
 
+function isRejectedInterceptedToken(ctx, token) {
+  return !!(token && ctx.rejectedInterceptedToken && token === ctx.rejectedInterceptedToken);
+}
+
+function usesCurrentInterceptedToken(ctx, creds) {
+  return !!(ctx.interceptedToken && creds?.accessToken === ctx.interceptedToken);
+}
+
 /**
  * Discover credentials using the priority chain.
  * @param {object} ctx Bridge context
  * @returns {Credentials}
  */
 function discoverCredentials(ctx) {
-  // Priority 0: intercepted token from Claude Code's live outgoing HTTPS requests
-  // This is captured by src/interceptors/https.js patching https.request.
-  // It's the most reliable source — always the live token, auto-refreshes on rotation.
-  if (ctx.interceptedToken) {
-    return {
-      ...(ctx.interceptedHeaderType === 'api-key'
-        ? { apiKey: ctx.interceptedToken }
-        : { accessToken: ctx.interceptedToken }),
-      source: ctx.interceptedSource || 'intercepted',
-    };
+  // Priority 0: intercepted OAuth token from Claude Code's live requests.
+  // API keys are intentionally not accepted here. For this experiment, a
+  // captured x-api-key is noise, while a Bearer token is the subscription path.
+  if (
+    ctx.interceptedToken &&
+    ctx.interceptedHeaderType === 'bearer' &&
+    !isRejectedInterceptedToken(ctx, ctx.interceptedToken)
+  ) {
+    return { accessToken: ctx.interceptedToken, source: ctx.interceptedSource || 'intercepted:bearer' };
   }
 
-  // Priority 1: ANTHROPIC_API_KEY env var
-  if (process.env.ANTHROPIC_API_KEY) {
-    log(ctx, '🔑 Credentials: ANTHROPIC_API_KEY env var');
-    return { apiKey: process.env.ANTHROPIC_API_KEY, source: 'env:ANTHROPIC_API_KEY' };
-  }
-
-  // Priority 2: CLAUDE_CODE_OAUTH_TOKEN env var
-  if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+  // Priority 1: CLAUDE_CODE_OAUTH_TOKEN env var
+  if (process.env.CLAUDE_CODE_OAUTH_TOKEN && !isRejectedInterceptedToken(ctx, process.env.CLAUDE_CODE_OAUTH_TOKEN)) {
     log(ctx, '🔑 Credentials: CLAUDE_CODE_OAUTH_TOKEN env var');
     return { accessToken: process.env.CLAUDE_CODE_OAUTH_TOKEN, source: 'env:CLAUDE_CODE_OAUTH_TOKEN' };
   }
 
-  // Priority 3: macOS Keychain
+  // Priority 2: macOS Keychain
   const keychainToken = readKeychainToken();
-  if (keychainToken) {
+  if (keychainToken && !isRejectedInterceptedToken(ctx, keychainToken)) {
     log(ctx, '🔑 Credentials: macOS Keychain (Claude Code-credentials)');
     return { accessToken: keychainToken, source: 'keychain' };
   }
 
-  // Priority 4: ~/.claude/.credentials.json
+  // Priority 3: ~/.claude/.credentials.json
   const fileToken = readCredentialsFile();
-  if (fileToken) {
+  if (fileToken && !isRejectedInterceptedToken(ctx, fileToken)) {
     log(ctx, '🔑 Credentials: ~/.claude/.credentials.json');
     return { accessToken: fileToken, source: 'credentials-file' };
   }
 
-  // Priority 5: VS Code setting
-  const config = vscode.workspace.getConfiguration('claudeLocalBridge');
-  const manualKey = config.get('apiKey', '');
-  if (manualKey && manualKey.trim()) {
-    log(ctx, '🔑 Credentials: VS Code setting claudeLocalBridge.apiKey');
-    return { apiKey: manualKey.trim(), source: 'vscode-setting' };
-  }
-
-  log(ctx, '⚠️ Credentials: none found — requests will be unauthenticated', true);
+  log(ctx, '⚠️ OAuth-only credentials: no Bearer token found. API-key sources are disabled for this playground.', true);
   return { source: 'none' };
 }
 
@@ -169,7 +166,7 @@ function getCredentials(ctx) {
 
   // Record which live intercepted token produced this credential so future
   // calls can notice a token rotation even before the TTL expires.
-  if (ctx.interceptedToken && creds.source && creds.source.startsWith('intercepted')) {
+  if (usesCurrentInterceptedToken(ctx, creds)) {
     creds.interceptedWatermark = ctx.interceptedToken;
   }
 
@@ -188,15 +185,33 @@ function clearCredentialsCache(ctx) {
 }
 
 /**
+ * Remember that upstream rejected the current intercepted OAuth token.
+ * Without this quarantine, a retry after 401 would immediately pick the same
+ * bad token again. A fresh captured token clears the quarantine elsewhere.
+ *
+ * @param {object} ctx
+ * @param {Credentials} creds
+ */
+function markCredentialsRejected(ctx, creds) {
+  if (usesCurrentInterceptedToken(ctx, creds)) {
+    ctx.rejectedInterceptedToken = ctx.interceptedToken;
+    ctx.rejectedInterceptedAt = Date.now();
+    log(ctx, '⚠️ Upstream rejected intercepted OAuth token — waiting for Claude Code to refresh it');
+  }
+
+  clearCredentialsCache(ctx);
+}
+
+/**
  * Report the auth scheme implied by the resolved credentials.
  * This is used by /v1/debug so users can tell whether the bridge will send
- * `x-api-key`, `authorization: Bearer`, or nothing upstream.
+ * `authorization: Bearer` or no upstream auth. API-key mode reports disabled.
  *
  * @param {Credentials} creds
- * @returns {'x-api-key'|'bearer'|'none'}
+ * @returns {'bearer'|'disabled-api-key'|'none'}
  */
 function getCredentialAuthMode(creds) {
-  if (creds?.apiKey) return 'x-api-key';
+  if (creds?.apiKey) return 'disabled-api-key';
   if (creds?.accessToken) return 'bearer';
   return 'none';
 }
@@ -245,8 +260,8 @@ function buildAuthHeaders(ctx, creds) {
 /**
  * Reshape a request body's `system` field into the array form Claude Code
  * uses, prepending the billing header and SDK identity blocks. Only applied
- * when the credential is an OAuth/Bearer token — API-key requests are left
- * untouched so they keep working in their normal first-party API mode.
+ * when the credential is an OAuth/Bearer token. API-key mode is intentionally
+ * disabled in this playground so the evidence path stays clean.
  *
  * Uses the live captured billing header if available (self-adapting).
  *
@@ -317,6 +332,7 @@ function messagesPathFor(ctx, creds) {
 module.exports = {
   getCredentials,
   clearCredentialsCache,
+  markCredentialsRejected,
   getCredentialAuthMode,
   buildAuthHeaders,
   prependClaudeCodeSystem,

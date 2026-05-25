@@ -106,6 +106,7 @@ function loadOpenAIHandler(clearSpy) {
       getCredentials: () => ({ accessToken: 'oauth-token', source: 'mock' }),
       buildAuthHeaders: () => ({ authorization: 'Bearer oauth-token' }),
       clearCredentialsCache: clearSpy,
+      markCredentialsRejected: clearSpy,
       prependClaudeCodeSystem: (_ctx, body) => body,
       messagesPathFor: () => '/v1/messages',
     },

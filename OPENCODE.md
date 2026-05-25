@@ -17,10 +17,11 @@ Expected remote:
 origin = https://github.com/alankatanoisi/claude-local-bridge-playground.git
 
 Use the playground repo as the active harness lab.
+Current direction: OAuth-only bridge evidence harness. Do not restore upstream Anthropic API-key fallback.
 Treat /Users/alanman/Developer/claude-local-bridge as frozen canonical reference unless Alan explicitly asks for promotion work.
 Do not use the old claude-local-bridge-runner-test repo except as historical reference.
 Do not use the iCloud claude-local-bridge checkout for active runner work unless Alan explicitly asks.
-Do not modify bridge auth/proxy/interceptor internals unless Alan explicitly asks.
+Do not modify bridge auth/proxy/interceptor internals unless Alan explicitly asks; Alan has explicitly asked for the OAuth-only direction, so preserve Bearer/OAuth-only upstream auth.
 Keep changes scoped to runner/docs/tests.
 Preserve safety defaults.
 Before handoff, run targeted tests, npm test, npm run lint, and Prettier check for touched files.
@@ -101,6 +102,9 @@ Avoid assigning multiple agents to the same file at the same time.
 - `src/server.js`
 - `src/interceptors/**`
 - VS Code extension auth settings
+
+Current explicit exception: OAuth-only bridge work is allowed when it removes API-key fallback/noise, protects debug
+surfaces, or improves evidence quality for Alan's Anthropic policy discussion.
 
 ## Required Checks Before Handoff
 

@@ -25,7 +25,11 @@ const _factories = new Map(); // binary -> factoryFn
 const _slots = new Map(); // poolKey -> { member, idleTimer, lastUsedAt }
 
 function _hashEnv(env) {
-  return crypto.createHash('sha1').update(JSON.stringify(env || {})).digest('hex').slice(0, 12);
+  return crypto
+    .createHash('sha1')
+    .update(JSON.stringify(env || {}))
+    .digest('hex')
+    .slice(0, 12);
 }
 
 function _poolKey(binary, cwd, env) {

@@ -13,18 +13,16 @@ describe('credentials', () => {
     require('./__mocks__/vscode');
   });
 
-  it('returns ANTHROPIC_API_KEY first', () => {
+  it('ignores ANTHROPIC_API_KEY so API-key billing cannot contaminate OAuth tests', () => {
     process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
 
-    // Re-require to get a fresh module without cached credentials
-    // (in real usage, cache is on ctx, not module-level)
     const { discoverCredentials } = rewireCredentials();
     const ctx = makeCtx();
     const creds = discoverCredentials(ctx);
 
-    assert.equal(creds.source, 'env:ANTHROPIC_API_KEY');
-    assert.equal(creds.apiKey, 'sk-ant-test-key');
+    assert.equal(creds.source, 'none');
+    assert.equal(creds.apiKey, undefined);
     delete process.env.ANTHROPIC_API_KEY;
   });
 
@@ -39,6 +37,32 @@ describe('credentials', () => {
     assert.equal(creds.source, 'env:CLAUDE_CODE_OAUTH_TOKEN');
     assert.equal(creds.accessToken, 'oauth-token-123');
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  });
+
+  it('ignores captured x-api-key credentials and falls back to OAuth', () => {
+    const previousOAuth = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    process.env.CLAUDE_CODE_OAUTH_TOKEN = 'oauth-fallback-token';
+
+    try {
+      const { getCredentials, clearCredentialsCache } = require('../src/credentials');
+      const ctx = makeCtx();
+      ctx.interceptedToken = 'sk-ant-should-not-win';
+      ctx.interceptedHeaderType = 'api-key';
+      ctx.interceptedSource = 'intercepted:x-api-key';
+
+      clearCredentialsCache(ctx);
+      const creds = getCredentials(ctx);
+
+      assert.equal(creds.source, 'env:CLAUDE_CODE_OAUTH_TOKEN');
+      assert.equal(creds.accessToken, 'oauth-fallback-token');
+      assert.equal(creds.apiKey, undefined);
+    } finally {
+      if (previousOAuth === undefined) {
+        delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+      } else {
+        process.env.CLAUDE_CODE_OAUTH_TOKEN = previousOAuth;
+      }
+    }
   });
 
   it('returns none when no credentials found', () => {
@@ -91,13 +115,25 @@ describe('server routing', () => {
     const { isLocalhostOrigin } = require('../src/server');
     assert.equal(isLocalhostOrigin('https://evil.com'), false);
   });
+
+  it('locks debug endpoints unless the caller knows the session token', async () => {
+    const { handleRequest } = require('../src/server');
+    const ctx = makeCtx();
+    ctx.sensitiveEndpointToken = 'debug-door-code';
+
+    const res = makeJsonRes();
+    await handleRequest(ctx, { method: 'GET', url: '/v1/debug', headers: {} }, res);
+
+    assert.equal(res.statusCode, 401);
+    assert.equal(JSON.parse(res.body).error.type, 'unauthorized');
+  });
 });
 
 describe('credentials.buildAuthHeaders', () => {
-  it('builds x-api-key header for apiKey creds', () => {
+  it('does not build x-api-key headers in OAuth-only mode', () => {
     const { buildAuthHeaders } = require('../src/credentials');
     const headers = buildAuthHeaders({ liveFingerprint: null }, { apiKey: 'sk-test', source: 'env' });
-    assert.equal(headers['x-api-key'], 'sk-test');
+    assert.equal(headers['x-api-key'], undefined);
     assert.ok(!headers['authorization']);
   });
 
@@ -126,9 +162,9 @@ describe('credentials.buildAuthHeaders', () => {
 });
 
 describe('credentials.getCredentialAuthMode', () => {
-  it('reports x-api-key for api key credentials', () => {
+  it('reports disabled-api-key for api key credentials', () => {
     const { getCredentialAuthMode } = require('../src/credentials');
-    assert.equal(getCredentialAuthMode({ apiKey: 'sk-test', source: 'env' }), 'x-api-key');
+    assert.equal(getCredentialAuthMode({ apiKey: 'sk-test', source: 'env' }), 'disabled-api-key');
   });
 
   it('reports bearer for access token credentials', () => {
@@ -147,12 +183,15 @@ describe('debug route', () => {
     const vscode = require('./__mocks__/vscode');
     const { startServer, stopServer } = require('../src/server');
     const ctx = makeCtx();
+    ctx.sensitiveEndpointToken = 'debug-door-code';
     process.env.CLAUDE_CODE_OAUTH_TOKEN = 'tok-123';
     vscode.__setConfig('port', 0);
 
     await startServer(ctx);
     const port = ctx.server.address().port;
-    const response = await requestJson(port, 'GET', '/v1/debug');
+    const response = await requestJson(port, 'GET', '/v1/debug', undefined, {
+      'x-claude-local-bridge-debug-token': 'debug-door-code',
+    });
     await stopServer(ctx);
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
     vscode.__setConfig('port', 11437);
@@ -161,6 +200,16 @@ describe('debug route', () => {
     assert.equal(response.statusCode, 200);
     assert.equal(response.body.credentialSource, 'env:CLAUDE_CODE_OAUTH_TOKEN');
     assert.equal(response.body.upstreamAuthMode, 'bearer');
+    assert.equal(response.body.credentialPolicy, 'oauth-only');
+  });
+});
+
+describe('capture proxy hardening', () => {
+  it('only allows Claude/Anthropic proxy targets', () => {
+    const { isAllowedProxyTarget } = require('../src/capture-proxy');
+    assert.equal(isAllowedProxyTarget('api.anthropic.com'), true);
+    assert.equal(isAllowedProxyTarget('api.anthropic.com.'), true);
+    assert.equal(isAllowedProxyTarget('example.com'), false);
   });
 });
 
@@ -177,7 +226,34 @@ function makeCtx() {
   };
 }
 
-function requestJson(port, method, pathName, body) {
+function makeJsonRes() {
+  return {
+    headers: {},
+    statusCode: null,
+    body: '',
+    writableEnded: false,
+    headersSent: false,
+    setHeader(name, value) {
+      this.headers[name.toLowerCase()] = value;
+    },
+    writeHead(statusCode, headers = {}) {
+      this.statusCode = statusCode;
+      this.headersSent = true;
+      for (const [name, value] of Object.entries(headers)) {
+        this.headers[name.toLowerCase()] = value;
+      }
+    },
+    write(chunk) {
+      this.body += chunk || '';
+    },
+    end(chunk = '') {
+      this.body += chunk || '';
+      this.writableEnded = true;
+    },
+  };
+}
+
+function requestJson(port, method, pathName, body, headers = {}) {
   const payload = body === undefined ? null : JSON.stringify(body);
   return new Promise((resolve, reject) => {
     const req = http.request(
@@ -186,12 +262,15 @@ function requestJson(port, method, pathName, body) {
         port,
         path: pathName,
         method,
-        headers: payload
-          ? {
-              'content-type': 'application/json',
-              'content-length': Buffer.byteLength(payload),
-            }
-          : {},
+        headers: {
+          ...headers,
+          ...(payload
+            ? {
+                'content-type': 'application/json',
+                'content-length': Buffer.byteLength(payload),
+              }
+            : {}),
+        },
       },
       (res) => {
         const chunks = [];
@@ -226,9 +305,6 @@ function rewireCredentials({ keychainFails = false, fileMissing = false } = {}) 
   return {
     discoverCredentials: (_ctx) => {
       // Mirror the priority logic for test purposes
-      if (process.env.ANTHROPIC_API_KEY) {
-        return { apiKey: process.env.ANTHROPIC_API_KEY, source: 'env:ANTHROPIC_API_KEY' };
-      }
       if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
         return {
           accessToken: process.env.CLAUDE_CODE_OAUTH_TOKEN,
@@ -237,10 +313,10 @@ function rewireCredentials({ keychainFails = false, fileMissing = false } = {}) 
       }
       if (!keychainFails && process.platform === 'darwin') {
         // Don't actually call keychain in tests
-        return null; // fall through to file
+        return { source: 'none' };
       }
       if (!fileMissing) {
-        return null; // fall through to vscode setting
+        return { source: 'none' };
       }
       return { source: 'none' };
     },

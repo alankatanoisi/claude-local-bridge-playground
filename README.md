@@ -1,8 +1,22 @@
 # Claude Local Bridge
 
-A VS Code extension that reads your **Claude Code** credentials and exposes them as a local HTTP server on `http://localhost:11437`, compatible with both the **Anthropic Messages API** and **OpenAI-compatible `/v1` clients**.
+A VS Code extension that reads your **Claude Code OAuth credentials** and exposes them as a local HTTP server on `http://localhost:11437`, compatible with both the **Anthropic Messages API** and **OpenAI-compatible `/v1` clients**.
 
-Use Claude CLI with `http://localhost:11437`, and point OpenAI-style tools to `http://localhost:11437/v1` — the bridge injects your real Claude credentials so no separate Anthropic API key is needed.
+Use Claude CLI with `http://localhost:11437`, and point OpenAI-style tools to `http://localhost:11437/v1` — the bridge injects your Claude Code OAuth token so no Anthropic Console API key is used upstream.
+
+## Current Direction: OAuth-Only Policy Evidence Harness
+
+This playground is now intentionally **OAuth-only**. The project goal is to test and document whether a user’s own Claude Code OAuth session can still carry local bridge/runner traffic in light of Anthropic’s June 15, 2026 Agent SDK / `claude -p` metering change. Anthropic’s current help page says Agent SDK and `claude -p` usage will move to a separate monthly Agent SDK credit, while interactive Claude Code remains on subscription limits.
+
+To keep the evidence clean:
+
+- The bridge ignores `ANTHROPIC_API_KEY`.
+- The bridge ignores the old `claudeLocalBridge.apiKey` setting.
+- The bridge ignores intercepted `x-api-key` credentials.
+- Upstream auth must be `authorization: Bearer <Claude Code OAuth token>`.
+- Dummy client keys such as `local` are allowed only because some OpenAI-compatible clients require a local placeholder; they are not forwarded to Anthropic.
+
+This does **not** mean Anthropic has approved this usage. Treat runs as policy-sensitive personal research, not production guidance or a commercial integration pattern.
 
 For the local CLI runner prototype that now ships in this repo, see [docs/runner-quickstart.html](./docs/runner-quickstart.html).
 The runner can inspect this repo or any other local project by passing that project as `--cwd`.
@@ -47,7 +61,6 @@ Defaults below are sourced from `package.json` (`contributes.configuration.prope
 | `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-5`         | Used when requests omit `model`                  |
 | `claudeLocalBridge.anthropicBaseUrl`  | `https://api.anthropic.com` | Upstream Anthropic endpoint                      |
 | `claudeLocalBridge.logRequests`       | `false`                     | Verbose request/response logging                 |
-| `claudeLocalBridge.apiKey`            | `""`                        | Manual fallback key (lowest priority)            |
 | `claudeLocalBridge.requireCallerAuth` | `false`                     | Optional local Bearer-token gate for API routes  |
 | `claudeLocalBridge.callerAuthToken`   | `""`                        | Optional static caller token                     |
 
@@ -69,17 +82,16 @@ The extension discovers credentials automatically (see priority order below), in
 
 ---
 
-## Credential Discovery (Priority Order)
+## Credential Discovery (OAuth-Only Priority Order)
 
-| #   | Source                                       | Notes                                                      |
-| --- | -------------------------------------------- | ---------------------------------------------------------- |
-| 1   | `ANTHROPIC_API_KEY` env var                  | Standard Anthropic API key                                 |
-| 2   | `CLAUDE_CODE_OAUTH_TOKEN` env var            | Long-lived token from `claude setup-token`                 |
-| 3   | **macOS Keychain** `Claude Code-credentials` | Automatically set when you log in via `claude /login`      |
-| 4   | `~/.claude/.credentials.json`                | Linux / Windows fallback; also macOS if keychain is locked |
-| 5   | VS Code setting `claudeLocalBridge.apiKey`   | Manual fallback — set in VS Code settings                  |
+| #   | Source                                       | Notes                                                                          |
+| --- | -------------------------------------------- | ------------------------------------------------------------------------------ |
+| 1   | Live intercepted Claude Code Bearer token    | Captured from Claude Code traffic inside this VS Code process or capture proxy |
+| 2   | `CLAUDE_CODE_OAUTH_TOKEN` env var            | Long-lived OAuth token from `claude setup-token`                               |
+| 3   | **macOS Keychain** `Claude Code-credentials` | Automatically set when you log in via `claude /login`                          |
+| 4   | `~/.claude/.credentials.json`                | Linux / Windows fallback; also macOS if keychain is locked                     |
 
-On macOS with Claude Code installed, **Priority 3 is used automatically** — no configuration needed.
+On macOS with Claude Code installed, **Priority 3 is used automatically** if no fresher live intercepted Bearer token exists.
 
 ---
 
@@ -91,7 +103,7 @@ On macOS with Claude Code installed, **Priority 3 is used automatically** — no
 | `POST /v1/messages`              | Anthropic native | Proxied verbatim to api.anthropic.com                  |
 | `POST /v1/messages/count_tokens` | Anthropic        | Mock response (returns 0) for Claude CLI preflight     |
 | `POST /v1/chat/completions`      | OpenAI           | Full conversion: OpenAI ↔ Anthropic, streaming + tools |
-| `GET /v1/debug`                  | JSON             | Status, credential source, authenticated flag          |
+| `GET /v1/debug`                  | JSON             | Locked diagnostic endpoint; requires local debug token |
 
 ---
 
@@ -103,7 +115,6 @@ Open **VS Code Settings** and search for `Claude Local Bridge`:
 | ------------------------------------- | --------------------------- | ----------------------------------------- |
 | `claudeLocalBridge.port`              | `11437`                     | HTTP server port                          |
 | `claudeLocalBridge.anthropicBaseUrl`  | `https://api.anthropic.com` | Override for staging                      |
-| `claudeLocalBridge.apiKey`            | `""`                        | Manual API key (lowest priority)          |
 | `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-5`         | Default model when none is specified      |
 | `claudeLocalBridge.logRequests`       | `false`                     | Verbose request logging to Output channel |
 | `claudeLocalBridge.requireCallerAuth` | `false`                     | Enforce Bearer token for incoming callers |
@@ -119,8 +130,18 @@ If you enable `claudeLocalBridge.requireCallerAuth`, bridge endpoints require:
 Authorization: Bearer <your-caller-token>
 ```
 
-When caller auth is enabled, `GET /v1/debug` is the only unauthenticated endpoint. For predictable client setup, set
-`claudeLocalBridge.callerAuthToken` in VS Code settings and reuse that token in your callers.
+When caller auth is enabled, normal API endpoints require the caller token. Debug endpoints still use the separate
+debug-token header described below.
+
+### Debug endpoint token
+
+`/v1/debug` and any future `/v1/debug/*` endpoints require a separate local debug token printed in the **Claude Local Bridge** VS Code Output log:
+
+```http
+x-claude-local-bridge-debug-token: <token from Output log>
+```
+
+That token is only a local diagnostic door code. It is not your Claude OAuth token.
 
 ---
 
@@ -137,12 +158,12 @@ Set `ANTHROPIC_BASE_URL` to the bridge root (no `/v1`):
 
 ```bash
 export ANTHROPIC_BASE_URL=http://localhost:11437
-export ANTHROPIC_API_KEY=local  # required by CLI env checks; value is ignored by bridge
+export ANTHROPIC_API_KEY=local  # dummy value for local client env checks; not forwarded upstream
 
 claude
 ```
 
-The Claude Code CLI routes requests through the bridge, which injects real credentials.
+The Claude Code CLI routes requests through the bridge, which injects the resolved OAuth Bearer token.
 
 ## Local Bridge Runner
 
@@ -154,7 +175,7 @@ cd "/Users/alanman/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js "List the files in this repo and summarize what it does."
 ```
 
-To test a different local folder, keep running the runner from the **playground** repo and point the tools at the other project with
+To test a different local folder, keep running the runner from this repo and point the tools at the other project with
 `--cwd`:
 
 ```bash
@@ -213,68 +234,21 @@ After each run, the runner writes a searchable archive under `~/.bridge-runner/a
 - **Import old logs:** `node bin/local-bridge-archive.js ingest-legacy`
 - **Disable:** `--no-archive` or `BRIDGE_RUNNER_ARCHIVE=0`
 
-See [lab-notes/RUNNER_ARCHIVE.md](./lab-notes/RUNNER_ARCHIVE.md) for the full layout. Complementary perf observability: [lab-notes/PERF_PARITY_HANDOFF.md](./lab-notes/PERF_PARITY_HANDOFF.md) and [lab-notes/PERF_CONTINUATION.md](./lab-notes/PERF_CONTINUATION.md) (PR #1 perf pack).
+See [lab-notes/RUNNER_ARCHIVE.md](./lab-notes/RUNNER_ARCHIVE.md) for the full layout. Complementary perf observability: [lab-notes/PERF_PARITY_HANDOFF.md](./lab-notes/PERF_PARITY_HANDOFF.md).
 
 ### Runner perf parity (prompt cache, file cache, shell)
 
-**Automatic on every run (no extra flags):**
-
-- **Prompt cache:** Up to four Anthropic breakpoints (system, tools, stable transcript prefix, plus a session-stable repo-context block with CLAUDE.md, git HEAD, workspace fingerprint, and repo map).
+- **Prompt cache:** Automatic on every model request (system + tools + stable message prefix breakpoints).
 - **File cache:** In-memory LRU for `read_file` (invalidates on file change).
-- **Search cache:** Repeat greps cached until a write under that root invalidates them.
-- **Permission caches:** Realpath and full allow/deny decisions cached per session (`ask` is never cached).
-- **Parallel writes:** With `--accept-edits`, disjoint paths in one turn may run concurrently; ledger and transcript order stay serial.
-- **Large reads:** Big cold `read_file` results stream through a secret scrubber (10 MB cap).
-- **Summarization:** Tool output over 64 KB is shortened after scrubbing (tunable; see env table below).
-- **Compaction:** Cost-aware stage drops stale read results superseded by later writes.
-- **Session I/O:** Debounced `.state.json` saves; ledger cursor speeds resume helpers.
-
-**Opt-in:**
-
-- **Persistent shell:** `BRIDGE_RUNNER_PERSISTENT_SHELL=1` (default stays spawn-per-command).
-
-**Infrastructure only (modules + tests; not wired into the main loop yet):**
-
-Setting these env vars alone does **not** change normal runs until follow-up wiring lands. See [lab-notes/PERF_CONTINUATION.md](./lab-notes/PERF_CONTINUATION.md).
-
-- Speculative read prefetch (`BRIDGE_RUNNER_PREFETCH`)
-- Auto-run tests after writes (`BRIDGE_RUNNER_TEST_WATCH`)
-- Differential CLAUDE.md cache updates (`instruction-delta.js`)
-- Streaming `write_file` input to disk (`streaming-write.js`)
-- General subprocess pool (`subprocess-pool.js`)
-
-**Environment variables:**
-
-| Variable                             | Default | Active in runs? | Plain meaning                                        |
-| ------------------------------------ | ------- | --------------- | ---------------------------------------------------- |
-| `BRIDGE_RUNNER_SESSION_DEBOUNCE_MS`  | `75`    | Yes             | Coalesce session file writes; `0` = sync every touch |
-| `BRIDGE_RUNNER_SUMMARIZE_THRESHOLD`  | `64000` | Yes             | Auto-shorten huge tool output after scrub; `0` = off |
-| `BRIDGE_RUNNER_PERSISTENT_SHELL`     | off     | Yes if `1`      | Reuse one bash process across calls                  |
-| `BRIDGE_BENCH_LIVE_MAX_USD`          | `0.50`  | Bench only      | Spend cap when using `--live` on the bench harness   |
-| `BRIDGE_RUNNER_PREFETCH`             | off     | No (infra)      | Reserved for future prefetch wiring                  |
-| `BRIDGE_RUNNER_TEST_WATCH`           | off     | No (infra)      | Reserved for future post-write test hook             |
-| `BRIDGE_RUNNER_TEST_CMD`             | —       | No (infra)      | Override test command when watcher is wired          |
-| `BRIDGE_RUNNER_TEST_WATCH_BUDGET_MS` | `30000` | No (infra)      | Timeout for future test watcher                      |
-
-**Bench:**
-
-```bash
-cd "/Users/alanman/Developer/claude-local-bridge-playground"
-
-# Stubbed (CI-safe)
-node --require ./test/setup.js test/runner/bench/turn-latency.bench.js --runs 50 --steps 8 --json
-
-# Live (costs real money — bridge must be up; do NOT run in CI)
-BRIDGE_BENCH_LIVE_MAX_USD=0.50 node --require ./test/setup.js test/runner/bench/turn-latency.bench.js \
-  --live --model claude-sonnet-4-6 --runs 12
-```
+- **Persistent shell:** Opt-in only — `BRIDGE_RUNNER_PERSISTENT_SHELL=1` (default stays spawn-per-command).
+- **Bench:** `node --require ./test/setup.js test/runner/bench/turn-latency.bench.js`
 
 ## Using with third-party OpenAI-compatible tools
 
 For tools like Continue.dev, Cursor, Cline/Roo, Aider, Open WebUI, Cherry Studio, or LiteLLM:
 
 - **Base URL:** `http://localhost:11437/v1`
-- **API Key:** any placeholder (for example `local`)
+- **API Key:** any placeholder required by the local client (for example `local`); never put an Anthropic Console key here for this experiment
 - **Model:** any supported Claude model (for example `claude-sonnet-4-5`)
 
 Example (Aider):

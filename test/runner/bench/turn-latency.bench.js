@@ -263,7 +263,10 @@ async function main() {
   };
 
   if (args.live) {
-    const totalInput = liveUsageTotals.input_tokens + liveUsageTotals.cache_read_input_tokens + liveUsageTotals.cache_creation_input_tokens;
+    const totalInput =
+      liveUsageTotals.input_tokens +
+      liveUsageTotals.cache_read_input_tokens +
+      liveUsageTotals.cache_creation_input_tokens;
     report.live = {
       model: args.model,
       usage: { ...liveUsageTotals },

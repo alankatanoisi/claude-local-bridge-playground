@@ -1,9 +1,14 @@
 # Anthropic third-party harness detection — risk awareness for the playground runner
 
-**Audience:** Alan Man (beginner-friendly, technically serious)  
-**Repo context:** `/Users/alanman/Developer/claude-local-bridge-playground` — experimental local runner harness; the VS Code bridge is transport/auth only.  
-**Purpose:** Educational / defensive awareness — **not** a guide to evasion, bypass, fingerprint spoofing, or limit circumvention.  
-**Last updated:** 2026-05-22
+**Audience:** Alan Man (beginner-friendly, technically serious)
+**Repo context:** `/Users/alanman/Developer/claude-local-bridge-playground` — experimental local runner harness; the VS Code bridge is transport/auth only.
+**Purpose:** Educational / defensive awareness and policy-evidence framing — **not** a commercial bypass guide.
+**Last updated:** 2026-05-25
+
+> **2026-05-25 direction update:** Alan is now intentionally using the playground as an **OAuth-only evidence harness** for
+> conversations with Anthropic about the June 15, 2026 Agent SDK / `claude -p` metering change. The code should avoid
+> Anthropic Console API-key fallback so results are not contaminated by a different billing path. This is a policy
+> research/disclosure posture, not a claim that Anthropic has approved bridge usage.
 
 ---
 
@@ -13,7 +18,7 @@
 - **The best-documented April methodological study is dated April 9, 2026** (not 2025): independent researcher [@mrcattusdev](https://gist.github.com/mrcattusdev/53b046e56b5a0149bdb3c0f34b5f217a) used controlled A/B tests and concluded that a specific server-side block (“third-party apps now draw from your extra usage”) correlated with **system prompt shape**, not HTTP headers or TLS — but this is **community research**, not Anthropic documentation, and may be incomplete or already superseded.
 - **Public incident reports cluster around Jan–Apr 2026:** OpenClaw/OpenCode/Hermes users reported OAuth failures, redirects to **extra-usage (pay-per-token) billing**, and account restrictions; several GitHub issues and news articles attribute enforcement to **OAuth client identity**, **request fingerprint mismatch**, and **missing Claude Code telemetry** — sources disagree on which signal dominates.
 - **Billing surprises have two different mechanisms:** (1) **policy** — subscription OAuth used outside permitted surfaces; (2) **technical routing** — server responses that bill “third-party” traffic from **usage credits / API rates** instead of plan limits, even when authentication succeeds.
-- **For the playground runner, the safe architectural stance is:** treat subscription OAuth + bridge replay as **high-risk and ToS-sensitive**; prefer **official Claude Code**, **sanctioned Agent SDK paths with the June 2026 credit pool**, or **explicit API-key billing** with cost observability — and **do not** depend on impersonating Claude Code traffic.
+- **For the playground runner, the current experiment stance is:** treat subscription OAuth + bridge replay as **high-risk and ToS-sensitive**, but keep the implementation **OAuth-only** so Alan can distinguish "Claude Code OAuth carried this" from "a Console/API key paid for this." Do not represent successful runs as policy approval.
 
 ---
 
@@ -37,12 +42,12 @@
 This document intentionally excludes:
 
 - Instructions to **evade**, **bypass**, or **spoof** Anthropic detection (including swapping system prompts, forging `cch` hashes, or “perfect header” mimicry).
-- Advice to **improve bridge fingerprint replay** or adaptive capture to avoid enforcement.
-- **Bridge testing**, `localhost:11437` smoke tests, or live credential experiments in this write-up.
+- Commercial advice to **improve bridge fingerprint replay** or adaptive capture to avoid enforcement.
+- Public how-to instructions for bypassing enforcement at scale.
 - Framing **subscription arbitrage** (Pro/Max flat rate → heavy automation) as a neutral loophole; we describe it as a **documented policy and billing risk**.
 - Treating **community reverse-engineering posts** as ground truth without labeling confidence.
 
-If your goal is “make the playground indistinguishable from Claude Code,” that goal conflicts with current Anthropic policy and enforcement trends — reframe toward **permitted auth and explicit cost caps**.
+If your goal is “make the playground indistinguishable from Claude Code,” that goal conflicts with current Anthropic policy and enforcement trends. Alan's current narrower goal is to produce clean personal evidence for a policy conversation, with API-key paths disabled to avoid billing-path noise.
 
 ---
 
@@ -159,29 +164,29 @@ Controlled isolation tests on an OpenCode + Anthropic Max setup:
 
 ### Policy layer (documented)
 
-1. **Wrong credential type for product surface**  
+1. **Wrong credential type for product surface**
    Using subscription OAuth in third-party tools or unsanctioned Agent SDK integrations violates [Consumer Terms](https://www.anthropic.com/legal/consumer-terms) as described in [legal & compliance](https://code.claude.com/docs/en/legal-and-compliance).
 
-2. **Automated / non-human access rules**  
+2. **Automated / non-human access rules**
    Consumer ToS restricts automated access except via API key or explicit permission (Register cites §3.7 language unchanged since 2024).
 
-3. **Plan limit semantics**  
+3. **Plan limit semantics**
    Pro/Max advertised limits assume “ordinary, individual” Claude Code + Agent SDK usage — not third-party resale or opaque proxy farms.
 
 ### Technical / product layer (observed in the wild)
 
-1. **“Third-party apps” routing to extra usage**  
+1. **“Third-party apps” routing to extra usage**
    Error copy tells users that traffic will draw from **usage credits** (API-like pricing) instead of subscription buckets — reported widely April 2026.
 
-2. **OAuth client-based tagging**  
+2. **OAuth client-based tagging**
    Secondary analysis claims OpenClaw-specific tokens are labeled at issuance → billing pipeline can switch pools without detecting transport mimicry.
 
-3. **June 2026 Agent SDK credit split (official)**  
+3. **June 2026 Agent SDK credit split (official)**
    Starting **2026-06-15**, programmatic surfaces (Agent SDK, `claude -p`, GitHub Action, **third-party apps authenticating via Agent SDK**) draw from a **separate monthly dollar credit** ($20 Pro / $100 Max 5x / $200 Max 20x), not interactive limits.
    - Official: [Claude Help Center — Use the Agent SDK with your Claude plan](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) (updated week of 2026-05-22).
    - Also noted on [code.claude.com legal page](https://code.claude.com/docs/en/legal-and-compliance).
 
-4. **Client-side metering bugs (separate from detection)**  
+4. **Client-side metering bugs (separate from detection)**
    The [oksbk/claude-code-hidden-problem-analysis](https://github.com/oksbk/claude-code-hidden-problem-analysis) dataset documents **quota/cache accounting anomalies** in Claude Code itself — can feel like “overbilling” even without third-party harnesses. Worth distinguishing from Anthropic policy enforcement.
 
 ### Why users feel “double billed”
@@ -216,12 +221,12 @@ This is exactly the pattern public reporting calls “spoofing the Claude Code h
 
 ### Risk matrix for the playground
 
-| Approach                                                                       | Detection / policy risk           | Cost predictability               |
-| ------------------------------------------------------------------------------ | --------------------------------- | --------------------------------- |
-| Official Claude Code (interactive)                                             | Lowest                            | Subscription limits               |
-| `claude -p` / Agent SDK with **sanctioned** plan auth (post-2026-06-15 credit) | Medium — must be eligible surface | Credit cap + optional API overage |
-| Console **API key** in runner (no OAuth replay)                                | Lowest technically                | Pay-per-token; clear invoices     |
-| Subscription OAuth via bridge for third-party editor/runner                    | **High**                          | Poor — extra usage / enforcement  |
+| Approach                                                                       | Detection / policy risk           | Cost predictability                                                       |
+| ------------------------------------------------------------------------------ | --------------------------------- | ------------------------------------------------------------------------- |
+| Official Claude Code (interactive)                                             | Lowest                            | Subscription limits                                                       |
+| `claude -p` / Agent SDK with **sanctioned** plan auth (post-2026-06-15 credit) | Medium — must be eligible surface | Credit cap + optional API overage                                         |
+| Console **API key** in runner (no OAuth replay)                                | Lowest technically                | Pay-per-token; clear invoices; intentionally disabled for this experiment |
+| Subscription OAuth via bridge for third-party editor/runner                    | **High**                          | Poor — extra usage / enforcement                                          |
 
 ---
 
@@ -229,22 +234,22 @@ This is exactly the pattern public reporting calls “spoofing the Claude Code h
 
 These recommendations stay on the **runner / workflow** side and deliberately avoid bridge hardening for mimicry.
 
-1. **Prefer official surfaces for subscription value**  
-   Use Claude Code (terminal/IDE) for Max/Pro “included” developer experience. Use the runner against **API keys** when you want a custom harness.
+1. **Keep this playground OAuth-only while collecting evidence**
+   Do not mix in Console/API-key traffic while evaluating the June 15 policy question. A mixed-auth run is bad evidence because it cannot prove which billing or policy path carried the request.
 
-2. **If you need programmatic subscription access, plan for Agent SDK credits**  
+2. **If you need sanctioned programmatic subscription access, plan for Agent SDK credits**
    After 2026-06-15, budget the monthly Agent SDK pool separately; treat `claude -p` as metered, not “free with Max.”
 
-3. **Instrument cost and classification early**  
+3. **Instrument cost and classification early**
    Log per-run: auth type (OAuth vs API key), HTTP status, error text (“third-party”, “extra usage”), model, and token usage. Your runner transcripts already support observability — extend human-readable logs with **billing class** when the API exposes it.
 
-4. **Do not depend on impersonation**  
-   Assume any path that relies on replayed Claude Code headers/prompt prefixes may stop working without warning.
+4. **Do not overclaim from technical success**
+   A 200 response only proves a request worked at that moment. It does not prove Anthropic approves the route, that future metering will match interactive mode, or that server-side classification was absent.
 
-5. **Separate experiments from production learning**  
+5. **Separate experiments from production learning**
    The playground branch exists for chaos/experiments; document outcomes as **lab notes** (like this file), not as production guidance for bridge users.
 
-6. **Correspondence context**  
+6. **Correspondence context**
    `letter-to-anthropic-v1.md` / `v2.md` frame bridges as margin/positioning issues, not safety issues — useful for **policy thinking**, not as authorization to bypass technical controls.
 
 ---
@@ -252,7 +257,7 @@ These recommendations stay on the **runner / workflow** side and deliberately av
 ## Questions for Alan to clarify
 
 1. **Primary intent:** Personal learning only, or future sharing of the bridge/runner with others (which shifts toward commercial ToS risk)?
-2. **Auth target:** Are you willing to standardize on **API keys** for runner development and reserve OAuth for official Claude Code only?
+2. **Auth target:** For the current evidence phase, keep **API keys disabled**. Revisit API-key development only after the policy question is separated from engineering work.
 3. **Billing tolerance:** Is pay-per-token acceptable for harness experiments, or must spend stay within flat subscription?
 4. **Agent SDK timeline:** Do you plan to use `claude -p` / Agent SDK after June 2026, and at what automation duty cycle?
 5. **Observability:** Do you want runner logs to flag probable **third-party routing** errors automatically for teaching moments?

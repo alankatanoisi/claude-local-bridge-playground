@@ -12,7 +12,7 @@ const { resolveModel } = require('../models');
 const {
   getCredentials,
   buildAuthHeaders,
-  clearCredentialsCache,
+  markCredentialsRejected,
   prependClaudeCodeSystem,
   messagesPathFor,
 } = require('../credentials');
@@ -358,10 +358,10 @@ async function handleChatCompletionsBuffered(ctx, res, antBodyStr, completionId,
         upRes.on('end', () => {
           const body = Buffer.concat(chunks).toString('utf8');
 
-          // On 401: clear cache and retry once
+          // On 401: remember the rejected OAuth token and retry once.
           if (upRes.statusCode === 401 && !retry) {
-            log(ctx, '⚠️ Received 401 (OpenAI path) — clearing credential cache and retrying');
-            clearCredentialsCache(ctx);
+            log(ctx, '⚠️ Received 401 (OpenAI path) — quarantining rejected OAuth token and retrying');
+            markCredentialsRejected(ctx, creds);
             handleChatCompletionsBuffered(ctx, res, antBodyStr, completionId, true).then(resolve).catch(reject);
             return;
           }
@@ -413,16 +413,6 @@ async function handleChatCompletionsStreaming(ctx, _req, res, antBodyStr, modelN
   const authHeaders = buildAuthHeaders(ctx, creds);
   const bodyBuf = Buffer.from(antBodyStr, 'utf8');
 
-  // Set up OpenAI SSE response headers
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.writeHead(200);
-  if (res.flushHeaders) res.flushHeaders();
-  if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
-
-  const converter = createAnthropicToOpenAIStreamConverter(res, completionId, modelName);
-
   return new Promise((resolve, reject) => {
     const upReq = https.request(
       {
@@ -434,10 +424,10 @@ async function handleChatCompletionsStreaming(ctx, _req, res, antBodyStr, modelN
         timeout: 300_000,
       },
       (upRes) => {
-        // On 401: clear cache and retry once
+        // On 401: remember the rejected OAuth token and retry once.
         if (upRes.statusCode === 401 && !retry) {
-          log(ctx, '⚠️ Received 401 (streaming) — clearing credential cache and retrying');
-          clearCredentialsCache(ctx);
+          log(ctx, '⚠️ Received 401 (streaming) — quarantining rejected OAuth token and retrying');
+          markCredentialsRejected(ctx, creds);
           upRes.resume(); // drain upstream
           handleChatCompletionsStreaming(ctx, _req, res, antBodyStr, modelName, completionId, true)
             .then(resolve)
@@ -450,12 +440,26 @@ async function handleChatCompletionsStreaming(ctx, _req, res, antBodyStr, modelN
           upRes.on('data', (c) => chunks.push(c));
           upRes.on('end', () => {
             const errBody = Buffer.concat(chunks).toString('utf8');
-            res.write(`data: ${errBody}\n\ndata: [DONE]\n\n`);
-            res.end();
+            if (!res.headersSent) {
+              res.writeHead(upRes.statusCode, { 'Content-Type': 'application/json' });
+            }
+            res.end(errBody);
             resolve();
           });
           return;
         }
+
+        // Set up OpenAI SSE response headers only after upstream accepted auth.
+        // That keeps the 401 retry path from being trapped behind an already
+        // committed local 200 response.
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.writeHead(200);
+        if (res.flushHeaders) res.flushHeaders();
+        if (res.socket?.setNoDelay) res.socket.setNoDelay(true);
+
+        const converter = createAnthropicToOpenAIStreamConverter(res, completionId, modelName);
 
         upRes.on('data', (chunk) => converter.write(chunk));
         upRes.on('end', () => {

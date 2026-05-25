@@ -32,12 +32,9 @@ function _toolRegistryHash(ctx) {
 }
 
 function makeStaticKey(ctx) {
-  return [
-    ctx.cwdRealpath || ctx.cwd,
-    ctx.instructionHash || '',
-    ctx.trustState || '',
-    _toolRegistryHash(ctx),
-  ].join('|');
+  return [ctx.cwdRealpath || ctx.cwd, ctx.instructionHash || '', ctx.trustState || '', _toolRegistryHash(ctx)].join(
+    '|',
+  );
 }
 
 function makeDynamicKey(ctx) {

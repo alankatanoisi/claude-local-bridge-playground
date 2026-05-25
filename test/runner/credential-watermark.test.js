@@ -6,7 +6,7 @@ const { getCredentials, clearCredentialsCache } = require('../../src/credentials
 
 describe('credentials cache watermark', () => {
   it('invalidates cache when intercepted token changes', () => {
-    const ctx = { CREDS_CACHE_TTL: 60000, interceptedToken: 'token-v1' };
+    const ctx = { CREDS_CACHE_TTL: 60000, interceptedToken: 'token-v1', interceptedHeaderType: 'bearer' };
 
     // First call: cache populated with watermark
     const creds1 = getCredentials(ctx);
@@ -23,12 +23,12 @@ describe('credentials cache watermark', () => {
     // The returned credentials should reflect the new intercepted token
     assert.ok(creds2);
     // Source should be intercepted (priority 0 with new token)
-    assert.equal(creds2.source, 'intercepted');
+    assert.equal(creds2.source, 'intercepted:bearer');
     assert.equal(creds2.accessToken, 'token-v2');
   });
 
   it('returns cached credential when watermark matches', () => {
-    const ctx = { CREDS_CACHE_TTL: 60000, interceptedToken: 'token-v3' };
+    const ctx = { CREDS_CACHE_TTL: 60000, interceptedToken: 'token-v3', interceptedHeaderType: 'bearer' };
 
     // Populate cache
     const creds1 = getCredentials(ctx);
@@ -43,7 +43,7 @@ describe('credentials cache watermark', () => {
   });
 
   it('clearCredentialsCache removes watermark', () => {
-    const ctx = { CREDS_CACHE_TTL: 60000, interceptedToken: 'token-w1' };
+    const ctx = { CREDS_CACHE_TTL: 60000, interceptedToken: 'token-w1', interceptedHeaderType: 'bearer' };
 
     getCredentials(ctx);
     assert.ok(ctx.cachedCredentials);
@@ -53,18 +53,18 @@ describe('credentials cache watermark', () => {
     assert.equal(ctx.credentialsCachedAt, 0);
   });
 
-  it('watermark is null for non-intercepted credentials (does not cause phantom invalidation)', () => {
+  it('watermark is null for non-intercepted OAuth credentials (does not cause phantom invalidation)', () => {
     const ctx = { CREDS_CACHE_TTL: 60000 };
     // cachedCredentials watermark is null → should not invalidate on null check
     ctx.cachedCredentials = {
-      source: 'env:ANTHROPIC_API_KEY',
-      apiKey: 'sk-ant-env-key',
+      source: 'env:CLAUDE_CODE_OAUTH_TOKEN',
+      accessToken: 'oauth-env-token',
       interceptedWatermark: null,
     };
     ctx.credentialsCachedAt = Date.now();
     ctx.interceptedToken = null;
 
     const creds = getCredentials(ctx);
-    assert.equal(creds.source, 'env:ANTHROPIC_API_KEY');
+    assert.equal(creds.source, 'env:CLAUDE_CODE_OAUTH_TOKEN');
   });
 });

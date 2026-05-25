@@ -3,7 +3,7 @@ name: Harness Hardening Roadmap
 overview: Harden the playground runner with workspace trust-first startup, instruction hierarchy, progressive context, reactive compaction, ledger/replay measurability, built-in agents with fork boundaries, full memory taxonomy, and a promotion path to canonical.
 todos:
   - id: workspace-trust-gate
-    content: "P0: Workspace trust/consent gate before any tool runs (not hooks-only)."
+    content: 'P0: Workspace trust/consent gate before any tool runs (not hooks-only).'
     status: pending
   - id: instruction-hierarchy
     content: Discover and concatenate instruction files across org/user/project/local scopes.

@@ -109,7 +109,8 @@ async function runAndScrub(tool, args, ctx, toolUseId) {
     const HARD_CAP = 10 * 1024 * 1024;
     for await (const chunk of result.stream) {
       if (chunk === null || chunk === undefined) continue;
-      const chunkStr = typeof chunk === 'string' ? chunk : Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+      const chunkStr =
+        typeof chunk === 'string' ? chunk : Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
       bytes += Buffer.byteLength(chunkStr, 'utf8');
       if (bytes > HARD_CAP) {
         assembled += scrubber.end();
@@ -216,7 +217,9 @@ async function execute(toolName, args, ctx, toolUseId) {
         safety.invalidateRealpathCache(ctx, [args.path]);
         permissions.invalidateDecisionCache(ctx, [args.path]);
         const path = require('path');
-        const absPath = path.isAbsolute(args.path) ? args.path : path.resolve(ctx.cwdRealpath || ctx.cwd || process.cwd(), args.path);
+        const absPath = path.isAbsolute(args.path)
+          ? args.path
+          : path.resolve(ctx.cwdRealpath || ctx.cwd || process.cwd(), args.path);
         searchCache.invalidateForPath(absPath);
       }
     }
@@ -255,7 +258,9 @@ async function executeForce(toolName, args, ctx, toolUseId) {
         safety.invalidateRealpathCache(ctx, [args.path]);
         permissions.invalidateDecisionCache(ctx, [args.path]);
         const path = require('path');
-        const absPath = path.isAbsolute(args.path) ? args.path : path.resolve(ctx.cwdRealpath || ctx.cwd || process.cwd(), args.path);
+        const absPath = path.isAbsolute(args.path)
+          ? args.path
+          : path.resolve(ctx.cwdRealpath || ctx.cwd || process.cwd(), args.path);
         searchCache.invalidateForPath(absPath);
       }
     }

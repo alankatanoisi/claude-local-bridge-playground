@@ -108,8 +108,10 @@ function loadAnthropicHandler(clearSpy) {
     loaded: true,
     exports: {
       getCredentials: () => ({ accessToken: 'oauth-token', source: 'mock' }),
+      getCredentialAuthMode: () => 'bearer',
       buildAuthHeaders: () => ({ authorization: 'Bearer oauth-token' }),
       clearCredentialsCache: clearSpy,
+      markCredentialsRejected: clearSpy,
       prependClaudeCodeSystem: (_ctx, body) => body,
       messagesPathFor: () => '/v1/messages',
     },

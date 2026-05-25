@@ -2,24 +2,35 @@
 
 ## Step 1: Verify the bridge is running
 
-First, make sure Terminal is in the clean runner checkout. This matters because the older checkout does not understand
-new flags like `--output-format`, `--trace-level`, and `--caller-token`.
+First, make sure Terminal is in the playground checkout. This matters because this is the active OAuth-only experiment
+lane.
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 ```
 
 If you see this folder in your prompt, you are in the right place:
 
 ```text
-runner-clean-pr
+claude-local-bridge-playground
 ```
 
 ```bash
-curl -s http://localhost:11437/v1/debug | python3 -m json.tool
+curl -s http://localhost:11437/v1/models | python3 -m json.tool
 ```
 
-Look for: `"authenticated": true`
+Look for a JSON object with a `"data"` array of model records.
+
+`/v1/debug` is now locked. To use it, open **VS Code -> View -> Output**, choose **Claude Local Bridge**, copy the
+`x-claude-local-bridge-debug-token` value from the startup log, then run:
+
+```bash
+curl -s http://localhost:11437/v1/debug \
+  -H "x-claude-local-bridge-debug-token: PASTE_TOKEN_HERE" \
+  | python3 -m json.tool
+```
+
+Success includes `"credentialPolicy": "oauth-only"` and `"authenticated": true`.
 
 ---
 
@@ -51,6 +62,17 @@ You should see:
 ```text
 local-dev-token
 ```
+
+---
+
+## Step 1.6: OAuth-only evidence mode
+
+This playground intentionally ignores Anthropic Console API keys. Do **not** set a real `ANTHROPIC_API_KEY` for this
+experiment. The only upstream credential path should be a Claude Code OAuth Bearer token from live interception,
+`CLAUDE_CODE_OAUTH_TOKEN`, macOS Keychain, or `~/.claude/.credentials.json`.
+
+Dummy values like `local` are still used by some local clients because they refuse to start without something in an
+API-key field. The bridge does not forward that dummy value to Anthropic.
 
 ---
 
@@ -101,7 +123,7 @@ claude "what is 2+2?"
 ```
 
 This tells Claude Code to route its requests through the bridge instead of directly to Anthropic.
-The bridge ignores the incoming `local` API key and uses your real OAuth token from the macOS Keychain.
+The bridge ignores the incoming `local` dummy value and uses your Claude Code OAuth token.
 
 > **Note:** `ANTHROPIC_API_KEY=local` is a dummy value. Your OAuth setup is not affected.
 
@@ -137,7 +159,7 @@ The runner is a small coding-agent loop that uses this bridge. In Terminal, firs
 the runner:
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 ```
 
 Do not run these runner commands from:

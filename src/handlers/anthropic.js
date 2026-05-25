@@ -11,7 +11,7 @@
 const { readBody, sendJson, verboseLog, log } = require('../utils');
 const { resolveModel } = require('../models');
 const { proxyToAnthropic } = require('../proxy');
-const { getCredentials, prependClaudeCodeSystem, messagesPathFor } = require('../credentials');
+const { getCredentials, getCredentialAuthMode, prependClaudeCodeSystem, messagesPathFor } = require('../credentials');
 const { appendIncoming, appendTransformed, createBridgeTrace } = require('../bridge-trace');
 
 const vscode = require('vscode');
@@ -65,7 +65,7 @@ async function handleAnthropicMessages(ctx, req, res) {
   prependClaudeCodeSystem(ctx, body, creds);
   appendTransformed(trace, body, {
     credential_source: creds.source,
-    upstream_auth_mode: creds.accessToken ? 'bearer' : creds.apiKey ? 'x-api-key' : 'none',
+    upstream_auth_mode: getCredentialAuthMode(creds),
     messages_path: messagesPathFor(ctx, creds),
   });
 

@@ -216,7 +216,8 @@ function _checkUncached(toolName, args, ctx) {
             reason:
               issue.kind === 'hard_deny_path'
                 ? 'Shell command references a blocked path pattern: ' + issue.segment
-                : 'Shell command references a blocked path pattern: ' + (issue.token || issue.segment || 'sensitive path'),
+                : 'Shell command references a blocked path pattern: ' +
+                  (issue.token || issue.segment || 'sensitive path'),
           },
           {
             category: 'shell',
@@ -280,7 +281,13 @@ function _checkUncached(toolName, args, ctx) {
   if (ctx.allowedTools && !ctx.allowedTools.has(toolName)) {
     return enrichDecision(
       { decision: 'deny', reason: "Tool '" + toolName + "' is not in the allowed-tools list." },
-      { category, mode, ruleId: 'allowed_tools', severity: 'hard_deny', explanation: 'Tool not in --allowed-tools list.' },
+      {
+        category,
+        mode,
+        ruleId: 'allowed_tools',
+        severity: 'hard_deny',
+        explanation: 'Tool not in --allowed-tools list.',
+      },
     );
   }
 
@@ -314,13 +321,25 @@ function _checkUncached(toolName, args, ctx) {
   if (category === 'shell') {
     return enrichDecision(
       { decision: 'ask', proposedAction: describeShellAction(args) },
-      { category, mode, ruleId: 'mode_policy', severity: 'bypassable_ask', explanation: 'Shell commands require approval.' },
+      {
+        category,
+        mode,
+        ruleId: 'mode_policy',
+        severity: 'bypassable_ask',
+        explanation: 'Shell commands require approval.',
+      },
     );
   }
 
   return enrichDecision(
     { decision: 'ask', proposedAction: describeWriteAction(toolName, args) },
-    { category, mode, ruleId: 'mode_policy', severity: 'bypassable_ask', explanation: 'Write tools require approval unless --accept-edits is set.' },
+    {
+      category,
+      mode,
+      ruleId: 'mode_policy',
+      severity: 'bypassable_ask',
+      explanation: 'Write tools require approval unless --accept-edits is set.',
+    },
   );
 }
 

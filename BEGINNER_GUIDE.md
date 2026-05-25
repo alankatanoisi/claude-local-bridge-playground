@@ -51,7 +51,8 @@ http://127.0.0.1:11437
 ```
 
 Other tools can call that local server. The bridge then forwards requests to Anthropic using your saved Claude Code
-credentials.
+OAuth credentials. In this playground, Anthropic Console API keys are intentionally ignored so bridge tests do not mix
+API-key billing with your Claude Code subscription/OAuth path.
 
 The **runner** is a command-line agent loop in this repo. It can ask the model what to do, run local tools such as
 `read_file`, send tool results back to the model, and continue until it has a final answer.
@@ -69,23 +70,23 @@ Context compactor                 →  clip / snip / ghost when context grows
 
 See the **cheat sheet at the top** of this guide. Short version:
 
-| Folder                                                    | When to use it                                           |
-| --------------------------------------------------------- | -------------------------------------------------------- |
-| `/Users/alanman/Developer/claude-local-bridge-playground` | **Default:** experiments, harness, perf pack (PR #1)     |
-| `/Users/alanman/Developer/claude-local-bridge`            | Canonical bridge + runner (merge target — not for chaos) |
+| Folder                                                    | When to use it                                             |
+| --------------------------------------------------------- | ---------------------------------------------------------- |
+| `/Users/alanman/Developer/claude-local-bridge`            | Canonical bridge + runner work you may merge               |
+| `/Users/alanman/Developer/claude-local-bridge-playground` | Experiments: coordinator, session store, compaction, hooks |
 
-If you see `Unknown option '--session-id'`, you are in an older checkout. New harness and perf flags land in the
+If you see `Unknown option '--session-id'`, you are in an older checkout. The new harness flags live in the
 **playground** folder first.
 
-## The Correct Folder (playground default)
+## The Correct Folder Right Now
 
-For runner experiments and the perf pack on this repo, use:
+For this OAuth-only playground work, use:
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge-playground"
 ```
 
-For **canonical** bridge + runner work you may merge elsewhere:
+Only use the canonical checkout when Alan explicitly asks for promotion/canonical work:
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge"
@@ -110,7 +111,16 @@ That is where commands go.
 Paste this into Terminal:
 
 ```bash
-curl -s http://127.0.0.1:11437/v1/debug | python3 -m json.tool
+curl -s http://127.0.0.1:11437/v1/models | python3 -m json.tool
+```
+
+Success includes a JSON list of models. If you need the locked debug page, copy the debug token from **VS Code -> View
+-> Output -> Claude Local Bridge**, then run:
+
+```bash
+curl -s http://127.0.0.1:11437/v1/debug \
+  -H "x-claude-local-bridge-debug-token: PASTE_TOKEN_HERE" \
+  | python3 -m json.tool
 ```
 
 Success includes:
@@ -122,8 +132,16 @@ Success includes:
 and:
 
 ```json
+"credentialPolicy": "oauth-only"
+```
+
+and:
+
+```json
 "authenticated": true
 ```
+
+The debug token is a local door code for this Mac. It is not your Claude OAuth token.
 
 ## Local Caller Token Is Optional
 
@@ -177,7 +195,7 @@ above.
 
 ## Run A Safe Read-Only Runner Test
 
-Paste this in the **playground** folder (default lane for harness + perf pack):
+Paste this (playground folder):
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge-playground"
@@ -190,7 +208,7 @@ node bin/local-bridge-runner.js \
   "List the top-level files, summarize this project, then stop. Do not edit files."
 ```
 
-**With session persistence** (same folder, add `--session-id`):
+Same test with session persistence:
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge-playground"
@@ -212,23 +230,17 @@ ls ~/.bridge-runner/sessions/
 
 You should see `safe-readonly-demo.state.json` — that is the **canonical session file** (not the JSONL transcript).
 
-## Performance pack (playground PR #1)
-
-Most perf features run automatically on this branch (prompt cache, search cache, parallel writes with `--accept-edits`, etc.). Some env vars (**prefetch**, **test watch**) are **infrastructure only** — the code exists but the main loop does not call them yet, so setting those vars today does nothing.
-
-Read [lab-notes/PERF_CONTINUATION.md](./lab-notes/PERF_CONTINUATION.md) for the full wired vs deferred table and env var list.
-
 ## Use The Command Builder
 
 Open this file in a browser:
 
 ```text
-/Users/alanman/Developer/claude-local-bridge-playground/docs/command-builder.html
+/Users/alanman/Developer/claude-local-bridge/docs/command-builder.html
 ```
 
 Use it when you do not want to remember all the flags. Important fields:
 
-- **Runner repo folder**: `/Users/alanman/Developer/claude-local-bridge-playground`
+- **Runner repo folder**: `/Users/alanman/Developer/claude-local-bridge` (or playground for new harness flags)
 - **Target project folder**: the project you want the runner to inspect
 - **Caller auth token**: optional local bridge password; only needed if you enabled caller auth
 - **Tools**: start with only `list_files`, `read_file`, `search_text`, `git_status`
@@ -253,21 +265,14 @@ Add `--no-workers` while learning — it skips background subprocess workers and
 
 ### Unknown option `--output-format` or `--session-id`
 
-You are in the wrong folder or an old checkout. Try playground first:
-
-```bash
-cd "/Users/alanman/Developer/claude-local-bridge-playground"
-node bin/local-bridge-runner.js --help
-```
-
-For canonical runner only:
+You are in the wrong folder or an old checkout. Run:
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge"
 node bin/local-bridge-runner.js --help
 ```
 
-For playground harness flags (`--session-id`, coordinator, perf pack), stay in:
+For playground harness flags (`--session-id`, coordinator), use:
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge-playground"

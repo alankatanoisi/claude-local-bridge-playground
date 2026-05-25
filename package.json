@@ -1,7 +1,7 @@
 {
   "name": "claude-local-bridge",
   "displayName": "Claude Local Bridge",
-  "description": "Exposes Claude Code credentials as a local OpenAI/Anthropic-compatible HTTP API on localhost:11437",
+  "description": "Exposes Claude Code OAuth credentials as a local OpenAI/Anthropic-compatible HTTP API on localhost:11437",
   "version": "1.0.0",
   "publisher": "alankatanoisi",
   "license": "MIT",
@@ -58,11 +58,6 @@
           "default": "https://api.anthropic.com",
           "description": "Anthropic API base URL (override for staging or custom gateway)"
         },
-        "claudeLocalBridge.apiKey": {
-          "type": "string",
-          "default": "",
-          "description": "Manual Anthropic API key fallback (lowest priority — used only if no other credential source is found)"
-        },
         "claudeLocalBridge.defaultModel": {
           "type": "string",
           "default": "claude-sonnet-4-5",
@@ -114,8 +109,5 @@
         "title": "Claude Local Bridge: Show Credential Source"
       }
     ]
-  },
-  "dependencies": {
-    "xlsx": "^0.18.5"
   }
 }

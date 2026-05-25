@@ -33,6 +33,10 @@ you type one objective
 
 The bridge handles Claude credentials. The runner handles local tools and the agent loop.
 
+In this playground, "Claude credentials" means **Claude Code OAuth Bearer credentials only**. Anthropic Console API keys
+are intentionally ignored so local runner tests do not accidentally use a different billing path from the policy question
+Alan is investigating.
+
 ### Top-level agent (playground — optional coordinator)
 
 ```text
@@ -53,6 +57,10 @@ Think of **two CLIs**:
 
 The bridge does not require a local caller-auth token by default. That keeps simple runner commands working like before.
 
+The bridge does require an OAuth credential upstream. The normal beginner path is: open Claude Code once so the bridge can
+read the macOS Keychain credential or capture a live Bearer token. Do not put a real Anthropic Console API key in this
+playground; dummy client values like `local` are only placeholders for tools that require an API-key field.
+
 Caller auth is optional. If you intentionally enable `claudeLocalBridge.requireCallerAuth`, set a predictable token in VS
 Code settings:
 
@@ -71,23 +79,6 @@ The runner can read that environment variable automatically. You can also pass i
 ```bash
 --caller-token "$BRIDGE_CALLER_TOKEN"
 ```
-
-## Performance pack (PR #1)
-
-Most perf features on this branch run automatically (prompt cache, search cache, parallel writes with `--accept-edits`, tool-output summarization, etc.). Some env vars are **infrastructure only** — the code and tests exist, but the main loop does not call them yet, so setting them today does nothing:
-
-- `BRIDGE_RUNNER_PREFETCH=1` — prefetch not wired
-- `BRIDGE_RUNNER_TEST_WATCH=1` — auto-test after writes not wired
-
-**Active env vars** you may export before a run:
-
-```bash
-export BRIDGE_RUNNER_SESSION_DEBOUNCE_MS=75      # session file coalescing (0 = sync every touch)
-export BRIDGE_RUNNER_SUMMARIZE_THRESHOLD=64000   # shorten huge tool output after scrub (0 = off)
-export BRIDGE_RUNNER_PERSISTENT_SHELL=1          # reuse one bash process
-```
-
-Full wired vs deferred table: [lab-notes/PERF_CONTINUATION.md](./lab-notes/PERF_CONTINUATION.md).
 
 ## Safe First Run
 

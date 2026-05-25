@@ -1,1 +1,6 @@
 node_modules
+
+# Generated transcript exports can contain command-line continuations and
+# copied terminal text. Prettier may convert those into trailing spaces, which
+# makes `git diff --check` fail, so keep them out of formatting checks.
+session-ses_*.md

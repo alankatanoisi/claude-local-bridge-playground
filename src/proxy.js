@@ -3,7 +3,7 @@
 const https = require('https');
 const { URL } = require('url');
 const vscode = require('vscode');
-const { getCredentials, clearCredentialsCache, buildAuthHeaders } = require('./credentials');
+const { getCredentials, markCredentialsRejected, buildAuthHeaders } = require('./credentials');
 const { log, verboseLog } = require('./utils');
 const { PREVIEW_BYTES, headerSummary } = require('./trace-utils');
 
@@ -96,8 +96,8 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false, trace
       // upstream response is deliberate here: we do not want to keep reading a
       // failed body when the right next action is a new authenticated request.
       if (upRes.statusCode === 401 && !retry) {
-        log(ctx, '⚠️ Received 401 — clearing credential cache and retrying');
-        clearCredentialsCache(ctx);
+        log(ctx, '⚠️ Received 401 — quarantining rejected OAuth token and retrying once');
+        markCredentialsRejected(ctx, creds);
         if (typeof upRes.destroy === 'function') {
           upRes.destroy();
         } else if (typeof upRes.resume === 'function') {

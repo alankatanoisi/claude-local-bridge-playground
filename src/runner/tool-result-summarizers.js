@@ -68,10 +68,7 @@ function _searchTextSummarizer(text) {
   }
   const extraFiles = byFile.size - SEARCH_MAX_FILES;
   const summary =
-    kept.join('\n') +
-    '\n... [' +
-    extraFiles +
-    ' more files with matches; refine pattern or narrow path to see them]';
+    kept.join('\n') + '\n... [' + extraFiles + ' more files with matches; refine pattern or narrow path to see them]';
   return {
     summary,
     truncated: true,

@@ -63,7 +63,10 @@ describe('loadMessagesFromTranscript', () => {
     fs.writeFileSync(filePath, lines.join('\n'));
     const full = loadMessagesFromTranscript(filePath);
     const capped = loadMessagesFromTranscript(filePath, { ledgerCursor: { seq: 2 } });
-    assert.ok(full.length > capped.length, 'cursor cap stops early (full=' + full.length + ', capped=' + capped.length + ')');
+    assert.ok(
+      full.length > capped.length,
+      'cursor cap stops early (full=' + full.length + ', capped=' + capped.length + ')',
+    );
     assert.ok(capped.length >= 1, 'still loads at least the initial user_prompt');
   });
 
@@ -77,7 +80,11 @@ describe('loadMessagesFromTranscript', () => {
       ].join('\n'),
     );
     const a = loadMessagesFromTranscript(filePath, { ledgerCursor: null });
-    const b = loadMessagesFromTranscript(filePath, { ledgerCursor: { /* no seq */ } });
+    const b = loadMessagesFromTranscript(filePath, {
+      ledgerCursor: {
+        /* no seq */
+      },
+    });
     const c = loadMessagesFromTranscript(filePath);
     assert.deepEqual(a, c);
     assert.deepEqual(b, c);

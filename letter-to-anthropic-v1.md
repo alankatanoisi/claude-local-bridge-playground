@@ -14,7 +14,7 @@ The Claude Local Bridge is a VS Code extension that:
 - Runs a localhost HTTP server (port 11437 by default)
 - Proxies incoming requests to api.anthropic.com using those credentials
 - Exposes both an Anthropic Messages API and an OpenAI Chat Completions API, with the latter translated into Anthropic format
-- Replays captured request fingerprints (user-agent, anthropic-beta, x-stainless-* SDK headers, x-app, the system-prompt prefix block layout) so requests look like legitimate Claude Code traffic upstream
+- Replays captured request fingerprints (user-agent, anthropic-beta, x-stainless-\* SDK headers, x-app, the system-prompt prefix block layout) so requests look like legitimate Claude Code traffic upstream
 
 Architecturally it is competently built. The fingerprint capture is adaptive — it learns the live header set from Claude Code itself rather than hardcoding it — which means it self-heals across CLI version bumps. The credential discovery is layered with five fallback tiers, with strict whitelisting that prevents auth tokens from leaking into the fingerprint store or the local debug endpoint. The OpenAI-compat layer is faithful enough to drive Cursor, Continue.dev, Aider, and similar clients off a single Pro/Max subscription. In short: this is a reasonably representative instance of the broader bridge category, not a hobbyist toy.
 
@@ -41,7 +41,7 @@ Three moves, roughly in order of leverage:
 
 **2. Close the product gap if you want to retain that user population.** A "developer" subscription tier with explicit support for using the Claude API from third-party clients — priced between Pro and pay-per-token — would convert most of the bridge population into paying customers. The bridges exist because the price-shaped hole exists. You can fill it more cheaply than you can defend against it indefinitely, and filling it is also better for the developer experience you are trying to build.
 
-**3. Invest in technical defenses against *commercial* bridges, not personal ones.** Attested-client signing, per-installation client identity, and request-pattern enforcement focused on volume and concurrency anomalies all defeat at-scale resellers (the cases that actually move the margin needle) without alienating individual users running personal tools. A defense layer that distinguishes one user running their bridge for themselves from a SaaS product fanning ten thousand users through one Pro account is technically achievable and aligns enforcement with actual harm.
+**3. Invest in technical defenses against _commercial_ bridges, not personal ones.** Attested-client signing, per-installation client identity, and request-pattern enforcement focused on volume and concurrency anomalies all defeat at-scale resellers (the cases that actually move the margin needle) without alienating individual users running personal tools. A defense layer that distinguishes one user running their bridge for themselves from a SaaS product fanning ten thousand users through one Pro account is technically achievable and aligns enforcement with actual harm.
 
 **A meta-note on why I am writing this**
 

@@ -8,6 +8,12 @@ const { handleAnthropicMessages, handleCountTokens } = require('./handlers/anthr
 const { handleChatCompletions } = require('./handlers/openai');
 const { handleDebug } = require('./handlers/debug');
 const { getCredentials } = require('./credentials');
+const {
+  SENSITIVE_AUTH_HEADER,
+  getSensitiveEndpointToken,
+  isAuthorizedSensitiveRequest,
+  isSensitivePath,
+} = require('./local-auth');
 
 // ─────────────────────────────────────────────
 // HTTP Server
@@ -15,7 +21,7 @@ const { getCredentials } = require('./credentials');
 
 async function startServer(ctx) {
   const config = vscode.workspace.getConfiguration('claudeLocalBridge');
-  const basePort = config.get('port', 11436);
+  const basePort = config.get('port', 11437);
 
   if (ctx.server) await stopServer(ctx);
 
@@ -50,6 +56,7 @@ async function startServer(ctx) {
           ctx.server.removeListener('error', onError);
           const creds = getCredentials(ctx);
           log(ctx, `✅ Server running on http://localhost:${port}  [${creds.source}]`);
+          log(ctx, `🔐 Debug endpoints require header ${SENSITIVE_AUTH_HEADER}: ${getSensitiveEndpointToken(ctx)}`);
           updateStatusBar(ctx, true, port, creds.source);
           resolve(true);
         });
@@ -129,6 +136,7 @@ async function handleRequest(ctx, req, res) {
         'x-local-bridge-run-id',
         'x-local-bridge-trace-turn',
         'x-local-bridge-trace-level',
+        SENSITIVE_AUTH_HEADER,
       ].join(', '),
     );
     res.setHeader('Vary', 'Origin');
@@ -141,6 +149,15 @@ async function handleRequest(ctx, req, res) {
   }
 
   const url = new URL(req.url, 'http://localhost');
+
+  if (isSensitivePath(url.pathname) && !isAuthorizedSensitiveRequest(ctx, req)) {
+    return sendJson(res, 401, {
+      error: {
+        message: `Debug endpoint locked. Add header ${SENSITIVE_AUTH_HEADER} with the token printed in the bridge Output log.`,
+        type: 'unauthorized',
+      },
+    });
+  }
 
   const config = vscode.workspace.getConfiguration('claudeLocalBridge');
   const requireCallerAuth = config.get('requireCallerAuth', false);
@@ -193,8 +210,9 @@ function parseBearerToken(authHeader) {
   return token || null;
 }
 
-// Explicit unauthenticated allowlist:
-//   GET /v1/debug (local diagnostics endpoint)
+// Caller-auth allowlist:
+//   GET /v1/debug uses the separate local debug-token gate above instead of
+//   the normal API caller token.
 function isCallerAuthExempt(req, pathname) {
   return req.method === 'GET' && pathname === '/v1/debug';
 }
@@ -214,6 +232,7 @@ module.exports = {
   startServer,
   stopServer,
   isLocalhostOrigin,
+  handleRequest,
   parseBearerToken,
   isCallerAuthExempt,
 };

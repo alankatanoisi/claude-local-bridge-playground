@@ -1,5 +1,13 @@
 # Runner Threat Model
 
+## Bridge auth boundary for this playground
+
+This playground is now an **OAuth-only** bridge experiment. Upstream Anthropic calls must use a Claude Code OAuth Bearer
+token. Anthropic Console API-key sources are intentionally ignored so local test results do not mix billing paths.
+
+Sensitive bridge diagnostics are also gated: `/v1/debug` requires the local `x-claude-local-bridge-debug-token` printed
+in the Claude Local Bridge Output log. That token is a local debug door code, not an upstream Claude credential.
+
 ## What the model can touch
 
 | Category     | Tools                                                  | Scope                                                                                                                                                                                                          |
@@ -104,22 +112,6 @@ Redacted patterns:
 | `Bearer ...` (OAuth tokens)              | `Bearer [REDACTED]`            |
 | `eyJ...` (JWTs)                          | `[REDACTED:jwt]`               |
 | `SECRET=...` / `TOKEN=...` assignments   | `*= [REDACTED]`                |
-
-## Performance pack behaviors (PR #1)
-
-These are additive runner optimizations on the playground branch. They do not weaken `hard_deny` guards.
-
-### Parallel writes (B3)
-
-When `--accept-edits` is set, consecutive write tools whose canonical paths are **disjoint** (no parent/child overlap) may execute concurrently via `executeForce`. Interactive confirmation mode (default without `--accept-edits`) stays fully serial. Ledger events and transcript tool-result order remain in the model's emitted sequence; a `tool_use_group` ledger event records parallel batches.
-
-### Tool-result summarization (E4)
-
-After `scrubSecrets()`, tool output larger than `BRIDGE_RUNNER_SUMMARIZE_THRESHOLD` bytes (default 64000) may be shortened by deterministic per-tool summarizers (`bash`, `search_text`, `list_files`). `read_file` is never summarized. Set the threshold to `0` to disable. The model may lose detail in very large logs — treat this as a context tradeoff, not a secrecy bypass.
-
-### Streaming tool output (B4)
-
-Large cold `read_file` results may stream through `makeStreamingScrubber()` (4 KB sliding window) before assembly. Hard cap 10 MB. Streaming scrubbing assumes secret patterns do not span more than the window horizon (true for current patterns).
 
 ## Known limitations
 
