@@ -164,7 +164,7 @@ function persistSession(sessionStore, messages, ctx) {
     undoLog: ctx.undoLog || [],
     consecutiveToolFailures: ctx._consecutiveToolFailures || 0,
   });
-  sessionStore.save();
+  sessionStore.saveSoon();
 }
 
 function appendLedger(ledger, hooks, type, payload) {
@@ -391,6 +391,13 @@ async function run(options) {
   }
 
   function completeRun(result) {
+    if (sessionStore) {
+      try {
+        sessionStore.flushSync();
+      } catch {
+        // best-effort durability
+      }
+    }
     if (archiveCollector) {
       try {
         finalizeArchiveExport(archiveCollector, {
