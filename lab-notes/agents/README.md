@@ -1,36 +1,41 @@
 # Agent Lane Index
 
-This file tells Cursor, Codex, and any other agent how to split documentation work without fighting the current OAuth-only direction.
+How to split **lab-notes documentation** work across five Cursor project skills without fighting the OAuth-only harness direction.
 
-## Shared Rules
+## Shared rules
 
-- Work only in `/Users/alanman/Developer/claude-local-bridge-playground` on branch `main`.
-- Current direction: OAuth-only evidence harness for Alan's Anthropic policy conversation.
-- Do not restore `ANTHROPIC_API_KEY`, `claudeLocalBridge.apiKey`, or upstream `x-api-key` auth.
-- Do not edit bridge/auth/proxy files unless Alan explicitly asks.
-- If bridge work is explicitly requested, preserve OAuth-only auth, debug-token gating, and token redaction.
-- Do not run `localhost:11437`, live Anthropic calls, or `npm test` unless Alan explicitly asks.
-- Prefer lab-notes markdown changes. Keep summaries short and list paths changed.
-- Read first: `AGENTS.md`, `README.md`, and `lab-notes/OAUTH_ONLY_DIRECTION.md`.
+Read **[CHARTER.md](CHARTER.md)** — workspace, hard rules, handoff format, one-file-owner policy.
 
-## Cursor Lanes
+Quick reminders:
 
-| Lane                 | Skill                                          | Owns                                                                                      | Do Next                                                                              |
-| -------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Anthropic expert     | `.cursor/skills/anthropic-claude-expert/SKILL.md` | Answers: API vs Agent SDK vs `claude -p` vs CC; see `sources.md` in that skill folder | Use for integration/policy Q&A; fetch help center when billing wording matters.      |
-| Anthropic official   | `.cursor/skills/anthropic-official/SKILL.md`   | `lab-notes/parity/anthropic-official-posture.md`                                          | Collect dated official citations for June 15, OAuth/API, Agent SDK, and `claude -p`. |
-| Parity archivist     | `.cursor/skills/parity-archivist/SKILL.md`     | `lab-notes/parity/claude-parity-matrix.md`, `permission-modes.md`, `structured-output.md` | Build the matrix after official posture has seed rows.                               |
-| Observability scribe | `.cursor/skills/observability-scribe/SKILL.md` | `lab-notes/observability/observability-contract.md`                                       | Inventory runner JSON/stream events from tests and docs.                             |
-| OAuth evidence       | `.cursor/skills/oauth-evidence/SKILL.md`       | `lab-notes/parity/oauth-headless-demo-runbook.md`, `bench-parity-evidence.md`             | Write the no-API-key demo checklist, but do not run live calls.                      |
-| Lab integrator       | `.cursor/skills/lab-integrator/SKILL.md`       | `lab-notes/weekly-integration.md`, cross-links, indexes                                   | Keep docs aligned and note what changed each week.                                   |
+- Folder: `/Users/alanman/Developer/claude-local-bridge-playground`, branch `main`
+- OAuth-only evidence harness — [`../OAUTH_ONLY_DIRECTION.md`](../OAUTH_ONLY_DIRECTION.md)
+- No API keys, no live bridge, no tests unless Alan asks
+- Prefer markdown in `lab-notes/`; bridge code gated in CHARTER
 
-## Recommended Order
+## Cursor lanes (five skills)
 
-1. Anthropic official posture.
-2. OAuth headless demo runbook.
-3. Parity matrix.
-4. Observability contract.
-5. Permission modes and structured output.
-6. Weekly integration note.
+| Lane | Skill | Owns | Invoke when |
+| ---- | ----- | ---- | ----------- |
+| Anthropic official | `.cursor/skills/anthropic-official/SKILL.md` | `lab-notes/parity/anthropic-official-posture.md`; surface picker in skill `surfaces.md` | Policy citations, API vs SDK vs `claude -p`, June 15 metering |
+| OAuth evidence | `.cursor/skills/oauth-evidence/SKILL.md` | `oauth-headless-demo-runbook.md`, `bench-parity-evidence.md` | Demo checklist, golden commands, artifact list (no live runs by default) |
+| Parity archivist | `.cursor/skills/parity-archivist/SKILL.md` | `claude-parity-matrix.md`, `permission-modes.md`, `structured-output.md` | Adopt/skip/later matrix from HARNESS_VISION + code |
+| Observability scribe | `.cursor/skills/observability-scribe/SKILL.md` | `lab-notes/observability/observability-contract.md` | stopReason + stream-json catalog |
+| Lab integrator | `.cursor/skills/lab-integrator/SKILL.md` | `weekly-integration.md`, this README, cross-links | After other lanes land files |
 
-The reason for this order is simple: the official posture sets the policy facts, the OAuth runbook sets clean evidence collection, and the parity matrix should cite both instead of guessing.
+Bundled references for official lane: `.cursor/skills/anthropic-official/sources.md`, `surfaces.md`.
+
+## Recommended order
+
+1. **anthropic-official** — dated policy facts + matrix seed rows  
+2. **oauth-evidence** — runbook + bench template (documents blockers; Alan runs live)  
+3. **parity-archivist** — matrix cites posture + code evidence  
+4. **observability-scribe** — contract supports matrix/autopsy rows  
+5. **permission-modes** / **structured-output** (parity-archivist)  
+6. **lab-integrator** — weekly rollup  
+
+Policy before parity before integration—so the matrix does not guess Anthropic stance.
+
+## Deprecated
+
+`anthropic-claude-expert` was merged into **anthropic-official**. Do not add a sixth lane unless Alan asks.
