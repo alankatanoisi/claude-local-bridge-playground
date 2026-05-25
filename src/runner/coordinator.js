@@ -13,6 +13,63 @@ const { compileSpec } = require('./coordinator-spec-compiler');
 
 const PHASES = Object.freeze(['research', 'synthesize', 'execute', 'verify']);
 
+/**
+ * D1: Group a phasePlan by dependency-free batches using Kahn-style topological
+ * sort. Returns an array of batches (arrays of node ids); each batch can run
+ * concurrently because every node in it has all its dependencies resolved by
+ * earlier batches.
+ *
+ * Throws if the graph has a cycle or references a missing dep — fail loud so
+ * malformed specs don't silently serialize.
+ */
+function groupPhasePlanByDeps(phasePlan) {
+  if (!Array.isArray(phasePlan) || phasePlan.length === 0) return [];
+  const byId = new Map();
+  for (const p of phasePlan) {
+    if (!p || !p.id) throw new Error('phasePlan node missing id');
+    if (byId.has(p.id)) throw new Error('phasePlan duplicate id: ' + p.id);
+    byId.set(p.id, { id: p.id, deps: Array.isArray(p.deps) ? p.deps.slice() : [], _remaining: 0 });
+  }
+  for (const node of byId.values()) {
+    for (const d of node.deps) {
+      if (!byId.has(d)) throw new Error('phasePlan missing dep: ' + d + ' (required by ' + node.id + ')');
+    }
+    node._remaining = node.deps.length;
+  }
+  const batches = [];
+  const done = new Set();
+  while (done.size < byId.size) {
+    const ready = [];
+    for (const node of byId.values()) {
+      if (done.has(node.id)) continue;
+      if (node._remaining === 0) ready.push(node.id);
+    }
+    if (ready.length === 0) throw new Error('phasePlan cycle detected; remaining: ' + (byId.size - done.size));
+    batches.push(ready);
+    for (const id of ready) done.add(id);
+    for (const node of byId.values()) {
+      if (done.has(node.id)) continue;
+      node._remaining = node.deps.filter((d) => !done.has(d)).length;
+    }
+  }
+  return batches;
+}
+
+/**
+ * Run a phasePlan via groupPhasePlanByDeps; each batch runs concurrently via
+ * Promise.all. `runFn(id)` is awaited for every node in a batch before
+ * moving to the next batch.
+ */
+async function runPhasePlan(phasePlan, runFn) {
+  const batches = groupPhasePlanByDeps(phasePlan);
+  const results = new Map();
+  for (const batch of batches) {
+    const batchResults = await Promise.all(batch.map((id) => Promise.resolve().then(() => runFn(id))));
+    for (let i = 0; i < batch.length; i++) results.set(batch[i], batchResults[i]);
+  }
+  return results;
+}
+
 class Coordinator {
   constructor(options = {}) {
     this.eventBus = options.eventBus || createEventBus({ emitStdout: options.streamEvents });
@@ -184,4 +241,6 @@ module.exports = {
   PHASES,
   Coordinator,
   synthesizeSpec,
+  groupPhasePlanByDeps,
+  runPhasePlan,
 };

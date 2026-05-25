@@ -53,6 +53,36 @@ describe('loadMessagesFromTranscript', () => {
     assert.equal(messages[0].role, 'user');
   });
 
+  it('respects ledgerCursor early-termination cap (C3)', () => {
+    const filePath = path.join(tmpDir, 'cursor-cap.jsonl');
+    const lines = [];
+    lines.push('{"type":"user_prompt","text":"start"}');
+    for (let i = 1; i <= 50; i++) {
+      lines.push('{"type":"tool_result","step":' + i + ',"ok":true,"toolUseId":"tu' + i + '","text":"r' + i + '"}');
+    }
+    fs.writeFileSync(filePath, lines.join('\n'));
+    const full = loadMessagesFromTranscript(filePath);
+    const capped = loadMessagesFromTranscript(filePath, { ledgerCursor: { seq: 2 } });
+    assert.ok(full.length > capped.length, 'cursor cap stops early (full=' + full.length + ', capped=' + capped.length + ')');
+    assert.ok(capped.length >= 1, 'still loads at least the initial user_prompt');
+  });
+
+  it('falls back to full read when cursor is missing or invalid (C3)', () => {
+    const filePath = path.join(tmpDir, 'cursor-bad.jsonl');
+    fs.writeFileSync(
+      filePath,
+      [
+        '{"type":"user_prompt","text":"hi"}',
+        '{"type":"assistant","step":1,"content":[{"type":"text","text":"ack"}]}',
+      ].join('\n'),
+    );
+    const a = loadMessagesFromTranscript(filePath, { ledgerCursor: null });
+    const b = loadMessagesFromTranscript(filePath, { ledgerCursor: { /* no seq */ } });
+    const c = loadMessagesFromTranscript(filePath);
+    assert.deepEqual(a, c);
+    assert.deepEqual(b, c);
+  });
+
   it('strips final assistant turn for resume (leaves last user message)', () => {
     const filePath = path.join(tmpDir, 'last-user.jsonl');
     const lines = [

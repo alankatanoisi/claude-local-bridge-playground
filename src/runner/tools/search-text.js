@@ -11,6 +11,8 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { BLOCKED_DIRS } = require('../permissions');
+const safety = require('../safety');
+const searchCache = require('./_search-cache');
 
 const MAX_OUTPUT_LINES = 200;
 
@@ -134,6 +136,19 @@ function execute(args, ctx) {
     return { ok: false, text: 'Missing pattern argument.' };
   }
 
+  // E3: cache by (pattern, rootRealpath). Coarse invalidation on any write
+  // inside or above the root via tool-registry post-write hook.
+  let rootRealpath = targetDir;
+  try {
+    rootRealpath = safety.cachedRealpathSync(ctx, targetDir);
+  } catch {
+    // fall back to non-realpath key; correctness preserved
+  }
+  const cached = searchCache.get(pattern, rootRealpath);
+  if (cached) {
+    return { ...cached, _fromCache: true };
+  }
+
   let raw = '';
   let lastErr = null;
 
@@ -166,25 +181,28 @@ function execute(args, ctx) {
     }
   }
 
+  let result;
   if (!raw) {
     if (lastErr) {
-      return { ok: false, text: 'Error: ' + lastErr.message };
+      result = { ok: false, text: 'Error: ' + lastErr.message };
+    } else {
+      result = { ok: true, text: 'No matches found.' };
     }
-    return { ok: true, text: 'No matches found.' };
+  } else if (raw.trim().length === 0) {
+    result = { ok: true, text: 'No matches found.' };
+  } else {
+    const lines = raw.split('\n');
+    if (lines.length > MAX_OUTPUT_LINES) {
+      result = {
+        ok: true,
+        text: lines.slice(0, MAX_OUTPUT_LINES).join('\n') + '\n... (truncated by max output lines)',
+      };
+    } else {
+      result = { ok: true, text: raw };
+    }
   }
-
-  if (raw.trim().length === 0) {
-    return { ok: true, text: 'No matches found.' };
-  }
-
-  const lines = raw.split('\n');
-  if (lines.length > MAX_OUTPUT_LINES) {
-    return {
-      ok: true,
-      text: lines.slice(0, MAX_OUTPUT_LINES).join('\n') + '\n... (truncated by max output lines)',
-    };
-  }
-  return { ok: true, text: raw };
+  if (result.ok) searchCache.set(pattern, rootRealpath, result);
+  return result;
 }
 
 module.exports = { definition, execute };

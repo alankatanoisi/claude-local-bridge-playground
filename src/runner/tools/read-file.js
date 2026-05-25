@@ -15,6 +15,10 @@ const MAX_BYTES_DEFAULT = 50000;
 const MAX_LINES_DEFAULT = 1000;
 const MAX_BYTES_HARD_CAP = 1000000;
 const MAX_LINES_HARD_CAP = Math.floor(MAX_BYTES_HARD_CAP / 80);
+// B4: above this threshold, return a streaming result so the runner can
+// emit incremental `tool_result_chunk` events. The final text is still
+// assembled in tool-registry.runAndScrub for transcript + API payload.
+const STREAM_THRESHOLD_BYTES = 100_000;
 
 function getLimit(value, fallback, hardCap) {
   if (!Number.isFinite(value) || value <= 0) return fallback;
@@ -30,6 +34,13 @@ function readPrefix(target, byteLimit) {
     return { bytesRead, text: buffer.subarray(0, bytesRead).toString('utf8') };
   } finally {
     fs.closeSync(fd);
+  }
+}
+
+async function* streamPrefix(target, byteLimit) {
+  const stream = fs.createReadStream(target, { end: byteLimit - 1, encoding: 'utf8' });
+  for await (const chunk of stream) {
+    yield chunk;
   }
 }
 
@@ -87,7 +98,20 @@ function execute(args, ctx) {
       bytesRead = slice.length;
       text = slice.toString('utf8');
     } else {
-      const fresh = readPrefix(target, Math.min(stats.size, maxBytes));
+      const byteLimit = Math.min(stats.size, maxBytes);
+      // B4: stream when the read is large enough to benefit from chunked
+      // emission. tool-registry.runAndScrub coalesces the stream into the
+      // final text while applying the secret scrubber across chunk
+      // boundaries.
+      if (byteLimit > STREAM_THRESHOLD_BYTES) {
+        return {
+          ok: true,
+          isStreaming: true,
+          stream: streamPrefix(target, byteLimit),
+          bytes: stats.size,
+        };
+      }
+      const fresh = readPrefix(target, byteLimit);
       bytesRead = fresh.bytesRead;
       text = fresh.text;
     }

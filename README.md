@@ -150,15 +150,15 @@ The runner is an experimental local coding-agent loop that uses this bridge as i
 folder that contains `bin/local-bridge-runner.js`:
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js "List the files in this repo and summarize what it does."
 ```
 
-To test a different local folder, keep running the runner from this repo and point the tools at the other project with
+To test a different local folder, keep running the runner from the **playground** repo and point the tools at the other project with
 `--cwd`:
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   --verbose \
@@ -213,14 +213,61 @@ After each run, the runner writes a searchable archive under `~/.bridge-runner/a
 - **Import old logs:** `node bin/local-bridge-archive.js ingest-legacy`
 - **Disable:** `--no-archive` or `BRIDGE_RUNNER_ARCHIVE=0`
 
-See [lab-notes/RUNNER_ARCHIVE.md](./lab-notes/RUNNER_ARCHIVE.md) for the full layout. Complementary perf observability: [lab-notes/PERF_PARITY_HANDOFF.md](./lab-notes/PERF_PARITY_HANDOFF.md).
+See [lab-notes/RUNNER_ARCHIVE.md](./lab-notes/RUNNER_ARCHIVE.md) for the full layout. Complementary perf observability: [lab-notes/PERF_PARITY_HANDOFF.md](./lab-notes/PERF_PARITY_HANDOFF.md) and [lab-notes/PERF_CONTINUATION.md](./lab-notes/PERF_CONTINUATION.md) (PR #1 perf pack).
 
 ### Runner perf parity (prompt cache, file cache, shell)
 
-- **Prompt cache:** Automatic on every model request (system + tools + stable message prefix breakpoints).
+**Automatic on every run (no extra flags):**
+
+- **Prompt cache:** Up to four Anthropic breakpoints (system, tools, stable transcript prefix, plus a session-stable repo-context block with CLAUDE.md, git HEAD, workspace fingerprint, and repo map).
 - **File cache:** In-memory LRU for `read_file` (invalidates on file change).
-- **Persistent shell:** Opt-in only — `BRIDGE_RUNNER_PERSISTENT_SHELL=1` (default stays spawn-per-command).
-- **Bench:** `node --require ./test/setup.js test/runner/bench/turn-latency.bench.js`
+- **Search cache:** Repeat greps cached until a write under that root invalidates them.
+- **Permission caches:** Realpath and full allow/deny decisions cached per session (`ask` is never cached).
+- **Parallel writes:** With `--accept-edits`, disjoint paths in one turn may run concurrently; ledger and transcript order stay serial.
+- **Large reads:** Big cold `read_file` results stream through a secret scrubber (10 MB cap).
+- **Summarization:** Tool output over 64 KB is shortened after scrubbing (tunable; see env table below).
+- **Compaction:** Cost-aware stage drops stale read results superseded by later writes.
+- **Session I/O:** Debounced `.state.json` saves; ledger cursor speeds resume helpers.
+
+**Opt-in:**
+
+- **Persistent shell:** `BRIDGE_RUNNER_PERSISTENT_SHELL=1` (default stays spawn-per-command).
+
+**Infrastructure only (modules + tests; not wired into the main loop yet):**
+
+Setting these env vars alone does **not** change normal runs until follow-up wiring lands. See [lab-notes/PERF_CONTINUATION.md](./lab-notes/PERF_CONTINUATION.md).
+
+- Speculative read prefetch (`BRIDGE_RUNNER_PREFETCH`)
+- Auto-run tests after writes (`BRIDGE_RUNNER_TEST_WATCH`)
+- Differential CLAUDE.md cache updates (`instruction-delta.js`)
+- Streaming `write_file` input to disk (`streaming-write.js`)
+- General subprocess pool (`subprocess-pool.js`)
+
+**Environment variables:**
+
+| Variable                             | Default | Active in runs? | Plain meaning                                        |
+| ------------------------------------ | ------- | --------------- | ---------------------------------------------------- |
+| `BRIDGE_RUNNER_SESSION_DEBOUNCE_MS`  | `75`    | Yes             | Coalesce session file writes; `0` = sync every touch |
+| `BRIDGE_RUNNER_SUMMARIZE_THRESHOLD`  | `64000` | Yes             | Auto-shorten huge tool output after scrub; `0` = off |
+| `BRIDGE_RUNNER_PERSISTENT_SHELL`     | off     | Yes if `1`      | Reuse one bash process across calls                  |
+| `BRIDGE_BENCH_LIVE_MAX_USD`          | `0.50`  | Bench only      | Spend cap when using `--live` on the bench harness   |
+| `BRIDGE_RUNNER_PREFETCH`             | off     | No (infra)      | Reserved for future prefetch wiring                  |
+| `BRIDGE_RUNNER_TEST_WATCH`           | off     | No (infra)      | Reserved for future post-write test hook             |
+| `BRIDGE_RUNNER_TEST_CMD`             | —       | No (infra)      | Override test command when watcher is wired          |
+| `BRIDGE_RUNNER_TEST_WATCH_BUDGET_MS` | `30000` | No (infra)      | Timeout for future test watcher                      |
+
+**Bench:**
+
+```bash
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
+
+# Stubbed (CI-safe)
+node --require ./test/setup.js test/runner/bench/turn-latency.bench.js --runs 50 --steps 8 --json
+
+# Live (costs real money — bridge must be up; do NOT run in CI)
+BRIDGE_BENCH_LIVE_MAX_USD=0.50 node --require ./test/setup.js test/runner/bench/turn-latency.bench.js \
+  --live --model claude-sonnet-4-6 --runs 12
+```
 
 ## Using with third-party OpenAI-compatible tools
 
