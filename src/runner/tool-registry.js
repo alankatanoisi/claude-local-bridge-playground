@@ -15,6 +15,7 @@ const safety = require('./safety');
 const { normalizeToolResult, resolveToolName } = require('./tool-envelope');
 const { invalidateContextCache } = require('./context-budget');
 const { maybeSummarize } = require('./tool-result-summarizers');
+const searchCache = require('./tools/_search-cache');
 
 const TOOLS = {
   list_files: listFiles,
@@ -161,7 +162,12 @@ async function execute(toolName, args, ctx, toolUseId) {
     const result = await runAndScrub(tool, args, ctx, toolUseId);
     if (WRITE_TOOLS.has(canonical) && result.ok) {
       invalidateContextCache();
-      if (args && args.path) safety.invalidateRealpathCache(ctx, [args.path]);
+      if (args && args.path) {
+        safety.invalidateRealpathCache(ctx, [args.path]);
+        const path = require('path');
+        const absPath = path.isAbsolute(args.path) ? args.path : path.resolve(ctx.cwdRealpath || ctx.cwd || process.cwd(), args.path);
+        searchCache.invalidateForPath(absPath);
+      }
     }
     if (resolved.aliasUsed) {
       result.envelope.aliasUsed = resolved.aliasUsed;
@@ -194,7 +200,12 @@ async function executeForce(toolName, args, ctx, toolUseId) {
     const result = await runAndScrub(tool, args, ctx, toolUseId);
     if (WRITE_TOOLS.has(canonical) && result.ok) {
       invalidateContextCache();
-      if (args && args.path) safety.invalidateRealpathCache(ctx, [args.path]);
+      if (args && args.path) {
+        safety.invalidateRealpathCache(ctx, [args.path]);
+        const path = require('path');
+        const absPath = path.isAbsolute(args.path) ? args.path : path.resolve(ctx.cwdRealpath || ctx.cwd || process.cwd(), args.path);
+        searchCache.invalidateForPath(absPath);
+      }
     }
     result.permission = perm;
     return result;
