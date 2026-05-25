@@ -4,6 +4,9 @@
  * context-builder.js — Builds the message payload for the Anthropic API.
  */
 
+const fs = require('fs');
+const path = require('path');
+const { execFileSync } = require('child_process');
 const { loadInstructionMemory } = require('./memory/instruction-memory');
 const { buildSkillsIndex } = require('./skills/skills-index');
 const { buildToolSummarySection, capSkillListing, applyContextBudget } = require('./context-budget');
@@ -70,6 +73,50 @@ function buildSystem(ctx, options = {}) {
   ]);
 }
 
+/**
+ * Build a session-stable "repository context" string. Computed once at session
+ * start and prepended as its own cache_control block so it occupies the
+ * fourth Anthropic cache breakpoint and lives the whole session.
+ *
+ * Returns null when no useful repo context is available (no cwd, no CLAUDE.md,
+ * no git) so the caller falls back to the existing 3-breakpoint layout.
+ */
+function buildRepoContextBlock(ctx) {
+  if (!ctx || !ctx.cwd) return null;
+  const parts = [];
+  let hasContent = false;
+
+  try {
+    const claudePath = path.join(ctx.cwd, 'CLAUDE.md');
+    if (fs.existsSync(claudePath)) {
+      const content = fs.readFileSync(claudePath, 'utf8');
+      parts.push('### CLAUDE.md\n' + content.trim());
+      hasContent = true;
+    }
+  } catch {
+    // ignore unreadable CLAUDE.md
+  }
+
+  const fpLines = [];
+  fpLines.push('cwd: ' + (ctx.cwdRealpath || ctx.cwd));
+  try {
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ctx.cwd, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+    if (head) {
+      fpLines.push('git_head: ' + head);
+      hasContent = true;
+    }
+  } catch {
+    // not a git repo or git missing — fall through to cwd-only fingerprint
+  }
+  if (ctx.instructionHash) fpLines.push('instruction_hash: ' + ctx.instructionHash);
+  parts.push('### Workspace fingerprint\n' + fpLines.join('\n'));
+
+  if (!hasContent) return null;
+  return '## Repository context (cached for the session)\n\n' + parts.join('\n\n');
+}
+
 function buildUserMessage(text, stdinText) {
   let content = text;
   if (stdinText) {
@@ -91,4 +138,10 @@ function buildToolResultMessage(toolUseId, resultText) {
   };
 }
 
-module.exports = { buildSystem, buildUserMessage, buildToolResultMessage, buildFullToolSection };
+module.exports = {
+  buildSystem,
+  buildUserMessage,
+  buildToolResultMessage,
+  buildFullToolSection,
+  buildRepoContextBlock,
+};

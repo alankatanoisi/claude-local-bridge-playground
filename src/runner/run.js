@@ -1,7 +1,7 @@
 'use strict';
 
 const fs = require('fs');
-const { buildSystem, buildUserMessage } = require('./context-builder');
+const { buildSystem, buildUserMessage, buildRepoContextBlock } = require('./context-builder');
 const modelClient = require('./model-client');
 const { getDefinitions, execute, executeForce, executeReadOnlyBatch } = require('./tool-registry');
 const { Transcript } = require('./transcript');
@@ -84,11 +84,26 @@ function makeOutput(outputFormat) {
 //      is the freshly-appended turn that would invalidate the cache).
 //
 // We never mutate the inputs: only the touched message is shallow-cloned.
-function applyCacheControlBudget(system, tools, messages) {
-  const cachedSystem =
-    typeof system === 'string'
-      ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
-      : markLastBlock(system);
+// E1: optional repoContextBlock string occupies the fourth cache breakpoint,
+// prepended to the system message and marked separately from the last-block
+// breakpoint that already lived there.
+function applyCacheControlBudget(system, tools, messages, repoContextBlock) {
+  let cachedSystem;
+  if (repoContextBlock) {
+    const repoBlock = { type: 'text', text: repoContextBlock, cache_control: { type: 'ephemeral' } };
+    if (typeof system === 'string') {
+      cachedSystem = [repoBlock, { type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
+    } else if (Array.isArray(system)) {
+      cachedSystem = [repoBlock, ...markLastBlock(system)];
+    } else {
+      cachedSystem = [repoBlock];
+    }
+  } else {
+    cachedSystem =
+      typeof system === 'string'
+        ? [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }]
+        : markLastBlock(system);
+  }
 
   const cachedTools =
     Array.isArray(tools) && tools.length > 0
@@ -97,7 +112,33 @@ function applyCacheControlBudget(system, tools, messages) {
 
   const cachedMessages = Array.isArray(messages) ? markStableTranscriptPrefix(messages) : messages;
 
+  // Anthropic allows up to 4 cache_control markers per request. Throw loud
+  // rather than rely on silent server-side eviction if a future change adds
+  // a fifth breakpoint without demoting one.
+  const used = _countCacheControlBreakpoints(cachedSystem, cachedTools, cachedMessages);
+  if (used > 4) {
+    throw new Error('applyCacheControlBudget: ' + used + ' cache_control breakpoints exceeds Anthropic limit of 4');
+  }
+
   return { cachedSystem, cachedTools, cachedMessages };
+}
+
+function _countCacheControlBreakpoints(cachedSystem, cachedTools, cachedMessages) {
+  let n = 0;
+  if (Array.isArray(cachedSystem)) {
+    for (const b of cachedSystem) if (b && b.cache_control) n++;
+  }
+  if (Array.isArray(cachedTools)) {
+    for (const t of cachedTools) if (t && t.cache_control) n++;
+  }
+  if (Array.isArray(cachedMessages)) {
+    for (const msg of cachedMessages) {
+      if (Array.isArray(msg.content)) {
+        for (const b of msg.content) if (b && b.cache_control) n++;
+      }
+    }
+  }
+  return n;
 }
 
 function markLastBlock(blocks) {
@@ -469,6 +510,9 @@ async function run(options) {
 
   const tools = getDefinitions(ctx);
   const system = systemPromptOverride || buildSystem(ctx, { progressive: true });
+  // E1: session-stable repo-context block; computed once, reused as the
+  // fourth cache_control breakpoint for the lifetime of this run.
+  const repoContextBlock = buildRepoContextBlock(ctx);
   const steps = maxSteps || DEFAULT_MAX_STEPS;
   let totalUsage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
   let consecutiveToolFailures = 0;
@@ -556,7 +600,12 @@ async function run(options) {
     messages = compaction.messages;
     const systemForRequest = compaction.system;
 
-    const { cachedSystem, cachedTools, cachedMessages } = applyCacheControlBudget(systemForRequest, tools, messages);
+    const { cachedSystem, cachedTools, cachedMessages } = applyCacheControlBudget(
+      systemForRequest,
+      tools,
+      messages,
+      repoContextBlock,
+    );
 
     const advisoryTokens = estimateTokensAdvisory(messages);
     if (maxContextTokens && advisoryTokens > maxContextTokens && !quiet) {
