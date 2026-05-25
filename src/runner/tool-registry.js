@@ -1,5 +1,55 @@
 'use strict';
 
+/**
+ * tool-registry.js — Canonical tool dispatcher.
+ *
+ * # Tool contract
+ *
+ * Every tool module exports `{ definition(), execute(args, ctx) }`. The
+ * `execute` function may return:
+ *
+ *   - a synchronous `ToolResult`
+ *   - a `Promise<ToolResult>` — awaited transparently by `runAndScrub`
+ *   - a streaming `ToolResult` shaped as
+ *       { ok, isStreaming: true, stream: AsyncIterable<string>, ... }
+ *     which `runAndScrub` coalesces through `safety.makeStreamingScrubber()`
+ *     into a final `text` while optionally forwarding chunks to
+ *     `ctx.onToolChunk({ toolUseId, chunk })`.
+ *
+ * # ToolResult
+ *
+ * @typedef {Object} ToolResult
+ * @property {boolean} ok — whether the tool succeeded; ok:false short-circuits
+ *   the runner's success path and surfaces `text` as the error message.
+ * @property {string} [text] — primary output. Gets secret-scrubbed in
+ *   runAndScrub (or coalesced from `stream`), then optionally summarized by
+ *   tool-result-summarizers, then attached to the envelope.
+ * @property {number} [bytes] — size signal for logs/bench.
+ * @property {boolean} [isStreaming] — when true, `stream` is consumed and
+ *   `text` is reassembled by runAndScrub.
+ * @property {AsyncIterable<string>} [stream] — required when isStreaming.
+ * @property {boolean} [needsConfirmation] — caller must ask the user.
+ * @property {string} [proposedAction] — human-readable action description
+ *   shown alongside needsConfirmation.
+ * @property {object} [permission] — populated by execute/executeForce with
+ *   the permission decision; tools should not set this themselves.
+ *
+ * # Dispatcher entry points
+ *
+ *   - `execute(toolName, args, ctx, toolUseId): Promise<ToolResult>`
+ *     Runs permissions.check; on `ask` returns a needsConfirmation result;
+ *     on `deny` returns ok:false; otherwise runs the tool.
+ *   - `executeForce(toolName, args, ctx, toolUseId): Promise<ToolResult>`
+ *     Same shape, but permissions.check is invoked with acceptEdits:true.
+ *     Used after the runner has resolved a confirmation, and by B3's
+ *     parallel pre-pass.
+ *   - `executeReadOnlyBatch(toolUses, ctx): Promise<Array<{toolUse, result}>>`
+ *     Promise.allSettled fan-out for read-only tools; failures get a
+ *     "stale state" note appended to surviving siblings.
+ *
+ * All three return Promises. Synchronous callers should `await`.
+ */
+
 const listFiles = require('./tools/list-files');
 const readFile = require('./tools/read-file');
 const searchText = require('./tools/search-text');
