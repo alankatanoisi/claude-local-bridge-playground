@@ -10,14 +10,16 @@ This note applies only to the **playground** folder:
 
 Playground now uses its **own GitHub repository**. Canonical extension work stays in a separate repo.
 
-| Lane | Local folder | GitHub | Push branch |
-|------|--------------|--------|-------------|
-| **Playground** | `claude-local-bridge-playground` | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | **`main`** |
-| **Canonical** | `claude-local-bridge` | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge) | `codex/runner-clean-pr` |
+| Lane           | Local folder                     | GitHub                                                                                            | Push branch             |
+| -------------- | -------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------- |
+| **Playground** | `claude-local-bridge-playground` | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | **`main`**              |
+| **Canonical**  | `claude-local-bridge`            | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | `codex/runner-clean-pr` |
 
 `origin` in the playground folder should point at the **playground repo**. Optional read-only remote `canonical-archive` can fetch history from the old shared repo.
 
 ## Safe push workflow (Terminal)
+
+Run this from **Terminal** before pushing. It proves you are in the playground lane, not the canonical repo.
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge-playground"
@@ -26,13 +28,19 @@ pwd
 # Expected: .../claude-local-bridge-playground
 
 git branch --show-current
-# May show playground/local-runner-chaos locally; push maps to origin main
+# Expected: main (tracks origin/main)
+
+git remote -v
+# Expected: origin points to github.com/alankatanoisi/claude-local-bridge-playground.git
 
 git status --short
-git push -u origin HEAD:main
+# Expected: no unexpected source files. .DS_Store noise is okay to ignore.
+
+git pull --ff-only origin main
+git push origin main
 ```
 
-**Success looks like:** `main -> main` (or branch set to track `origin/main`) with no `fatal:` errors.
+**Success looks like:** `main -> main`, `Everything up-to-date`, or branch set to track `origin/main` with no `fatal:` errors.
 
 ## Pull requests
 
@@ -54,7 +62,7 @@ If remotes need repair:
 cd "/Users/alanman/Developer/claude-local-bridge-playground"
 git remote rename origin canonical-archive   # if origin still points at old repo
 git remote add origin https://github.com/alankatanoisi/claude-local-bridge-playground.git
-git push -u origin HEAD:main
+git push -u origin main
 ```
 
 ## Related docs

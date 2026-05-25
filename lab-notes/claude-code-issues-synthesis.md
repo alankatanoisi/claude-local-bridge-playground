@@ -8,11 +8,11 @@
 
 **Evidence legend (used throughout):**
 
-| Tag | Meaning |
-|-----|---------|
-| **Confirmed** | Repro steps, logs, maintainer/team quotes, or multiple independent reporters in the thread |
-| **Anecdotal** | Plausible user report without full repro or single reporter |
-| **Speculation** | Inference, product theory, or cross-issue pattern not verified in thread |
+| Tag             | Meaning                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| **Confirmed**   | Repro steps, logs, maintainer/team quotes, or multiple independent reporters in the thread |
+| **Anecdotal**   | Plausible user report without full repro or single reporter                                |
+| **Speculation** | Inference, product theory, or cross-issue pattern not verified in thread                   |
 
 ---
 
@@ -34,12 +34,12 @@ Three themes matter for Alan’s playground:
 
 ## 2. Issue landscape
 
-| Metric | Value | Source |
-|--------|-------|--------|
-| Open issues | **10,658** | GraphQL `repository.issues(states: OPEN)` |
-| Closed issues | **48,680** | GraphQL |
+| Metric                   | Value      | Source                                                              |
+| ------------------------ | ---------- | ------------------------------------------------------------------- |
+| Open issues              | **10,658** | GraphQL `repository.issues(states: OPEN)`                           |
+| Closed issues            | **48,680** | GraphQL                                                             |
 | REST `open_issues_count` | **11,203** | `gh api repos/anthropics/claude-code` (slight count lag vs GraphQL) |
-| Repo last pushed | 2026-05-23 | GitHub API |
+| Repo last pushed         | 2026-05-23 | GitHub API                                                          |
 
 **Hot labels (sample from `gh label list`):**
 
@@ -59,13 +59,13 @@ Three themes matter for Alan’s playground:
 
 ### Complaints and privacy
 
-| Topic | Summary | Evidence |
-|-------|---------|----------|
-| Opt-out ≠ analytics-only | `DISABLE_TELEMETRY=1` disables Statsig **and** experiment gate fetch; behavior falls back to **built-in defaults** | **Confirmed** — docs request + Boris Cherny quote cited in [#47558](https://github.com/anthropics/claude-code/issues/47558) |
-| Remote Control blocked | Same flag yields misleading “not yet enabled for your account” | **Confirmed** — repro in [#29580](https://github.com/anthropics/claude-code/issues/29580) (13 comments) |
-| `/schedule` hidden | Disabling telemetry hides routines; docs say “Unknown command” but UI omits command | **Confirmed** — root cause claimed in [#60189](https://github.com/anthropics/claude-code/issues/60189) |
-| Enterprise metrics vs opt-out | Docs unclear whether opt-out affects org usage dashboards | **Anecdotal** — [#53075](https://github.com/anthropics/claude-code/issues/53075) |
-| Cowork metrics | Docs say “events only” but metrics still emit | **Confirmed** — [#56645](https://github.com/anthropics/claude-code/issues/56645) |
+| Topic                         | Summary                                                                                                            | Evidence                                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| Opt-out ≠ analytics-only      | `DISABLE_TELEMETRY=1` disables Statsig **and** experiment gate fetch; behavior falls back to **built-in defaults** | **Confirmed** — docs request + Boris Cherny quote cited in [#47558](https://github.com/anthropics/claude-code/issues/47558) |
+| Remote Control blocked        | Same flag yields misleading “not yet enabled for your account”                                                     | **Confirmed** — repro in [#29580](https://github.com/anthropics/claude-code/issues/29580) (13 comments)                     |
+| `/schedule` hidden            | Disabling telemetry hides routines; docs say “Unknown command” but UI omits command                                | **Confirmed** — root cause claimed in [#60189](https://github.com/anthropics/claude-code/issues/60189)                      |
+| Enterprise metrics vs opt-out | Docs unclear whether opt-out affects org usage dashboards                                                          | **Anecdotal** — [#53075](https://github.com/anthropics/claude-code/issues/53075)                                            |
+| Cowork metrics                | Docs say “events only” but metrics still emit                                                                      | **Confirmed** — [#56645](https://github.com/anthropics/claude-code/issues/56645)                                            |
 
 ### Volume, failures, and coupling
 
@@ -98,16 +98,16 @@ Three themes matter for Alan’s playground:
 
 ### Core failure modes
 
-| Pattern | Representative issues | Evidence |
-|---------|----------------------|----------|
-| Early 401 + refresh 400 | [#54443](https://github.com/anthropics/claude-code/issues/54443) | **Confirmed** — UTC timeline, two tmux sessions, `expiresAt` still future |
-| 401 auth loop (/login also 401) | [#58926](https://github.com/anthropics/claude-code/issues/58926) | **Anecdotal** — checklist filled; 0 comments at fetch time |
-| Sleep/wake → 401 until reboot | [#60104](https://github.com/anthropics/claude-code/issues/60104) | **Confirmed** — repro steps; persists after v2.1.137 Keychain fix |
-| Forced reauth after sleep | [#59937](https://github.com/anthropics/claude-code/issues/59937) | **Anecdotal** — Windows + VS Code |
-| Invalid bearer right after login | [#48996](https://github.com/anthropics/claude-code/issues/48996) | **Anecdotal** |
-| OAuth “is down” spikes | [#44264](https://github.com/anthropics/claude-code/issues/44264) | **Anecdotal** — incident-style reports |
-| Headless refresh blocked by WAF | [#47754](https://github.com/anthropics/claude-code/issues/47754) | **Confirmed** — has repro label |
-| Token refresh docs gap | [#52202](https://github.com/anthropics/claude-code/issues/52202) | docs enhancement |
+| Pattern                          | Representative issues                                            | Evidence                                                                  |
+| -------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Early 401 + refresh 400          | [#54443](https://github.com/anthropics/claude-code/issues/54443) | **Confirmed** — UTC timeline, two tmux sessions, `expiresAt` still future |
+| 401 auth loop (/login also 401)  | [#58926](https://github.com/anthropics/claude-code/issues/58926) | **Anecdotal** — checklist filled; 0 comments at fetch time                |
+| Sleep/wake → 401 until reboot    | [#60104](https://github.com/anthropics/claude-code/issues/60104) | **Confirmed** — repro steps; persists after v2.1.137 Keychain fix         |
+| Forced reauth after sleep        | [#59937](https://github.com/anthropics/claude-code/issues/59937) | **Anecdotal** — Windows + VS Code                                         |
+| Invalid bearer right after login | [#48996](https://github.com/anthropics/claude-code/issues/48996) | **Anecdotal**                                                             |
+| OAuth “is down” spikes           | [#44264](https://github.com/anthropics/claude-code/issues/44264) | **Anecdotal** — incident-style reports                                    |
+| Headless refresh blocked by WAF  | [#47754](https://github.com/anthropics/claude-code/issues/47754) | **Confirmed** — has repro label                                           |
+| Token refresh docs gap           | [#52202](https://github.com/anthropics/claude-code/issues/52202) | docs enhancement                                                          |
 
 ### Keychain and credential storage
 
@@ -133,16 +133,16 @@ Large open cluster: [#49043](https://github.com/anthropics/claude-code/issues/49
 
 ### Context loss and compaction
 
-| Issue | Takeaway | Evidence |
-|-------|----------|----------|
+| Issue                                                            | Takeaway                                                       | Evidence                                             |
+| ---------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------- |
 | [#50015](https://github.com/anthropics/claude-code/issues/50015) | Silent auto-compaction; model misreads summary as pending work | **Confirmed** — concrete `/coffee overnight` example |
-| [#60526](https://github.com/anthropics/claude-code/issues/60526) | Remote-control **task ID** not in compaction summary | **Confirmed** |
-| [#46663](https://github.com/anthropics/claude-code/issues/46663) | Compaction **deactivates plan mode** | **Confirmed** — `has repro` |
-| [#57486](https://github.com/anthropics/claude-code/issues/57486) | Memory not auto-consulted after compaction | **Anecdotal** — enhancement |
-| [#52146](https://github.com/anthropics/claude-code/issues/52146) | Resume loses prior history | **Anecdotal** |
-| [#33912](https://github.com/anthropics/claude-code/issues/33912) | `--resume` says no conversation though files exist | **Confirmed** — `has repro` |
-| [#48782](https://github.com/anthropics/claude-code/issues/48782) | Mass session JSONL deletion | **Anecdotal** — severe if true |
-| [#55042](https://github.com/anthropics/claude-code/issues/55042) | Read cache survives rewind → stale “unchanged” | **Confirmed** — `has repro` |
+| [#60526](https://github.com/anthropics/claude-code/issues/60526) | Remote-control **task ID** not in compaction summary           | **Confirmed**                                        |
+| [#46663](https://github.com/anthropics/claude-code/issues/46663) | Compaction **deactivates plan mode**                           | **Confirmed** — `has repro`                          |
+| [#57486](https://github.com/anthropics/claude-code/issues/57486) | Memory not auto-consulted after compaction                     | **Anecdotal** — enhancement                          |
+| [#52146](https://github.com/anthropics/claude-code/issues/52146) | Resume loses prior history                                     | **Anecdotal**                                        |
+| [#33912](https://github.com/anthropics/claude-code/issues/33912) | `--resume` says no conversation though files exist             | **Confirmed** — `has repro`                          |
+| [#48782](https://github.com/anthropics/claude-code/issues/48782) | Mass session JSONL deletion                                    | **Anecdotal** — severe if true                       |
+| [#55042](https://github.com/anthropics/claude-code/issues/55042) | Read cache survives rewind → stale “unchanged”                 | **Confirmed** — `has repro`                          |
 
 ### Tool failures and API contracts
 
@@ -233,18 +233,18 @@ Grounded in issues above; framed for **local lab**, not evasion.
 
 ## 8. Experiments to run in playground (safe stress tests)
 
-| # | Experiment | Failure mode targeted | Success criteria |
-|---|------------|----------------------|------------------|
-| 1 | **Dual-runner refresh race** — two processes, shared cred dir mock | [#54443](https://github.com/anthropics/claude-code/issues/54443) | One wins refresh; other backs off; no corrupt token file |
-| 2 | **Compact at 90% with ghost blocks** | [#50015](https://github.com/anthropics/claude-code/issues/50015) | User warning fires; tool_use ids stable in ledger |
-| 3 | **Inject fake “active remote task” then compact** | [#60526](https://github.com/anthropics/claude-code/issues/60526) | Task id recovers from ledger metadata |
-| 4 | **Post-compact safety re-read** | [#28469](https://github.com/anthropics/claude-code/issues/28469) | Deny matrix test still blocks `.env` after compact |
-| 5 | **stream-json 20-turn tool loop** | [#20508](https://github.com/anthropics/claude-code/issues/20508) | No duplicate tool_use ids in outbound API payload |
-| 6 | **Explorer subagent permission inherit** | [#61467](https://github.com/anthropics/claude-code/issues/61467) | Child cannot write when parent plan mode read-only |
-| 7 | **OTel doctor with broken endpoint** | [#46204](https://github.com/anthropics/claude-code/issues/46204) | Non-zero exit + stderr hint (not silent) |
-| 8 | **Simulate “tools registry empty”** | [#60489](https://github.com/anthropics/claude-code/issues/60489) | Runner stops with `degraded_upstream` stop_reason |
-| 9 | **Resume after synthetic hook reinjection** | [#34039](https://github.com/anthropics/claude-code/issues/34039) | Hook counts/idempotent SessionStart |
-| 10 | **Chaos permissions fuzz** (existing vision #12) | [#46444](https://github.com/anthropics/claude-code/issues/46444) | CI denies path escapes |
+| #   | Experiment                                                         | Failure mode targeted                                            | Success criteria                                         |
+| --- | ------------------------------------------------------------------ | ---------------------------------------------------------------- | -------------------------------------------------------- |
+| 1   | **Dual-runner refresh race** — two processes, shared cred dir mock | [#54443](https://github.com/anthropics/claude-code/issues/54443) | One wins refresh; other backs off; no corrupt token file |
+| 2   | **Compact at 90% with ghost blocks**                               | [#50015](https://github.com/anthropics/claude-code/issues/50015) | User warning fires; tool_use ids stable in ledger        |
+| 3   | **Inject fake “active remote task” then compact**                  | [#60526](https://github.com/anthropics/claude-code/issues/60526) | Task id recovers from ledger metadata                    |
+| 4   | **Post-compact safety re-read**                                    | [#28469](https://github.com/anthropics/claude-code/issues/28469) | Deny matrix test still blocks `.env` after compact       |
+| 5   | **stream-json 20-turn tool loop**                                  | [#20508](https://github.com/anthropics/claude-code/issues/20508) | No duplicate tool_use ids in outbound API payload        |
+| 6   | **Explorer subagent permission inherit**                           | [#61467](https://github.com/anthropics/claude-code/issues/61467) | Child cannot write when parent plan mode read-only       |
+| 7   | **OTel doctor with broken endpoint**                               | [#46204](https://github.com/anthropics/claude-code/issues/46204) | Non-zero exit + stderr hint (not silent)                 |
+| 8   | **Simulate “tools registry empty”**                                | [#60489](https://github.com/anthropics/claude-code/issues/60489) | Runner stops with `degraded_upstream` stop_reason        |
+| 9   | **Resume after synthetic hook reinjection**                        | [#34039](https://github.com/anthropics/claude-code/issues/34039) | Hook counts/idempotent SessionStart                      |
+| 10  | **Chaos permissions fuzz** (existing vision #12)                   | [#46444](https://github.com/anthropics/claude-code/issues/46444) | CI denies path escapes                                   |
 
 All experiments use **mock model client** or **read-only** prompts where possible — no bridge gateway required.
 
@@ -262,7 +262,7 @@ All experiments use **mock model client** or **read-only** prompts where possibl
 
 5. **Issue tracking:** Subscribe to a **GitHub label watch** (`area:core` + `regression`) or periodic `gh search` script in `scripts/`?
 
-6. **Promotion criteria:** Which harness fixes must pass in canonical `claude-local-bridge` before leaving `playground/local-runner-chaos`?
+6. **Promotion criteria:** Which harness fixes must pass before promoting anything out of playground `main`?
 
 7. **Model-quality reports:** Treat [#28469](https://github.com/anthropics/claude-code/issues/28469)-style complaints as **out of scope** for runner, or build **instruction adherence evals** in lab?
 
@@ -270,33 +270,33 @@ All experiments use **mock model client** or **read-only** prompts where possibl
 
 ## 10. Reference table — top relevant issues
 
-| # | Title | State | Link | One-line takeaway |
-|---|-------|-------|------|-------------------|
-| 54443 | OAuth refresh 400 after early 401; concurrent sessions | OPEN | [issue](https://github.com/anthropics/claude-code/issues/54443) | Refresh race + server early revoke — harness needs mutex + clear errors |
-| 60104 | macOS sleep/wake 401 until reboot | OPEN | [issue](https://github.com/anthropics/claude-code/issues/60104) | OS lifecycle breaks auth — don’t assume stable Keychain session |
-| 58926 | 401 auth loop; /login also 401 | OPEN | [issue](https://github.com/anthropics/claude-code/issues/58926) | Total auth deadlock — need hard reset path in harness |
-| 46204 | 3P OTel not initializing (silent) | OPEN | [issue](https://github.com/anthropics/claude-code/issues/46204) | Telemetry fails closed-silent — doctor command essential |
-| 58439 | OTEL hook events dropped before logger init | OPEN | [issue](https://github.com/anthropics/claude-code/issues/58439) | Startup race — buffer or delay hook telemetry |
-| 47558 | Docs: DISABLE_TELEMETRY gate side effects | OPEN | [issue](https://github.com/anthropics/claude-code/issues/47558) | Opt-out changes behavior, not just metrics |
-| 29580 | DISABLE_TELEMETRY breaks remote-control | OPEN | [issue](https://github.com/anthropics/claude-code/issues/29580) | Feature flags coupled to telemetry pipeline |
-| 60189 | Disabling telemetry hides /schedule | OPEN | [issue](https://github.com/anthropics/claude-code/issues/60189) | User-facing features hidden by telemetry off |
-| 50015 | Auto-compaction without warning (regression) | OPEN | [issue](https://github.com/anthropics/claude-code/issues/50015) | Warn + persist before lossy compact |
-| 60526 | RC task ID lost after compaction | OPEN | [issue](https://github.com/anthropics/claude-code/issues/60526) | Runtime state must survive compact |
-| 46663 | Compaction silently deactivates plan mode | OPEN | [issue](https://github.com/anthropics/claude-code/issues/46663) | Mode flags are harness state, not chat text |
-| 28469 | Opus 4.6 regression: loops, memory loss | OPEN | [issue](https://github.com/anthropics/claude-code/issues/28469) | Post-compact rule loss is safety-critical |
-| 60489 | Core tools missing during backend degradation | OPEN | [issue](https://github.com/anthropics/claude-code/issues/60489) | Show degradation banner; don’t spin silently |
-| 18131 | tool concurrency 400 in `-p` only | OPEN | [issue](https://github.com/anthropics/claude-code/issues/18131) | Headless path differs — separate tests |
-| 20508 | duplicate tool_use ids with `-p` | OPEN | [issue](https://github.com/anthropics/claude-code/issues/20508) | ID generation must be harness-owned |
-| 51288 | Subagent permissions don’t propagate | OPEN | [issue](https://github.com/anthropics/claude-code/issues/51288) | Child processes need parent policy copy |
-| 61467 | Subagents skip .claude/rules | OPEN | [issue](https://github.com/anthropics/claude-code/issues/61467) | Rules injection mandatory for children |
-| 52146 | Resumed session loses history | OPEN | [issue](https://github.com/anthropics/claude-code/issues/52146) | Transcript ≠ resume state |
-| 33912 | --resume: no conversation found | OPEN | [issue](https://github.com/anthropics/claude-code/issues/33912) | File existence insufficient for resume |
-| 53501 | Remote daemon codesign breaks Keychain ACLs | OPEN | [issue](https://github.com/anthropics/claude-code/issues/53501) | Auto-update can break credential access |
-| 59460 | MCP OAuth re-runs DCR, orphans refresh | OPEN | [issue](https://github.com/anthropics/claude-code/issues/59460) | Stable client_id per server |
-| 47754 | WAF blocks OAuth refresh on headless Linux | OPEN | [issue](https://github.com/anthropics/claude-code/issues/47754) | CI/remote runners need refresh strategy |
-| 53638 | Desktop silently uses project API keys | OPEN | [issue](https://github.com/anthropics/claude-code/issues/53638) | Log which billing path is active |
-| 54817 | 4.7 regression: context loss | OPEN | [issue](https://github.com/anthropics/claude-code/issues/54817) | Compaction + model change = double risk |
-| 61068 | Resume overwrites 1M model setting | OPEN | [issue](https://github.com/anthropics/claude-code/issues/61068) | Resume must not clobber config |
+| #     | Title                                                  | State | Link                                                            | One-line takeaway                                                       |
+| ----- | ------------------------------------------------------ | ----- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 54443 | OAuth refresh 400 after early 401; concurrent sessions | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/54443) | Refresh race + server early revoke — harness needs mutex + clear errors |
+| 60104 | macOS sleep/wake 401 until reboot                      | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/60104) | OS lifecycle breaks auth — don’t assume stable Keychain session         |
+| 58926 | 401 auth loop; /login also 401                         | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/58926) | Total auth deadlock — need hard reset path in harness                   |
+| 46204 | 3P OTel not initializing (silent)                      | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/46204) | Telemetry fails closed-silent — doctor command essential                |
+| 58439 | OTEL hook events dropped before logger init            | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/58439) | Startup race — buffer or delay hook telemetry                           |
+| 47558 | Docs: DISABLE_TELEMETRY gate side effects              | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/47558) | Opt-out changes behavior, not just metrics                              |
+| 29580 | DISABLE_TELEMETRY breaks remote-control                | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/29580) | Feature flags coupled to telemetry pipeline                             |
+| 60189 | Disabling telemetry hides /schedule                    | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/60189) | User-facing features hidden by telemetry off                            |
+| 50015 | Auto-compaction without warning (regression)           | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/50015) | Warn + persist before lossy compact                                     |
+| 60526 | RC task ID lost after compaction                       | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/60526) | Runtime state must survive compact                                      |
+| 46663 | Compaction silently deactivates plan mode              | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/46663) | Mode flags are harness state, not chat text                             |
+| 28469 | Opus 4.6 regression: loops, memory loss                | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/28469) | Post-compact rule loss is safety-critical                               |
+| 60489 | Core tools missing during backend degradation          | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/60489) | Show degradation banner; don’t spin silently                            |
+| 18131 | tool concurrency 400 in `-p` only                      | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/18131) | Headless path differs — separate tests                                  |
+| 20508 | duplicate tool_use ids with `-p`                       | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/20508) | ID generation must be harness-owned                                     |
+| 51288 | Subagent permissions don’t propagate                   | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/51288) | Child processes need parent policy copy                                 |
+| 61467 | Subagents skip .claude/rules                           | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/61467) | Rules injection mandatory for children                                  |
+| 52146 | Resumed session loses history                          | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/52146) | Transcript ≠ resume state                                               |
+| 33912 | --resume: no conversation found                        | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/33912) | File existence insufficient for resume                                  |
+| 53501 | Remote daemon codesign breaks Keychain ACLs            | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/53501) | Auto-update can break credential access                                 |
+| 59460 | MCP OAuth re-runs DCR, orphans refresh                 | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/59460) | Stable client_id per server                                             |
+| 47754 | WAF blocks OAuth refresh on headless Linux             | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/47754) | CI/remote runners need refresh strategy                                 |
+| 53638 | Desktop silently uses project API keys                 | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/53638) | Log which billing path is active                                        |
+| 54817 | 4.7 regression: context loss                           | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/54817) | Compaction + model change = double risk                                 |
+| 61068 | Resume overwrites 1M model setting                     | OPEN  | [issue](https://github.com/anthropics/claude-code/issues/61068) | Resume must not clobber config                                          |
 
 ---
 
@@ -308,4 +308,4 @@ Searches run 2026-05-22 included: `telemetry`, `otel`, `oauth`, `401`, `keychain
 
 ---
 
-*Generated for Alan’s playground harness planning — not an official Anthropic document.*
+_Generated for Alan’s playground harness planning — not an official Anthropic document._

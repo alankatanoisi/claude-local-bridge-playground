@@ -32,12 +32,12 @@ frictionTags:
 
 ## Recurring friction (agents MUST prevent)
 
-| Pattern | Agent response |
-|---------|----------------|
+| Pattern                           | Agent response                                                                         |
+| --------------------------------- | -------------------------------------------------------------------------------------- |
 | Wrong cwd / ran `/init` from home | Confirm `pwd` and target repo **before** any edit; state folder in every command block |
-| Sandbox path vs real repo | Verify git remote and path match Alan’s intent |
-| Session abandoned mid-task | Finish or explicitly hand off; don’t leave ambiguous state |
-| Heavy bash without planning | Prefer `--plan` or read-only tools when Alan is exploring |
+| Sandbox path vs real repo         | Verify git remote and path match Alan’s intent                                         |
+| Session abandoned mid-task        | Finish or explicitly hand off; don’t leave ambiguous state                             |
+| Heavy bash without planning       | Prefer `--plan` or read-only tools when Alan is exploring                              |
 
 ## Agent contract
 
@@ -59,10 +59,10 @@ frictionTags:
 
 ## Repository lanes
 
-| Lane | Local folder | GitHub | Branch |
-|------|--------------|--------|--------|
-| **Playground** | `~/Developer/claude-local-bridge-playground` | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main` (after cutover) |
-| **Canonical** | `~/Developer/claude-local-bridge` | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge) | `codex/runner-clean-pr` |
+| Lane           | Local folder                                 | GitHub                                                                                            | Branch                  |
+| -------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------- |
+| **Playground** | `~/Developer/claude-local-bridge-playground` | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main`                  |
+| **Canonical**  | `~/Developer/claude-local-bridge`            | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | `codex/runner-clean-pr` |
 
 Canonical GitHub **`main`** is archival/posterity — not the target for playground work.
 

@@ -25,9 +25,14 @@ Alan explicitly wants agents to treat him like a beginner. Do not optimize for b
 
 **Before substantial work, also read [`lab-notes/ALAN_OPERATOR_PROFILE.md`](lab-notes/ALAN_OPERATOR_PROFILE.md)** (agent ground truth from Claude Code Insights). Optional deep dive: HTML in `lab-notes/claude-code-insights/`.
 
-## Playground git (when pwd ends with `claude-local-bridge-playground`)
+## Active Playground Lane
+
+Use this repo as the active harness lab unless Alan explicitly asks for canonical promotion work.
 
 - GitHub: [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground), push to **`main`**.
+- Local folder: `/Users/alanman/Developer/claude-local-bridge-playground`.
+- Expected branch: `main`.
+- Expected `origin`: `https://github.com/alankatanoisi/claude-local-bridge-playground.git`.
 - **MUST NOT** open PRs on canonical repo `alankatanoisi/claude-local-bridge` for playground experiments.
 - See [`lab-notes/PLAYGROUND_PR_POLICY.md`](lab-notes/PLAYGROUND_PR_POLICY.md) and [`lab-notes/PLAYGROUND_GIT_REMOTE.md`](lab-notes/PLAYGROUND_GIT_REMOTE.md).
 
@@ -42,24 +47,30 @@ When handing work back, be explicit:
 
 When adding new JavaScript in the runner, short beginner-friendly `//` comments are welcome where they explain non-obvious control flow. Do not add noisy comments that merely repeat obvious code.
 
-## Canonical Workspace
+## Repository Lanes
 
-The current canonical runner branch/worktree is:
+The active experiment lane is:
 
 ```bash
-/Users/alanman/Developer/claude-local-bridge
+/Users/alanman/Developer/claude-local-bridge-playground
 ```
 
 Expected branch:
 
 ```bash
-codex/runner-clean-pr
+main
 ```
 
-The disposable experiment clone is:
+The canonical runner branch/worktree is frozen unless Alan explicitly asks for promotion work:
 
 ```bash
-/Users/alanman/Developer/claude-local-bridge-playground
+/Users/alanman/Developer/claude-local-bridge
+```
+
+Expected canonical branch:
+
+```bash
+codex/runner-clean-pr
 ```
 
 Separate GitHub repo: [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground), default branch **`main`**. See `lab-notes/PLAYGROUND_GIT_REMOTE.md` and `lab-notes/PLAYGROUND_PR_POLICY.md`. Do not PR playground work to canonical `main`.
@@ -81,13 +92,21 @@ accident, stop and tell Alan.
 
 ## Startup Checklist
 
-At the start of a fresh session, run or confirm:
+At the start of a fresh session, run this **before edits**:
 
 ```bash
 pwd
 git branch --show-current
+git remote -v
 git status --short
 ```
+
+Success in the playground looks like:
+
+- `pwd` ends with `/Users/alanman/Developer/claude-local-bridge-playground`
+- `git branch --show-current` prints `main`
+- `git remote -v` shows `origin` pointing to `alankatanoisi/claude-local-bridge-playground`
+- `git status --short` has no unexpected source files; `.DS_Store` noise is okay to ignore
 
 Then pull the branch that matches **this folder**:
 
@@ -209,9 +228,9 @@ npx prettier --write <files>
 Read-only test against this repo:
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/Developer/claude-local-bridge" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
   --max-steps 8 \
   --verbose \
   "List the top-level files, summarize what this project does, then stop. Do not edit files."
@@ -220,7 +239,7 @@ node bin/local-bridge-runner.js \
 Read-only test against another local folder:
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   --max-steps 8 \
@@ -231,7 +250,7 @@ node bin/local-bridge-runner.js \
 Attach files from the target folder:
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   --include-file README.md \

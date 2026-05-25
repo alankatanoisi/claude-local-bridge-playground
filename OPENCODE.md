@@ -8,11 +8,16 @@ Use this file as the startup checklist for a fresh OpenCode session.
 Read AGENTS.md, lab-notes/ALAN_OPERATOR_PROFILE.md, and OPENCODE.md before doing any work.
 
 Work in:
-/Users/alanman/Developer/claude-local-bridge
+/Users/alanman/Developer/claude-local-bridge-playground
 
 Expected branch:
-codex/runner-clean-pr
+main
 
+Expected remote:
+origin = https://github.com/alankatanoisi/claude-local-bridge-playground.git
+
+Use the playground repo as the active harness lab.
+Treat /Users/alanman/Developer/claude-local-bridge as frozen canonical reference unless Alan explicitly asks for promotion work.
 Do not use the old claude-local-bridge-runner-test repo except as historical reference.
 Do not use the iCloud claude-local-bridge checkout for active runner work unless Alan explicitly asks.
 Do not modify bridge auth/proxy/interceptor internals unless Alan explicitly asks.
@@ -23,7 +28,25 @@ Before handoff, run targeted tests, npm test, npm run lint, and Prettier check f
 
 ## Startup Commands
 
-**Canonical lane** — type in Terminal:
+**Playground lane** — type in Terminal:
+
+```bash
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
+pwd
+git branch --show-current
+git remote -v
+git status --short
+git pull --ff-only origin main
+```
+
+Success looks like:
+
+- `pwd` prints `/Users/alanman/Developer/claude-local-bridge-playground`
+- `git branch --show-current` prints `main`
+- `git remote -v` shows `origin` pointing to `alankatanoisi/claude-local-bridge-playground`
+- pull either updates cleanly or says already up to date
+
+**Canonical lane** — use only if Alan explicitly asks for promotion/canonical work:
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge"
@@ -32,21 +55,6 @@ git branch --show-current
 git status --short
 git pull --ff-only origin codex/runner-clean-pr
 ```
-
-**Playground lane** — type in Terminal:
-
-```bash
-cd "/Users/alanman/Developer/claude-local-bridge-playground"
-pwd
-git branch --show-current
-git status --short
-git pull --ff-only origin main
-```
-
-Success looks like:
-
-- `pwd` prints the folder you intended
-- pull either updates cleanly or says already up to date
 
 If `git status --short` shows `.DS_Store`, ignore it unless Alan asks to clean it.
 
@@ -110,9 +118,9 @@ If OpenCode cannot run a check, it should say exactly which check was skipped an
 Use this to test the runner against itself:
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js \
-  --cwd "/Users/alanman/Developer/claude-local-bridge" \
+  --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
   --max-steps 8 \
   --verbose \
   "List the top-level files, summarize what this project does, then stop. Do not edit files."
@@ -121,7 +129,7 @@ node bin/local-bridge-runner.js \
 Use this to test another project:
 
 ```bash
-cd "/Users/alanman/Developer/claude-local-bridge"
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
   --max-steps 8 \

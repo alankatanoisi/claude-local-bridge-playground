@@ -12,14 +12,26 @@ If you are new to Terminal or this repo, start with [BEGINNER_GUIDE.md](./BEGINN
 
 ## Repository lanes (read this first)
 
-| Lane | Local folder | GitHub | Branch | Use for |
-|------|--------------|--------|--------|---------|
-| **Playground (this repo)** | `~/Developer/claude-local-bridge-playground` | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main` | Experiments, harness chaos, personal backup |
-| **Canonical** | `~/Developer/claude-local-bridge` | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge) | `codex/runner-clean-pr` | Extension, clean runner, serious work |
+| Lane                       | Local folder                                 | GitHub                                                                                            | Branch                  | Use for                                     |
+| -------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------- |
+| **Playground (this repo)** | `~/Developer/claude-local-bridge-playground` | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main`                  | Experiments, harness chaos, personal backup |
+| **Canonical**              | `~/Developer/claude-local-bridge`            | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | `codex/runner-clean-pr` | Extension, clean runner, serious work       |
 
 - Playground PRs and drafts belong in **this** GitHub repo only — see [lab-notes/PLAYGROUND_PR_POLICY.md](./lab-notes/PLAYGROUND_PR_POLICY.md).
 - Canonical GitHub `main` is archival/posterity — not the target for playground PRs.
 - Porting playground → canonical: [lab-notes/PROMOTION_RITUAL.md](./lab-notes/PROMOTION_RITUAL.md).
+
+Before edits, agents should sanity-check the lane:
+
+```bash
+pwd
+git branch --show-current
+git remote -v
+git status --short
+```
+
+Success in this playground repo means the folder ends with `claude-local-bridge-playground`, the branch is `main`,
+`origin` points at `alankatanoisi/claude-local-bridge-playground`, and there are no unexpected dirty source files.
 
 iCloud checkout: reference-only, not for active runner work.
 

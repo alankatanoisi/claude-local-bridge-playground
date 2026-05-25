@@ -8,17 +8,18 @@ Hard rules for agents and Alan when working from:
 
 ## Repository
 
-| Item | Value |
-|------|-------|
-| GitHub repo | [alankatanoisi/claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) |
-| Default branch | `main` |
-| PR base | **`main`** (or feature branch → `main`) |
+| Item           | Value                                                                                                           |
+| -------------- | --------------------------------------------------------------------------------------------------------------- |
+| GitHub repo    | [alankatanoisi/claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) |
+| Default branch | `main`                                                                                                          |
+| PR base        | **`main`** (or feature branch → `main`)                                                                         |
 
 ## MUST
 
 - Open PRs on the **playground repository only**.
 - Use `--repo alankatanoisi/claude-local-bridge-playground --base main` with `gh pr create`.
 - Prefix draft titles with `[playground]` when helpful for review.
+- Treat canonical `alankatanoisi/claude-local-bridge` as read-only/frozen unless Alan explicitly asks for promotion work.
 
 ## MUST NOT
 
@@ -43,6 +44,6 @@ gh pr create --base main   # on canonical repo — do not use for playground wor
 
 ## Canonical lane (for comparison)
 
-Serious extension + clean runner: `~/Developer/claude-local-bridge`, branch `codex/runner-clean-pr`, repo [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge).
+Serious extension + clean runner: `~/Developer/claude-local-bridge`, branch `codex/runner-clean-pr`, repo [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge). Do not touch it from playground work unless Alan explicitly asks for a promotion.
 
 See also [`PLAYGROUND_GIT_REMOTE.md`](PLAYGROUND_GIT_REMOTE.md) and canonical [`docs/playground-lane.md`](https://github.com/alankatanoisi/claude-local-bridge/blob/codex/runner-clean-pr/docs/playground-lane.md).
