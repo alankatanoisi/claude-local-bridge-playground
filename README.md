@@ -165,6 +165,70 @@ claude
 
 The Claude Code CLI routes requests through the bridge, which injects the resolved OAuth Bearer token.
 
+### Ten realistic `claude -p` development uses
+
+Run these in Terminal from your project folder:
+
+1. **PR summary generator**
+
+   ```bash
+   claude -p "Summarize the changed files in this branch, explain reviewer risk areas, and propose a concise PR description."
+   ```
+
+2. **Test failure triage**
+
+   ```bash
+   npm test -- --testNamePattern="failing test name" 2>&1 | claude -p "Read this test output, identify likely root causes, and propose the smallest safe fix plan."
+   ```
+
+3. **Refactor planner**
+
+   ```bash
+   claude -p "Review src/runner/run.js and propose a low-risk step-by-step refactor plan that preserves behavior and testability."
+   ```
+
+4. **Bug reproduction assistant**
+
+   ```bash
+   claude -p "Given this issue text: '<paste issue here>', produce exact repro steps, expected vs actual behavior, and edge cases to verify."
+   ```
+
+5. **Migration helper**
+
+   ```bash
+   claude -p "Find old API usage patterns for '<oldApi>' and map each to '<newApi>' with notes about behavior differences and rollout risk."
+   ```
+
+6. **Security review pass**
+
+   ```bash
+   claude -p "Audit auth and input-handling paths for common vulnerabilities (auth bypass, injection, path traversal, secret leaks) and list concrete findings."
+   ```
+
+7. **Release notes drafting**
+
+   ```bash
+   git log --oneline --merges -n 30 | claude -p "Draft release notes grouped by features, fixes, and maintenance with clear user-facing bullets."
+   ```
+
+8. **Performance hotspot review**
+
+   ```bash
+   claude -p "Analyze this slow path in src/runner/model-client.js and suggest measurable optimizations with likely impact and trade-offs."
+   ```
+
+9. **Codebase onboarding brief**
+
+   ```bash
+   claude -p "Create a beginner-friendly onboarding brief for this repo: architecture, entry points, local dev commands, and common gotchas."
+   ```
+
+10. **CLI automation copilot**
+
+    ```bash
+    claude -p "Generate robust shell command sequences for install, lint, test, and run in this repo, including success checks and safe failure handling."
+    ```
+
 ## Local Bridge Runner
 
 The runner is an experimental local coding-agent loop that uses this bridge as its model transport. Run it from the
