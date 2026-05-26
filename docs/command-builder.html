@@ -508,6 +508,8 @@
           <div class="card">
             <h2>Quick presets</h2>
             <div class="presets" id="presets">
+              <button class="preset-btn" data-preset="minimal">Minimal context</button>
+              <button class="preset-btn" data-preset="projectContext">Project context</button>
               <button class="preset-btn" data-preset="readonly">Read-only exploration</button>
               <button class="preset-btn" data-preset="session">Session persistence</button>
               <button class="preset-btn" data-preset="coordinator">Coordinator (playground)</button>
@@ -697,6 +699,44 @@
                 <input type="text" id="forkFrom" placeholder="parent-session-id" />
               </div>
 
+              <p class="subsection-title">Startup context (default: minimal)</p>
+              <p style="font-size: 0.78rem; color: var(--muted); margin: 0 0 0.5rem">
+                The runner no longer injects AGENTS.md / repo map by default. Opt in below or choose
+                <code>--agent project</code>.
+              </p>
+              <div class="checks">
+                <label class="check-label"> <input type="checkbox" id="bareContext" /> --bare </label>
+                <label class="check-label">
+                  <input type="checkbox" id="includeInstructionDocs" /> --include-instruction-docs
+                </label>
+                <label class="check-label">
+                  <input type="checkbox" id="includeRepoContext" /> --include-repo-context
+                </label>
+                <label class="check-label"> <input type="checkbox" id="includeClaudeMd" /> --include-claude-md </label>
+                <label class="check-label"> <input type="checkbox" id="includeRepoMap" /> --include-repo-map </label>
+                <label class="check-label"> <input type="checkbox" id="includeSkills" /> --include-skills </label>
+                <label class="check-label">
+                  <input type="checkbox" id="excludeDynamicSystem" /> --exclude-dynamic-system-prompt-sections
+                </label>
+                <label class="check-label">
+                  <input type="checkbox" id="noSessionPersistence" /> --no-session-persistence
+                </label>
+              </div>
+              <div class="row">
+                <div class="field">
+                  <label for="permissionMode">Permission mode</label>
+                  <select id="permissionMode">
+                    <option value="">(individual flags)</option>
+                    <option value="default">default</option>
+                    <option value="plan">plan</option>
+                    <option value="accept-edits">accept-edits</option>
+                    <option value="dont-ask">dont-ask</option>
+                    <option value="accept-edits-dont-ask">accept-edits-dont-ask</option>
+                    <option value="auto">auto</option>
+                  </select>
+                </div>
+              </div>
+
               <p class="subsection-title">Task hygiene</p>
               <div class="checks">
                 <label class="check-label"> <input type="checkbox" id="taskScope" /> --task-scope </label>
@@ -767,6 +807,7 @@
                   <option value="test">test</option>
                   <option value="replay">replay</option>
                   <option value="extractor">extractor</option>
+                  <option value="project">project (richer context)</option>
                 </select>
               </div>
               <div class="field">
@@ -841,7 +882,7 @@
               <span style="font-weight: 400; font-size: 0.75rem; color: var(--muted)">(what the model can use)</span>
             </h2>
             <p style="font-size: 0.78rem; color: var(--muted); margin-bottom: 0.6rem">
-              Uncheck tools you do not want the model to see. The command adds <code>--allowed-tools</code> only when
+              Uncheck tools you do not want the model to see. The command adds <code>--tools</code> only when
               you narrow the default tool set.
             </p>
             <div class="checks" id="toolChoices">
@@ -984,6 +1025,15 @@
       const compactEachTurn = document.getElementById('compactEachTurn');
       const effort = document.getElementById('effort');
       const autoMemory = document.getElementById('autoMemory');
+      const bareContext = document.getElementById('bareContext');
+      const includeInstructionDocs = document.getElementById('includeInstructionDocs');
+      const includeRepoContext = document.getElementById('includeRepoContext');
+      const includeClaudeMd = document.getElementById('includeClaudeMd');
+      const includeRepoMap = document.getElementById('includeRepoMap');
+      const includeSkills = document.getElementById('includeSkills');
+      const excludeDynamicSystem = document.getElementById('excludeDynamicSystem');
+      const noSessionPersistence = document.getElementById('noSessionPersistence');
+      const permissionMode = document.getElementById('permissionMode');
       const noArchive = document.getElementById('noArchive');
       const replayMode = document.getElementById('replayMode');
       const repairMode = document.getElementById('repairMode');
@@ -1094,6 +1144,15 @@
         if (effort.value) parts.push('--effort ' + effort.value);
         if (autoMemory.checked) parts.push('--auto-memory');
         if (noArchive.checked) parts.push('--no-archive');
+        if (bareContext.checked) parts.push('--bare');
+        if (includeInstructionDocs.checked) parts.push('--include-instruction-docs');
+        if (includeRepoContext.checked) parts.push('--include-repo-context');
+        if (includeClaudeMd.checked) parts.push('--include-claude-md');
+        if (includeRepoMap.checked) parts.push('--include-repo-map');
+        if (includeSkills.checked) parts.push('--include-skills');
+        if (excludeDynamicSystem.checked) parts.push('--exclude-dynamic-system-prompt-sections');
+        if (noSessionPersistence.checked) parts.push('--no-session-persistence');
+        if (permissionMode.value) parts.push('--permission-mode ' + permissionMode.value);
         if (resumePath.value.trim()) parts.push('--resume ' + shellQuote(resumePath.value.trim()));
         if (transcript.value.trim() && !resumePath.value.trim() && !resumeSession.checked)
           parts.push('--transcript ' + shellQuote(transcript.value.trim()));
@@ -1117,7 +1176,7 @@
         const selectedTools = getSelectedTools();
         const exposedDefaults = allowShell.checked ? [...DEFAULT_TOOL_NAMES, 'bash'] : DEFAULT_TOOL_NAMES;
         if (!sameTools(selectedTools, exposedDefaults)) {
-          parts.push('--allowed-tools ' + shellQuote(selectedTools.join(',') || 'none'));
+          parts.push('--tools ' + shellQuote(selectedTools.join(',') || 'none'));
         }
         if (stream.checked) parts.push('--stream');
         if (verbose.checked) parts.push('--verbose');
@@ -1338,6 +1397,15 @@
         noArchive,
         replayMode,
         repairMode,
+        bareContext,
+        includeInstructionDocs,
+        includeRepoContext,
+        includeClaudeMd,
+        includeRepoMap,
+        includeSkills,
+        excludeDynamicSystem,
+        noSessionPersistence,
+        permissionMode,
         ...toolChoices,
       ].forEach((el) => {
         el.addEventListener('input', render);
@@ -1361,6 +1429,35 @@
 
       // ── Presets ──
       const PRESETS = {
+        minimal: {
+          prompt:
+            'List top-level files in this repo and summarize what it does. Use read-only tools only; do not edit files.',
+          maxSteps: 8,
+          bareContext: true,
+          includeInstructionDocs: false,
+          includeRepoContext: false,
+          acceptEdits: false,
+          plan: true,
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
+          cliMode: 'runner',
+          applyTools: true,
+          tools: READ_TOOL_NAMES,
+        },
+        projectContext: {
+          prompt:
+            'Using project instruction files and repo context, explain how runner startup context is assembled. Do not edit files.',
+          maxSteps: 10,
+          agentProfile: 'project',
+          includeInstructionDocs: true,
+          includeRepoContext: true,
+          includeRepoMap: true,
+          acceptEdits: false,
+          plan: true,
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
+          cliMode: 'runner',
+        },
         readonly: {
           prompt:
             'Compare docs/command-builder.html against bin/local-bridge-runner.js --help. List every CLI flag missing from the builder, then trace how permissions.js would treat a read-only run. Do not edit files.',
@@ -1645,6 +1742,7 @@
           applyPresetValue(tracePath, 'tracePath', p);
           applyPresetValue(callerToken, 'callerToken', p);
           applyPresetValue(systemPrompt, 'systemPrompt', p);
+          applyPresetValue(permissionMode, 'permissionMode', p);
           applyPresetValue(temperature, 'temperature', p);
           applyPresetValue(maxContextTokens, 'maxContextTokens', p);
           applyPresetValue(maxToolCalls, 'maxToolCalls', p);
@@ -1684,6 +1782,14 @@
           'noArchive',
           'replayMode',
           'repairMode',
+          'bareContext',
+          'includeInstructionDocs',
+          'includeRepoContext',
+          'includeClaudeMd',
+          'includeRepoMap',
+          'includeSkills',
+          'excludeDynamicSystem',
+          'noSessionPersistence',
         ];
         const boolMap = {
           acceptEdits,
@@ -1708,6 +1814,14 @@
           noArchive,
           replayMode,
           repairMode,
+          bareContext,
+          includeInstructionDocs,
+          includeRepoContext,
+          includeClaudeMd,
+          includeRepoMap,
+          includeSkills,
+          excludeDynamicSystem,
+          noSessionPersistence,
         };
         boolKeys.forEach((key) => {
           if (Object.prototype.hasOwnProperty.call(p, key)) boolMap[key].checked = !!p[key];

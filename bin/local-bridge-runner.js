@@ -61,7 +61,21 @@ Options:\n\
   --chaos-ok           Allow risky flag combo: --allow-shell --accept-edits --dont-ask\n\
   --max-wall-clock-ms <n> Stop after N milliseconds\n\
   --max-cost-usd <n>    Stop after estimated cost exceeds N USD\n\
-  --agent <profile>     Built-in agent profile: explore, plan, implement, verify, test, replay\n\
+  --agent <profile>     Runner personality: explore, plan, implement, verify, test, project, …\n\
+  --list-agents         List built-in runner personalities and exit\n\
+  --bare                Minimal context: no instruction docs, repo block, or skills\n\
+  --include-instruction-docs  Opt in to AGENTS.md / CLAUDE.md / OPENCODE.md hierarchy\n\
+  --include-repo-context      Opt in to session repo-context block (fingerprint)\n\
+  --include-claude-md         Include CLAUDE.md inside repo-context (requires --include-repo-context)\n\
+  --include-repo-map          Opt in to repo map inside repo-context block\n\
+  --include-skills            Opt in to skills listing in system prompt\n\
+  --append-system-prompt <s>  Append text to the default system prompt\n\
+  --append-system-prompt-file <p>  Append contents of a file to the system prompt\n\
+  --system-prompt-file <p>    Replace default system prompt with file contents\n\
+  --exclude-dynamic-system-prompt-sections  Put cwd/git fingerprint in first user message\n\
+  --permission-mode <m>   default | plan | accept-edits | dont-ask | accept-edits-dont-ask | auto\n\
+  --tools <names>         Comma-separated tools to expose (alias: --allowed-tools)\n\
+  --no-session-persistence    Do not write session checkpoints to ~/.bridge-runner/sessions/\n\
   --review-memory       List pending memory promotions for approval\n\
   --session-extract     Run background session extraction after completion\n\
   --no-archive          Skip writing per-turn archive under ~/.bridge-runner/archive/\n\
@@ -137,6 +151,20 @@ async function main() {
         'max-wall-clock-ms': { type: 'string' },
         'max-cost-usd': { type: 'string' },
         agent: { type: 'string' },
+        'list-agents': { type: 'boolean' },
+        bare: { type: 'boolean' },
+        'include-instruction-docs': { type: 'boolean' },
+        'include-repo-context': { type: 'boolean' },
+        'include-claude-md': { type: 'boolean' },
+        'include-repo-map': { type: 'boolean' },
+        'include-skills': { type: 'boolean' },
+        'append-system-prompt': { type: 'string' },
+        'append-system-prompt-file': { type: 'string' },
+        'system-prompt-file': { type: 'string' },
+        'exclude-dynamic-system-prompt-sections': { type: 'boolean' },
+        'permission-mode': { type: 'string' },
+        tools: { type: 'string' },
+        'no-session-persistence': { type: 'boolean' },
         replay: { type: 'boolean' },
         repair: { type: 'boolean' },
         'review-memory': { type: 'boolean' },
@@ -169,6 +197,12 @@ async function main() {
 
   if (args.values.help) {
     showHelp();
+    process.exit(0);
+  }
+
+  if (args.values['list-agents']) {
+    const { formatAgentList } = require('../src/runner/agents/registry');
+    console.log(formatAgentList());
     process.exit(0);
   }
 
@@ -229,9 +263,20 @@ async function main() {
   const effectiveLogLevel = logLevel || (verboseFromFlag ? 'verbose' : 'normal');
   const verbose = effectiveLogLevel === 'verbose';
   const quiet = effectiveLogLevel === 'quiet';
-  const acceptEdits = !!args.values['accept-edits'];
-  const dontAsk = !!args.values['dont-ask'];
-  const allowShell = !!args.values['allow-shell'];
+  const { normalizePermissionMode, applyPermissionMode } = require('../src/runner/permission-mode');
+  let permDefaults = { acceptEdits: false, dontAsk: false, plan: false, allowShell: false };
+  if (args.values['permission-mode']) {
+    try {
+      const modeName = normalizePermissionMode(args.values['permission-mode']);
+      permDefaults = applyPermissionMode(permDefaults, modeName);
+    } catch (err) {
+      console.error('Error: ' + err.message);
+      process.exit(1);
+    }
+  }
+  const acceptEdits = args.values['accept-edits'] ? true : permDefaults.acceptEdits;
+  const dontAsk = args.values['dont-ask'] ? true : permDefaults.dontAsk;
+  const allowShell = args.values['allow-shell'] ? true : permDefaults.allowShell;
   const shellTimeout = parseInt(args.values['shell-timeout'], 10) || 30000;
   const outputFormat = args.values['output-format'] || 'text';
   const traceLevel = args.values['trace-level'] || 'off';
@@ -244,15 +289,15 @@ async function main() {
   const includeFiles = args.values['include-file'] || [];
   const noNetwork = !!args.values['no-network'];
   const systemPromptOverride = args.values['system-prompt'] || undefined;
-  const plan = !!args.values.plan;
+  const plan = args.values.plan ? true : permDefaults.plan;
   const temperatureStr = args.values.temperature;
   const temperature = temperatureStr ? parseFloat(temperatureStr) : undefined;
   const confirmTimeout = parseInt(args.values['confirm-timeout'], 10) || undefined;
   const maxContextTokens = parseInt(args.values['max-context-tokens'], 10) || undefined;
   const maxToolCallsPerTurn = parseInt(args.values['max-tool-calls-per-turn'], 10) || undefined;
-  const allowedToolsRaw = args.values['allowed-tools'];
-  const allowedTools = allowedToolsRaw
-    ? allowedToolsRaw
+  const toolsRaw = args.values.tools || args.values['allowed-tools'];
+  const exposedTools = toolsRaw
+    ? toolsRaw
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)
@@ -409,7 +454,8 @@ async function main() {
     dontAsk,
     allowShell,
     noNetwork,
-    allowedTools,
+    exposedTools,
+    allowedTools: exposedTools,
     outputFormat,
     traceLevel,
   });
@@ -440,7 +486,8 @@ async function main() {
     plan,
     temperature,
     confirmTimeout,
-    allowedTools,
+    exposedTools,
+    allowedTools: exposedTools,
     maxContextTokens,
     maxToolCallsPerTurn,
     sessionId,
@@ -460,6 +507,18 @@ async function main() {
     sessionExtract: !!args.values['session-extract'],
     skipTrustGate: process.env.BRIDGE_RUNNER_TEST === '1' && !args.values['trust-workspace'],
     noArchive: !!args.values['no-archive'],
+    bare: !!args.values.bare,
+    includeInstructionDocs: !!args.values['include-instruction-docs'],
+    includeRepoContext: !!args.values['include-repo-context'],
+    includeClaudeMdInRepoContext: !!args.values['include-claude-md'],
+    includeRepoMap: !!args.values['include-repo-map'],
+    includeSkills: !!args.values['include-skills'],
+    appendSystemPrompt: args.values['append-system-prompt'] || undefined,
+    appendSystemPromptFile: args.values['append-system-prompt-file'] || undefined,
+    systemPromptFile: args.values['system-prompt-file'] || undefined,
+    excludeDynamicFromSystem: !!args.values['exclude-dynamic-system-prompt-sections'],
+    noSessionPersistence: !!args.values['no-session-persistence'],
+    exposedTools,
   });
 }
 

@@ -2,7 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
-const { buildSystem, buildUserMessage, buildRepoContextBlock } = require('./context-builder');
+const { buildUserMessage, buildRepoContextBlock, buildDynamicEnvironmentBlock } = require('./context-builder');
+const { resolveContextPolicy } = require('./context-policy');
+const { resolveSystemPrompt } = require('./system-prompt');
 const modelClient = require('./model-client');
 const { getDefinitions, execute, executeForce, executeReadOnlyBatch } = require('./tool-registry');
 const { Transcript } = require('./transcript');
@@ -301,8 +303,8 @@ function _groupDisjointWrites(writeTools, ctx) {
   return groups;
 }
 
-function persistSession(sessionStore, messages, ctx) {
-  if (!sessionStore) return;
+function persistSession(sessionStore, messages, ctx, noSessionPersistence) {
+  if (!sessionStore || noSessionPersistence) return;
   sessionStore.setMessages(messages);
   sessionStore.updateRunner({
     undoLog: ctx.undoLog || [],
@@ -343,6 +345,9 @@ async function run(options) {
   if (options.agentProfile) {
     options = applyProfileToRunOptions(options.agentProfile, options);
   }
+  const contextPolicy = resolveContextPolicy(options);
+  options = { ...options, contextPolicy };
+
   const {
     prompt,
     stdinText,
@@ -389,8 +394,17 @@ async function run(options) {
     taskScope,
     effort,
     autoMemory,
+    systemPromptFile,
+    appendSystemPrompt,
+    appendSystemPromptFile,
+    noSessionPersistence,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
+
+  const exposedToolsList =
+    (Array.isArray(options.exposedTools) && options.exposedTools.length > 0 && options.exposedTools) ||
+    (Array.isArray(allowedTools) && allowedTools.length > 0 && allowedTools) ||
+    null;
 
   const ctx = {
     cwd: cwd || process.cwd(),
@@ -401,7 +415,8 @@ async function run(options) {
     plan: !!plan,
     noNetwork: !!noNetwork,
     confirmTimeout: typeof confirmTimeout === 'number' && confirmTimeout > 0 ? confirmTimeout : null,
-    allowedTools: Array.isArray(allowedTools) && allowedTools.length > 0 ? new Set(allowedTools) : null,
+    allowedTools: exposedToolsList ? new Set(exposedToolsList) : null,
+    contextPolicy,
     undoLog: [],
     spawnDepth: spawnDepth || 0,
     workspaceTrusted: false,
@@ -422,7 +437,21 @@ async function run(options) {
       sessionId,
       resume: !!resume,
       systemPromptOverride,
-      allowedTools,
+      systemPromptFile,
+      appendSystemPrompt,
+      appendSystemPromptFile,
+      allowedTools: exposedToolsList,
+      exposedTools: exposedToolsList,
+      autoMemory,
+      ...contextPolicy,
+      profileContext: options.profileContext,
+      bare: options.bare,
+      includeInstructionDocs: contextPolicy.includeInstructionDocs,
+      includeRepoContext: contextPolicy.includeRepoContext,
+      includeClaudeMdInRepoContext: contextPolicy.includeClaudeMdInRepoContext,
+      includeRepoMap: contextPolicy.includeRepoMap,
+      includeSkills: contextPolicy.includeSkills,
+      excludeDynamicFromSystem: contextPolicy.excludeDynamicFromSystem,
     });
     if (boot.blocked) {
       const stopReason = boot.stopReason || STOP_REASONS.CWD_INVALID;
@@ -441,6 +470,7 @@ async function run(options) {
     ctx.cwdRealpath = boot.ctx.cwdRealpath;
     ctx.workspaceTrusted = boot.ctx.workspaceTrusted;
     ctx.instructionMemory = boot.instructionMemory;
+    ctx.instructionHash = boot.instructionMemory?.hash;
     ctx.trustedWorkspace = boot.ctx.trustedWorkspace;
   } else {
     const cwdCheck = safety.validateCwd(ctx.cwd);
@@ -450,7 +480,10 @@ async function run(options) {
       return;
     }
     ctx.cwdRealpath = cwdCheck.realpath;
-    ctx.instructionMemory = loadInstructionMemory(ctx.cwdRealpath);
+    ctx.instructionMemory = loadInstructionMemory(ctx.cwdRealpath, {
+      includeProjectDocs: contextPolicy.includeInstructionDocs,
+    });
+    ctx.instructionHash = ctx.instructionMemory.hash;
   }
 
   try {
@@ -634,6 +667,10 @@ async function run(options) {
     }
     messages.push(buildUserMessage(prompt, stdinText));
     if (!quiet) console.error('[runner] resumed ' + messages.length + ' messages from session ' + resolvedSessionPath);
+    if (sessionStore && !noSessionPersistence) {
+      sessionStore.setMessages(messages);
+      sessionStore.saveSoon();
+    }
   } else if (resume && transcriptPath) {
     emitHint('Transcript resume is deprecated. Use --session-id or --session-path.', {
       quiet,
@@ -650,9 +687,14 @@ async function run(options) {
       events: [],
     });
   } else {
-    messages = [buildUserMessage(prompt, stdinText)];
+    const userEnvPrefix = [];
+    if (contextPolicy.excludeDynamicFromSystem) {
+      const envBlock = buildDynamicEnvironmentBlock(ctx);
+      if (envBlock) userEnvPrefix.push(envBlock);
+    }
+    messages = [buildUserMessage(prompt, stdinText, userEnvPrefix.length ? userEnvPrefix : null)];
     if (transcript) transcript.append({ type: 'user_prompt', text: prompt });
-    if (sessionStore) {
+    if (sessionStore && !noSessionPersistence) {
       sessionStore.load();
       if (newSession) {
         sessionStore.updateRunner({ health: null, compactionGeneration: 0, consecutiveToolFailures: 0 });
@@ -666,10 +708,15 @@ async function run(options) {
   instructionDelta.snapshot(ctx.cwdRealpath);
 
   const tools = getDefinitions(ctx);
-  let system = systemPromptOverride || buildSystem(ctx, { progressive: true });
-  // E1: session-stable repo-context block; computed once, reused as the
-  // fourth cache_control breakpoint for the lifetime of this run.
-  const repoContextBlock = buildRepoContextBlock(ctx);
+  let system = resolveSystemPrompt(ctx, {
+    progressive: true,
+    contextPolicy,
+    systemPromptOverride,
+    systemPromptFile,
+    appendSystemPrompt,
+    appendSystemPromptFile,
+  });
+  const repoContextBlock = buildRepoContextBlock(ctx, contextPolicy);
   const steps = maxSteps || DEFAULT_MAX_STEPS;
   let totalUsage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
   let consecutiveToolFailures = 0;
@@ -734,8 +781,18 @@ async function run(options) {
       messages.push({ role: 'user', content: instructionChange.deltaBlock });
       if (transcript) transcript.append({ type: 'instruction_delta', step, kind: 'small_diff' });
     } else if (instructionChange?.kind === 'large_rewrite') {
-      ctx.instructionMemory = loadInstructionMemory(ctx.cwdRealpath);
-      system = systemPromptOverride || buildSystem(ctx, { progressive: true });
+      ctx.instructionMemory = loadInstructionMemory(ctx.cwdRealpath, {
+        includeProjectDocs: contextPolicy.includeInstructionDocs,
+      });
+      ctx.instructionHash = ctx.instructionMemory.hash;
+      system = resolveSystemPrompt(ctx, {
+        progressive: true,
+        contextPolicy,
+        systemPromptOverride,
+        systemPromptFile,
+        appendSystemPrompt,
+        appendSystemPromptFile,
+      });
       if (transcript) transcript.append({ type: 'instruction_delta', step, kind: 'large_rewrite' });
     }
 
@@ -907,7 +964,12 @@ async function run(options) {
           events: output.events,
         });
         if (transcript) transcript.flush();
-        persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
+        persistSession(
+          sessionStore,
+          messages,
+          { ...ctx, _consecutiveToolFailures: consecutiveToolFailures },
+          !!noSessionPersistence,
+        );
         hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.CONTEXT_BUDGET_EXCEEDED });
         process.exitCode = 1;
         if (archiveCollector) archiveCollector.recordError(step, msg);
@@ -935,7 +997,12 @@ async function run(options) {
     }
 
     messages.push({ role: 'assistant', content: response.content });
-    persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
+    persistSession(
+      sessionStore,
+      messages,
+      { ...ctx, _consecutiveToolFailures: consecutiveToolFailures },
+      !!noSessionPersistence,
+    );
     output.emit('assistant', {
       step,
       message: {
@@ -970,7 +1037,12 @@ async function run(options) {
         events: output.events,
       });
       if (transcript) transcript.flush();
-      persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
+      persistSession(
+        sessionStore,
+        messages,
+        { ...ctx, _consecutiveToolFailures: consecutiveToolFailures },
+        !!noSessionPersistence,
+      );
       hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.MAX_TOOL_CALLS_PER_TURN });
       process.exitCode = 1;
       if (archiveCollector) archiveCollector.recordError(step, msg);
@@ -1016,7 +1088,12 @@ async function run(options) {
       if (resolvedSessionPath) writeAutopsyFile(resolvedSessionPath, autopsy);
       maybeRunSessionExtract(sessionExtract, ctx, autopsy, resolvedSessionPath);
       result.autopsy = autopsy;
-      persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
+      persistSession(
+        sessionStore,
+        messages,
+        { ...ctx, _consecutiveToolFailures: consecutiveToolFailures },
+        !!noSessionPersistence,
+      );
       if (archiveCollector) archiveCollector.recordFinal(text || '');
       return completeRun(result);
     }
@@ -1321,7 +1398,12 @@ async function run(options) {
     }
 
     messages.push({ role: 'user', content: toolResults });
-    persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
+    persistSession(
+      sessionStore,
+      messages,
+      { ...ctx, _consecutiveToolFailures: consecutiveToolFailures },
+      !!noSessionPersistence,
+    );
   }
 
   const msg = 'Reached max_steps (' + steps + ') without a final answer.';
@@ -1355,7 +1437,12 @@ async function run(options) {
     duration_ms: Date.now() - startedAt,
   });
   if (resolvedSessionPath) writeAutopsyFile(resolvedSessionPath, autopsy);
-  persistSession(sessionStore, messages, { ...ctx, _consecutiveToolFailures: consecutiveToolFailures });
+  persistSession(
+    sessionStore,
+    messages,
+    { ...ctx, _consecutiveToolFailures: consecutiveToolFailures },
+    !!noSessionPersistence,
+  );
   if (archiveCollector) archiveCollector.recordError(steps, msg);
   return completeRun({
     stopReason: STOP_REASONS.MAX_STEPS,

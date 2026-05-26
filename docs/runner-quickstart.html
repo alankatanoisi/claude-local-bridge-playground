@@ -702,9 +702,49 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td>Best-effort HTTP/HTTPS proxy guard for shell commands; not a sandbox</td>
             </tr>
             <tr>
+              <td><code>--bare</code></td>
+              <td>off</td>
+              <td>Force minimal startup context (no instruction docs, repo block, or skills)</td>
+            </tr>
+            <tr>
+              <td><code>--include-instruction-docs</code></td>
+              <td>off</td>
+              <td>Opt in to AGENTS.md / CLAUDE.md / OPENCODE.md instruction hierarchy</td>
+            </tr>
+            <tr>
+              <td><code>--include-repo-context</code></td>
+              <td>off</td>
+              <td>Opt in to a session-stable repo-context block (cwd/git fingerprint)</td>
+            </tr>
+            <tr>
+              <td><code>--agent project</code></td>
+              <td>off</td>
+              <td>Personality preset with richer context defaults (docs + repo map)</td>
+            </tr>
+            <tr>
+              <td><code>--list-agents</code></td>
+              <td>—</td>
+              <td>List built-in runner personalities</td>
+            </tr>
+            <tr>
+              <td><code>--permission-mode &lt;m&gt;</code></td>
+              <td>default</td>
+              <td>Claude Code–style permission bundle (plan, accept-edits, dont-ask, auto, …)</td>
+            </tr>
+            <tr>
+              <td><code>--tools &lt;list&gt;</code></td>
+              <td>all</td>
+              <td>Expose only listed tools (alias: <code>--allowed-tools</code>)</td>
+            </tr>
+            <tr>
               <td><code>--system-prompt &lt;text&gt;</code></td>
-              <td>built-in</td>
+              <td>minimal built-in</td>
               <td>Override the default system prompt sent to the model</td>
+            </tr>
+            <tr>
+              <td><code>--append-system-prompt</code> / file variants</td>
+              <td>off</td>
+              <td>Append text after the default system prompt</td>
             </tr>
             <tr>
               <td><code>--continue</code></td>
@@ -944,10 +984,27 @@ node bin/local-bridge-coordinator.js \
       </section>
 
       <section>
+        <h2>Startup context (minimal by default)</h2>
+        <p>
+          The runner default system prompt is <strong>generic and repo-agnostic</strong>: tool summaries, safety rules,
+          and a neutral coding-assistant identity. It does <strong>not</strong> load project markdown files unless you opt
+          in. Use <code>--include-instruction-docs</code> for the AGENTS.md hierarchy,
+          <code>--include-repo-context</code> for cwd/git fingerprinting, <code>--include-repo-map</code> for a capped
+          tree snapshot, or <code>--agent project</code> for a preset that enables several of these at once.
+          <code>--bare</code> is the strictest minimal mode.
+        </p>
+        <p>
+          The local bridge may still prepend Claude Code OAuth identity text upstream; that is separate from runner
+          context and is unchanged in the OAuth-only evidence lane.
+        </p>
+      </section>
+
+      <section>
         <h2>Custom system prompts</h2>
         <p>
           Pass <code>--system-prompt "Your custom instructions"</code> to replace the built-in system prompt entirely.
-          This is useful for specialized workflows:
+          Use <code>--append-system-prompt</code> when you only want to add rules on top of the default. This is useful
+          for specialized workflows:
         </p>
         <pre><code>node bin/local-bridge-runner.js \
   --system-prompt "You are a code reviewer. Only read files and provide feedback. Do not edit files." \

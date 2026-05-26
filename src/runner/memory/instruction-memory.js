@@ -3,6 +3,8 @@
 /**
  * Instruction memory — hierarchical config: org -> user -> project -> local.
  * Later scopes override earlier (local wins).
+ *
+ * Project markdown is opt-in: pass { includeProjectDocs: true } to load AGENTS.md, etc.
  */
 
 const fs = require('fs');
@@ -11,6 +13,14 @@ const crypto = require('crypto');
 
 const MEMORY_FILES = ['AGENTS.md', 'CLAUDE.md', 'OPENCODE.md', 'RUNNER.md'];
 const MAX_INSTRUCTION_CHARS = 24_000;
+
+const EMPTY_MEMORY = Object.freeze({
+  sources: [],
+  blocks: [],
+  text: '',
+  hash: crypto.createHash('sha256').update('').digest('hex').slice(0, 16),
+  structured: [],
+});
 
 function readBoundedFile(filePath, scope, priority) {
   if (!fs.existsSync(filePath)) return null;
@@ -81,9 +91,14 @@ function discoverInstructionBlocks(cwd) {
 
 /**
  * @param {string} cwd
- * @returns {{ sources: string[], blocks: object[], text: string, hash: string }}
+ * @param {{ includeProjectDocs?: boolean }} [options]
+ * @returns {{ sources: string[], blocks: object[], text: string, hash: string, structured: object[] }}
  */
-function loadInstructionMemory(cwd) {
+function loadInstructionMemory(cwd, options = {}) {
+  if (!options.includeProjectDocs) {
+    return { ...EMPTY_MEMORY, hash: EMPTY_MEMORY.hash };
+  }
+
   const discovered = discoverInstructionBlocks(cwd);
   let text = discovered.map((b) => b.text).join('\n\n');
   if (text.length > MAX_INSTRUCTION_CHARS) {

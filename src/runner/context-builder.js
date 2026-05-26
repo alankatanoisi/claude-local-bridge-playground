@@ -12,6 +12,7 @@ const { buildAutoMemorySection, isAutoMemoryEnabled } = require('./memory/auto-m
 const { buildSkillsIndex } = require('./skills/skills-index');
 const { buildToolSummarySection, capSkillListing, applyContextBudget } = require('./context-budget');
 const { buildRepoMap } = require('./repo-map');
+const { DEFAULT_POLICY } = require('./context-policy');
 
 function buildFullToolSection(allowShell) {
   let prompt = '## Available tools\n\n';
@@ -47,12 +48,17 @@ function buildRulesSection() {
   return prompt;
 }
 
+function resolveContextPolicy(options = {}) {
+  return options.contextPolicy || DEFAULT_POLICY;
+}
+
 function buildSystem(ctx, options = {}) {
   const allowShell = ctx && ctx.allowShell;
   const progressive = options.progressive !== false;
+  const policy = resolveContextPolicy(options);
 
-  let intro = 'You are a helpful coding assistant running inside a local bridge runner.\n';
-  intro += 'You can read files and make precise edits to help the user.\n\n';
+  let intro = 'You are a capable coding assistant helping with software tasks in the user project folder.\n';
+  intro += 'Use tools when needed; answer directly when no tools are required.\n\n';
 
   const toolsSection = progressive ? buildToolSummarySection(ctx) : buildFullToolSection(allowShell);
   const rulesSection = buildRulesSection();
@@ -60,16 +66,21 @@ function buildSystem(ctx, options = {}) {
   let instructionText = '';
   let skillsListing = '';
   if (ctx && ctx.cwd) {
-    const memory = ctx.instructionMemory || loadInstructionMemory(ctx.cwd);
-    if (memory.text) instructionText = memory.text;
+    if (policy.includeInstructionDocs) {
+      const memory =
+        ctx.instructionMemory || loadInstructionMemory(ctx.cwdRealpath || ctx.cwd, { includeProjectDocs: true });
+      if (memory.text) instructionText = memory.text;
+    }
     if (isAutoMemoryEnabled(ctx)) {
       const autoSection = buildAutoMemorySection(ctx.cwd);
       if (autoSection) {
         instructionText = instructionText ? instructionText + '\n\n' + autoSection : autoSection;
       }
     }
-    const skills = buildSkillsIndex(ctx.cwd);
-    if (skills.listing) skillsListing = capSkillListing(skills.listing);
+    if (policy.includeSkills) {
+      const skills = buildSkillsIndex(ctx.cwd);
+      if (skills.listing) skillsListing = capSkillListing(skills.listing);
+    }
   }
 
   return applyContextBudget([
@@ -82,67 +93,84 @@ function buildSystem(ctx, options = {}) {
 }
 
 /**
- * Build a session-stable "repository context" string. Computed once at session
- * start and prepended as its own cache_control block so it occupies the
- * fourth Anthropic cache breakpoint and lives the whole session.
- *
- * Returns null when no useful repo context is available (no cwd, no CLAUDE.md,
- * no git) so the caller falls back to the existing 3-breakpoint layout.
+ * Dynamic per-machine context (cwd, git, instruction hash). When
+ * excludeDynamicFromSystem is set, callers move this to the first user message.
  */
-function buildRepoContextBlock(ctx) {
+function buildDynamicEnvironmentBlock(ctx) {
   if (!ctx || !ctx.cwd) return null;
-  const parts = [];
-  let hasContent = false;
-
-  try {
-    const claudePath = path.join(ctx.cwd, 'CLAUDE.md');
-    if (fs.existsSync(claudePath)) {
-      const content = fs.readFileSync(claudePath, 'utf8');
-      parts.push('### CLAUDE.md\n' + content.trim());
-      hasContent = true;
-    }
-  } catch {
-    // ignore unreadable CLAUDE.md
-  }
-
   const fpLines = [];
   fpLines.push('cwd: ' + (ctx.cwdRealpath || ctx.cwd));
   try {
     const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ctx.cwd, stdio: ['ignore', 'pipe', 'ignore'] })
       .toString()
       .trim();
-    if (head) {
-      fpLines.push('git_head: ' + head);
-      hasContent = true;
-    }
+    if (head) fpLines.push('git_head: ' + head);
   } catch {
-    // not a git repo or git missing — fall through to cwd-only fingerprint
+    // not a git repo
   }
   if (ctx.instructionHash) fpLines.push('instruction_hash: ' + ctx.instructionHash);
-  parts.push('### Workspace fingerprint\n' + fpLines.join('\n'));
+  return '## Environment\n\n' + fpLines.join('\n');
+}
 
-  // Ext-5: repo map at session start. One-pass scan, capped at ~2KB, lives
-  // inside the same session-stable block so it rides the E1 cache breakpoint.
-  try {
-    const map = buildRepoMap(ctx.cwd);
-    if (map) {
-      parts.push(map);
+/**
+ * Session-stable repository context (optional). No project markdown is injected unless
+ * includeClaudeMdInRepoContext is set; repo map requires includeRepoMap.
+ */
+function buildRepoContextBlock(ctx, contextPolicy = DEFAULT_POLICY) {
+  if (!ctx || !ctx.cwd || !contextPolicy.includeRepoContext) return null;
+  const parts = [];
+  let hasContent = false;
+
+  if (contextPolicy.includeClaudeMdInRepoContext) {
+    try {
+      const claudePath = path.join(ctx.cwd, 'CLAUDE.md');
+      if (fs.existsSync(claudePath)) {
+        const content = fs.readFileSync(claudePath, 'utf8');
+        parts.push('### CLAUDE.md\n' + content.trim());
+        hasContent = true;
+      }
+    } catch {
+      // ignore unreadable CLAUDE.md
+    }
+  }
+
+  if (!contextPolicy.excludeDynamicFromSystem) {
+    const dynamic = buildDynamicEnvironmentBlock(ctx);
+    if (dynamic) {
+      parts.push('### Workspace fingerprint\n' + dynamic.replace('## Environment\n\n', ''));
       hasContent = true;
     }
-  } catch {
-    // best-effort; absence of repo map never blocks session start
+  }
+
+  if (contextPolicy.includeRepoMap) {
+    try {
+      const map = buildRepoMap(ctx.cwd);
+      if (map) {
+        parts.push(map);
+        hasContent = true;
+      }
+    } catch {
+      // best-effort
+    }
   }
 
   if (!hasContent) return null;
   return '## Repository context (cached for the session)\n\n' + parts.join('\n\n');
 }
 
-function buildUserMessage(text, stdinText) {
+function buildUserMessage(text, stdinText, prefixBlocks) {
+  const blocks = [];
+  if (prefixBlocks && prefixBlocks.length) {
+    for (const block of prefixBlocks) {
+      if (block) blocks.push({ type: 'text', text: block });
+    }
+  }
   let content = text;
   if (stdinText) {
     content = text + '\n\n---\nPasted context:\n' + stdinText;
   }
-  return { role: 'user', content };
+  blocks.push({ type: 'text', text: content });
+  return { role: 'user', content: blocks.length === 1 ? content : blocks };
 }
 
 function buildToolResultMessage(toolUseId, resultText) {
@@ -164,4 +192,5 @@ module.exports = {
   buildToolResultMessage,
   buildFullToolSection,
   buildRepoContextBlock,
+  buildDynamicEnvironmentBlock,
 };

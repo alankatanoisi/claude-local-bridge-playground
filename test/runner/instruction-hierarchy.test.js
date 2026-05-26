@@ -39,7 +39,7 @@ describe('instruction hierarchy', () => {
     fs.mkdirSync(localDir, { recursive: true });
     fs.writeFileSync(path.join(localDir, 'local.md'), 'local rules', 'utf8');
 
-    const mem = loadInstructionMemory(tmp);
+    const mem = loadInstructionMemory(tmp, { includeProjectDocs: true });
     assert.ok(mem.sources.some((s) => s.startsWith('org:')));
     assert.ok(mem.sources.some((s) => s.startsWith('user:')));
     assert.ok(mem.sources.some((s) => s.startsWith('project:')));

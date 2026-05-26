@@ -1,19 +1,23 @@
 'use strict';
 
 /**
- * Built-in agent profiles — preset toolsets, limits, and output schemas.
+ * Built-in runner personalities — tools, limits, context defaults, and prompt addons.
  */
+
+const { applyPermissionMode } = require('../permission-mode');
 
 const PROFILES = Object.freeze({
   explore: {
     id: 'explore',
-    description: 'Read-only codebase exploration',
+    description: 'Read-only codebase exploration (minimal context)',
     allowedTools: ['list_files', 'read_file', 'search_text', 'git_status'],
     maxSteps: 8,
     trustMode: 'inherit',
     spawnMode: 'worker',
     forkAllowed: false,
     outputSchema: 'findings',
+    context: { minimal: true },
+    systemPromptAddon: 'Explore the codebase read-only. Summarize structure and answer the user question.',
   },
   plan: {
     id: 'plan',
@@ -24,7 +28,10 @@ const PROFILES = Object.freeze({
     spawnMode: 'kernel',
     forkAllowed: false,
     plan: true,
+    permissionMode: 'plan',
     outputSchema: 'findings',
+    context: { minimal: true },
+    systemPromptAddon: 'Inspect first. Propose a plan; do not execute writes or shell unless the user asks.',
   },
   implement: {
     id: 'implement',
@@ -44,7 +51,10 @@ const PROFILES = Object.freeze({
     trustMode: 'inherit',
     spawnMode: 'kernel',
     forkAllowed: false,
+    permissionMode: 'accept-edits',
     outputSchema: 'findings',
+    context: { minimal: true },
+    systemPromptAddon: 'Implement the requested change with small, verifiable edits.',
   },
   verify: {
     id: 'verify',
@@ -55,6 +65,8 @@ const PROFILES = Object.freeze({
     spawnMode: 'worker',
     forkAllowed: false,
     outputSchema: 'findings',
+    context: { minimal: true },
+    systemPromptAddon: 'Verify claims against the repository; cite files and commands where possible.',
   },
   test: {
     id: 'test',
@@ -66,6 +78,8 @@ const PROFILES = Object.freeze({
     forkAllowed: false,
     allowShell: true,
     outputSchema: 'findings',
+    context: { minimal: true },
+    systemPromptAddon: 'Run tests or validation commands and report failures clearly.',
   },
   replay: {
     id: 'replay',
@@ -76,6 +90,7 @@ const PROFILES = Object.freeze({
     spawnMode: 'worker',
     forkAllowed: false,
     outputSchema: 'findings',
+    context: { minimal: true },
   },
   extractor: {
     id: 'extractor',
@@ -86,6 +101,25 @@ const PROFILES = Object.freeze({
     spawnMode: 'worker',
     forkAllowed: false,
     outputSchema: 'findings',
+    context: { minimal: true },
+  },
+  project: {
+    id: 'project',
+    description: 'Richer context — instruction docs, repo fingerprint, repo map (legacy-style)',
+    allowedTools: null,
+    maxSteps: 16,
+    trustMode: 'inherit',
+    spawnMode: 'kernel',
+    forkAllowed: false,
+    context: {
+      minimal: false,
+      includeInstructionDocs: true,
+      includeRepoContext: true,
+      includeClaudeMdInRepoContext: false,
+      includeRepoMap: true,
+      includeSkills: true,
+    },
+    systemPromptAddon: 'Use project instruction files and repository context when they help.',
   },
 });
 
@@ -97,17 +131,48 @@ function listProfiles() {
   return Object.values(PROFILES);
 }
 
+function formatAgentList() {
+  const lines = ['Built-in runner personalities (--agent <id>):\n'];
+  for (const p of listProfiles()) {
+    lines.push('  ' + p.id.padEnd(12) + p.description);
+  }
+  lines.push('\nDefault startup context is minimal. Use --agent project or context flags for richer injection.');
+  return lines.join('\n');
+}
+
 function applyProfileToRunOptions(profileId, baseOptions = {}) {
   const profile = getProfile(profileId);
   if (!profile) throw new Error('Unknown agent profile: ' + profileId);
-  return {
+
+  let merged = {
     ...baseOptions,
-    allowedTools: profile.allowedTools,
+    agentProfile: profile.id,
     maxSteps: profile.maxSteps ?? baseOptions.maxSteps,
     plan: profile.plan ?? baseOptions.plan,
     allowShell: profile.allowShell ?? baseOptions.allowShell,
-    agentProfile: profile.id,
   };
+
+  if (profile.allowedTools) {
+    merged.exposedTools = profile.allowedTools;
+    merged.allowedTools = profile.allowedTools;
+  }
+  if (profile.model && !baseOptions.model) merged.model = profile.model;
+  if (profile.effort && !baseOptions.effort) merged.effort = profile.effort;
+
+  if (profile.permissionMode) {
+    merged = applyPermissionMode(merged, profile.permissionMode);
+  }
+
+  if (profile.context) {
+    merged.profileContext = { ...(baseOptions.profileContext || {}), ...profile.context };
+  }
+
+  if (profile.systemPromptAddon) {
+    const prior = baseOptions.appendSystemPrompt || '';
+    merged.appendSystemPrompt = prior ? prior + '\n\n' + profile.systemPromptAddon : profile.systemPromptAddon;
+  }
+
+  return merged;
 }
 
 /** Enforce single-level fork boundary. */
@@ -121,6 +186,7 @@ module.exports = {
   PROFILES,
   getProfile,
   listProfiles,
+  formatAgentList,
   applyProfileToRunOptions,
   assertForkAllowed,
 };

@@ -188,12 +188,31 @@ node bin/local-bridge-runner.js \
   "List the top-level files, summarize the project, then stop. Do not edit files."
 ```
 
+**Startup context (default: minimal).** By default the runner does **not** inject `AGENTS.md`, `CLAUDE.md`,
+`OPENCODE.md`, repo maps, or skills into the system prompt. Use `--include-instruction-docs`, `--include-repo-context`,
+`--include-repo-map`, `--include-skills`, or `--agent project` when you want richer project context. `--bare` forces the
+smallest prompt. The bridge may still prepend Claude Code OAuth identity blocks upstream (unchanged in this pass).
+
 Useful runner options:
 
 | Option                   | Purpose                                                                |
 | ------------------------ | ---------------------------------------------------------------------- |
 | `--cwd <path>`           | Target project folder the tools can inspect or edit                    |
-| `--allowed-tools <list>` | Hide every tool except the comma-separated tools you name              |
+| `--bare`                 | Minimal context: no instruction docs, repo block, or skills          |
+| `--include-instruction-docs` | Opt in to AGENTS.md / CLAUDE.md / OPENCODE.md hierarchy            |
+| `--include-repo-context` | Opt in to session repo-context block (cwd/git fingerprint)           |
+| `--include-claude-md`    | Include CLAUDE.md in repo-context (needs `--include-repo-context`)     |
+| `--include-repo-map`     | Opt in to repo map inside repo-context                                 |
+| `--include-skills`       | Opt in to skills listing in the system prompt                          |
+| `--agent <profile>`      | Runner personality: explore, plan, implement, project, …               |
+| `--list-agents`          | List built-in personalities and exit                                   |
+| `--permission-mode <m>`  | default, plan, accept-edits, dont-ask, accept-edits-dont-ask, auto     |
+| `--tools <list>`         | Expose only these tools (alias: `--allowed-tools`)                     |
+| `--append-system-prompt` / `--append-system-prompt-file` | Add text after the default system prompt |
+| `--system-prompt-file`   | Replace default system prompt with a file                              |
+| `--exclude-dynamic-system-prompt-sections` | Put cwd/git fingerprint in the first user message instead |
+| `--no-session-persistence` | Skip writing session checkpoints under ~/.bridge-runner/sessions/    |
+| `--allowed-tools <list>` | Same as `--tools` (legacy name)                                        |
 | `--include-file <path>`  | Attach a bounded file from `--cwd` before the model call               |
 | `--human-log <path>`     | Write a plain text log of the prompt, tool results, and final answer   |
 | `--trace-level <level>`  | Write correlated flight-recorder traces: summary, redacted, or full    |
