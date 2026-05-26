@@ -1,5 +1,7 @@
 # Claude Local Bridge
 
+> **This is the active repository** ([claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground), branch **`main`**). Canonical [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge) is archived (tags `archive-2026-05-main` and `archive-2026-05-runner-clean-pr`); do not open new PRs there.
+
 A VS Code extension that reads your **Claude Code OAuth credentials** and exposes them as a local HTTP server on `http://localhost:11437`, compatible with both the **Anthropic Messages API** and **OpenAI-compatible `/v1` clients**.
 
 Use Claude CLI with `http://localhost:11437`, and point OpenAI-style tools to `http://localhost:11437/v1` — the bridge injects your Claude Code OAuth token so no Anthropic Console API key is used upstream.
@@ -28,12 +30,12 @@ If you are new to Terminal or this repo, start with [BEGINNER_GUIDE.md](./BEGINN
 
 | Lane                       | Local folder                                 | GitHub                                                                                            | Branch                  | Use for                                     |
 | -------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------- |
-| **Playground (this repo)** | `~/Developer/claude-local-bridge-playground` | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main`                  | Experiments, harness chaos, personal backup |
-| **Canonical**              | `~/Developer/claude-local-bridge`            | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | `codex/runner-clean-pr` | Extension, clean runner, serious work       |
+| **Playground (this repo — active)** | `~/Developer/claude-local-bridge-playground` | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main` | All harness and runner work |
+| **Canonical (archived)**            | `~/Developer/claude-local-bridge`            | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | frozen at `archive-2026-05-*` tags | Codex reference only; local folder kept for Codex |
 
-- Playground PRs and drafts belong in **this** GitHub repo only — see [lab-notes/PLAYGROUND_PR_POLICY.md](./lab-notes/PLAYGROUND_PR_POLICY.md).
-- Canonical GitHub `main` is archival/posterity — not the target for playground PRs.
-- Porting playground → canonical: [lab-notes/PROMOTION_RITUAL.md](./lab-notes/PROMOTION_RITUAL.md).
+- Playground PRs and commits belong in **this** GitHub repo only — see [lab-notes/ACTIVE_WORKTREE.md](./lab-notes/ACTIVE_WORKTREE.md) and [lab-notes/PLAYGROUND_PR_POLICY.md](./lab-notes/PLAYGROUND_PR_POLICY.md).
+- Canonical repo is **archived on GitHub** after you confirm; `codex/runner-clean-pr` promotion is paused until you deliberately unarchive.
+- Historical promotion ritual (if ever needed again): [lab-notes/PROMOTION_RITUAL.md](./lab-notes/PROMOTION_RITUAL.md).
 
 Before edits, agents should sanity-check the lane:
 

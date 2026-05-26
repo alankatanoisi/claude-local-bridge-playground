@@ -13,9 +13,9 @@ Playground now uses its **own GitHub repository**. Canonical extension work stay
 | Lane           | Local folder                     | GitHub                                                                                            | Push branch             |
 | -------------- | -------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------- |
 | **Playground** | `claude-local-bridge-playground` | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | **`main`**              |
-| **Canonical**  | `claude-local-bridge`            | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | `codex/runner-clean-pr` |
+| **Canonical (archived)** | `claude-local-bridge` | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge) | frozen — tags `archive-2026-05-*` only |
 
-`origin` in the playground folder should point at the **playground repo**. Optional read-only remote `canonical-archive` can fetch history from the old shared repo.
+`origin` in the playground folder should point at the **playground repo** only. Optional read-only remote `canonical-archive` may fetch history from the archived canonical repo; **do not push** to it (`git remote set-url --push canonical-archive DISABLED`).
 
 ## Safe push workflow (Terminal)
 

@@ -24,7 +24,7 @@ Hard rules for agents and Alan when working from:
 ## MUST NOT
 
 - Open PRs on `alankatanoisi/claude-local-bridge` for playground experiment work.
-- Target canonical repo **`main`** with playground commits (see PR #17 — wrong repo, wrong base).
+- Target canonical repo **`main`** with playground commits (see [PR #17](https://github.com/alankatanoisi/claude-local-bridge/pull/17) — **abandoned**; playground `main` supersedes `claude/magical-edison-7Qou6`).
 - Auto-merge playground into canonical without [`PROMOTION_RITUAL.md`](PROMOTION_RITUAL.md).
 
 ## Examples

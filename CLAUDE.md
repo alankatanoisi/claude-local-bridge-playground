@@ -11,7 +11,9 @@ Run `pwd` before assuming:
 | `claude-local-bridge-playground` | **Playground** | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main`                  |
 | `claude-local-bridge`            | **Canonical**  | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | `codex/runner-clean-pr` |
 
-If you are in **playground**, PRs go to the playground repo only — see `lab-notes/PLAYGROUND_PR_POLICY.md`.
+If you are in **playground**, all commits and PRs go to the playground repo on **`main`** only — see `lab-notes/ACTIVE_WORKTREE.md` and `lab-notes/PLAYGROUND_PR_POLICY.md`.
+
+**Do not** open or continue work on canonical [PR #17](https://github.com/alankatanoisi/claude-local-bridge/pull/17) (`claude/magical-edison-7Qou6`). That branch is stale relative to playground `main`.
 
 ## Human Context
 

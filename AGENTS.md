@@ -107,6 +107,8 @@ accident, stop and tell Alan.
 
 ## Startup Checklist
 
+**Read [`lab-notes/ACTIVE_WORKTREE.md`](lab-notes/ACTIVE_WORKTREE.md) first.** Do not commit to canonical `claude-local-bridge` or PR #17 unless Alan explicitly asks for promotion.
+
 At the start of a fresh session, run this **before edits**:
 
 ```bash
