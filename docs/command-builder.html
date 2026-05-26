@@ -410,6 +410,50 @@
         border-top: 1px solid var(--border);
         margin: 0.8rem 0;
       }
+
+      .warn-panel {
+        border-radius: 6px;
+        padding: 0.5rem 0.7rem;
+        font-size: 0.75rem;
+        margin-top: 0.5rem;
+        display: none;
+        line-height: 1.45;
+      }
+      .warn-panel.show {
+        display: block;
+      }
+      .warn-panel.conflict {
+        background: rgba(248, 81, 73, 0.08);
+        border: 1px solid rgba(248, 81, 73, 0.35);
+        color: var(--red);
+      }
+      .warn-panel.caution {
+        background: rgba(210, 153, 29, 0.06);
+        border: 1px solid rgba(210, 153, 29, 0.25);
+        color: var(--orange);
+      }
+      .warn-panel.info {
+        background: rgba(88, 166, 255, 0.06);
+        border: 1px solid rgba(88, 166, 255, 0.2);
+        color: var(--blue);
+      }
+
+      .is-muted-control {
+        opacity: 0.45;
+        pointer-events: none;
+      }
+      .check-label.is-muted-control input {
+        pointer-events: none;
+      }
+
+      .subsection-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin: 0.6rem 0 0.35rem;
+      }
     </style>
   </head>
   <body>
@@ -473,7 +517,9 @@
               <button class="preset-btn" data-preset="plan">Plan mode (dry run)</button>
               <button class="preset-btn" data-preset="automation">Automation JSON</button>
               <button class="preset-btn" data-preset="otherfolder">Other local folder</button>
+              <button class="preset-btn" data-preset="freshTask">Fresh task (megathread)</button>
               <button class="preset-btn" data-preset="resume">Resume session</button>
+              <button class="preset-btn" data-preset="forkBranch">Fork session branch</button>
               <button class="preset-btn" data-preset="debug">Verbose debug</button>
             </div>
           </div>
@@ -555,16 +601,26 @@
           </div>
 
           <!-- Permission flags -->
-          <div class="card">
+          <div class="card" id="permissionCard">
             <h2>Permission flags</h2>
 
-            <div class="checks">
-              <label class="check-label"> <input type="checkbox" id="acceptEdits" /> --accept-edits </label>
-              <label class="check-label"> <input type="checkbox" id="dontAsk" /> --dont-ask </label>
+            <div id="chaosConflict" class="warn-panel conflict">
+              Blocked combo: <code>--allow-shell</code> + <code>--accept-edits</code> + <code>--dont-ask</code> requires
+              <code>--chaos-ok</code> (runner will refuse to start).
+            </div>
+            <div id="permissionCautions" class="warn-panel caution"></div>
+
+            <div class="checks" id="permissionChecks">
+              <label class="check-label" id="acceptEditsRow">
+                <input type="checkbox" id="acceptEdits" /> --accept-edits
+              </label>
+              <label class="check-label" id="dontAskRow"> <input type="checkbox" id="dontAsk" /> --dont-ask </label>
               <label class="check-label"> <input type="checkbox" id="stream" /> --stream </label>
               <label class="check-label"> <input type="checkbox" id="verbose" /> --verbose </label>
-              <label class="check-label"> <input type="checkbox" id="plan" /> --plan </label>
-              <label class="check-label"> <input type="checkbox" id="noNetwork" /> --no-network </label>
+              <label class="check-label" id="planRow"> <input type="checkbox" id="plan" /> --plan </label>
+              <label class="check-label" id="noNetworkRow">
+                <input type="checkbox" id="noNetwork" /> --no-network
+              </label>
             </div>
 
             <div class="field">
@@ -598,7 +654,7 @@
               Plan mode: the model will describe actions instead of executing writes and shell commands.
             </div>
 
-            <div class="field" style="margin-top: 0.5rem">
+            <div class="field runner-only-block" style="margin-top: 0.5rem" id="shellTimeoutRow">
               <label for="shellTimeout">Shell timeout (ms)</label>
               <input type="number" id="shellTimeout" value="30000" min="100" max="120000" step="1000" />
             </div>
@@ -617,17 +673,74 @@
               </div>
             </div>
 
-            <hr class="divider" />
+            <hr class="divider runner-only-block" />
 
-            <div class="field">
+            <div class="runner-only-block">
+              <p class="subsection-title">Session health</p>
+              <div class="checks">
+                <label class="check-label" id="newSessionRow">
+                  <input type="checkbox" id="newSession" /> --new-session
+                </label>
+                <label class="check-label" id="resumeSessionRow">
+                  <input type="checkbox" id="resumeSession" /> --resume-session
+                </label>
+                <label class="check-label" id="ackResumeRiskRow">
+                  <input type="checkbox" id="ackResumeRisk" /> --ack-resume-risk
+                </label>
+              </div>
+              <div id="sessionConflict" class="warn-panel conflict">
+                Pick one resume style: <code>--new-session</code>, <code>--resume-session</code>,
+                <code>--continue</code>, or <code>--resume &lt;transcript&gt;</code> — combining them is confusing.
+              </div>
+              <div class="field">
+                <label for="forkFrom">Fork from session id</label>
+                <input type="text" id="forkFrom" placeholder="parent-session-id" />
+              </div>
+
+              <p class="subsection-title">Task hygiene</p>
+              <div class="checks">
+                <label class="check-label"> <input type="checkbox" id="taskScope" /> --task-scope </label>
+                <label class="check-label"> <input type="checkbox" id="compactEachTurn" /> --compact-each-turn </label>
+                <label class="check-label"> <input type="checkbox" id="autoMemory" /> --auto-memory </label>
+                <label class="check-label"> <input type="checkbox" id="noArchive" /> --no-archive </label>
+              </div>
+              <div class="row">
+                <div class="field">
+                  <label for="effort">Model effort</label>
+                  <select id="effort">
+                    <option value="">(default)</option>
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                    <option value="max">max</option>
+                  </select>
+                </div>
+              </div>
+
+              <p class="subsection-title">Ledger utilities</p>
+              <div class="checks">
+                <label class="check-label" id="replayRow">
+                  <input type="checkbox" id="replayMode" /> --replay (verify ledger, no prompt)
+                </label>
+                <label class="check-label" id="repairRow">
+                  <input type="checkbox" id="repairMode" /> --repair (ledger repair plan)
+                </label>
+              </div>
+              <div id="ledgerNote" class="warn-panel info">
+                <code>--replay</code> and <code>--repair</code> need <code>--session-id</code> or
+                <code>--session-path</code>. They exit without running a normal agent loop.
+              </div>
+            </div>
+
+            <div class="field runner-only-block">
               <label for="sessionId">Session id (playground)</label>
               <input type="text" id="sessionId" placeholder="my-run-1" />
             </div>
-            <div class="field">
+            <div class="field runner-only-block">
               <label for="sessionPath">Session path (optional override)</label>
               <input type="text" id="sessionPath" placeholder="~/.bridge-runner/sessions/my-run-1.state.json" />
             </div>
-            <div class="checks" style="margin-top: 0.5rem">
+            <div class="checks runner-only-block" style="margin-top: 0.5rem">
               <label class="check-label">
                 <input type="checkbox" id="trustedWorkspace" /> --trusted-workspace (enable project hooks)
               </label>
@@ -666,28 +779,28 @@
               </div>
             </div>
 
-            <div class="field">
+            <div class="field runner-only-block">
               <label for="resumePath">Resume from transcript</label>
               <input type="text" id="resumePath" placeholder="~/.bridge-runner/logs/last.jsonl" />
             </div>
 
-            <div class="checks" style="margin-top: 0.5rem">
-              <label class="check-label">
+            <div class="checks runner-only-block" style="margin-top: 0.5rem">
+              <label class="check-label" id="continueRow">
                 <input type="checkbox" id="continueFromLatest" /> --continue (auto-resume from latest)
               </label>
             </div>
 
-            <div class="field">
+            <div class="field runner-only-block">
               <label for="transcript">Transcript path</label>
               <input type="text" id="transcript" placeholder="~/.bridge-runner/logs/&lt;timestamp&gt;.jsonl" />
             </div>
 
-            <div class="field">
+            <div class="field runner-only-block">
               <label for="humanLog">Human-readable log path</label>
               <input type="text" id="humanLog" placeholder="~/.bridge-runner/logs/run-notes.md" />
             </div>
 
-            <div class="row">
+            <div class="row runner-only-block">
               <div class="field">
                 <label for="traceLevel">Flight recorder trace level</label>
                 <select id="traceLevel">
@@ -702,11 +815,15 @@
                 <input type="text" id="tracePath" placeholder="~/.bridge-runner/traces/run.runner.jsonl" />
               </div>
             </div>
-            <div class="note show">
+            <div class="note show runner-only-block">
               Traces help debug what the runner built, what the bridge forwarded, tool decisions, usage, and cache
               counters returned by the model. Treat redacted and full traces like source-code logs.
             </div>
-            <div class="field">
+            <div id="traceFullWarn" class="warn-panel caution runner-only-block">
+              <code>--trace-level full</code> can write prompts and source snippets to disk. Use redacted unless you
+              need deep debugging.
+            </div>
+            <div class="field runner-only-block">
               <label for="callerToken">Caller auth token (optional)</label>
               <input type="text" id="callerToken" placeholder="$BRIDGE_CALLER_TOKEN or local-dev-token" />
             </div>
@@ -718,7 +835,7 @@
           </div>
 
           <!-- Tool catalog -->
-          <div class="card">
+          <div class="card runner-only-block" id="toolsCard">
             <h2>
               Tools
               <span style="font-weight: 400; font-size: 0.75rem; color: var(--muted)">(what the model can use)</span>
@@ -859,6 +976,28 @@
       const agentProfile = document.getElementById('agentProfile');
       const maxWallClockMs = document.getElementById('maxWallClockMs');
       const maxCostUsd = document.getElementById('maxCostUsd');
+      const newSession = document.getElementById('newSession');
+      const resumeSession = document.getElementById('resumeSession');
+      const ackResumeRisk = document.getElementById('ackResumeRisk');
+      const forkFrom = document.getElementById('forkFrom');
+      const taskScope = document.getElementById('taskScope');
+      const compactEachTurn = document.getElementById('compactEachTurn');
+      const effort = document.getElementById('effort');
+      const autoMemory = document.getElementById('autoMemory');
+      const noArchive = document.getElementById('noArchive');
+      const replayMode = document.getElementById('replayMode');
+      const repairMode = document.getElementById('repairMode');
+      const chaosConflict = document.getElementById('chaosConflict');
+      const permissionCautions = document.getElementById('permissionCautions');
+      const sessionConflict = document.getElementById('sessionConflict');
+      const traceFullWarn = document.getElementById('traceFullWarn');
+      const ledgerNote = document.getElementById('ledgerNote');
+      const shellTimeoutRow = document.getElementById('shellTimeoutRow');
+      const noNetworkRow = document.getElementById('noNetworkRow');
+      const ackResumeRiskRow = document.getElementById('ackResumeRiskRow');
+      const runnerOnlyBlocks = Array.from(document.querySelectorAll('.runner-only-block'));
+
+      const PLAYGROUND = '/Users/alanman/Developer/claude-local-bridge-playground';
 
       const DEFAULTS = {
         maxSteps: 16,
@@ -907,6 +1046,18 @@
           parts.push('--review-memory');
           return parts;
         }
+        if (!isCoordinator && replayMode.checked) {
+          if (sessionId.value.trim()) parts.push('--session-id ' + shellQuote(sessionId.value.trim()));
+          if (sessionPath.value.trim()) parts.push('--session-path ' + shellQuote(sessionPath.value.trim()));
+          parts.push('--replay');
+          return parts;
+        }
+        if (!isCoordinator && repairMode.checked) {
+          if (sessionId.value.trim()) parts.push('--session-id ' + shellQuote(sessionId.value.trim()));
+          if (sessionPath.value.trim()) parts.push('--session-path ' + shellQuote(sessionPath.value.trim()));
+          parts.push('--repair');
+          return parts;
+        }
         if (!isCoordinator && agentProfile.value) parts.push('--agent ' + agentProfile.value);
         if (!isCoordinator && maxWallClockMs.value.trim())
           parts.push('--max-wall-clock-ms ' + maxWallClockMs.value.trim());
@@ -934,8 +1085,17 @@
         if (temperature.value.trim()) parts.push('--temperature ' + temperature.value.trim());
         if (maxContextTokens.value.trim()) parts.push('--max-context-tokens ' + maxContextTokens.value.trim());
         if (maxToolCalls.value.trim()) parts.push('--max-tool-calls-per-turn ' + maxToolCalls.value.trim());
+        if (newSession.checked) parts.push('--new-session');
+        if (resumeSession.checked) parts.push('--resume-session');
+        if (ackResumeRisk.checked) parts.push('--ack-resume-risk');
+        if (forkFrom.value.trim()) parts.push('--fork-from ' + shellQuote(forkFrom.value.trim()));
+        if (taskScope.checked) parts.push('--task-scope');
+        if (compactEachTurn.checked) parts.push('--compact-each-turn');
+        if (effort.value) parts.push('--effort ' + effort.value);
+        if (autoMemory.checked) parts.push('--auto-memory');
+        if (noArchive.checked) parts.push('--no-archive');
         if (resumePath.value.trim()) parts.push('--resume ' + shellQuote(resumePath.value.trim()));
-        if (transcript.value.trim() && !resumePath.value.trim())
+        if (transcript.value.trim() && !resumePath.value.trim() && !resumeSession.checked)
           parts.push('--transcript ' + shellQuote(transcript.value.trim()));
         if (humanLog.value.trim()) parts.push('--human-log ' + shellQuote(humanLog.value.trim()));
         if (traceLevel.value !== DEFAULTS.traceLevel) parts.push('--trace-level ' + traceLevel.value);
@@ -995,22 +1155,96 @@
         return command;
       }
 
-      // ── Render command ──
-      function render() {
+      function hasChaosConflict() {
+        return allowShell.checked && acceptEdits.checked && dontAsk.checked && !chaosOk.checked;
+      }
+
+      function countResumeModes() {
+        let n = 0;
+        if (newSession.checked) n++;
+        if (resumeSession.checked) n++;
+        if (continueFromLatest.checked) n++;
+        if (resumePath.value.trim()) n++;
+        return n;
+      }
+
+      function updateUiState() {
         const isCoordinator = cliMode.value === 'coordinator';
         coordinatorFields.style.display = isCoordinator ? 'block' : 'none';
+        runnerOnlyBlocks.forEach((el) => {
+          el.style.display = isCoordinator ? 'none' : '';
+        });
+
+        const shellOn = allowShell.checked;
+        bashToolRow.style.display = shellOn ? '' : 'none';
+        shellWarn.classList.toggle('show', shellOn && !isCoordinator);
+        shellTimeoutRow.classList.toggle('is-muted-control', !shellOn || isCoordinator);
+        noNetworkRow.classList.toggle('is-muted-control', !shellOn || isCoordinator);
+
+        const bashChoice = toolChoices.find((c) => c.value === 'bash');
+        if (bashChoice) {
+          const bashLabel = bashChoice.closest('.tool-choice');
+          if (bashLabel) bashLabel.classList.toggle('is-muted-control', !shellOn);
+          if (!shellOn) bashChoice.checked = false;
+        }
+
+        const chaosBlocked = hasChaosConflict();
+        chaosConflict.classList.toggle('show', chaosBlocked && !isCoordinator);
+
+        const resumeModes = countResumeModes();
+        sessionConflict.classList.toggle('show', resumeModes > 1 && !isCoordinator);
+
+        const ledgerUtility = replayMode.checked || repairMode.checked;
+        ledgerNote.classList.toggle('show', ledgerUtility && !isCoordinator);
+        replayMode.closest('.check-label').classList.toggle('is-muted-control', repairMode.checked);
+        repairMode.closest('.check-label').classList.toggle('is-muted-control', replayMode.checked);
+
+        ackResumeRiskRow.classList.toggle('is-muted-control', !resumeSession.checked || isCoordinator);
+
+        const cautions = [];
+        if (!isCoordinator) {
+          if (acceptEdits.checked && !plan.checked) cautions.push('--accept-edits skips write confirmations.');
+          if (dontAsk.checked && !allowShell.checked)
+            cautions.push('--dont-ask does not enable bash; add --allow-shell only when you need shell.');
+          if (dontAsk.checked && allowShell.checked && !chaosOk.checked && !(acceptEdits.checked && chaosBlocked))
+            cautions.push(
+              'With shell on, --dont-ask still asks unless writes are auto-approved or chaos is acknowledged.',
+            );
+          if (plan.checked && (acceptEdits.checked || allowShell.checked))
+            cautions.push('--plan dry-runs tools; accept-edits/shell flags still shape what the model sees.');
+          if (trustedWorkspace.checked)
+            cautions.push('--trusted-workspace runs hooks from .bridge-runner/hooks.json in cwd.');
+          if (autoMemory.checked)
+            cautions.push('--auto-memory injects opt-in runner memory into context (default off in runner).');
+          if (ackResumeRisk.checked)
+            cautions.push(
+              '--ack-resume-risk overrides degraded-session gate — use only when you accept poisoned context.',
+            );
+          if (repairMode.checked) cautions.push('--repair may mutate session ledger; runner shows a plan first.');
+        }
+        if (cautions.length) {
+          permissionCautions.innerHTML = cautions.map((c) => '&#9888; ' + esc(c)).join('<br>');
+          permissionCautions.classList.add('show');
+        } else {
+          permissionCautions.classList.remove('show');
+          permissionCautions.innerHTML = '';
+        }
+
+        traceFullWarn.classList.toggle('show', traceLevel.value === 'full' && !isCoordinator);
+
+        const planNote = document.getElementById('planNote');
+        if (planNote) planNote.style.display = plan.checked && !isCoordinator ? 'flex' : 'none';
+
+        copyBtn.disabled = chaosBlocked && !isCoordinator;
+        copyBtn.title = chaosBlocked ? 'Fix chaos combo before copying' : '';
+      }
+
+      // ── Render command ──
+      function render() {
+        updateUiState();
 
         const raw = buildRawCommand();
         cmdOutput.innerHTML = '<span class="dim">$</span> ' + esc(raw);
-
-        bashToolRow.style.display = allowShell.checked ? '' : 'none';
-        if (allowShell.checked) shellWarn.classList.add('show');
-        else shellWarn.classList.remove('show');
-
-        const planNote = document.getElementById('planNote');
-        if (planNote) {
-          planNote.style.display = plan.checked ? 'flex' : 'none';
-        }
 
         updateAttachmentNote();
 
@@ -1093,6 +1327,17 @@
         agentProfile,
         maxWallClockMs,
         maxCostUsd,
+        newSession,
+        resumeSession,
+        ackResumeRisk,
+        forkFrom,
+        taskScope,
+        compactEachTurn,
+        effort,
+        autoMemory,
+        noArchive,
+        replayMode,
+        repairMode,
         ...toolChoices,
       ].forEach((el) => {
         el.addEventListener('input', render);
@@ -1117,77 +1362,87 @@
       // ── Presets ──
       const PRESETS = {
         readonly: {
-          prompt: 'Explain this repo at a high level. List the main files and describe what each does.',
-          maxSteps: 8,
-          maxTokens: 2000,
-          maxStepsDefault: true,
-          maxTokensDefault: true,
+          prompt:
+            'Compare docs/command-builder.html against bin/local-bridge-runner.js --help. List every CLI flag missing from the builder, then trace how permissions.js would treat a read-only run. Do not edit files.',
+          maxSteps: 10,
+          maxTokens: 2500,
+          maxStepsDefault: false,
+          maxTokensDefault: false,
           acceptEdits: false,
           dontAsk: false,
           allowShell: false,
+          plan: true,
           stream: false,
-          verbose: false,
+          verbose: true,
           outputFormat: 'text',
-          runnerPath: '',
-          cwd: '',
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
           cliMode: 'runner',
+          applyTools: true,
           tools: READ_TOOL_NAMES,
         },
         session: {
-          prompt: 'List files under src/runner and summarize. Do not edit files.',
-          maxSteps: 8,
-          maxTokens: 2000,
-          maxStepsDefault: true,
-          maxTokensDefault: true,
+          prompt:
+            'Using session id command-builder-demo: read src/runner/session-health.js and session-store.js, summarize resume vs new-session behavior, and say whether this session would be safe to resume. Do not edit files.',
+          maxSteps: 10,
+          maxTokens: 2500,
+          maxStepsDefault: false,
+          maxTokensDefault: false,
           acceptEdits: false,
           dontAsk: false,
           allowShell: false,
           stream: false,
           verbose: true,
           outputFormat: 'text',
-          runnerPath: '/Users/alanman/Developer/claude-local-bridge-playground',
-          cwd: '/Users/alanman/Developer/claude-local-bridge-playground',
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
           sessionId: 'command-builder-demo',
+          newSession: true,
+          resumeSession: false,
+          continueFromLatest: false,
+          resumePath: '',
+          taskScope: true,
           cliMode: 'runner',
-          tools: READ_TOOL_NAMES,
         },
         coordinator: {
-          prompt: 'Summarize how permissions.js works. Do not edit files.',
+          prompt:
+            'Objective: map how the coordinator phases call the kernel. Read src/runner/coordinator.js and bin/local-bridge-coordinator.js. Produce a phase-by-phase findings list; do not edit files.',
           maxSteps: 8,
-          maxTokens: 2000,
+          maxTokens: 2500,
           maxStepsDefault: true,
-          maxTokensDefault: true,
+          maxTokensDefault: false,
           acceptEdits: false,
           dontAsk: false,
           allowShell: false,
           stream: false,
           verbose: false,
-          outputFormat: 'text',
-          runnerPath: '/Users/alanman/Developer/claude-local-bridge-playground',
-          cwd: '/Users/alanman/Developer/claude-local-bridge-playground',
+          outputFormat: 'stream-json',
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
           sessionId: 'coord-demo-1',
           cliMode: 'coordinator',
-          coordinatorPhases: 'research,synthesize,execute',
+          coordinatorPhases: 'research,synthesize,execute,verify',
           noWorkers: true,
-          tools: READ_TOOL_NAMES,
         },
         confirm: {
-          prompt: 'Fix the typo in the README.',
-          maxSteps: 16,
-          maxTokens: 2000,
+          prompt:
+            'Add one sentence to docs/command-builder.html tip box noting that write tools ask for confirmation by default. Show the exact diff you would make, then apply it only if confirmation would still fire (do not use --accept-edits).',
+          maxSteps: 12,
+          maxTokens: 2500,
           maxStepsDefault: false,
-          maxTokensDefault: true,
+          maxTokensDefault: false,
           acceptEdits: false,
           dontAsk: false,
           allowShell: false,
           stream: false,
           verbose: false,
           outputFormat: 'text',
-          runnerPath: '',
-          cwd: '',
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
         },
         auto: {
-          prompt: 'Add JSDoc comments to every exported function in src/runner/',
+          prompt:
+            'In src/runner/beginner-hints.js, add a hint entry for when --chaos-ok is missing (mirror shell-policy validateChaosCombo). Update matching tests if present. Use --accept-edits behavior.',
           maxSteps: 20,
           maxTokens: 4096,
           maxStepsDefault: false,
@@ -1198,57 +1453,88 @@
           stream: false,
           verbose: false,
           outputFormat: 'text',
-          runnerPath: '',
-          cwd: '',
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
+          agentProfile: 'implement',
         },
         full: {
-          prompt: 'Write a quickSort function in src/quick-sort.js, add a test, and run npm test to verify.',
-          maxSteps: 30,
+          prompt:
+            'Run targeted runner tests for permissions and session-health, then fix any failure you introduced in this repo. Use npm test filtered to those files. Stop when green or explain blockers.',
+          maxSteps: 24,
           maxTokens: 4096,
           maxStepsDefault: false,
           maxTokensDefault: false,
           acceptEdits: true,
           dontAsk: true,
           allowShell: true,
-          stream: false,
-          verbose: false,
+          chaosOk: true,
+          noNetwork: true,
+          stream: true,
+          verbose: true,
           outputFormat: 'text',
-          runnerPath: '',
-          cwd: '',
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
+          agentProfile: 'test',
         },
         plan: {
-          prompt: 'Describe what changes you would make to fix the failing test. Do not edit files.',
-          maxSteps: 8,
-          maxTokens: 2000,
-          maxStepsDefault: true,
-          maxTokensDefault: true,
+          prompt:
+            'Dry-run: propose a minimal patch to wire --effort in command-builder.html (read bin/local-bridge-runner.js first). List files, hunks, and tests — do not write files.',
+          maxSteps: 10,
+          maxTokens: 2500,
+          maxStepsDefault: false,
+          maxTokensDefault: false,
           acceptEdits: false,
           dontAsk: false,
           allowShell: false,
+          plan: true,
           stream: false,
           verbose: false,
           outputFormat: 'text',
-          runnerPath: '',
-          cwd: '',
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
+          applyTools: true,
+          tools: READ_TOOL_NAMES,
         },
         automation: {
-          prompt: 'List the files in this repo and summarize what the project does.',
-          maxSteps: 8,
-          maxTokens: 2000,
-          maxStepsDefault: true,
-          maxTokensDefault: true,
+          prompt:
+            'Emit stream-json friendly progress: list src/runner/*.js, grep for "stopReason", and return a JSON-shaped summary in your final message. Read-only; no edits.',
+          maxSteps: 10,
+          maxTokens: 2500,
+          maxStepsDefault: false,
+          maxTokensDefault: false,
           acceptEdits: false,
           dontAsk: false,
           allowShell: false,
           stream: false,
           verbose: false,
           outputFormat: 'stream-json',
-          runnerPath: '',
-          cwd: '',
+          traceLevel: 'summary',
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
+          applyTools: true,
           tools: READ_TOOL_NAMES,
         },
         otherfolder: {
-          prompt: 'List the top-level files, summarize what this project does, then stop. Do not edit files.',
+          prompt:
+            'You are reviewing a different local project (not the runner repo). List top-level files, package.json scripts, and test entrypoints. Summarize architecture in 8 bullets. Do not edit files.',
+          maxSteps: 10,
+          maxTokens: 2500,
+          maxStepsDefault: false,
+          maxTokensDefault: false,
+          acceptEdits: false,
+          dontAsk: false,
+          allowShell: false,
+          stream: true,
+          verbose: true,
+          outputFormat: 'text',
+          runnerPath: PLAYGROUND,
+          cwd: '/Users/alanman/path/to/another/project',
+          applyTools: true,
+          tools: READ_TOOL_NAMES,
+        },
+        freshTask: {
+          prompt:
+            'One focused task: read lab-notes/runner-megathread-playbook.md and explain when to use --new-session vs --task-scope vs --compact-each-turn. Then stop.',
           maxSteps: 8,
           maxTokens: 2000,
           maxStepsDefault: true,
@@ -1256,33 +1542,68 @@
           acceptEdits: false,
           dontAsk: false,
           allowShell: false,
-          stream: true,
+          newSession: true,
+          resumeSession: false,
+          continueFromLatest: false,
+          resumePath: '',
+          taskScope: true,
+          compactEachTurn: true,
+          effort: 'medium',
+          stream: false,
           verbose: true,
           outputFormat: 'text',
-          runnerPath: '/Users/alanman/Developer/claude-local-bridge',
-          cwd: '/Users/alanman/path/to/another/project',
-          tools: READ_TOOL_NAMES,
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
+          sessionId: 'megathread-task-1',
         },
         resume: {
-          prompt: 'Continue where we left off.',
-          resumePath: '~/.bridge-runner/logs/<last-session>.jsonl',
-          maxSteps: 16,
-          maxTokens: 2000,
+          prompt:
+            'Resume session megathread-task-1: continue the previous task only if health is not degraded; otherwise explain why a fresh session is safer.',
+          maxSteps: 12,
+          maxTokens: 2500,
           maxStepsDefault: false,
-          maxTokensDefault: true,
+          maxTokensDefault: false,
           acceptEdits: false,
           dontAsk: false,
           allowShell: false,
+          resumeSession: true,
+          newSession: false,
+          continueFromLatest: false,
+          resumePath: '',
+          sessionId: 'megathread-task-1',
           stream: false,
-          verbose: false,
+          verbose: true,
           outputFormat: 'text',
-          runnerPath: '',
-          cwd: '',
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
+        },
+        forkBranch: {
+          prompt:
+            'Forked attempt: try a different approach to the last task. Read session state metadata only; do not assume prior tool outputs are still valid.',
+          maxSteps: 10,
+          maxTokens: 2500,
+          maxStepsDefault: false,
+          maxTokensDefault: false,
+          acceptEdits: false,
+          dontAsk: false,
+          allowShell: false,
+          forkFrom: 'megathread-task-1',
+          newSession: true,
+          resumeSession: false,
+          continueFromLatest: false,
+          resumePath: '',
+          sessionId: 'megathread-task-1-branch',
+          stream: false,
+          verbose: true,
+          outputFormat: 'text',
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
         },
         debug: {
-          prompt: 'List the files under src/runner/ and read the first 15 lines of run.js.',
+          prompt:
+            'Debug pass: read src/runner/run.js (first 80 lines) and src/runner/permissions.js activeMode(). Explain permission mode selection with examples for --plan and --accept-edits.',
           maxSteps: 8,
-          maxTokens: 1000,
+          maxTokens: 1500,
           maxStepsDefault: true,
           maxTokensDefault: false,
           acceptEdits: false,
@@ -1290,12 +1611,116 @@
           allowShell: false,
           stream: false,
           verbose: true,
+          traceLevel: 'redacted',
           outputFormat: 'text',
-          runnerPath: '',
-          cwd: '',
+          runnerPath: PLAYGROUND,
+          cwd: PLAYGROUND,
+          applyTools: true,
           tools: READ_TOOL_NAMES,
         },
       };
+
+      function applyPresetValue(target, key, preset) {
+        if (!Object.prototype.hasOwnProperty.call(preset, key)) return;
+        const value = preset[key];
+        if (target.type === 'checkbox') target.checked = !!value;
+        else target.value = value == null ? '' : value;
+      }
+
+      function applyPreset(name, p) {
+        document.querySelectorAll('.preset-btn').forEach((b) => b.classList.remove('active'));
+        const btn = document.querySelector('[data-preset="' + name + '"]');
+        if (btn) btn.classList.add('active');
+
+        if (p.prompt !== undefined) prompt.value = p.prompt;
+        if (!p.permissionsOnly) {
+          if (p.cliMode !== undefined) cliMode.value = p.cliMode;
+          applyPresetValue(sessionId, 'sessionId', p);
+          applyPresetValue(sessionPath, 'sessionPath', p);
+          applyPresetValue(coordinatorPhases, 'coordinatorPhases', p);
+          applyPresetValue(agentProfile, 'agentProfile', p);
+          if (Object.prototype.hasOwnProperty.call(p, 'noWorkers')) noWorkers.checked = p.noWorkers;
+          applyPresetValue(resumePath, 'resumePath', p);
+          applyPresetValue(forkFrom, 'forkFrom', p);
+          applyPresetValue(tracePath, 'tracePath', p);
+          applyPresetValue(callerToken, 'callerToken', p);
+          applyPresetValue(systemPrompt, 'systemPrompt', p);
+          applyPresetValue(temperature, 'temperature', p);
+          applyPresetValue(maxContextTokens, 'maxContextTokens', p);
+          applyPresetValue(maxToolCalls, 'maxToolCalls', p);
+          applyPresetValue(confirmTimeout, 'confirmTimeout', p);
+          applyPresetValue(logLevel, 'logLevel', p);
+          if (Object.prototype.hasOwnProperty.call(p, 'runnerPath')) runnerPath.value = p.runnerPath;
+          if (Object.prototype.hasOwnProperty.call(p, 'cwd')) cwd.value = p.cwd;
+          if (p.maxStepsDefault) maxSteps.value = DEFAULTS.maxSteps;
+          else if (p.maxSteps !== undefined) maxSteps.value = p.maxSteps;
+          if (p.maxTokensDefault) maxTokens.value = DEFAULTS.maxTokens;
+          else if (p.maxTokens !== undefined) maxTokens.value = p.maxTokens;
+          if (p.outputFormat !== undefined) outputFormat.value = p.outputFormat;
+          if (p.traceLevel !== undefined) traceLevel.value = p.traceLevel;
+          if (p.effort !== undefined) effort.value = p.effort;
+        }
+
+        const boolKeys = [
+          'acceptEdits',
+          'dontAsk',
+          'allowShell',
+          'stream',
+          'verbose',
+          'plan',
+          'noNetwork',
+          'chaosOk',
+          'trustedWorkspace',
+          'trustWorkspace',
+          'sessionExtract',
+          'reviewMemory',
+          'continueFromLatest',
+          'newSession',
+          'resumeSession',
+          'ackResumeRisk',
+          'taskScope',
+          'compactEachTurn',
+          'autoMemory',
+          'noArchive',
+          'replayMode',
+          'repairMode',
+        ];
+        const boolMap = {
+          acceptEdits,
+          dontAsk,
+          allowShell,
+          stream,
+          verbose,
+          plan,
+          noNetwork,
+          chaosOk,
+          trustedWorkspace,
+          trustWorkspace,
+          sessionExtract,
+          reviewMemory,
+          continueFromLatest,
+          newSession,
+          resumeSession,
+          ackResumeRisk,
+          taskScope,
+          compactEachTurn,
+          autoMemory,
+          noArchive,
+          replayMode,
+          repairMode,
+        };
+        boolKeys.forEach((key) => {
+          if (Object.prototype.hasOwnProperty.call(p, key)) boolMap[key].checked = !!p[key];
+        });
+
+        if (p.applyTools && p.tools) {
+          toolChoices.forEach((choice) => {
+            choice.checked = p.tools.includes(choice.value);
+          });
+        }
+
+        render();
+      }
 
       document.getElementById('presets').addEventListener('click', (e) => {
         const btn = e.target.closest('.preset-btn');
@@ -1303,53 +1728,10 @@
         const name = btn.dataset.preset;
         const p = PRESETS[name];
         if (!p) return;
-
-        document.querySelectorAll('.preset-btn').forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
-
-        prompt.value = p.prompt;
-        cliMode.value = p.cliMode || 'runner';
-        sessionId.value = p.sessionId || '';
-        sessionPath.value = p.sessionPath || '';
-        trustedWorkspace.checked = p.trustedWorkspace || false;
-        coordinatorPhases.value = p.coordinatorPhases || '';
-        noWorkers.checked = Object.prototype.hasOwnProperty.call(p, 'noWorkers') ? p.noWorkers : true;
-        acceptEdits.checked = p.acceptEdits;
-        dontAsk.checked = p.dontAsk;
-        allowShell.checked = p.allowShell;
-        stream.checked = p.stream || false;
-        verbose.checked = p.verbose;
-        outputFormat.value = p.outputFormat || DEFAULTS.outputFormat;
-        traceLevel.value = p.traceLevel || DEFAULTS.traceLevel;
-        tracePath.value = p.tracePath || '';
-        callerToken.value = p.callerToken || '';
-        resumePath.value = p.resumePath || '';
-        plan.checked = p.plan || false;
-        noNetwork.checked = p.noNetwork || false;
-        systemPrompt.value = p.systemPrompt || '';
-        continueFromLatest.checked = p.continueFromLatest || false;
-        temperature.value = p.temperature || '';
-        maxContextTokens.value = p.maxContextTokens || '';
-        maxToolCalls.value = p.maxToolCalls || '';
-        confirmTimeout.value = p.confirmTimeout || '';
-        logLevel.value = p.logLevel || '';
-        toolChoices.forEach((choice) => {
-          if (p.tools) {
-            choice.checked = p.tools.includes(choice.value);
-          } else {
-            choice.checked = choice.value === 'bash' ? !!p.allowShell : true;
-          }
-        });
-        if (Object.prototype.hasOwnProperty.call(p, 'runnerPath')) runnerPath.value = p.runnerPath;
-        if (Object.prototype.hasOwnProperty.call(p, 'cwd')) cwd.value = p.cwd;
-        if (p.maxStepsDefault) maxSteps.value = DEFAULTS.maxSteps;
-        else maxSteps.value = p.maxSteps;
-        if (p.maxTokensDefault) maxTokens.value = DEFAULTS.maxTokens;
-        else maxTokens.value = p.maxTokens;
-
-        render();
+        applyPreset(name, p);
       });
 
+      runnerPath.value = PLAYGROUND;
       render();
     </script>
   </body>
