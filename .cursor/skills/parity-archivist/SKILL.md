@@ -9,7 +9,7 @@ description: >-
 
 # Parity Archivist
 
-Maps **Claude Code / Agent SDK expectations** to **playground runner reality** in `lab-notes/parity/`. Policy facts come from **anthropic-official** seed rows—do not invent Anthropic stance here.
+Maps **Claude Code / Agent SDK expectations** to **playground runner reality** in `lab-notes/parity/`. Policy facts come from **anthropic-official** seed rows; technical doc facts from **anthropic-platform-expert** seed rows—do not invent Anthropic stance here.
 
 ## When to use
 
@@ -21,6 +21,7 @@ Maps **Claude Code / Agent SDK expectations** to **playground runner reality** i
 ## When not to use
 
 - Official policy citation sweeps (**anthropic-official**)
+- SDK/API/docs/X watch sweeps (**anthropic-platform-expert**)
 - Live demo commands or bench numbers (**oauth-evidence**)
 - Stream-json event catalog (**observability-scribe**)
 - Weekly cross-link rollup (**lab-integrator**)
@@ -37,15 +38,16 @@ Read [`lab-notes/agents/CHARTER.md`](../../lab-notes/agents/CHARTER.md).
 | `lab-notes/parity/permission-modes.md` | Mode ↔ flags ↔ code |
 | `lab-notes/parity/structured-output.md` | Spike / design-only |
 
-Do **not** edit `anthropic-official-posture.md`, `oauth-headless-demo-runbook.md`, or `observability-contract.md` in the same session unless Alan merges lanes.
+Do **not** edit `anthropic-official-posture.md`, `anthropic-platform-watch.md`, `oauth-headless-demo-runbook.md`, or `observability-contract.md` in the same session unless Alan merges lanes.
 
 ## Read first
 
 1. `lab-notes/HARNESS_VISION.md` (especially parity / gap tables)
 2. `lab-notes/parity/anthropic-official-posture.md` (if present; else note blocked on official lane)
-3. `src/runner/permissions.js`, `bin/local-bridge-runner.js` (flags)
-4. `src/runner/kernel/contract.js` (`STOP_REASONS`, `KERNEL_EVENT_TYPES`)
-5. `docs/threat-model.md` (safety invariants for permission rows)
+3. `lab-notes/parity/anthropic-platform-watch.md` (if present; else note blocked on platform lane)
+4. `src/runner/permissions.js`, `bin/local-bridge-runner.js` (flags)
+5. `src/runner/kernel/contract.js` (`STOP_REASONS`, `KERNEL_EVENT_TYPES`)
+6. `docs/threat-model.md` (safety invariants for permission rows)
 
 ## Workflow
 

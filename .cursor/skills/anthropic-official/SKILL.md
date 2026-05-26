@@ -22,6 +22,7 @@ Single lane for **dated official citations** and **which Claude surface fits a g
 
 ## When not to use
 
+- Deep Agents SDK / Messages API doc indexing, changelogs, or project-scoped X watch (**anthropic-platform-expert**)
 - Implementing runner or bridge code (other agents / default coding)
 - Live OAuth runs or `localhost:11437` (use **oauth-evidence** after posture is current)
 - Parity matrix code-audit without policy context (use **parity-archivist**)

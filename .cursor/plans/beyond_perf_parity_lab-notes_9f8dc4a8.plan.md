@@ -24,10 +24,13 @@ todos:
     content: Add lab-notes/weekly-integration.md template and first entry after matrix v1
     status: pending
   - id: doc-lane-charters
-    content: Create lab-notes/agents/ README + 5 project skills under .cursor/skills/ (parity, observability, oauth-evidence, lab-integrator, anthropic-official)
+    content: Create lab-notes/agents/ README + 6 project skills under .cursor/skills/ (parity, observability, oauth-evidence, lab-integrator, anthropic-official, anthropic-platform-expert)
     status: completed
   - id: anthropic-official-posture
     content: Write lab-notes/parity/anthropic-official-posture.md (docs + Terms + Agent SDK + public statements/X with dated citations)
+    status: pending
+  - id: anthropic-platform-watch
+    content: Write lab-notes/parity/anthropic-platform-watch.md (Agents SDK, Claude API, docs index, changelogs, project-scoped X/public status with dated citations)
     status: pending
 isProject: false
 ---
@@ -56,6 +59,7 @@ flowchart LR
   end
   subgraph cursor [This extension]
     Official[anthropic-official-posture]
+    Watch[anthropic-platform-watch]
     Matrix[claude-parity-matrix]
     Perms[permission-modes]
     Events[observability-contract]
@@ -63,6 +67,7 @@ flowchart LR
     Demo[oauth-demo-runbook]
   end
   Official --> Matrix
+  Watch --> Matrix
   Official --> Perms
   codex --> BenchDoc
   BenchDoc --> Matrix
@@ -96,7 +101,7 @@ flowchart LR
 | Bridge / perf agents                      | Codex owns perf; bridge is out of scope unless you open a separate lane                                         |
 | “Canonical promotion” agent               | Explicitly deprioritized per your direction                                                                     |
 
-### Recommended: five project skills + one index
+### Recommended: six project skills + one index
 
 Store **repeatable prompts** as Cursor **project skills** (`.cursor/skills/<name>/SKILL.md`) so any chat can invoke them; store human-readable lane map in [`lab-notes/agents/README.md`](lab-notes/agents/README.md).
 
@@ -105,12 +110,15 @@ flowchart TB
   Alan[Alan foreground] --> Integrator[lab-integrator skill]
   subgraph parallel [Background OK]
     Official[anthropic-official skill]
+    Platform[anthropic-platform-expert skill]
     Parity[parity-archivist skill]
     Obs[observability-scribe skill]
     OAuth[oauth-evidence skill]
   end
   Official --> Posture[anthropic-official-posture.md]
+  Platform --> WatchDoc[anthropic-platform-watch.md]
   Posture --> Matrix[claude-parity-matrix.md]
+  WatchDoc --> Matrix
   Parity --> Matrix
   Parity --> Perms[permission-modes.md]
   Obs --> Contract[observability-contract.md]
@@ -122,8 +130,9 @@ flowchart TB
 
 | Lane                     | Skill folder                           | Owns                                                                                                                                                       | May edit                                                                                                                                               | Must not                                                    |
 | ------------------------ | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| **Anthropic official**   | `.cursor/skills/anthropic-official/`   | [`anthropic-official-posture.md`](lab-notes/parity/anthropic-official-posture.md); **feeds** matrix/SDK columns (proposals only — parity archivist merges) | `lab-notes/parity/anthropic-official-posture.md`, `lab-notes/policy/**` if needed                                                                      | Runner/bridge code; present rumor as fact; evasion guidance |
-| **Parity archivist**     | `.cursor/skills/parity-archivist/`     | `lab-notes/parity/claude-parity-matrix.md`, `permission-modes.md`, `structured-output.md`                                                                  | `lab-notes/parity/**` except `anthropic-official-posture.md` while official lane owns v1                                                               | `src/**` code, bridge files, `npm test`                     |
+| **Anthropic official**        | `.cursor/skills/anthropic-official/`        | [`anthropic-official-posture.md`](lab-notes/parity/anthropic-official-posture.md); **feeds** matrix policy columns (proposals only — parity archivist merges) | `lab-notes/parity/anthropic-official-posture.md`, `lab-notes/policy/**` if needed                                                                      | Runner/bridge code; present rumor as fact; evasion guidance |
+| **Anthropic platform expert** | `.cursor/skills/anthropic-platform-expert/` | [`anthropic-platform-watch.md`](lab-notes/parity/anthropic-platform-watch.md); **feeds** matrix technical/SDK/API columns (proposals only)                  | `lab-notes/parity/anthropic-platform-watch.md` only                                                                                                    | Runner/bridge code; duplicate policy tables from official lane |
+| **Parity archivist**          | `.cursor/skills/parity-archivist/`          | `lab-notes/parity/claude-parity-matrix.md`, `permission-modes.md`, `structured-output.md`                                                                  | `lab-notes/parity/**` except `anthropic-official-posture.md` and `anthropic-platform-watch.md` while those lanes own v1                                | `src/**` code, bridge files, `npm test`                     |
 | **Observability scribe** | `.cursor/skills/observability-scribe/` | `lab-notes/observability/observability-contract.md`, stub for `merged-trace-replay.md`                                                                     | `lab-notes/observability/**`, read [`kernel/contract.js`](src/runner/kernel/contract.js), [`output-format.test.js`](test/runner/output-format.test.js) | Bridge traces implementation                                |
 | **OAuth evidence**       | `.cursor/skills/oauth-evidence/`       | `oauth-headless-demo-runbook.md`, `bench-parity-evidence.md`                                                                                               | `lab-notes/parity/oauth*`, `bench*`                                                                                                                    | Imply API-key demos; edit `credentials.js`                  |
 | **Lab integrator**       | `.cursor/skills/lab-integrator/`       | `weekly-integration.md`, cross-links, optional README blurb                                                                                                | `lab-notes/weekly-integration.md`, index sections                                                                                                      | Rewrite other lanes’ artifacts without Alan                 |
@@ -146,16 +155,16 @@ Read first: lab-notes/OAUTH_ONLY_DIRECTION.md, AGENTS.md, README.md.
 
 - Rename chats to match lanes: `Anthropic official`, `Parity archivist`, `Observability scribe`, etc.
 - **Foreground:** integrator pass after each lane; first read of matrix v1; policy-sensitive rows after official posture v1
-- **Background:** **anthropic-official** first (docs + public statements); parity archivist seeds matrix from [`HARNESS_VISION.md`](lab-notes/HARNESS_VISION.md) + official posture doc; observability scribe event inventory from tests
+- **Background:** **anthropic-official** and **anthropic-platform-expert** in parallel (policy vs technical docs + project-scoped public status); parity archivist seeds matrix from [`HARNESS_VISION.md`](lab-notes/HARNESS_VISION.md) + both posture docs; observability scribe event inventory from tests
 - **One file owner rule:** only one lane edits a given path per session (per [`OPENCODE.md`](OPENCODE.md))
 
 ### Deliverable 0 — Agent index (do with docs)
 
 **Create:** [`lab-notes/agents/README.md`](lab-notes/agents/README.md) — table of lanes, owned paths, skill paths, foreground/background guidance (short copy of section above).
 
-**Create:** five `.cursor/skills/*/SKILL.md` files with `description` tuned for discovery.
+**Create:** six `.cursor/skills/*/SKILL.md` files with `description` tuned for discovery (including `anthropic-platform-expert`).
 
-**Success metric:** starting a new Cursor chat with “use parity-archivist skill” produces matrix edits without re-explaining playground boundaries; “use anthropic-official skill” produces dated citations for Terms/docs/X claims.
+**Success metric:** starting a new Cursor chat with “use parity-archivist skill” produces matrix edits without re-explaining playground boundaries; “use anthropic-official skill” produces dated citations for Terms/policy/X claims; “use anthropic-platform-expert skill” produces dated citations for SDK/API/docs and project-scoped public status.
 
 ---
 
@@ -189,7 +198,33 @@ Read first: lab-notes/OAUTH_ONLY_DIRECTION.md, AGENTS.md, README.md.
 
 **Handoff to parity archivist:** Official lane ends with a **“Matrix seed rows”** subsection (bullet list: capability → official stance → citation) for archivist to paste into [`claude-parity-matrix.md`](lab-notes/parity/claude-parity-matrix.md).
 
-**Success metric:** matrix “Claude Code” and “Agent SDK” columns cite `anthropic-official-posture.md` section anchors; Alan can answer “what does Anthropic say today?” without re-searching X.
+**Success metric:** matrix policy columns cite `anthropic-official-posture.md` section anchors; Alan can answer “what does Anthropic say on policy today?” without re-searching X.
+
+---
+
+## Deliverable 0c — Anthropic platform watch (P0 — feeds matrix technical columns)
+
+**Create:** [`lab-notes/parity/anthropic-platform-watch.md`](lab-notes/parity/anthropic-platform-watch.md)
+
+**Owner lane:** `.cursor/skills/anthropic-platform-expert/` (run **in parallel with** official posture; **before** parity archivist fills technical “Claude Code” / “Agent SDK” / Messages API columns).
+
+**Purpose:** Technical source of truth for Agents SDK, Claude API / Messages API, official doc anchors, changelogs, and **project-scoped** public status (X, support articles, GitHub releases) as they affect bridge/runner parity — without duplicating policy tables from deliverable 0b.
+
+**Required sections:**
+
+| Section | Content |
+| ------- | ------- |
+| **Doc index (technical)** | Dated links: Messages API, prompt caching, OAuth on API, Agent SDK (sessions, subagents, stream events, structured output, telemetry), Claude Code headless/permissions/hooks |
+| **API vs SDK vs Claude Code map** | Same capability across Messages API, Agent SDK, `claude -p` with doc anchors |
+| **Bridge/runner relevance** | Rows tying docs to OAuth bridge transport, OpenAI-compat surface, runner parity targets, June 15 SDK credit (official cite only) |
+| **Changelog / release watch** | Official changelogs and `anthropics/*` GitHub releases |
+| **Public status log** | Project-scoped X/official posts: date, URL, summary, still current?, relevance to harness |
+| **Open technical gaps** | Ambiguous docs → matrix `blocked` rows |
+| **Cross-refs** | Link official posture, detection-risk doc, letter-to-anthropic — no policy duplication |
+
+**Handoff to parity archivist:** Platform lane ends with **“Matrix seed rows (technical)”** (capability → doc stance → doc anchor → open question).
+
+**Success metric:** matrix “Agent SDK” and Messages API columns cite `anthropic-platform-watch.md` anchors; Alan can answer “what do the docs say about X?” for this project without re-searching.
 
 ---
 
@@ -308,9 +343,9 @@ After each parity lab session: which matrix rows moved, what evidence was captur
 
 | Week slice | Work                                                                                      | Touches code? |
 | ---------- | ----------------------------------------------------------------------------------------- | ------------- |
-| 0          | `lab-notes/agents/README.md` + five `.cursor/skills/` lane charters                       | No            |
-| 0–1        | `anthropic-official-posture.md` (docs + Terms + public/X log)                             | No            |
-| 1          | `claude-parity-matrix.md` draft from HARNESS_VISION + code audit + official posture seeds | No            |
+| 0          | `lab-notes/agents/README.md` + six `.cursor/skills/` lane charters                        | No            |
+| 0–1        | `anthropic-official-posture.md` + `anthropic-platform-watch.md` (parallel OK)             | No            |
+| 1          | `claude-parity-matrix.md` draft from HARNESS_VISION + code audit + posture + watch seeds  | No            |
 | 1          | `permission-modes.md`                                                                     | No            |
 | 2          | `observability-contract.md` + optional output-format test gap                             | Maybe 1 test  |
 | 2          | `oauth-headless-demo-runbook.md`                                                          | No            |
@@ -337,7 +372,8 @@ After each parity lab session: which matrix rows moved, what evidence was captur
 ## Verification (lab-notes program)
 
 - `anthropic-official-posture.md` exists with dated citations for subscription/API/interactive claims
-- Matrix covers every HARNESS_VISION section B row with status + evidence column filled; official columns trace to posture doc
+- `anthropic-platform-watch.md` exists with dated technical citations and project-scoped public-status log
+- Matrix covers every HARNESS_VISION section B row with status + evidence column filled; policy columns trace to posture doc; technical columns trace to platform watch
 - Each “adopt” row has a test file or copy-paste command
 - Demo runbook runnable after Codex cache fix (document blocker until then)
 - No edits to bridge layer; no canonical promotion checklist
