@@ -583,6 +583,49 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td>Playground: explicit path to a session state JSON file</td>
             </tr>
             <tr>
+              <td><code>--resume-session</code></td>
+              <td>off</td>
+              <td>Resume from session store (<code>--session-id</code> or <code>--session-path</code> required)</td>
+            </tr>
+            <tr>
+              <td><code>--new-session</code></td>
+              <td>off</td>
+              <td>Force a fresh session; blocked if prior health is degraded unless you start fresh</td>
+            </tr>
+            <tr>
+              <td><code>--ack-resume-risk</code></td>
+              <td>off</td>
+              <td>Allow resume when session health is degraded (escape hatch)</td>
+            </tr>
+            <tr>
+              <td><code>--fork-from &lt;session-id&gt;</code></td>
+              <td>off</td>
+              <td>Copy an existing session to a new id/path before running</td>
+            </tr>
+            <tr>
+              <td><code>--task-scope</code></td>
+              <td>off</td>
+              <td>One-task preset: default <code>--max-steps 8</code> and tighter compaction</td>
+            </tr>
+            <tr>
+              <td><code>--compact-each-turn</code></td>
+              <td>off</td>
+              <td>Aggressive compaction preset (compact-after-task UX)</td>
+            </tr>
+            <tr>
+              <td><code>--effort &lt;level&gt;</code></td>
+              <td>off</td>
+              <td>
+                Runner-only model effort: <code>low</code>, <code>medium</code>, <code>high</code>, or
+                <code>max</code> (forwarded as <code>output_config.effort</code>)
+              </td>
+            </tr>
+            <tr>
+              <td><code>--auto-memory</code></td>
+              <td>off</td>
+              <td>Opt-in runner auto-memory in context (default off; set <code>BRIDGE_RUNNER_AUTO_MEMORY=1</code>)</td>
+            </tr>
+            <tr>
               <td><code>--trusted-workspace</code></td>
               <td>off</td>
               <td>Playground: enable hooks from <code>.bridge-runner/hooks.json</code> in the target project</td>

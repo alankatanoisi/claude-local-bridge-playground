@@ -48,6 +48,14 @@ Options:\n\
   --resume <path>      Resume from a transcript (appends new prompt to existing conversation)\n\
   --session-id <id>    Canonical session id (*.state.json under ~/.bridge-runner/sessions/)\n\
   --session-path <p>   Explicit path to session state JSON file\n\
+  --resume-session     Resume from session store (--session-id or --session-path required)\n\
+  --new-session        Force a fresh session (ignore --resume / --continue)\n\
+  --ack-resume-risk    Allow resume even when session health is degraded\n\
+  --fork-from <id>     Fork an existing session to a new session id/path\n\
+  --task-scope         Task-scoped preset: tighter steps + compaction (see playbook)\n\
+  --compact-each-turn  Aggressive compaction preset (compact-after-task UX)\n\
+  --effort <level>     Model effort: low, medium, high, or max (runner path only)\n\
+  --auto-memory        Opt-in runner auto-memory in context (default off)\n\
   --trusted-workspace  Enable hooks from .bridge-runner/hooks.json in cwd\n\
   --trust-workspace    Record trust consent for cwd (required in CI/non-interactive)\n\
   --chaos-ok           Allow risky flag combo: --allow-shell --accept-edits --dont-ask\n\
@@ -115,6 +123,14 @@ async function main() {
         resume: { type: 'string' },
         'session-id': { type: 'string' },
         'session-path': { type: 'string' },
+        'resume-session': { type: 'boolean' },
+        'new-session': { type: 'boolean' },
+        'ack-resume-risk': { type: 'boolean' },
+        'fork-from': { type: 'string' },
+        'task-scope': { type: 'boolean' },
+        'compact-each-turn': { type: 'boolean' },
+        effort: { type: 'string' },
+        'auto-memory': { type: 'boolean' },
         'trusted-workspace': { type: 'boolean' },
         'trust-workspace': { type: 'boolean' },
         'chaos-ok': { type: 'boolean' },
@@ -201,8 +217,8 @@ async function main() {
 
   const cwd = path.resolve(args.values.cwd || process.cwd());
   const model = args.values.model || DEFAULT_MODEL;
-  const maxTokens = parseInt(args.values['max-tokens'], 10) || DEFAULT_MAX_TOKENS;
-  const maxSteps = parseInt(args.values['max-steps'], 10) || DEFAULT_MAX_STEPS;
+  let maxTokens = parseInt(args.values['max-tokens'], 10) || DEFAULT_MAX_TOKENS;
+  let maxSteps = parseInt(args.values['max-steps'], 10) || DEFAULT_MAX_STEPS;
   const verboseFromFlag = !!args.values.verbose;
   const logLevel = args.values['log-level'];
   if (logLevel && !['quiet', 'normal', 'verbose'].includes(logLevel)) {
@@ -244,6 +260,68 @@ async function main() {
 
   // --continue: find the latest transcript in ~/.bridge-runner/logs/
   const shouldContinue = !!args.values.continue;
+  const newSession = !!args.values['new-session'];
+  const resumeSession = !!args.values['resume-session'];
+  const ackResumeRisk = !!args.values['ack-resume-risk'];
+  const taskScope = !!args.values['task-scope'];
+  const compactEachTurn = !!args.values['compact-each-turn'];
+  const effortRaw = args.values.effort;
+  const autoMemory = !!args.values['auto-memory'];
+
+  let sessionId = args.values['session-id'];
+  let sessionPath = args.values['session-path'];
+  const forkFrom = args.values['fork-from'];
+
+  if (effortRaw) {
+    const { normalizeEffort } = require('../src/runner/run');
+    try {
+      normalizeEffort(effortRaw);
+    } catch (err) {
+      console.error('Error: ' + err.message);
+      process.exit(1);
+    }
+  }
+
+  if (forkFrom) {
+    const { SessionStore, resolveSessionPath, makeSessionId } = require('../src/runner/session-store');
+    const parentPath = resolveSessionPath({ sessionId: forkFrom });
+    if (!parentPath || !fs.existsSync(parentPath)) {
+      console.error('Error: --fork-from session not found: ' + forkFrom);
+      process.exit(1);
+    }
+    if (!sessionId && !sessionPath) {
+      sessionId = makeSessionId();
+    }
+    const childPath = resolveSessionPath({ sessionPath, sessionId });
+    const parentStore = new SessionStore(parentPath);
+    parentStore.load();
+    parentStore.fork(childPath);
+    sessionPath = childPath;
+    sessionId = path.basename(childPath, '.state.json');
+    console.error('[runner] forked session to ' + childPath);
+  }
+
+  let compactionPolicy;
+  if (taskScope) {
+    if (!args.values['max-steps']) maxSteps = 8;
+    compactionPolicy = {
+      warnTokens: 40_000,
+      haltTokens: 80_000,
+      snipAfterMessages: 12,
+      ghostAfterMessages: 20,
+      maxToolResultChars: 8_000,
+    };
+  }
+  if (compactEachTurn) {
+    compactionPolicy = {
+      ...(compactionPolicy || {}),
+      warnTokens: 20_000,
+      haltTokens: 40_000,
+      snipAfterMessages: 6,
+      ghostAfterMessages: 10,
+      maxToolResultChars: 4_000,
+    };
+  }
 
   if (!['text', 'json', 'stream-json'].includes(outputFormat)) {
     console.error('Error: --output-format must be one of: text, json, stream-json');
@@ -251,7 +329,7 @@ async function main() {
   }
 
   // If --resume is passed, use its value as the transcript path
-  const resumePath = args.values.resume;
+  let resumePath = args.values.resume;
   const explicitTranscript = args.values.transcript;
 
   let transcriptPath;
@@ -290,7 +368,24 @@ async function main() {
   }
 
   // When resuming, the transcript is reused; we append new events to it
-  const resume = !!resumePath;
+  let resume = false;
+  if (newSession) {
+    resume = false;
+    resumePath = null;
+    if (!sessionId && !sessionPath) {
+      const { makeSessionId } = require('../src/runner/session-store');
+      sessionId = makeSessionId();
+      console.error('[runner] new session id: ' + sessionId);
+    }
+  } else if (resumeSession) {
+    if (!sessionId && !sessionPath) {
+      console.error('Error: --resume-session requires --session-id or --session-path');
+      process.exit(1);
+    }
+    resume = true;
+  } else if (resumePath) {
+    resume = true;
+  }
 
   // Read stdin if piped
   const pastedParts = [];
@@ -348,8 +443,14 @@ async function main() {
     allowedTools,
     maxContextTokens,
     maxToolCallsPerTurn,
-    sessionId: args.values['session-id'],
-    sessionPath: args.values['session-path'],
+    sessionId,
+    sessionPath,
+    compactionPolicy,
+    ackResumeRisk,
+    newSession,
+    taskScope,
+    effort: effortRaw,
+    autoMemory,
     trustedWorkspace: !!args.values['trusted-workspace'],
     trustWorkspace: !!args.values['trust-workspace'],
     chaosOk: !!args.values['chaos-ok'],

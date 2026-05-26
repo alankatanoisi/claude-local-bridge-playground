@@ -4,6 +4,22 @@ Rolling log of cross-lane lab-notes work. Newest entry first.
 
 ---
 
+## 2026-05-24 (megathread gap improvements)
+
+**Theme:** Session health, task-scope presets, effort passthrough, Ext-11 + fork CLI, megathread docs
+
+| Lane               | Outputs                                                                                                                                 | Notes                                      |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| runner             | `session-health.js`, `--new-session`, `--resume-session`, `--task-scope`, `--effort`, `--fork-from`, instruction-delta wired in `run.js` | bridge effort passthrough test added       |
+| lab-notes          | [reddit-workaround-coverage.md](./reddit-workaround-coverage.md), [runner-megathread-playbook.md](./runner-megathread-playbook.md), [claude-code-sidecar-settings.md](./claude-code-sidecar-settings.md) | parity matrix rows updated                 |
+| parity-archivist   | [parity/claude-parity-matrix.md](./parity/claude-parity-matrix.md) — Ext-11, fork, health, effort rows → wired                          | —                                          |
+
+**Tests:** `session-health.test.js`, `effort-passthrough.test.js`, anthropic effort integration test.
+
+**Next:** optional live smoke with `--effort high`; wire Ext-6 prefetch.
+
+---
+
 ## 2026-05-24
 
 **Theme:** Perf reconciliation + parity lab-notes v1 + TTL fix for live OAuth

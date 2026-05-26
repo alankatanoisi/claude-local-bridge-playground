@@ -20,6 +20,15 @@ const { emitHint } = require('./beginner-hints');
 const { buildAutopsy, writeAutopsyFile, detectSemanticCycles, estimateTokensAdvisory } = require('./loop-autopsy');
 const { estimateCostUsd } = require('./model-pricing');
 const { loadInstructionMemory } = require('./memory/instruction-memory');
+const { isAutoMemoryEnabled } = require('./memory/auto-memory');
+const instructionDelta = require('./instruction-delta');
+const {
+  buildHealth,
+  assertResumeAllowed,
+  formatFreshSessionTip,
+  formatTaskScopeEndTip,
+  RECOMMENDATIONS,
+} = require('./session-health');
 const { assertForkAllowed, applyProfileToRunOptions } = require('./agents/registry');
 const {
   JsonlTrace,
@@ -35,6 +44,16 @@ const { finalizeArchiveExport } = require('./archive/run-exporter');
 
 const DEFAULT_MAX_STEPS = 16;
 const MAX_CONSECUTIVE_FAILURES = 2;
+const VALID_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'max']);
+
+function normalizeEffort(effort) {
+  if (!effort) return null;
+  const level = String(effort).toLowerCase();
+  if (!VALID_EFFORT_LEVELS.has(level)) {
+    throw new Error('--effort must be one of: low, medium, high, max');
+  }
+  return level;
+}
 const OUTPUT_FORMATS = new Set(['text', 'json', 'stream-json']);
 
 function extractTextBlocks(content) {
@@ -365,6 +384,11 @@ async function run(options) {
     sessionExtract,
     skipTrustGate,
     noArchive,
+    ackResumeRisk,
+    newSession,
+    taskScope,
+    effort,
+    autoMemory,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
@@ -381,6 +405,7 @@ async function run(options) {
     undoLog: [],
     spawnDepth: spawnDepth || 0,
     workspaceTrusted: false,
+    autoMemory: isAutoMemoryEnabled({ autoMemory }),
   };
 
   if (!skipTrustGate && process.env.BRIDGE_RUNNER_TEST !== '1') {
@@ -516,6 +541,16 @@ async function run(options) {
   }
 
   function completeRun(result) {
+    if (sessionStore && result.stopReason) {
+      const runner = sessionStore.data().runner || {};
+      const health = buildHealth({
+        stopReason: result.stopReason,
+        autopsy: result.autopsy,
+        compactionGeneration: runner.compactionGeneration || 0,
+        consecutiveToolFailures: ctx._consecutiveToolFailures || 0,
+      });
+      sessionStore.updateRunner({ health });
+    }
     if (sessionStore) {
       try {
         sessionStore.flushSync();
@@ -548,12 +583,38 @@ async function run(options) {
         if (!quiet) console.error('[runner archive] export failed: ' + err.message);
       }
     }
+    if (!quiet && sessionStore) {
+      const health = sessionStore.data().runner?.health;
+      if (taskScope && result.stopReason === STOP_REASONS.SUCCESS) {
+        console.error('[runner tip] ' + formatTaskScopeEndTip());
+      } else if (health?.recommendation === RECOMMENDATIONS.FRESH_SESSION) {
+        emitHint('Fresh session recommended for the next task.', {
+          quiet,
+          verbose,
+          stopReason: 'fresh_session_recommended',
+        });
+        console.error('[runner tip] ' + formatFreshSessionTip(sessionId || null));
+      }
+    }
     return result;
   }
 
   let messages;
   if (resume && sessionStore && sessionStore.exists()) {
     sessionStore.load();
+    const resumeCheck = assertResumeAllowed(sessionStore, { ackResumeRisk: !!ackResumeRisk });
+    if (!resumeCheck.allowed) {
+      emitHint(resumeCheck.message, { quiet, verbose, stopReason: 'resume_degraded' });
+      process.exitCode = 1;
+      return completeRun({
+        stopReason: STOP_REASONS.RESUME_FAILED,
+        finalText: resumeCheck.message,
+        steps: 0,
+        duration_ms: 0,
+        usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+        events: [],
+      });
+    }
     messages = sessionStore.messages.length ? [...sessionStore.messages] : null;
     if (!messages || messages.length === 0) {
       emitHint('Could not resume: no valid ledger or session checkpoint.', {
@@ -593,14 +654,19 @@ async function run(options) {
     if (transcript) transcript.append({ type: 'user_prompt', text: prompt });
     if (sessionStore) {
       sessionStore.load();
+      if (newSession) {
+        sessionStore.updateRunner({ health: null, compactionGeneration: 0, consecutiveToolFailures: 0 });
+      }
       sessionStore.setMessages(messages);
       sessionStore.updateMetadata({ cwd: ctx.cwdRealpath, model });
       sessionStore.save();
     }
   }
 
+  instructionDelta.snapshot(ctx.cwdRealpath);
+
   const tools = getDefinitions(ctx);
-  const system = systemPromptOverride || buildSystem(ctx, { progressive: true });
+  let system = systemPromptOverride || buildSystem(ctx, { progressive: true });
   // E1: session-stable repo-context block; computed once, reused as the
   // fourth cache_control breakpoint for the lifetime of this run.
   const repoContextBlock = buildRepoContextBlock(ctx);
@@ -608,6 +674,11 @@ async function run(options) {
   let totalUsage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
   let consecutiveToolFailures = 0;
   const toolHistory = [];
+  const effortLevel = normalizeEffort(effort);
+
+  if (taskScope && !quiet && !plan) {
+    console.error('[runner] tip: --task-scope runs work best with --plan for the first pass.');
+  }
 
   if (ledger) appendLedger(ledger, hooks, 'user_prompt', { runId, prompt: prompt.slice(0, 500) });
 
@@ -657,6 +728,16 @@ async function run(options) {
 
   for (let step = 1; step <= steps; step++) {
     hooks.dispatch('pre_model_request', { step, runId });
+
+    const instructionChange = instructionDelta.detectChange(ctx.cwdRealpath);
+    if (instructionChange?.kind === 'small_diff') {
+      messages.push({ role: 'user', content: instructionChange.deltaBlock });
+      if (transcript) transcript.append({ type: 'instruction_delta', step, kind: 'small_diff' });
+    } else if (instructionChange?.kind === 'large_rewrite') {
+      ctx.instructionMemory = loadInstructionMemory(ctx.cwdRealpath);
+      system = systemPromptOverride || buildSystem(ctx, { progressive: true });
+      if (transcript) transcript.append({ type: 'instruction_delta', step, kind: 'large_rewrite' });
+    }
 
     const compaction = applyCompactionLadder(messages, system, {
       ...DEFAULT_POLICY,
@@ -715,6 +796,7 @@ async function run(options) {
       tools: cachedTools,
       ...(stream && outputFormat === 'text' ? { stream: true } : {}),
       ...(typeof temperature === 'number' && !isNaN(temperature) ? { temperature } : {}),
+      ...(effortLevel ? { output_config: { effort: effortLevel } } : {}),
     };
 
     if (trace) {
@@ -1336,6 +1418,7 @@ module.exports = {
   loadMessagesFromTranscript,
   applyCacheControlBudget,
   addUsage,
+  normalizeEffort,
   _arePathsDisjoint,
   _groupDisjointWrites,
 };

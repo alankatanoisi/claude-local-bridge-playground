@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { loadInstructionMemory } = require('./memory/instruction-memory');
+const { buildAutoMemorySection, isAutoMemoryEnabled } = require('./memory/auto-memory');
 const { buildSkillsIndex } = require('./skills/skills-index');
 const { buildToolSummarySection, capSkillListing, applyContextBudget } = require('./context-budget');
 const { buildRepoMap } = require('./repo-map');
@@ -61,6 +62,12 @@ function buildSystem(ctx, options = {}) {
   if (ctx && ctx.cwd) {
     const memory = ctx.instructionMemory || loadInstructionMemory(ctx.cwd);
     if (memory.text) instructionText = memory.text;
+    if (isAutoMemoryEnabled(ctx)) {
+      const autoSection = buildAutoMemorySection(ctx.cwd);
+      if (autoSection) {
+        instructionText = instructionText ? instructionText + '\n\n' + autoSection : autoSection;
+      }
+    }
     const skills = buildSkillsIndex(ctx.cwd);
     if (skills.listing) skillsListing = capSkillListing(skills.listing);
   }

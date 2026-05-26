@@ -55,14 +55,20 @@ function makeRes() {
   };
 }
 
-function installHttpsScript(steps) {
+function installHttpsScript(steps, options = {}) {
   let callIndex = 0;
+  const capturedBodies = options.captureBodies ? [] : null;
   const original = https.request;
 
   https.request = (_options, callback) => {
     const req = new EventEmitter();
-    req.write = () => {};
-    req.end = () => {
+    req.write = (chunk) => {
+      if (capturedBodies) capturedBodies.push(Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk));
+    };
+    req.end = (chunk) => {
+      if (chunk && capturedBodies) {
+        capturedBodies.push(Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk));
+      }
       const step = steps[callIndex++];
       if (!step) throw new Error('No scripted upstream response left');
 
@@ -90,6 +96,7 @@ function installHttpsScript(steps) {
       https.request = original;
     },
     getCallCount: () => callIndex,
+    getCapturedBodies: () => capturedBodies,
   };
 }
 
@@ -194,5 +201,33 @@ describe('anthropic pass-through integration', () => {
     } finally {
       fs.rmSync(tracePath, { force: true });
     }
+  });
+
+  it('forwards output_config.effort unchanged to upstream', async () => {
+    const { handleAnthropicMessages } = loadAnthropicHandler(() => {});
+    const script = installHttpsScript(
+      [
+        {
+          statusCode: 200,
+          headers: { 'content-type': 'application/json' },
+          chunks: [JSON.stringify({ type: 'message', id: 'msg_effort', content: [{ type: 'text', text: 'ok' }] })],
+        },
+      ],
+      { captureBodies: true },
+    );
+    restoreHttps = script.restore;
+
+    const req = makeReq({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 128,
+      messages: [{ role: 'user', content: 'hi' }],
+      output_config: { effort: 'high' },
+    });
+    const res = makeRes();
+    await handleAnthropicMessages(makeCtx(), req, res);
+
+    const upstreamBody = JSON.parse(script.getCapturedBodies().join(''));
+    assert.deepEqual(upstreamBody.output_config, { effort: 'high' });
+    assert.equal(res.statusCode, 200);
   });
 });

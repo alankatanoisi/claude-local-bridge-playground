@@ -114,6 +114,18 @@ const HINT_CATALOG = Object.freeze({
     tip: 'Use the parent agent to coordinate; child agents cannot fork further.',
     docLink: null,
   },
+  resume_degraded: {
+    whatHappened: 'This session ended in a bad state last time (loop, budget, or tool failures).',
+    why: 'Resuming poisoned sessions often wastes tokens and repeats the same mistakes.',
+    tip: 'Start fresh with --new-session, or pass --ack-resume-risk only if you accept the risk.',
+    docLink: 'lab-notes/runner-megathread-playbook.md',
+  },
+  fresh_session_recommended: {
+    whatHappened: 'The last run finished in a state where a fresh session is safer.',
+    why: 'Long or unstable sessions accumulate bad context and compaction debt.',
+    tip: 'Use --new-session for the next task, or --fork-from to branch without losing history.',
+    docLink: 'lab-notes/runner-megathread-playbook.md',
+  },
 });
 
 /** Match raw error text to a catalog key. */
@@ -134,6 +146,7 @@ function matchErrorKey(rawMessage, stopReason) {
   if (/User denied/i.test(msg)) return 'user_denied';
   if (/cannot spawn further children|fork depth/i.test(msg)) return 'fork_depth_exceeded';
   if (/Could not resume/i.test(msg)) return 'resume_failed';
+  if (/Session health is degraded/i.test(msg)) return 'resume_degraded';
   if (/Bridge error/i.test(msg)) return 'bridge_error';
   return null;
 }

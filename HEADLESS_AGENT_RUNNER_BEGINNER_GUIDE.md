@@ -108,7 +108,7 @@ node bin/local-bridge-runner.js \
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
   --session-id my-session-1 \
-  --resume ~/.bridge-runner/logs/any.jsonl \
+  --resume-session \
   --allowed-tools list_files,read_file \
   --max-steps 4 \
   "What was the first thing I asked in this session?"
@@ -143,6 +143,10 @@ node bin/local-bridge-coordinator.js \
 | `--cwd <path>`                  | The project folder the runner tools can inspect or edit                    |
 | `--session-id <id>`             | Save/load canonical session at `~/.bridge-runner/sessions/<id>.state.json` |
 | `--session-path <path>`         | Explicit path to a session state JSON file                                 |
+| `--resume-session`              | Resume messages from the session store (requires session id/path)          |
+| `--new-session`                 | Force a fresh session; ignore resume flags                                 |
+| `--task-scope`                  | One-task preset: tighter steps + earlier compaction                        |
+| `--effort <low\|medium\|high\|max>` | Control model effort on the runner path only                           |
 | `--trusted-workspace`           | Enable hooks from `.bridge-runner/hooks.json` in the target project        |
 | `--caller-token <token>`        | Optional local bridge caller-auth token                                    |
 | `--allowed-tools <list>`        | Only expose these tools to the model                                       |

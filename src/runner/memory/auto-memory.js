@@ -81,6 +81,26 @@ function listAutoMemoryMetadata(cwd) {
   }));
 }
 
+/** Opt-in only — opposite of Claude Code autoMemoryEnabled default-on pain. */
+function isAutoMemoryEnabled(options = {}) {
+  if (options.autoMemory) return true;
+  return process.env.BRIDGE_RUNNER_AUTO_MEMORY === '1';
+}
+
+function buildAutoMemorySection(cwd) {
+  const index = loadAutoMemoryIndex(cwd);
+  if (!index.entries.length) return '';
+  const lines = ['## Auto-memory (opt-in runner topics)\n'];
+  for (const entry of index.entries.slice(0, 10)) {
+    const topicPath = path.join(autoMemoryDir(cwd), entry.id + '.md');
+    if (!fs.existsSync(topicPath)) continue;
+    const body = fs.readFileSync(topicPath, 'utf8').trim();
+    if (!body) continue;
+    lines.push('### ' + entry.type + '/' + entry.id + '\n' + body.slice(0, 1200));
+  }
+  return lines.join('\n\n');
+}
+
 module.exports = {
   INDEX_CAP,
   TYPE_CAPS,
@@ -89,4 +109,6 @@ module.exports = {
   loadAutoMemoryIndex,
   saveAutoMemoryTopic,
   listAutoMemoryMetadata,
+  isAutoMemoryEnabled,
+  buildAutoMemorySection,
 };

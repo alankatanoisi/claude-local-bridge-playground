@@ -29,16 +29,19 @@ Legend:
 | Turn-latency bench (D3)            | —                          | wired             | adopt    | `test/runner/bench/turn-latency.bench.js`                               | stub + `--live`            |
 | Parallel coordinator phases (D1)   | CC subagent fanout         | partial           | later    | `coordinator.js` `runPhasePlan`, `coordinator-parallel.test.js`         | CLI path mostly serial     |
 | Speculative prefetch (Ext-6)       | —                          | missing           | later    | `tool-prefetch.js` (infra)                                              | not wired in `run.js`      |
-| Instruction delta (Ext-11)         | CLAUDE.md watch            | missing           | later    | `instruction-delta.js` (infra)                                          | not wired                  |
+| Instruction delta (Ext-11)         | CLAUDE.md watch            | wired             | adopt    | `instruction-delta.js`, `run.js` per-turn injection                   | small diffs only           |
 | Test watcher (Ext-13)              | —                          | missing           | later    | `test-watcher.js` (infra)                                               | not wired                  |
 | Streaming write input (Ext-9)      | —                          | missing           | later    | `streaming-write.js` (infra)                                            | not wired                  |
 | Permission modes (named)           | default/plan/bypass        | partial           | adopt    | `permission-modes.md`, `permissions.js`                                 | no `auto`/YOLO             |
 | Structured stream-json             | CC rich events             | partial           | later    | `kernel/contract.js` `KERNEL_EVENT_TYPES`                               | see observability contract |
-| Session fork / stable ID           | CC `/resume`               | partial           | later    | `session-store.js`, ledger                                              | transcript ≠ canonical     |
+| Session fork / stable ID           | CC `/resume`               | wired             | adopt    | `--fork-from`, `session-store.js`, `--resume-session`                   | health gate on resume      |
+| Session health / resume gate       | avoid bad resume           | wired             | adopt    | `session-health.js`, `--new-session`, `--ack-resume-risk`               | see megathread playbook    |
+| Runner effort knob                 | `/effort` in CC            | wired             | adopt    | `--effort` → `output_config.effort`                                     | runner path only           |
+| Task-scoped runs                   | compact after task         | wired             | adopt    | `--task-scope`, `--compact-each-turn`                                   | preset flags               |
 | Subagents / delegation             | Explore/Plan/background    | partial           | later    | `coordinator.js`, agent profiles                                        | coordinator experimental   |
 | Skills lazy load                   | CC skills                  | missing           | skip     | —                                                                       | manual AGENTS.md only      |
 | Hooks lifecycle                    | CC hooks                   | partial           | later    | `hooks/hook-dispatcher.js`                                              | not CC-equivalent surface  |
-| Memory layers                      | CLAUDE.md + auto memory    | partial           | later    | `memory/*` modules                                                      | not fully wired            |
+| Memory layers                      | CLAUDE.md + auto memory    | partial           | later    | `memory/*`, `--auto-memory` opt-in                                      | CC autoMemory separate     |
 | Tool schema validation             | strict envelope            | partial           | adopt    | `tool-envelope.js`, tests                                               | n/a                        |
 | Loop health stops                  | max steps, cycles, budgets | wired             | adopt    | `run.js`, `kernel/contract.js` `STOP_REASONS`                           | n/a                        |
 | Bridge transport boundary          | model-client only          | wired             | adopt    | `model-client.js`                                                       | OAuth-only on main         |
