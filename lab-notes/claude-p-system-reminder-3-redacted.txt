@@ -1,0 +1,158 @@
+As you answer the user's questions, you can use the following context:
+# claudeMd
+Codebase and user instructions are shown below. Be sure to adhere to these instructions. IMPORTANT: These instructions OVERRIDE any default behavior and you MUST follow them exactly as written.
+
+Contents of /Users/alanman/CLAUDE.md (project instructions, checked into the codebase):
+
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Environment
+
+- Shell: zsh, macOS (Darwin arm64)
+- Python package manager: `uv` (preferred) or `pip`
+- Node package manager: `npm`
+- Git user: Alan Man (alankatanoisi@gmail.com)
+
+## Key Projects
+
+### `~/Documents/GitHub/claude-local-bridge/`
+VS Code extension that reads Claude Code credentials from the macOS Keychain and exposes them as a local HTTP proxy (`localhost:11436`), supporting both Anthropic and OpenAI API formats. Node.js with `node:test` for testing.
+
+```bash
+npm install
+npm test                                          # run all tests
+node --require ./test/setup.js --test test/X.js   # single test file
+npm run lint && npm run format                    # lint + format
+```
+Press `F5` in VS Code to launch the Extension Development Host.
+
+### `~/agent-starter-pack/`
+Google Cloud Agent Starter Pack — a Python CLI that generates production-ready GenAI agent templates targeting Cloud Run or Agent Engine.
+
+```bash
+uvx agent-starter-pack create    # scaffold a new agent project
+uvx agent-starter-pack enhance   # add infra to an existing agent
+make <target>                    # see Makefile for dev/test targets
+```
+Uses a 4-layer Jinja template system: base → deployment target → frontend → agent. Changes often need to propagate across all four layers.
+
+### `~/anthropic/`
+Local Python virtualenv (`env/`) for Anthropic SDK experimentation.
+
+## Notes
+
+- `~/node_modules/` and `~/package.json` at the home root are for `@google-apps/chat` — unrelated to the projects above.
+- AWS credentials are configured at `~/.boto` and `~/.aws/`.
+- Google Cloud SDK is at `~/google-cloud-sdk/`.
+
+Contents of /Users/alanman/Developer/claude-local-bridge-playground/CLAUDE.md (project instructions, checked into the codebase):
+
+# CLAUDE.md
+
+Claude-specific instructions for this repository. For the full shared agent guide, read `AGENTS.md` first — especially **Human Context** and [`lab-notes/ALAN_OPERATOR_PROFILE.md`](lab-notes/ALAN_OPERATOR_PROFILE.md) (Alan is a novice; over-explain by default).
+
+## Which clone is this?
+
+Run `pwd` before assuming:
+
+| Path ends with                   | This clone     | GitHub                                                                                            | Expected branch         |
+| -------------------------------- | -------------- | ------------------------------------------------------------------------------------------------- | ----------------------- |
+| `claude-local-bridge-playground` | **Playground** | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main`                  |
+| `claude-local-bridge`            | **Canonical**  | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | `codex/runner-clean-pr` |
+
+If you are in **playground**, all commits and PRs go to the playground repo on **`main`** only — see `lab-notes/ACTIVE_WORKTREE.md` and `lab-notes/PLAYGROUND_PR_POLICY.md`.
+
+**Do not** open or continue work on canonical [PR #17](https://github.com/alankatanoisi/claude-local-bridge/pull/17) (`claude/magical-edison-7Qou6`). That branch is stale relative to playground `main`.
+
+## Human Context
+
+Alan is a beginner at programming and terminal workflows. **It is correct to treat him as if he does not understand usual programmer stuff.** Better safe than sorry:
+
+- Say where each command runs (Terminal vs VS Code vs browser).
+- Say what success looks like in plain language.
+- Explain Git words (commit, push, branch, merge) when you use them.
+- Never assume he knows which app or folder a step belongs in.
+
+## Architecture Boundary
+
+Claude Local Bridge has two layers:
+
+- Bridge layer: VS Code extension, local HTTP server, OAuth/keychain/interceptor/proxy behavior.
+- Runner layer: local CLI agent loop, tools, permissions, transcripts, readable logs, docs, command builder.
+
+## Current Research Direction
+
+The playground is currently an **OAuth-only evidence harness**. Do not restore Anthropic Console API-key fallback paths.
+Upstream model calls should use Claude Code OAuth Bearer credentials only: live intercepted Bearer token,
+`CLAUDE_CODE_OAUTH_TOKEN`, macOS Keychain, or `~/.claude/.credentials.json`.
+
+Dummy API-key strings such as `local` are only local client placeholders for tools that require a field. They must not be
+forwarded upstream as `x-api-key`.
+
+Do not modify bridge/auth/proxy internals unless explicitly requested:
+
+- `src/credentials.js`
+- `src/proxy.js`
+- `src/server.js`
+- `src/interceptors/**`
+
+Runner tasks should usually stay in:
+
+- `bin/local-bridge-runner.js`
+- `src/runner/**`
+- `test/runner/**`
+- `docs/**`
+- `README.md`
+
+## Safety Rules
+
+Keep these invariants:
+
+- Shell is hidden unless `--allow-shell` is set.
+- `--dont-ask` must not enable shell by itself.
+- Block `.env`, private keys, credential JSON, token files, `.ssh`, `.aws`, `.claude`, and path escapes.
+- Write tools ask for confirmation unless `--accept-edits` is set.
+- Tool output, transcripts, JSON/stream-json output, and human logs redact secrets.
+- `--cwd` means the target project folder the tools operate inside.
+
+## Checks
+
+Run relevant targeted tests first, then the standard checks before handoff:
+
+```bash
+npm test
+npm run lint
+npx prettier --check <touched files>
+```
+
+For runner-only work:
+
+```bash
+node --require ./test/setup.js --test test/runner/*.test.js
+```
+
+## Docs To Keep Updated
+
+When changing runner behavior or CLI options, update:
+
+- `README.md`
+- `docs/runner-quickstart.html`
+- `docs/command-builder.html`
+- `docs/threat-model.md` when safety behavior changes
+- `OPENCODE.md` when startup or multi-agent workflow changes
+
+## Handoff
+
+Always end with:
+
+- Folder and branch used.
+- Files changed.
+- Tests/checks run.
+- Anything skipped.
+- Risks or next steps.
+# currentDate
+Today's date is 2026-05-26.
+
+      IMPORTANT: this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task.

@@ -36,17 +36,27 @@ Read [`lab-notes/agents/CHARTER.md`](../../lab-notes/agents/CHARTER.md) before e
 
 | File | Purpose |
 | ---- | ------- |
-| [sources.md](sources.md) | URL tiers, ctx7 commands, claim labels |
+| [sources.md](sources.md) | URL tiers, lookup order, claim labels; ctx7 fallback syntax |
 | [surfaces.md](surfaces.md) | Surface comparison table and picker |
+
+## How lookups work (plain language)
+
+When Alan asks what Anthropic **documents** or which surface to use, **fetch the official page first** (WebFetch on a Tier-1 URL from [sources.md](sources.md)). Use WebSearch only to **find** the right official URL or a public announcement. **Context7 (ctx7) is not the default** — use it only if the fetch failed, the page was incomplete, or Alan explicitly wants indexed API snippets.
 
 ## Workflow
 
 1. Read `AGENTS.md`, `README.md`, `lab-notes/OAUTH_ONLY_DIRECTION.md`, `lab-notes/agents/README.md`.
-2. If the task is **policy citations**: open Tier 1 URLs in [sources.md](sources.md); record **access date** on every quote.
+2. If the task is **policy citations**: **WebFetch** Tier 1 URLs from [sources.md](sources.md) in-session; record **access date** on every quote. Use WebSearch only to discover the right official permalink, then WebFetch it.
 3. If the task is **surface choice**: answer from [surfaces.md](surfaces.md); add one playground sentence (OAuth replay = evidence harness, not product endorsement).
 4. Update or create `lab-notes/parity/anthropic-official-posture.md` using the template below.
 5. Append **Matrix seed rows** (parity-archivist consumes these).
 6. Hand off per CHARTER (≤200 words, paths only).
+
+**Default lookup order** (cap ~3 live lookups per task unless Alan asks for a deep dive):
+
+1. **WebFetch** Tier-1 official URLs ([sources.md](sources.md)).
+2. **WebSearch** for discovery (official URL, changelog, @Anthropic / @claudeai) — then WebFetch the permalink.
+3. **Context7 (ctx7 CLI or MCP)** as **optional fallback** when primary fetch fails, is incomplete, or Alan explicitly asks for indexed API snippets.
 
 ## Primary deliverable template
 
@@ -88,12 +98,16 @@ Harness: OAuth-only — see ../OAUTH_ONLY_DIRECTION.md
 - Never recommend evasion, fingerprint hiding, or API-key bypass for policy demos.
 - Press and X posts are **secondary**; legal/help center wins on conflict.
 
-## ctx7 (optional, max 3 calls)
+## Context7 fallback (optional, max 3 calls)
+
+Use **only** when WebFetch did not answer the question or Alan asks for ctx7-indexed snippets — **not** as the first step:
 
 ```bash
 npx ctx7@latest library "Anthropic" "<question>"
 npx ctx7@latest docs /anthropics/anthropic-sdk-typescript "<API detail>"
 ```
+
+Official pages ([sources.md](sources.md)) remain the source of truth for policy citations.
 
 ## Code anchors (read-only)
 

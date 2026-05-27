@@ -1,0 +1,45 @@
+---
+description: >-
+  In this repo, Anthropic APIs, Agents SDK, Claude Code, billing/help, and policy
+  facts must come from official sources via WebFetch first—not Context7, generic
+  web search, or memory as the default path.
+alwaysApply: true
+---
+
+# Anthropic docs: official sources first (playground)
+
+This folder is an **OAuth-only evidence harness** about Anthropic products. When work touches **Anthropic** APIs, the Agents SDK, Claude Code, Console/billing, help center articles, Terms, or product policy, treat **official published pages** as the only reliable “first stop.”
+
+## What “primary source” means here
+
+**Primary** means: use **WebFetch** on an official URL, read what the page says, then answer. Good official hosts include:
+
+- `https://docs.anthropic.com` — API, SDK, and product documentation
+- `https://code.claude.com/docs` — Claude Code documentation
+- `https://support.claude.com` — help center / billing / subscription explanations
+- `https://github.com/anthropics/*` — official Anthropic open-source repos (READMEs, changelogs, issues when cited as evidence)
+
+Pick the URL that matches the question (API doc vs Claude Code vs support article vs a specific GitHub repo).
+
+## What not to do by default
+
+- **Do not** use **Context7** (`ctx7`), indexed third-party doc mirrors, or **generic web search** as the main way to establish Anthropic technical or policy facts.
+- **Do not** rely on **training data alone** for Anthropic facts that could change (pricing, limits, Terms, API behavior) — always anchor to a fetched official page when the task needs accuracy.
+
+This **overrides** any generic “always use Context7 for library docs” habit **for Anthropic-shaped questions** in this repository.
+
+## Allowed exceptions (use sparingly)
+
+1. **Finding the right official link**: a **short** web search step is OK only to discover the canonical URL — then **WebFetch that URL** before stating facts.
+2. **Context7 or other secondaries**: use **only** if WebFetch failed (blocked, empty, error), the official page was clearly incomplete for the question, or Alan **explicitly** asked for supplemental indexed snippets. Say so in plain language (for example: “Official page fetch failed; below is from Context7 as a secondary — verify against Anthropic when you can.”).
+
+## Same policy as the project skills
+
+Follow the same order as:
+
+- `.cursor/skills/anthropic-official/SKILL.md` — policy, surfaces, billing posture
+- `.cursor/skills/anthropic-platform-expert/SKILL.md` — Agents SDK, Messages API, changelogs, technical watch
+
+When those skills apply, **read and follow them**; this rule is the repo-wide reminder so **every** agent turn defaults correctly even without `@`-invoking a skill.
+
+Human-readable index: `lab-notes/agents/README.md` (Anthropic lanes and handoff order).

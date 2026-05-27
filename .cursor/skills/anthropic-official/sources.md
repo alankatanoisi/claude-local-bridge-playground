@@ -1,6 +1,14 @@
 # Official and public sources checklist
 
-Refresh access dates when citing. Prefer fetching the page in-session over quoting from memory.
+Refresh access dates when citing. **WebFetch official URLs in-session** — do not quote from memory.
+
+## Default lookup order
+
+1. **WebFetch** Tier-1 (and Tier-2 when engineering detail is needed) URLs below.
+2. **WebSearch** only to discover the right official URL, changelog, or public status (@Anthropic, @claudeai) — then WebFetch the permalink.
+3. **Context7 (ctx7 CLI or MCP)** as **optional fallback** when fetch fails, is incomplete, or Alan explicitly asks for indexed API snippets (max ~3 calls per task unless deep dive).
+
+Context7 is **not** the default for anthropic-official or anthropic-platform-expert.
 
 ## Tier 1 — contractual / product policy
 
@@ -43,7 +51,9 @@ Refresh access dates when citing. Prefer fetching the page in-session over quoti
 | `lab-notes/parity/anthropic-official-posture.md` | Curated citation matrix (this lane owns) |
 | `letter-to-anthropic-v2.md` | Policy framing (do not paste private mail) |
 
-## ctx7 commands (syntax only)
+## Context7 fallback (syntax only — not default)
+
+Use only after WebFetch fails or is incomplete, or when Alan explicitly requests ctx7:
 
 ```bash
 npx ctx7@latest library "Anthropic" "<your question>"

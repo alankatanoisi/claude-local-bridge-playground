@@ -1,0 +1,7 @@
+PLACEHOLDER (run-2):
+
+This file follows the naming convention:
+- `lab-notes/system-reminder-extraction-run-1-redacted.txt`
+- `lab-notes/system-reminder-extraction-run-2-redacted.txt`
+
+In the current `Claude Local Bridge.log`, I did not find a second complete `<system-reminder>...</system-reminder>` block with a later timestamp than the latest run (`[01:01:52.750]`), so there is no run-2 block to extract yet.

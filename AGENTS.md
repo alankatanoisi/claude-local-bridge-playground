@@ -51,6 +51,8 @@ Required implications:
 - Keep debug/trace/log surfaces redacted because OAuth tokens and fingerprints are sensitive local account state.
 - Document policy risk plainly: this is personal research / disclosure context, not proof of Anthropic approval.
 
+**Anthropic documentation for agents:** Any question about Anthropic APIs, Agents SDK, Claude Code, billing/help, or policy must be grounded in **official pages** (use **WebFetch** on `docs.anthropic.com`, `code.claude.com/docs`, `support.claude.com`, and official `github.com/anthropics/*`). Do not use Context7, generic web search, or model memory as the default for those facts. Full plain-language rules: [`.cursor/rules/anthropic-primary-sources.mdc`](.cursor/rules/anthropic-primary-sources.mdc) — same order as the **anthropic-official** and **anthropic-platform-expert** project skills (`lab-notes/agents/README.md`).
+
 When handing work back, be explicit:
 
 - Say which folder you worked in.
