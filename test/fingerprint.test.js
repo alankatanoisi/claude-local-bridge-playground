@@ -96,6 +96,8 @@ test('getLiveSystemBlocks returns billing header and default identity', () => {
 test('adaptiveMessagesPath prefers captured path over defaults', () => {
   const ctx = { liveFingerprint: { messagesPath: '/v1/messages?beta=true' } };
   assert.equal(adaptiveMessagesPath(ctx, { accessToken: 'token-789' }), '/v1/messages?beta=true');
+  const ctxWithoutPath = { liveFingerprint: { 'user-agent': 'claude-cli/2.0.0' } };
+  assert.equal(adaptiveMessagesPath(ctxWithoutPath, { accessToken: 'token-789' }), '/v1/messages?beta=true');
   assert.equal(adaptiveMessagesPath({ liveFingerprint: null }, { accessToken: 'token-789' }), '/v1/messages?beta=true');
   assert.equal(adaptiveMessagesPath({ liveFingerprint: null }, { source: 'none' }), '/v1/messages');
 });

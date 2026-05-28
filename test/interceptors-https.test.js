@@ -54,7 +54,7 @@ test('install captures fingerprint from fetch and uninstall restores', async () 
       text: async () => '',
     };
   };
-  https.request = (..._args) => ({});
+  https.request = () => ({});
 
   try {
     install(ctx);

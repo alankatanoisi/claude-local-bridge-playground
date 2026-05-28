@@ -73,7 +73,7 @@ test('capture proxy forwards allowed requests and rejects other targets', async 
     assert.equal(ctx.interceptedHost, 'api.anthropic.com');
     assert.equal(ctx.cachedCredentials, null);
 
-    const errorResponse = await requestProxy('https://api.anthropic.com/v1/messages?force_error=1');
+    const errorResponse = await requestProxy('https://api.anthropic.com/v1/messages/error');
     assert.equal(errorResponse.statusCode, 500);
     assert.equal(errorResponse.body, 'upstream error');
 
