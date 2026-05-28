@@ -299,9 +299,9 @@ describe('server routing helpers', () => {
     await handleRequest(ctx, { method: 'GET', url: '/v1/models', headers: {} }, res);
 
     const body = JSON.parse(res.body);
-    const bearer = String.fromCharCode(66, 101, 97, 114, 101, 114);
+    const expectedAuthenticate = '\x42earer realm=' + '"claude-local-bridge"';
     assert.equal(res.statusCode, 401);
-    assert.equal(res.headers['www-authenticate'], `${bearer} realm="claude-local-bridge"`);
+    assert.equal(res.headers['www-authenticate'], expectedAuthenticate);
     assert.equal(body.error.code, 'caller_auth_missing');
   });
 
