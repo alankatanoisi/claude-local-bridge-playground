@@ -43,14 +43,15 @@ test('capture proxy forwards allowed requests and rejects other targets', async 
 
   const originalRequest = https.request;
   let lastOptions = null;
-  let requestCount = 0;
+  const responses = [
+    { statusCode: 200, body: 'proxied' },
+    { statusCode: 500, body: 'upstream error' },
+  ];
   https.request = (options, callback) => {
     lastOptions = options;
-    requestCount += 1;
-    const statusCode = requestCount === 1 ? 200 : 500;
-    const body = requestCount === 1 ? 'proxied' : 'upstream error';
-    const proxyRes = Readable.from([body]);
-    proxyRes.statusCode = statusCode;
+    const next = responses.shift();
+    const proxyRes = Readable.from([next.body]);
+    proxyRes.statusCode = next.statusCode;
     proxyRes.headers = { 'content-type': 'text/plain' };
     process.nextTick(() => callback(proxyRes));
     return new PassThrough();

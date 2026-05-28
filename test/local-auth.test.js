@@ -31,10 +31,8 @@ test('isAuthorizedSensitiveRequest accepts the custom debug token header', () =>
 
 test('isAuthorizedSensitiveRequest accepts bearer tokens and rejects mismatches', () => {
   const ctx = { sensitiveEndpointToken: 'door-code' };
-  const okToken = 'door-code';
-  const badToken = 'different';
-  const okReq = { headers: { authorization: 'Bearer ' + okToken } };
-  const badReq = { headers: { authorization: 'Bearer ' + badToken } };
+  const okReq = { headers: { authorization: 'Bearer ' + 'door-code' } };
+  const badReq = { headers: { authorization: 'Bearer ' + 'different' } };
   assert.equal(isAuthorizedSensitiveRequest(ctx, okReq), true);
   assert.equal(isAuthorizedSensitiveRequest(ctx, badReq), false);
 });
