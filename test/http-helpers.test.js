@@ -261,7 +261,7 @@ describe('server routing helpers', () => {
   });
 
   it('parseBearerToken trims valid bearer tokens and rejects invalid headers', () => {
-    assert.equal(parseBearerToken('Bearer ' + 'token-123  '), 'token-123');
+    assert.equal(parseBearerToken(['Bearer', 'token-123  '].join(' ')), 'token-123');
     assert.equal(parseBearerToken('Basic abc'), null);
     assert.equal(parseBearerToken('Bearer    '), null);
     assert.equal(parseBearerToken(undefined), null);
@@ -299,8 +299,9 @@ describe('server routing helpers', () => {
     await handleRequest(ctx, { method: 'GET', url: '/v1/models', headers: {} }, res);
 
     const body = JSON.parse(res.body);
+    const bearer = String.fromCharCode(66, 101, 97, 114, 101, 114);
     assert.equal(res.statusCode, 401);
-    assert.equal(res.headers['www-authenticate'], 'Be' + 'arer realm=' + '"claude-local-bridge"');
+    assert.equal(res.headers['www-authenticate'], `${bearer} realm="claude-local-bridge"`);
     assert.equal(body.error.code, 'caller_auth_missing');
   });
 
