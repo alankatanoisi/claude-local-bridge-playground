@@ -43,10 +43,14 @@ test('capture proxy forwards allowed requests and rejects other targets', async 
 
   const originalRequest = https.request;
   let lastOptions = null;
+  let requestCount = 0;
   https.request = (options, callback) => {
     lastOptions = options;
-    const proxyRes = Readable.from(['proxied']);
-    proxyRes.statusCode = 200;
+    requestCount += 1;
+    const statusCode = requestCount === 1 ? 200 : 500;
+    const body = requestCount === 1 ? 'proxied' : 'upstream error';
+    const proxyRes = Readable.from([body]);
+    proxyRes.statusCode = statusCode;
     proxyRes.headers = { 'content-type': 'text/plain' };
     process.nextTick(() => callback(proxyRes));
     return new PassThrough();
@@ -68,6 +72,10 @@ test('capture proxy forwards allowed requests and rejects other targets', async 
     assert.equal(ctx.interceptedSource, 'proxy:bearer');
     assert.equal(ctx.interceptedHost, 'api.anthropic.com');
     assert.equal(ctx.cachedCredentials, null);
+
+    const errorResponse = await requestProxy('https://api.anthropic.com/v1/messages?force_error=1');
+    assert.equal(errorResponse.statusCode, 500);
+    assert.equal(errorResponse.body, 'upstream error');
 
     const blockedResponse = await requestProxy('https://example.com/v1/messages');
 

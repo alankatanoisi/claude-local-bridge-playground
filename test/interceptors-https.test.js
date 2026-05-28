@@ -45,7 +45,14 @@ test('install captures fingerprint from fetch and uninstall restores', async () 
   let fetchCalled = false;
   globalThis.fetch = async (input, init) => {
     fetchCalled = true;
-    return { input, init };
+    return {
+      input,
+      init,
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+      text: async () => '',
+    };
   };
   https.request = (..._args) => ({});
 
