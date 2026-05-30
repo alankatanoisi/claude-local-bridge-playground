@@ -37,31 +37,25 @@ function has(text, pattern) {
 }
 
 assert(Number.isInteger(defaults.port), 'package.json missing numeric default for claudeLocalBridge.port');
-assert(typeof defaults.defaultModel === 'string', 'package.json missing string default for claudeLocalBridge.defaultModel');
+assert(
+  typeof defaults.defaultModel === 'string',
+  'package.json missing string default for claudeLocalBridge.defaultModel',
+);
 assert(
   typeof defaults.requireCallerAuth === 'boolean',
   'package.json missing boolean default for claudeLocalBridge.requireCallerAuth',
 );
 
 for (const doc of docs) {
-  assert(
-    has(doc.text, `localhost:${defaults.port}`),
-    `${doc.name} does not mention localhost:${defaults.port}`,
-  );
+  assert(has(doc.text, `localhost:${defaults.port}`), `${doc.name} does not mention localhost:${defaults.port}`);
 
-  assert(
-    !has(doc.text, /localhost:11436/),
-    `${doc.name} still contains old localhost:11436 default`,
-  );
+  assert(!has(doc.text, /localhost:11436/), `${doc.name} still contains old localhost:11436 default`);
 }
 
 const readme = docs.find((d) => d.name === 'README.md').text;
 const quickstart = docs.find((d) => d.name === 'QUICKSTART.md').text;
 
-assert(
-  has(readme, defaults.defaultModel),
-  `README.md does not mention default model ${defaults.defaultModel}`,
-);
+assert(has(readme, defaults.defaultModel), `README.md does not mention default model ${defaults.defaultModel}`);
 
 assert(
   has(readme, `ANTHROPIC_BASE_URL=http://localhost:${defaults.port}`),
@@ -73,25 +67,26 @@ assert(
   'QUICKSTART.md is missing Claude CLI base URL example without /v1',
 );
 
+assert(has(readme, 'POST /v1/messages'), 'README.md is missing Anthropic Messages endpoint guidance');
+
 assert(
-  has(readme, `http://localhost:${defaults.port}/v1`),
-  'README.md is missing OpenAI-compatible /v1 base URL guidance',
+  has(quickstart, `http://localhost:${defaults.port}/v1/messages`),
+  'QUICKSTART.md is missing native /v1/messages test command',
 );
 
 assert(
-  has(quickstart, `http://localhost:${defaults.port}/v1`),
-  'QUICKSTART.md is missing OpenAI-compatible /v1 base URL guidance',
+  !has(readme, /OpenAI-compatible|chat\/completions/),
+  'README.md still advertises removed OpenAI-compatible bridge behavior',
+);
+
+assert(
+  !has(quickstart, /OpenAI-compatible|chat\/completions/),
+  'QUICKSTART.md still advertises removed OpenAI-compatible bridge behavior',
 );
 
 if (defaults.requireCallerAuth) {
-  assert(
-    has(readme, 'Authorization: Bearer'),
-    'README.md is missing caller Authorization Bearer guidance',
-  );
-  assert(
-    has(quickstart, 'Authorization: Bearer'),
-    'QUICKSTART.md is missing caller Authorization Bearer guidance',
-  );
+  assert(has(readme, 'Authorization: Bearer'), 'README.md is missing caller Authorization Bearer guidance');
+  assert(has(quickstart, 'Authorization: Bearer'), 'QUICKSTART.md is missing caller Authorization Bearer guidance');
 }
 
 if (errors.length) {

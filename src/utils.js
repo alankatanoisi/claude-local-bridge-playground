@@ -73,38 +73,10 @@ function readBody(req, maxBytes = 10 * 1024 * 1024) {
   });
 }
 
-// ─────────────────────────────────────────────
-// OpenAI Response Builders (for /v1/chat/completions)
-// ─────────────────────────────────────────────
-
-function buildStreamChunk(id, model, content, finishReason = null) {
-  const delta = content !== null ? { role: 'assistant', content } : {};
-  return {
-    id,
-    object: 'chat.completion.chunk',
-    created: Math.floor(Date.now() / 1000),
-    model,
-    choices: [{ index: 0, delta, finish_reason: finishReason }],
-  };
-}
-
-function buildCompletion(id, model, content) {
-  return {
-    id,
-    object: 'chat.completion',
-    created: Math.floor(Date.now() / 1000),
-    model,
-    choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],
-    usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-  };
-}
-
 module.exports = {
   log,
   verboseLog,
   updateStatusBar,
   sendJson,
   readBody,
-  buildStreamChunk,
-  buildCompletion,
 };

@@ -26,11 +26,12 @@ Disabled upstream credential sources:
 - `claudeLocalBridge.apiKey`.
 - Captured or manually supplied `x-api-key`.
 
-## Dummy Client Keys
+## Local Placeholder Keys
 
-Some OpenAI-compatible tools require an API-key field before they will send a local request. Use `local` for that field.
+Some Anthropic clients may expect an API-key-shaped environment variable before they will send a local request. Use
+`local` only as a local placeholder for that client-side check.
 
-That dummy value is only for the local client. It must not be forwarded to Anthropic as `x-api-key`.
+That placeholder value must not be forwarded to Anthropic as `x-api-key`.
 
 ## Debug Safety
 

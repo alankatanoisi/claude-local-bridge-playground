@@ -79,19 +79,14 @@ describe('credentials', () => {
 });
 
 describe('models', () => {
-  it('resolves alias to canonical model', () => {
+  it('passes through model IDs verbatim', () => {
     const { resolveModel } = require('../src/models');
-    assert.equal(resolveModel('claude-3-5-sonnet'), 'claude-3-5-sonnet-20241022');
+    assert.equal(resolveModel('claude-opus-4-8'), 'claude-opus-4-8');
   });
 
-  it('passes through unknown model verbatim', () => {
+  it('does not map arbitrary model names', () => {
     const { resolveModel } = require('../src/models');
-    assert.equal(resolveModel('claude-some-future-model'), 'claude-some-future-model');
-  });
-
-  it('maps gpt-4o to claude-sonnet-4-5', () => {
-    const { resolveModel } = require('../src/models');
-    assert.equal(resolveModel('gpt-4o'), 'claude-sonnet-4-5');
+    assert.equal(resolveModel('custom-model-name'), 'custom-model-name');
   });
 
   it('returns default model for undefined', () => {
@@ -126,6 +121,26 @@ describe('server routing', () => {
 
     assert.equal(res.statusCode, 401);
     assert.equal(JSON.parse(res.body).error.type, 'unauthorized');
+  });
+
+  it('does not expose the removed chat compatibility endpoint', async () => {
+    const { handleRequest } = require('../src/server');
+    const res = makeJsonRes();
+
+    await handleRequest(makeCtx(), { method: 'POST', url: '/v1/chat/completions', headers: {} }, res);
+
+    assert.equal(res.statusCode, 404);
+    assert.match(JSON.parse(res.body).error.message, /Unknown: POST \/v1\/chat\/completions/);
+  });
+
+  it('does not expose the removed model list endpoint', async () => {
+    const { handleRequest } = require('../src/server');
+    const res = makeJsonRes();
+
+    await handleRequest(makeCtx(), { method: 'GET', url: '/v1/models', headers: {} }, res);
+
+    assert.equal(res.statusCode, 404);
+    assert.match(JSON.parse(res.body).error.message, /Unknown: GET \/v1\/models/);
   });
 });
 

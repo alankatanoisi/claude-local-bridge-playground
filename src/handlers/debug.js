@@ -6,7 +6,6 @@
 
 const { sendJson } = require('../utils');
 const { getCredentials, getCredentialAuthMode } = require('../credentials');
-const { LISTED_MODELS } = require('../models');
 const crypto = require('crypto');
 const vscode = require('vscode');
 
@@ -57,7 +56,6 @@ async function handleDebug(ctx, _req, res) {
       : null,
     captureProxy: ctx.captureProxy ? `http://localhost:11439` : null,
     anthropicBaseUrl: config.get('anthropicBaseUrl', 'https://api.anthropic.com'),
-    availableModels: LISTED_MODELS.map((m) => m.id),
   });
 }
 

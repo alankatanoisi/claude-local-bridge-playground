@@ -1,7 +1,7 @@
 {
   "name": "claude-local-bridge",
   "displayName": "Claude Local Bridge",
-  "description": "Exposes Claude Code OAuth credentials as a local OpenAI/Anthropic-compatible HTTP API on localhost:11437",
+  "description": "Exposes Claude Code OAuth credentials as a local Anthropic Messages API bridge on localhost:11437",
   "version": "1.0.0",
   "publisher": "alankatanoisi",
   "license": "MIT",
@@ -16,7 +16,6 @@
   "keywords": [
     "claude",
     "anthropic",
-    "openai",
     "llm",
     "bridge",
     "proxy",

@@ -2,9 +2,9 @@
 
 > **This is the active repository** ([claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground), branch **`main`**). Canonical [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge) is archived (tags `archive-2026-05-main` and `archive-2026-05-runner-clean-pr`); do not open new PRs there.
 
-A VS Code extension that reads your **Claude Code OAuth credentials** and exposes them as a local HTTP server on `http://localhost:11437`, compatible with both the **Anthropic Messages API** and **OpenAI-compatible `/v1` clients**.
+A VS Code extension that reads your **Claude Code OAuth credentials** and exposes them as a local Anthropic Messages API bridge on `http://localhost:11437`.
 
-Use Claude CLI with `http://localhost:11437`, and point OpenAI-style tools to `http://localhost:11437/v1` — the bridge injects your Claude Code OAuth token so no Anthropic Console API key is used upstream.
+Use Claude CLI or the local runner with `http://localhost:11437`. The bridge injects your Claude Code OAuth token so no Anthropic Console API key is used upstream.
 
 ## Current Direction: OAuth-Only Policy Evidence Harness
 
@@ -16,7 +16,7 @@ To keep the evidence clean:
 - The bridge ignores the old `claudeLocalBridge.apiKey` setting.
 - The bridge ignores intercepted `x-api-key` credentials.
 - Upstream auth must be `authorization: Bearer <Claude Code OAuth token>`.
-- Dummy client keys such as `local` are allowed only because some OpenAI-compatible clients require a local placeholder; they are not forwarded to Anthropic.
+- Any local placeholder key such as `ANTHROPIC_API_KEY=local` is for client-side checks only; it is not forwarded to Anthropic.
 
 This does **not** mean Anthropic has approved this usage. Treat runs as policy-sensitive personal research, not production guidance or a commercial integration pattern.
 
@@ -73,11 +73,11 @@ Defaults below are sourced from `package.json` (`contributes.configuration.prope
 ### Architecture flow
 
 ```
-Claude CLI (Anthropic format) ─┐
-OpenAI-compatible tools (/v1) ─┼─> Claude Local Bridge (http://localhost:11437)
-                               │      ↓ credential discovery
-                               │      ↓ request normalization / passthrough
-                               └──> api.anthropic.com
+Claude CLI / local runner
+  └──> Claude Local Bridge (http://localhost:11437)
+        ↓ credential discovery
+        ↓ Anthropic Messages request passthrough
+        └──> api.anthropic.com
 ```
 
 The extension discovers credentials automatically (see priority order below), injects the auth header, and streams upstream responses back to callers.
@@ -101,10 +101,8 @@ On macOS with Claude Code installed, **Priority 3 is used automatically** if no 
 
 | Endpoint                         | Format           | Notes                                                  |
 | -------------------------------- | ---------------- | ------------------------------------------------------ |
-| `GET /v1/models`                 | OpenAI           | Lists available Claude models                          |
 | `POST /v1/messages`              | Anthropic native | Proxied verbatim to api.anthropic.com                  |
 | `POST /v1/messages/count_tokens` | Anthropic        | Mock response (returns 0) for Claude CLI preflight     |
-| `POST /v1/chat/completions`      | OpenAI           | Full conversion: OpenAI ↔ Anthropic, streaming + tools |
 | `GET /v1/debug`                  | JSON             | Locked diagnostic endpoint; requires local debug token |
 
 ---
@@ -147,10 +145,13 @@ That token is only a local diagnostic door code. It is not your Claude OAuth tok
 
 ---
 
-## Base URL patterns by client type
+## Base URL
 
-- **Claude CLI (Anthropic API client):** `http://localhost:11437` (no `/v1` suffix in `ANTHROPIC_BASE_URL`)
-- **OpenAI-compatible clients:** `http://localhost:11437/v1`
+Use the bridge root for Claude CLI and runner traffic:
+
+```text
+http://localhost:11437
+```
 
 ---
 
@@ -160,7 +161,7 @@ Set `ANTHROPIC_BASE_URL` to the bridge root (no `/v1`):
 
 ```bash
 export ANTHROPIC_BASE_URL=http://localhost:11437
-export ANTHROPIC_API_KEY=local  # dummy value for local client env checks; not forwarded upstream
+export ANTHROPIC_API_KEY=local  # local placeholder for client env checks; not forwarded upstream
 
 claude
 ```
@@ -263,40 +264,6 @@ See [lab-notes/RUNNER_ARCHIVE.md](./lab-notes/RUNNER_ARCHIVE.md) for the full la
 - **File cache:** In-memory LRU for `read_file` (invalidates on file change).
 - **Persistent shell:** Opt-in only — `BRIDGE_RUNNER_PERSISTENT_SHELL=1` (default stays spawn-per-command).
 - **Bench:** `node --require ./test/setup.js test/runner/bench/turn-latency.bench.js`
-
-## Using with third-party OpenAI-compatible tools
-
-For tools like Continue.dev, Cursor, Cline/Roo, Aider, Open WebUI, Cherry Studio, or LiteLLM:
-
-- **Base URL:** `http://localhost:11437/v1`
-- **API Key:** any placeholder required by the local client (for example `local`); never put an Anthropic Console key here for this experiment
-- **Model:** any supported Claude model (for example `claude-opus-4-8` or `claude-sonnet-4-6`)
-
-Example (Aider):
-
-```bash
-aider --model claude-opus-4-8 --openai-api-base http://localhost:11437/v1 --openai-api-key local
-```
-
-For Opus 4.8, leave sampling controls such as temperature unset. Anthropic rejects non-default sampling settings on
-that model.
-
-Example (OpenCode provider config):
-
-```json
-{
-  "provider": {
-    "claude-bridge": {
-      "npm": "@ai-sdk/openai",
-      "options": {
-        "baseURL": "http://localhost:11437/v1"
-      }
-    }
-  }
-}
-```
-
----
 
 ## OAuth Token Expiry
 

@@ -105,7 +105,7 @@ Redacted patterns:
 | Original                                 | Redacted as                    |
 | ---------------------------------------- | ------------------------------ |
 | `sk-ant-...` (Anthropic keys)            | `[REDACTED:anthropic_key]`     |
-| `sk-...` (OpenAI keys)                   | `[REDACTED:openai_key]`        |
+| `sk-...` style API keys                  | `[REDACTED:generic_api_key]`   |
 | `-----BEGIN ... PRIVATE KEY-----` blocks | `[REDACTED:private_key_block]` |
 | `ghp_...` / `gho_...` (GitHub tokens)    | `[REDACTED:github_token]`      |
 | `AKIA...` (AWS access keys)              | `[REDACTED:aws_access_key]`    |

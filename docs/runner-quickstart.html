@@ -320,15 +320,13 @@
           Make sure the bridge is running. In VS Code, start the extension (or press <kbd>F5</kbd> in development mode).
           Then verify:
         </p>
-        <pre><code>curl -s http://localhost:11437/v1/models | python3 -m json.tool</code></pre>
-        <p>
-          Look for a JSON model list. If you need diagnostics, <code>/v1/debug</code> now requires the local debug token
-          printed in the Claude Local Bridge Output log:
-        </p>
         <pre><code>curl -s http://localhost:11437/v1/debug \
   -H "x-claude-local-bridge-debug-token: PASTE_TOKEN_HERE" \
   | python3 -m json.tool</code></pre>
-        <p>Look for <code>"credentialPolicy": "oauth-only"</code> and <code>"authenticated": true</code>.</p>
+        <p>
+          The debug endpoint requires the local debug token printed in the Claude Local Bridge Output log. Look for
+          <code>"credentialPolicy": "oauth-only"</code> and <code>"authenticated": true</code>.
+        </p>
         <p>
           Caller auth is optional. If you intentionally enable it in VS Code settings, also set the local caller token
           in Terminal before runner commands:
@@ -1048,7 +1046,8 @@ node bin/local-bridge-coordinator.js \
 
         <h3>“Bridge returned HTTP 404” or connection refused</h3>
         <p>The bridge is not running or is on a different port. Check:</p>
-        <pre><code>curl -s http://localhost:11437/v1/models</code></pre>
+        <pre><code>curl -s http://localhost:11437/v1/debug \
+  -H "x-claude-local-bridge-debug-token: PASTE_TOKEN_HERE"</code></pre>
         <p>If that fails, start the bridge first (in VS Code: <code>Claude Local Bridge: Start Server</code>).</p>
 
         <h3>“No credentials found” in bridge debug</h3>

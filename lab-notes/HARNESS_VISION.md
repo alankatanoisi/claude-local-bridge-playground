@@ -191,7 +191,7 @@ _(Commands 2–3 need the VS Code bridge extension running if you want a live mo
 - **No** API-key fallback for upstream Anthropic calls while this policy experiment is active.
 - **No** commercial bypass guidance or claims that this is approved by Anthropic.
 - **No** unredacted OAuth tokens in debug output, traces, transcripts, or docs.
-- **No** edits that make dummy local client keys such as `local` become upstream `x-api-key` auth.
+- **No** edits that make local placeholder keys such as `local` become upstream `x-api-key` auth.
 - Bridge auth/proxy/server/interceptor edits are allowed only when they preserve the OAuth-only evidence path, local hardening, and redaction rules.
 - **No** auto-approve classifier copying Anthropic `auto` mode.
 - **No** claiming parity with Claude Code product surface (mobile, plugins marketplace, etc.).

@@ -3,9 +3,7 @@
 const vscode = require('vscode');
 const http = require('http');
 const { log, sendJson, updateStatusBar } = require('./utils');
-const { handleModels } = require('./handlers/models');
 const { handleAnthropicMessages, handleCountTokens } = require('./handlers/anthropic');
-const { handleChatCompletions } = require('./handlers/openai');
 const { handleDebug } = require('./handlers/debug');
 const { getCredentials } = require('./credentials');
 const {
@@ -131,7 +129,6 @@ async function handleRequest(ctx, req, res) {
         'x-api-key',
         'anthropic-version',
         'anthropic-beta',
-        'x-goog-api-key',
         'x-local-bridge-trace-id',
         'x-local-bridge-run-id',
         'x-local-bridge-trace-turn',
@@ -170,16 +167,6 @@ async function handleRequest(ctx, req, res) {
     if (!ctx.callerAuthToken || bearerToken !== ctx.callerAuthToken) {
       return sendCallerAuthError(res, 'caller_auth_invalid', 'Unauthorized: Invalid Bearer token');
     }
-  }
-
-  // ── Model listing ──
-  if (req.method === 'GET' && (url.pathname === '/v1/models' || url.pathname === '/models')) {
-    return handleModels(ctx, req, res);
-  }
-
-  // ── OpenAI Chat Completions ──
-  if (req.method === 'POST' && (url.pathname === '/v1/chat/completions' || url.pathname === '/chat/completions')) {
-    return handleChatCompletions(ctx, req, res);
   }
 
   // ── Anthropic Messages ──

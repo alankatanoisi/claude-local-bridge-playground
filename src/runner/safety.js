@@ -126,8 +126,8 @@ const SECRET_PATTERNS = [
   },
   // Anthropic API keys
   { pattern: /sk-ant-[a-zA-Z0-9_-]{20,}/g, replacement: '[REDACTED:anthropic_key]' },
-  // OpenAI API keys
-  { pattern: /sk-[a-zA-Z0-9]{20,}/g, replacement: '[REDACTED:openai_key]' },
+  // Generic sk-style API keys from third-party tools.
+  { pattern: /sk-[a-zA-Z0-9]{20,}/g, replacement: '[REDACTED:generic_api_key]' },
   // GitHub personal access tokens
   { pattern: /ghp_[A-Za-z0-9]{36}/g, replacement: '[REDACTED:github_token]' },
   // GitHub classic tokens

@@ -15,13 +15,7 @@ If you see this folder in your prompt, you are in the right place:
 claude-local-bridge-playground
 ```
 
-```bash
-curl -s http://localhost:11437/v1/models | python3 -m json.tool
-```
-
-Look for a JSON object with a `"data"` array of model records.
-
-`/v1/debug` is now locked. To use it, open **VS Code -> View -> Output**, choose **Claude Local Bridge**, copy the
+`/v1/debug` is locked. To use it, open **VS Code -> View -> Output**, choose **Claude Local Bridge**, copy the
 `x-claude-local-bridge-debug-token` value from the startup log, then run:
 
 ```bash
@@ -71,24 +65,20 @@ This playground intentionally ignores Anthropic Console API keys. Do **not** set
 experiment. The only upstream credential path should be a Claude Code OAuth Bearer token from live interception,
 `CLAUDE_CODE_OAUTH_TOKEN`, macOS Keychain, or `~/.claude/.credentials.json`.
 
-Dummy values like `local` are still used by some local clients because they refuse to start without something in an
-API-key field. The bridge does not forward that dummy value to Anthropic.
+Placeholder values like `local` may still be useful for client-side environment checks. The bridge does not forward
+that placeholder value to Anthropic.
 
 ---
 
-## Step 2: Test the bridge (single line, copy-paste friendly)
+## Step 2: Test the bridge with a native Anthropic Messages request
 
 ```bash
-curl -s -X POST http://localhost:11437/v1/chat/completions -H "Content-Type: application/json" -d '{"model":"claude-haiku-4-5","max_tokens":30,"messages":[{"role":"user","content":"say hi"}]}'
+curl -s -X POST http://localhost:11437/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{"model":"claude-haiku-4-5","max_tokens":30,"messages":[{"role":"user","content":"say hi"}]}'
 ```
 
 If this returns a response → bridge works.
-
-To list models:
-
-```bash
-curl -s http://127.0.0.1:11437/v1/models | python3 -m json.tool
-```
 
 If you see `Unauthorized: Missing Bearer token`, caller auth is enabled in VS Code settings. Either disable
 `claudeLocalBridge.requireCallerAuth`, or use the optional token setup above.
@@ -105,16 +95,9 @@ This tests your OAuth token against multiple Anthropic endpoints and tells you w
 
 ---
 
-## Step 4: Point a tool at the bridge (URL pattern guide)
+## Step 4: Point Claude Code CLI at the bridge
 
-Use this rule to avoid misconfiguration:
-
-- **Claude CLI (`ANTHROPIC_BASE_URL`)** → `http://localhost:11437` (**no** `/v1` suffix)
-- **OpenAI-compatible tools** → `http://localhost:11437/v1`
-
-### For Claude Code CLI:
-
-Run these in your terminal (NOT inside Claude Code):
+Run these in Terminal, not inside Claude Code:
 
 ```bash
 export ANTHROPIC_BASE_URL=http://localhost:11437
@@ -123,33 +106,9 @@ claude "what is 2+2?"
 ```
 
 This tells Claude Code to route its requests through the bridge instead of directly to Anthropic.
-The bridge ignores the incoming `local` dummy value and uses your Claude Code OAuth token.
+The bridge ignores the incoming `local` placeholder and uses your Claude Code OAuth token.
 
-> **Note:** `ANTHROPIC_API_KEY=local` is a dummy value. Your OAuth setup is not affected.
-
-### For OpenCode (add to `~/.config/opencode/opencode.json`):
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "provider": {
-    "claude-bridge": {
-      "npm": "@ai-sdk/openai",
-      "name": "Claude Bridge",
-      "options": {
-        "baseURL": "http://localhost:11437/v1"
-      },
-      "models": {
-        "claude-sonnet-4-5": { "name": "Claude Sonnet 4.5" },
-        "claude-opus-4-5": { "name": "Claude Opus 4.5" },
-        "claude-haiku-4-5": { "name": "Claude Haiku 4.5" }
-      }
-    }
-  }
-}
-```
-
-Then run `/connect` in OpenCode, search for "Claude Bridge", enter `local` as the API key, and select your model with `/models`.
+> **Note:** `ANTHROPIC_API_KEY=local` is only a local placeholder. Your OAuth setup is not affected.
 
 ---
 
@@ -210,74 +169,3 @@ Safety reminders:
   upstream Anthropic credential.
 
 ---
-
-## Other Compatible Tools
-
-### IDE Extensions
-
-**Continue.dev** (VS Code / JetBrains)
-
-- Settings → Add Model → Custom → Base URL: `http://localhost:11437/v1`, API Key: `local`
-
-**Cursor**
-
-- Settings → Models → Add OpenAI-compatible provider → URL: `http://localhost:11437/v1`, API Key: `local`
-
-**Cline / Roo Code** (VS Code)
-
-- Settings → API Provider: OpenAI Compatible → Base URL: `http://localhost:11437/v1`, API Key: `local`
-
-**Windsurf** (Codeium IDE)
-
-- Settings → Custom Model → OpenAI endpoint: `http://localhost:11437/v1`
-
-### CLI Tools
-
-**Aider**
-
-```bash
-aider --model claude-sonnet-4-5 --openai-api-base http://localhost:11437/v1 --openai-api-key local
-```
-
-If your tool supports custom headers, add:
-
-```http
-Authorization: Bearer local-dev-token
-```
-
-**llm** (Simon Willison's CLI)
-
-```bash
-llm install llm-openai
-llm keys set openai --value local
-llm -m claude-sonnet-4-5 -o http://localhost:11437/v1 "your prompt"
-```
-
-### Desktop Apps
-
-**Cherry Studio**
-
-- Settings → Providers → Add → OpenAI Compatible → URL: `http://localhost:11437/v1`
-
-**Chatbox**
-
-- Settings → Model Provider: OpenAI Compatible → API Host: `http://localhost:11437/v1`
-
-**Enchanted** (macOS)
-
-- Settings → Custom OpenAI Server → URL: `http://localhost:11437/v1`
-
-### Web UIs
-
-**Open WebUI**
-
-- Admin Panel → Settings → Connections → OpenAI API → URL: `http://localhost:11437/v1`, Key: `local`
-
-### Proxy / Gateway
-
-**LiteLLM**
-
-```bash
-pip install litellm
-litellm --model openai/claude-sonnet-4-5 --api_base http://localhost:11437/v1 --api_key local
-```
