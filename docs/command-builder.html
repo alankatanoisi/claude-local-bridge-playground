@@ -454,6 +454,18 @@
         letter-spacing: 0.05em;
         margin: 0.6rem 0 0.35rem;
       }
+
+      .capability-group {
+        width: 100%;
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 0.2rem;
+        margin-top: 0.25rem;
+      }
     </style>
   </head>
   <body>
@@ -481,6 +493,29 @@
               <li>Use the generated command in Terminal after the local bridge is already running.</li>
               <li>The playground bridge is OAuth-only: local placeholder keys are never upstream Anthropic auth.</li>
             </ul>
+            <hr class="divider" />
+            <div class="field">
+              <label for="promptTemplate">Prompt template</label>
+              <select id="promptTemplate">
+                <option value="">none</option>
+                <option value="explore">explore — read-only orientation</option>
+                <option value="review">review — findings-first code review</option>
+                <option value="cleanup">cleanup — simplify while preserving behavior</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="customPromptTemplate">Custom template name or path</label>
+              <input
+                type="text"
+                id="customPromptTemplate"
+                placeholder=".bridge-runner/prompts/my-template.md or my-template"
+              />
+            </div>
+            <div class="note show">
+              Templates prepend reusable instructions to the user request with <code>--prompt-template</code>. Project
+              templates live in <code>.bridge-runner/prompts/</code>; global templates live in
+              <code>~/.bridge-runner/prompts/</code>.
+            </div>
           </div>
 
           <!-- Attachments -->
@@ -638,6 +673,20 @@
             <div class="field" style="margin-top: 0.5rem">
               <label for="systemPrompt">Custom system prompt</label>
               <input type="text" id="systemPrompt" placeholder="Override the built-in system prompt (optional)" />
+            </div>
+            <div class="row runner-only-block">
+              <div class="field">
+                <label for="systemPromptFile">System prompt file</label>
+                <input type="text" id="systemPromptFile" placeholder=".bridge-runner/SYSTEM.md" />
+              </div>
+              <div class="field">
+                <label for="appendSystemPromptFile">Append prompt file</label>
+                <input type="text" id="appendSystemPromptFile" placeholder=".bridge-runner/APPEND_SYSTEM.md" />
+              </div>
+            </div>
+            <div class="field runner-only-block">
+              <label for="appendSystemPrompt">Append system prompt text</label>
+              <input type="text" id="appendSystemPrompt" placeholder="Extra rules to add after the default prompt" />
             </div>
 
             <div class="toggle-row">
@@ -879,14 +928,15 @@
           <!-- Tool catalog -->
           <div class="card runner-only-block" id="toolsCard">
             <h2>
-              Tools
+              Capability groups
               <span style="font-weight: 400; font-size: 0.75rem; color: var(--muted)">(what the model can use)</span>
             </h2>
             <p style="font-size: 0.78rem; color: var(--muted); margin-bottom: 0.6rem">
-              Uncheck tools you do not want the model to see. The command adds <code>--tools</code> only when you narrow
-              the default tool set.
+              The runner defaults to read, write, and recovery tools. Shell is hidden until <code>--allow-shell</code>.
+              <code>apply_patch</code> is advanced patch mode and is hidden unless you opt in here.
             </p>
             <div class="checks" id="toolChoices">
+              <div class="capability-group">Read</div>
               <label class="check-label tool-choice">
                 <input type="checkbox" value="list_files" checked />
                 <span><strong>list_files</strong><small>Read folder entries</small></span>
@@ -903,6 +953,7 @@
                 <input type="checkbox" value="git_status" checked />
                 <span><strong>git_status</strong><small>Inspect Git changes</small></span>
               </label>
+              <div class="capability-group">Write</div>
               <label class="check-label tool-choice">
                 <input type="checkbox" value="edit_file" checked />
                 <span><strong>edit_file</strong><small>Exact text replacement</small></span>
@@ -911,10 +962,7 @@
                 <input type="checkbox" value="write_file" checked />
                 <span><strong>write_file</strong><small>Create or replace a file</small></span>
               </label>
-              <label class="check-label tool-choice">
-                <input type="checkbox" value="apply_patch" checked />
-                <span><strong>apply_patch</strong><small>Patch a file</small></span>
-              </label>
+              <div class="capability-group">Recovery</div>
               <label class="check-label tool-choice">
                 <input type="checkbox" value="undo" checked />
                 <span><strong>undo</strong><small>Restore backup</small></span>
@@ -923,6 +971,12 @@
                 <input type="checkbox" value="undo_edit" checked />
                 <span><strong>undo_edit</strong><small>Undo one tool edit</small></span>
               </label>
+              <div class="capability-group">Advanced write</div>
+              <label class="check-label tool-choice">
+                <input type="checkbox" value="apply_patch" />
+                <span><strong>apply_patch</strong><small>Patch a file; opt-in only</small></span>
+              </label>
+              <div class="capability-group">Shell</div>
               <label class="check-label tool-choice" id="bashToolRow" style="display: none">
                 <input type="checkbox" value="bash" />
                 <span><strong>bash</strong><small>Shell commands</small></span>
@@ -968,6 +1022,8 @@
     <script>
       // ── Elements ──
       const prompt = document.getElementById('prompt');
+      const promptTemplate = document.getElementById('promptTemplate');
+      const customPromptTemplate = document.getElementById('customPromptTemplate');
       const attachmentMode = document.getElementById('attachmentMode');
       const attachedPaths = document.getElementById('attachedPaths');
       const model = document.getElementById('model');
@@ -1002,6 +1058,9 @@
       const plan = document.getElementById('plan');
       const noNetwork = document.getElementById('noNetwork');
       const systemPrompt = document.getElementById('systemPrompt');
+      const systemPromptFile = document.getElementById('systemPromptFile');
+      const appendSystemPrompt = document.getElementById('appendSystemPrompt');
+      const appendSystemPromptFile = document.getElementById('appendSystemPromptFile');
       const continueFromLatest = document.getElementById('continueFromLatest');
       const toolChoices = Array.from(document.querySelectorAll('#toolChoices input[type="checkbox"]'));
       const cliMode = document.getElementById('cliMode');
@@ -1058,7 +1117,16 @@
         outputFormat: 'text',
         traceLevel: 'off',
       };
-      const DEFAULT_TOOL_NAMES = toolChoices.map((choice) => choice.value).filter((name) => name !== 'bash');
+      const DEFAULT_TOOL_NAMES = [
+        'list_files',
+        'read_file',
+        'search_text',
+        'git_status',
+        'edit_file',
+        'write_file',
+        'undo',
+        'undo_edit',
+      ];
       const READ_TOOL_NAMES = ['list_files', 'read_file', 'search_text', 'git_status'];
 
       function getAttachedPaths() {
@@ -1130,6 +1198,9 @@
             parts.push('--include-file ' + shellQuote(filePath));
           }
         }
+        for (const templateName of getPromptTemplates()) {
+          parts.push('--prompt-template ' + shellQuote(templateName));
+        }
         if (model.value !== DEFAULTS.model) parts.push('--model ' + model.value);
         if (+maxTokens.value !== DEFAULTS.maxTokens) parts.push('--max-tokens ' + maxTokens.value);
         if (+maxSteps.value !== DEFAULTS.maxSteps) parts.push('--max-steps ' + maxSteps.value);
@@ -1162,6 +1233,12 @@
         if (tracePath.value.trim()) parts.push('--trace-path ' + shellQuote(tracePath.value.trim()));
         if (callerToken.value.trim()) parts.push('--caller-token ' + shellQuoteOrEnv(callerToken.value.trim()));
         if (systemPrompt.value.trim()) parts.push('--system-prompt ' + shellQuote(systemPrompt.value.trim()));
+        if (systemPromptFile.value.trim())
+          parts.push('--system-prompt-file ' + shellQuote(systemPromptFile.value.trim()));
+        if (appendSystemPrompt.value.trim())
+          parts.push('--append-system-prompt ' + shellQuote(appendSystemPrompt.value.trim()));
+        if (appendSystemPromptFile.value.trim())
+          parts.push('--append-system-prompt-file ' + shellQuote(appendSystemPromptFile.value.trim()));
         if (continueFromLatest.checked) parts.push('--continue');
         if (acceptEdits.checked) parts.push('--accept-edits');
         if (dontAsk.checked) parts.push('--dont-ask');
@@ -1192,6 +1269,17 @@
         return toolChoices
           .filter((choice) => choice.checked && (choice.value !== 'bash' || allowShell.checked))
           .map((choice) => choice.value);
+      }
+
+      function getPromptTemplates() {
+        const names = [];
+        if (promptTemplate.value) names.push(promptTemplate.value);
+        customPromptTemplate.value
+          .split(',')
+          .map((name) => name.trim())
+          .filter(Boolean)
+          .forEach((name) => names.push(name));
+        return names;
       }
 
       function sameTools(left, right) {
@@ -1245,7 +1333,14 @@
         if (bashChoice) {
           const bashLabel = bashChoice.closest('.tool-choice');
           if (bashLabel) bashLabel.classList.toggle('is-muted-control', !shellOn);
-          if (!shellOn) bashChoice.checked = false;
+          if (shellOn && !bashChoice.dataset.shellWasShown) {
+            bashChoice.checked = true;
+            bashChoice.dataset.shellWasShown = '1';
+          }
+          if (!shellOn) {
+            bashChoice.checked = false;
+            delete bashChoice.dataset.shellWasShown;
+          }
         }
 
         const chaosBlocked = hasChaosConflict();
@@ -1276,6 +1371,14 @@
             cautions.push('--trusted-workspace runs hooks from .bridge-runner/hooks.json in cwd.');
           if (autoMemory.checked)
             cautions.push('--auto-memory injects opt-in runner memory into context (default off in runner).');
+          if (getPromptTemplates().length)
+            cautions.push('Prompt templates prepend reusable instructions before the user request.');
+          if (systemPromptFile.value.trim())
+            cautions.push('--system-prompt-file replaces the built-in default prompt for this run.');
+          if (appendSystemPrompt.value.trim() || appendSystemPromptFile.value.trim())
+            cautions.push('Append-system prompt options add rules after the default or replacement prompt.');
+          if (toolChoices.find((c) => c.value === 'apply_patch')?.checked)
+            cautions.push('apply_patch is opt-in patch mode; leave it off for the minimal write surface.');
           if (ackResumeRisk.checked)
             cautions.push(
               '--ack-resume-risk overrides degraded-session gate — use only when you accept poisoned context.',
@@ -1345,6 +1448,8 @@
       // ── Event listeners ──
       [
         prompt,
+        promptTemplate,
+        customPromptTemplate,
         attachmentMode,
         attachedPaths,
         model,
@@ -1373,6 +1478,9 @@
         plan,
         noNetwork,
         systemPrompt,
+        systemPromptFile,
+        appendSystemPrompt,
+        appendSystemPromptFile,
         continueFromLatest,
         cliMode,
         coordinatorPhases,
@@ -1433,6 +1541,7 @@
         minimal: {
           prompt:
             'List top-level files in this repo and summarize what it does. Use read-only tools only; do not edit files.',
+          promptTemplate: 'explore',
           maxSteps: 8,
           bareContext: true,
           includeInstructionDocs: false,
@@ -1462,6 +1571,7 @@
         readonly: {
           prompt:
             'Compare docs/command-builder.html against bin/local-bridge-runner.js --help. List every CLI flag missing from the builder, then trace how permissions.js would treat a read-only run. Do not edit files.',
+          promptTemplate: 'explore',
           maxSteps: 10,
           maxTokens: 2500,
           maxStepsDefault: false,
@@ -1524,7 +1634,8 @@
         },
         confirm: {
           prompt:
-            'Add one sentence to docs/command-builder.html tip box noting that write tools ask for confirmation by default. Show the exact diff you would make, then apply it only if confirmation would still fire (do not use --accept-edits).',
+            'Add one sentence to docs/command-builder.html tip box noting that write tools ask for confirmation by default. Show the exact change you would make, then apply it only if confirmation would still fire (do not use --accept-edits).',
+          promptTemplate: 'cleanup',
           maxSteps: 12,
           maxTokens: 2500,
           maxStepsDefault: false,
@@ -1541,6 +1652,7 @@
         auto: {
           prompt:
             'In src/runner/beginner-hints.js, add a hint entry for when --chaos-ok is missing (mirror shell-policy validateChaosCombo). Update matching tests if present. Use --accept-edits behavior.',
+          promptTemplate: 'cleanup',
           maxSteps: 20,
           maxTokens: 4096,
           maxStepsDefault: false,
@@ -1576,7 +1688,8 @@
         },
         plan: {
           prompt:
-            'Dry-run: propose a minimal patch to wire --effort in command-builder.html (read bin/local-bridge-runner.js first). List files, hunks, and tests — do not write files.',
+            'Dry-run: propose a minimal change to wire a new runner flag in command-builder.html (read bin/local-bridge-runner.js first). List files, intended edits, and tests — do not write files.',
+          promptTemplate: 'review',
           maxSteps: 10,
           maxTokens: 2500,
           maxStepsDefault: false,
@@ -1632,7 +1745,8 @@
         },
         freshTask: {
           prompt:
-            'One focused task: read lab-notes/runner-megathread-playbook.md and explain when to use --new-session vs --task-scope vs --compact-each-turn. Then stop.',
+            'One focused task: read README.md plus src/runner/context-builder.js and explain the minimal prompt and capability-group defaults. Then stop.',
+          promptTemplate: 'explore',
           maxSteps: 8,
           maxTokens: 2000,
           maxStepsDefault: true,
@@ -1742,7 +1856,12 @@
           applyPresetValue(forkFrom, 'forkFrom', p);
           applyPresetValue(tracePath, 'tracePath', p);
           applyPresetValue(callerToken, 'callerToken', p);
-          applyPresetValue(systemPrompt, 'systemPrompt', p);
+          promptTemplate.value = p.promptTemplate || '';
+          customPromptTemplate.value = p.customPromptTemplate || '';
+          systemPrompt.value = p.systemPrompt || '';
+          systemPromptFile.value = p.systemPromptFile || '';
+          appendSystemPrompt.value = p.appendSystemPrompt || '';
+          appendSystemPromptFile.value = p.appendSystemPromptFile || '';
           applyPresetValue(permissionMode, 'permissionMode', p);
           applyPresetValue(temperature, 'temperature', p);
           applyPresetValue(maxContextTokens, 'maxContextTokens', p);
