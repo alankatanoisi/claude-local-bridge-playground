@@ -14,6 +14,7 @@ const { parseArgs } = require('util');
 const fs = require('fs');
 const path = require('path');
 const { run } = require('../src/runner/run');
+const { applyPromptTemplates, resolvePromptTemplate } = require('../src/runner/prompt-templates');
 const safety = require('../src/runner/safety');
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
@@ -45,6 +46,8 @@ Options:\n\
   --trace-path <path>  Runner trace JSONL path (bridge trace is correlated separately)\n\
   --caller-token <t>   Local bridge caller auth token (or BRIDGE_CALLER_TOKEN env)\n\
   --include-file <p>   Include a bounded relative file in pasted context (repeatable)\n\
+  --prompt-template <n> Prepend reusable prompt template: review, cleanup, explore, or a Markdown path\n\
+  --template <n>        Alias for --prompt-template\n\
   --resume <path>      Resume from a transcript (appends new prompt to existing conversation)\n\
   --session-id <id>    Canonical session id (*.state.json under ~/.bridge-runner/sessions/)\n\
   --session-path <p>   Explicit path to session state JSON file\n\
@@ -134,6 +137,8 @@ async function main() {
         'trace-path': { type: 'string' },
         'caller-token': { type: 'string' },
         'include-file': { type: 'string', multiple: true },
+        'prompt-template': { type: 'string', multiple: true },
+        template: { type: 'string', multiple: true },
         resume: { type: 'string' },
         'session-id': { type: 'string' },
         'session-path': { type: 'string' },
@@ -206,7 +211,7 @@ async function main() {
     process.exit(0);
   }
 
-  const prompt = args.positionals.join(' ').trim();
+  let prompt = args.positionals.join(' ').trim();
 
   if (args.values['review-memory']) {
     const { formatReviewSummary } = require('../src/runner/memory-review');
@@ -250,6 +255,16 @@ async function main() {
   }
 
   const cwd = path.resolve(args.values.cwd || process.cwd());
+  const promptTemplateNames = [...(args.values['prompt-template'] || []), ...(args.values.template || [])];
+  if (promptTemplateNames.length > 0) {
+    try {
+      const templates = promptTemplateNames.map((name) => resolvePromptTemplate(cwd, name));
+      prompt = applyPromptTemplates(prompt, templates);
+    } catch (err) {
+      console.error('Error: ' + err.message);
+      process.exit(1);
+    }
+  }
   const model = args.values.model || DEFAULT_MODEL;
   let maxTokens = parseInt(args.values['max-tokens'], 10) || DEFAULT_MAX_TOKENS;
   let maxSteps = parseInt(args.values['max-steps'], 10) || DEFAULT_MAX_STEPS;

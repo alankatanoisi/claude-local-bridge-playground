@@ -89,18 +89,15 @@ const TOOL_SUMMARIES = Object.freeze({
   undo: 'List or restore from backups',
   undo_edit: 'Undo an edit from the current run',
   bash: 'Run a shell command in the project directory',
-  describe_tools: 'Load full tool documentation for a category',
 });
 
 function buildToolSummarySection(ctx) {
   const lines = ['## Available tools (summaries)\n'];
   for (const [name, summary] of Object.entries(TOOL_SUMMARIES)) {
     if (name === 'bash' && !(ctx && ctx.allowShell)) continue;
-    if (name === 'describe_tools') continue;
     if (ctx && ctx.allowedTools && !ctx.allowedTools.has(name)) continue;
     lines.push('- ' + name + ': ' + summary);
   }
-  lines.push('\nUse describe_tools to load full documentation for read, write, or shell categories.');
   return lines.join('\n');
 }
 

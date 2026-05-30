@@ -36,15 +36,8 @@ function buildRulesSection() {
   let prompt = '## Rules\n\n';
   prompt += '1. You may only use the tools listed above.\n';
   prompt += '2. You may only access paths inside the working directory.\n';
-  prompt +=
-    '3. When editing a file, use the exact text from the file for old_string. Copy it precisely including indentation.\n';
-  prompt += '4. If old_string matches multiple times, include more surrounding lines to make it unique.\n';
-  prompt += '5. After making edits, consider running validation (lint, tests) using bash if available.\n';
-  prompt += '6. If a validation step fails, read the error and try to fix the issue.\n';
-  prompt += '7. Never suggest editing .env files, credentials, private keys, or git config.\n';
-  prompt += '8. If you have enough information to answer without making changes, return a FINAL answer.\n';
-  prompt +=
-    '9. Read-only tools (list_files, read_file, search_text, git_status) may be batched by the runner for speed. Write and shell tools are always executed one at a time with confirmation.\n';
+  prompt += '3. Do not access or expose secrets, credentials, private keys, or git config.\n';
+  prompt += '4. Answer directly when tools are not needed, and return a FINAL answer when done.\n';
   return prompt;
 }
 
@@ -57,8 +50,8 @@ function buildSystem(ctx, options = {}) {
   const progressive = options.progressive !== false;
   const policy = resolveContextPolicy(options);
 
-  let intro = 'You are a capable coding assistant helping with software tasks in the user project folder.\n';
-  intro += 'Use tools when needed; answer directly when no tools are required.\n\n';
+  let intro = 'You are a minimal coding agent for the user project folder.\n';
+  intro += 'Inspect, edit, or validate only when the user request needs it.\n\n';
 
   const toolsSection = progressive ? buildToolSummarySection(ctx) : buildFullToolSection(allowShell);
   const rulesSection = buildRulesSection();

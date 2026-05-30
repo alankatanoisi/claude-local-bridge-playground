@@ -185,10 +185,19 @@ node bin/local-bridge-runner.js \
   "List the top-level files, summarize the project, then stop. Do not edit files."
 ```
 
-**Startup context (default: minimal).** By default the runner does **not** inject `AGENTS.md`, `CLAUDE.md`, repo maps, or
-skills into the system prompt. Use `--include-instruction-docs`, `--include-repo-context`, `--include-repo-map`,
-`--include-skills`, or `--agent project` when you want richer project context. `--bare` forces the smallest prompt. The
-bridge may still prepend Claude Code OAuth identity blocks upstream.
+**Startup context (default: minimal).** By default the runner uses a small Anthropic-native system prompt and does **not**
+inject `AGENTS.md`, `CLAUDE.md`, repo maps, repo context, or skills. Use `--include-instruction-docs`,
+`--include-repo-context`, `--include-repo-map`, `--include-skills`, or `--agent project` when you want richer project
+context. `--bare` forces the smallest prompt. The bridge may still prepend Claude Code OAuth identity blocks upstream.
+
+Project-local prompt primitives live under `.bridge-runner/`:
+
+- `.bridge-runner/SYSTEM.md` replaces the built-in default system prompt for that project.
+- `.bridge-runner/APPEND_SYSTEM.md` appends project rules after the default or replacement system prompt.
+- `.bridge-runner/prompts/<name>.md` defines reusable prompt templates for `--prompt-template <name>`.
+
+Matching global files under `~/.bridge-runner/` are also loaded. Project files win over global replacement prompts;
+append files are applied global first, then project, then CLI flags.
 
 Useful runner options:
 
@@ -211,6 +220,7 @@ Useful runner options:
 | `--no-session-persistence`                               | Skip writing session checkpoints under ~/.bridge-runner/sessions/      |
 | `--allowed-tools <list>`                                 | Same as `--tools` (legacy name)                                        |
 | `--include-file <path>`                                  | Attach a bounded file from `--cwd` before the model call               |
+| `--prompt-template <name>` / `--template <name>`         | Prepend a reusable prompt template: review, cleanup, explore, or file  |
 | `--human-log <path>`                                     | Write a plain text log of the prompt, tool results, and final answer   |
 | `--trace-level <level>`                                  | Write correlated flight-recorder traces: summary, redacted, or full    |
 | `--trace-path <path>`                                    | Choose the runner trace JSONL path; bridge trace path is correlated    |
