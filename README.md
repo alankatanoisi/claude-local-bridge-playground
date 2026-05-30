@@ -199,6 +199,16 @@ Project-local prompt primitives live under `.bridge-runner/`:
 Matching global files under `~/.bridge-runner/` are also loaded. Project files win over global replacement prompts;
 append files are applied global first, then project, then CLI flags.
 
+The model-facing tool surface is framed as four capability groups:
+
+- **Read:** `list_files`, `read_file`, `search_text`, `git_status`
+- **Write:** `edit_file`, `write_file`
+- **Recovery:** `undo`, `undo_edit`
+- **Shell:** `bash`, hidden unless `--allow-shell` is set
+
+`apply_patch` still exists for advanced patch-style edits, but it is hidden by default. Opt into it explicitly with
+`--tools apply_patch` or include it in a comma-separated `--tools` / `--allowed-tools` list.
+
 Useful runner options:
 
 | Option                                                   | Purpose                                                                |
@@ -213,7 +223,7 @@ Useful runner options:
 | `--agent <profile>`                                      | Runner personality: explore, plan, implement, project, …               |
 | `--list-agents`                                          | List built-in personalities and exit                                   |
 | `--permission-mode <m>`                                  | default, plan, accept-edits, dont-ask, accept-edits-dont-ask, auto     |
-| `--tools <list>`                                         | Expose only these tools (alias: `--allowed-tools`)                     |
+| `--tools <list>`                                         | Expose only these tools; include `apply_patch` to opt into patch mode  |
 | `--append-system-prompt` / `--append-system-prompt-file` | Add text after the default system prompt                               |
 | `--system-prompt-file`                                   | Replace default system prompt with a file                              |
 | `--exclude-dynamic-system-prompt-sections`               | Put cwd/git fingerprint in the first user message instead              |

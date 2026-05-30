@@ -81,12 +81,14 @@ const TOOLS = {
 };
 
 const WRITE_TOOLS = new Set(['edit_file', 'write_file', 'apply_patch']);
+const DEFAULT_HIDDEN_TOOLS = new Set(['apply_patch']);
 
 function getDefinitions(ctx) {
   return Object.entries(TOOLS)
     .filter(([name]) => {
       if (name === 'bash' && !(ctx && ctx.allowShell)) return false;
       if (ctx && ctx.allowedTools) return ctx.allowedTools.has(name);
+      if (DEFAULT_HIDDEN_TOOLS.has(name)) return false;
       return true;
     })
     .map(([, tool]) => tool.definition());
@@ -297,4 +299,12 @@ async function executeReadOnlyBatch(toolUses, ctx) {
   return ordered;
 }
 
-module.exports = { getDefinitions, execute, executeForce, executeReadOnlyBatch, TOOLS, WRITE_TOOLS };
+module.exports = {
+  getDefinitions,
+  execute,
+  executeForce,
+  executeReadOnlyBatch,
+  TOOLS,
+  WRITE_TOOLS,
+  DEFAULT_HIDDEN_TOOLS,
+};

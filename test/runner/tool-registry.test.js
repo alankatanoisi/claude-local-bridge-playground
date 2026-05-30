@@ -15,9 +15,9 @@ describe('tool-registry', () => {
 
   const ctx = { cwd: tmpDir };
 
-  it('returns definitions for 9 tools (bash excluded by default)', () => {
+  it('returns definitions for the default tools (bash and apply_patch excluded)', () => {
     const defs = getDefinitions();
-    assert.equal(defs.length, 9);
+    assert.equal(defs.length, 8);
     const names = defs.map((d) => d.name);
     assert.ok(names.includes('list_files'));
     assert.ok(names.includes('read_file'));
@@ -25,16 +25,24 @@ describe('tool-registry', () => {
     assert.ok(names.includes('git_status'));
     assert.ok(names.includes('edit_file'));
     assert.ok(names.includes('write_file'));
-    assert.ok(names.includes('apply_patch'));
+    assert.ok(!names.includes('apply_patch'));
     assert.ok(names.includes('undo'));
     assert.ok(names.includes('undo_edit'));
   });
 
   it('includes bash when allowShell is true', () => {
     const defs = getDefinitions({ allowShell: true });
-    assert.equal(defs.length, 10);
+    assert.equal(defs.length, 9);
     const names = defs.map((d) => d.name);
     assert.ok(names.includes('bash'));
+  });
+
+  it('includes apply_patch only when explicitly allowed', () => {
+    const defs = getDefinitions({ allowedTools: new Set(['apply_patch']) });
+    assert.deepEqual(
+      defs.map((d) => d.name),
+      ['apply_patch'],
+    );
   });
 
   it('list_files returns entries', async () => {

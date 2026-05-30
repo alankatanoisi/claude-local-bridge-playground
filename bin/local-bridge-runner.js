@@ -77,7 +77,7 @@ Options:\n\
   --system-prompt-file <p>    Replace default system prompt with file contents\n\
   --exclude-dynamic-system-prompt-sections  Put cwd/git fingerprint in first user message\n\
   --permission-mode <m>   default | plan | accept-edits | dont-ask | accept-edits-dont-ask | auto\n\
-  --tools <names>         Comma-separated tools to expose (alias: --allowed-tools)\n\
+  --tools <names>         Comma-separated tools to expose; include apply_patch to opt into patch mode\n\
   --no-session-persistence    Do not write session checkpoints to ~/.bridge-runner/sessions/\n\
   --review-memory       List pending memory promotions for approval\n\
   --session-extract     Run background session extraction after completion\n\
@@ -88,7 +88,7 @@ Options:\n\
   --shell-timeout <ms> Max time for shell commands in ms (default: 30000)\n\
   --no-network         Best-effort HTTP/HTTPS proxy guard for shell commands; not a sandbox\n\
   --system-prompt <s>  Override the default system prompt\n\
-  --allowed-tools <f>  Comma-separated tool names to enable (others hidden + denied)\n\
+  --allowed-tools <f>  Same as --tools (others hidden + denied)\n\
   --max-context-tokens <n> Warn when total tokens exceed budget; halt at 2x budget\n\
   --max-tool-calls-per-turn <n> Cap tool calls per model response; halt if exceeded\n\
   --temperature <f>    Model temperature 0.0–1.0 (default: model default, usually 1.0)\n\
@@ -115,6 +115,7 @@ Beginner notes:\n\
   Start with --plan or read-only tools while you learn what a prompt will do.\n\
   --accept-edits allows file changes. --allow-shell exposes bash commands.\n\
   --dont-ask only skips prompts for tools you already enabled; it does not enable bash by itself.\n\
+  apply_patch is hidden by default; use --tools apply_patch only when patch-mode edits are needed.\n\
   redacted/full traces are local files that can contain prompts and source-code details.\n\
 ',
   );

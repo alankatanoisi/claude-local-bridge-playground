@@ -14,7 +14,17 @@ const { buildToolSummarySection, capSkillListing, applyContextBudget } = require
 const { buildRepoMap } = require('./repo-map');
 const { DEFAULT_POLICY } = require('./context-policy');
 
-function buildFullToolSection(allowShell) {
+function toolFlag(ctxOrAllowShell, name) {
+  if (typeof ctxOrAllowShell === 'boolean') return name === 'bash' ? ctxOrAllowShell : false;
+  if (!ctxOrAllowShell) return false;
+  if (name === 'bash') return !!ctxOrAllowShell.allowShell;
+  if (ctxOrAllowShell.allowedTools) return ctxOrAllowShell.allowedTools.has(name);
+  return false;
+}
+
+function buildFullToolSection(ctxOrAllowShell) {
+  const allowShell = toolFlag(ctxOrAllowShell, 'bash');
+  const includeApplyPatch = toolFlag(ctxOrAllowShell, 'apply_patch');
   let prompt = '## Available tools\n\n';
   prompt += '- list_files: List files and directories under a relative path.\n';
   prompt += '- read_file: Read the contents of a file by relative path.\n';
@@ -22,7 +32,9 @@ function buildFullToolSection(allowShell) {
   prompt += '- git_status: Show the current git status (short format).\n';
   prompt += '- edit_file: Replace old_string with new_string in a file. The old_string must match exactly once.\n';
   prompt += '- write_file: Create or overwrite a file with full content. A backup is saved.\n';
-  prompt += '- apply_patch: Apply a unified diff patch to a file. A backup is saved.\n';
+  if (includeApplyPatch) {
+    prompt += '- apply_patch: Apply a unified diff patch to a file. A backup is saved.\n';
+  }
   prompt +=
     '- undo: List available backups or restore a file from a previous backup. Use this to recover from mistakes.\n';
   prompt += '- undo_edit: Undo an edit_file or write_file call from the current run by tool_use_id or path.\n';
@@ -46,14 +58,13 @@ function resolveContextPolicy(options = {}) {
 }
 
 function buildSystem(ctx, options = {}) {
-  const allowShell = ctx && ctx.allowShell;
   const progressive = options.progressive !== false;
   const policy = resolveContextPolicy(options);
 
   let intro = 'You are a minimal coding agent for the user project folder.\n';
   intro += 'Inspect, edit, or validate only when the user request needs it.\n\n';
 
-  const toolsSection = progressive ? buildToolSummarySection(ctx) : buildFullToolSection(allowShell);
+  const toolsSection = progressive ? buildToolSummarySection(ctx) : buildFullToolSection(ctx);
   const rulesSection = buildRulesSection();
 
   let instructionText = '';

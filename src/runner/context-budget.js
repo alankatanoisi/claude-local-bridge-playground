@@ -92,9 +92,20 @@ const TOOL_SUMMARIES = Object.freeze({
 });
 
 function buildToolSummarySection(ctx) {
-  const lines = ['## Available tools (summaries)\n'];
+  const lines = ['## Capability groups\n'];
+  lines.push('- Read: list_files, read_file, search_text, git_status');
+  lines.push('- Write: edit_file, write_file');
+  if (ctx && ctx.allowedTools && ctx.allowedTools.has('apply_patch')) {
+    lines.push('- Advanced write: apply_patch');
+  }
+  lines.push('- Recovery: undo, undo_edit');
+  if (ctx && ctx.allowShell) {
+    lines.push('- Shell: bash');
+  }
+  lines.push('\n## Available tools (summaries)\n');
   for (const [name, summary] of Object.entries(TOOL_SUMMARIES)) {
     if (name === 'bash' && !(ctx && ctx.allowShell)) continue;
+    if (name === 'apply_patch' && !(ctx && ctx.allowedTools && ctx.allowedTools.has(name))) continue;
     if (ctx && ctx.allowedTools && !ctx.allowedTools.has(name)) continue;
     lines.push('- ' + name + ': ' + summary);
   }

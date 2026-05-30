@@ -43,7 +43,6 @@ const PROFILES = Object.freeze({
       'git_status',
       'edit_file',
       'write_file',
-      'apply_patch',
       'undo',
       'undo_edit',
     ],
