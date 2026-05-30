@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Diff two redacted claude -p injection captures (lab-notes artifacts)."""
+"""Diff two redacted claude -p injection captures."""
 
 import argparse
 import difflib

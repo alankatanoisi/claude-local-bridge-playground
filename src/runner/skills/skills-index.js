@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Skills index — lazy metadata discovery from lab-notes/skills/*.md
+ * Skills index — lazy metadata discovery from project-local skill files.
  */
 
 const fs = require('fs');
@@ -11,7 +11,7 @@ const PER_ENTRY_CAP = 280;
 const TOTAL_CAP = 2800;
 
 function skillsDirs(cwd) {
-  return [path.join(cwd, 'lab-notes', 'skills'), path.join(cwd, '.bridge-runner', 'skills')];
+  return [path.join(cwd, '.bridge-runner', 'skills')];
 }
 
 function parseFrontmatter(raw) {

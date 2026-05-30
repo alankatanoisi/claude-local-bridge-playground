@@ -1,27 +1,25 @@
 # CLAUDE.md
 
-Claude-specific instructions for this repository. For the full shared agent guide, read `AGENTS.md` first — especially **Human Context** and [`lab-notes/ALAN_OPERATOR_PROFILE.md`](lab-notes/ALAN_OPERATOR_PROFILE.md) (Alan is a novice; over-explain by default).
+Claude-specific instructions for this repository. Read `AGENTS.md` first; it contains the shared beginner-first workflow and safety rules.
 
-## Which clone is this?
+## Which Clone Is This?
 
 Run `pwd` before assuming:
 
-| Path ends with                   | This clone     | GitHub                                                                                            | Expected branch         |
-| -------------------------------- | -------------- | ------------------------------------------------------------------------------------------------- | ----------------------- |
-| `claude-local-bridge-playground` | **Playground** | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main`                  |
-| `claude-local-bridge`            | **Canonical**  | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | `codex/runner-clean-pr` |
+| Path ends with                   | This clone     | GitHub                                                                                            | Expected branch |
+| -------------------------------- | -------------- | ------------------------------------------------------------------------------------------------- | --------------- |
+| `claude-local-bridge-playground` | **Playground** | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main`          |
+| `claude-local-bridge`            | **Canonical**  | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | reference-only  |
 
-If you are in **playground**, all commits and PRs go to the playground repo on **`main`** only — see `lab-notes/ACTIVE_WORKTREE.md` and `lab-notes/PLAYGROUND_PR_POLICY.md`.
-
-**Do not** open or continue work on canonical [PR #17](https://github.com/alankatanoisi/claude-local-bridge/pull/17) (`claude/magical-edison-7Qou6`). That branch is stale relative to playground `main`.
+If you are in playground, commits belong to the playground repo on `main`. Do not open or continue canonical repo pull requests unless Alan explicitly asks.
 
 ## Human Context
 
-Alan is a beginner at programming and terminal workflows. **It is correct to treat him as if he does not understand usual programmer stuff.** Better safe than sorry:
+Alan is a beginner at programming and terminal workflows. It is correct to treat him as if he does not understand usual programmer conventions.
 
-- Say where each command runs (Terminal vs VS Code vs browser).
+- Say where each command runs: Terminal, VS Code, browser, or another app.
 - Say what success looks like in plain language.
-- Explain Git words (commit, push, branch, merge) when you use them.
+- Explain Git words such as commit, push, branch, and merge when you use them.
 - Never assume he knows which app or folder a step belongs in.
 
 ## Architecture Boundary
@@ -29,18 +27,19 @@ Alan is a beginner at programming and terminal workflows. **It is correct to tre
 Claude Local Bridge has two layers:
 
 - Bridge layer: VS Code extension, local HTTP server, OAuth/keychain/interceptor/proxy behavior.
-- Runner layer: local CLI agent loop, tools, permissions, transcripts, readable logs, docs, command builder.
+- Runner layer: local CLI agent loop, tools, permissions, transcripts, readable logs, docs, and command builder.
 
-## Current Research Direction
+## Current Direction
 
-The playground is currently an **OAuth-only evidence harness**. Do not restore Anthropic Console API-key fallback paths.
-Upstream model calls should use Claude Code OAuth Bearer credentials only: live intercepted Bearer token,
-`CLAUDE_CODE_OAUTH_TOKEN`, macOS Keychain, or `~/.claude/.credentials.json`.
+The playground is an Anthropic-native, OAuth-only evidence harness.
 
-Dummy API-key strings such as `local` are only local client placeholders for tools that require a field. They must not be
-forwarded upstream as `x-api-key`.
+- Keep the native Anthropic Messages route: `POST /v1/messages`.
+- Do not restore OpenAI-compatible routes such as `/v1/chat/completions` or `/v1/models`.
+- Do not restore Anthropic Console API-key fallback paths.
+- Upstream model calls should use Claude Code OAuth Bearer credentials only.
+- Dummy API-key strings such as `local` are only local client placeholders and must not be forwarded upstream as `x-api-key`.
 
-Do not modify bridge/auth/proxy internals unless explicitly requested:
+Do not modify bridge/auth/proxy internals unless explicitly requested or clearly needed for the OAuth-only direction:
 
 - `src/credentials.js`
 - `src/proxy.js`
@@ -73,7 +72,8 @@ Run relevant targeted tests first, then the standard checks before handoff:
 ```bash
 npm test
 npm run lint
-npx prettier --check <touched files>
+npm run check:docs
+npm run format:check
 ```
 
 For runner-only work:
@@ -90,7 +90,6 @@ When changing runner behavior or CLI options, update:
 - `docs/runner-quickstart.html`
 - `docs/command-builder.html`
 - `docs/threat-model.md` when safety behavior changes
-- `OPENCODE.md` when startup or multi-agent workflow changes
 
 ## Handoff
 

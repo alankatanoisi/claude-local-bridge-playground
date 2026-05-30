@@ -64,7 +64,7 @@ Options:\n\
   --agent <profile>     Runner personality: explore, plan, implement, verify, test, project, …\n\
   --list-agents         List built-in runner personalities and exit\n\
   --bare                Minimal context: no instruction docs, repo block, or skills\n\
-  --include-instruction-docs  Opt in to AGENTS.md / CLAUDE.md / OPENCODE.md hierarchy\n\
+  --include-instruction-docs  Opt in to AGENTS.md / CLAUDE.md instruction hierarchy\n\
   --include-repo-context      Opt in to session repo-context block (fingerprint)\n\
   --include-claude-md         Include CLAUDE.md inside repo-context (requires --include-repo-context)\n\
   --include-repo-map          Opt in to repo map inside repo-context block\n\

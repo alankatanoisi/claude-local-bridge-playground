@@ -22,7 +22,7 @@ const RECOMMENDATIONS = Object.freeze({
   RESUME_OK: 'resume_ok',
 });
 
-const PLAYBOOK_DOC = 'lab-notes/runner-megathread-playbook.md';
+const PLAYBOOK_DOC = 'docs/runner-quickstart.html';
 
 function getHealth(sessionStore) {
   if (!sessionStore) return null;

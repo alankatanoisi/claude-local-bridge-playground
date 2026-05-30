@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const MEMORY_FILES = ['AGENTS.md', 'CLAUDE.md', 'OPENCODE.md', 'RUNNER.md'];
+const MEMORY_FILES = ['AGENTS.md', 'CLAUDE.md', 'RUNNER.md'];
 const MAX_INSTRUCTION_CHARS = 24_000;
 
 const EMPTY_MEMORY = Object.freeze({

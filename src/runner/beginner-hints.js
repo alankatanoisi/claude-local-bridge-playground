@@ -118,13 +118,13 @@ const HINT_CATALOG = Object.freeze({
     whatHappened: 'This session ended in a bad state last time (loop, budget, or tool failures).',
     why: 'Resuming poisoned sessions often wastes tokens and repeats the same mistakes.',
     tip: 'Start fresh with --new-session, or pass --ack-resume-risk only if you accept the risk.',
-    docLink: 'lab-notes/runner-megathread-playbook.md',
+    docLink: 'docs/runner-quickstart.html',
   },
   fresh_session_recommended: {
     whatHappened: 'The last run finished in a state where a fresh session is safer.',
     why: 'Long or unstable sessions accumulate bad context and compaction debt.',
     tip: 'Use --new-session for the next task, or --fork-from to branch without losing history.',
-    docLink: 'lab-notes/runner-megathread-playbook.md',
+    docLink: 'docs/runner-quickstart.html',
   },
 });
 

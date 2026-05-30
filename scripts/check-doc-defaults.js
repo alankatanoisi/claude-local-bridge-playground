@@ -6,7 +6,6 @@ const path = require('node:path');
 const root = process.cwd();
 const packageJsonPath = path.join(root, 'package.json');
 const readmePath = path.join(root, 'README.md');
-const quickstartPath = path.join(root, 'QUICKSTART.md');
 
 const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 const config = pkg?.contributes?.configuration?.properties || {};
@@ -17,14 +16,7 @@ const defaults = {
   requireCallerAuth: config['claudeLocalBridge.requireCallerAuth']?.default,
 };
 
-const docs = [
-  { name: 'README.md', path: readmePath, text: fs.readFileSync(readmePath, 'utf8') },
-  {
-    name: 'QUICKSTART.md',
-    path: quickstartPath,
-    text: fs.readFileSync(quickstartPath, 'utf8'),
-  },
-];
+const docs = [{ name: 'README.md', path: readmePath, text: fs.readFileSync(readmePath, 'utf8') }];
 
 const errors = [];
 
@@ -53,7 +45,6 @@ for (const doc of docs) {
 }
 
 const readme = docs.find((d) => d.name === 'README.md').text;
-const quickstart = docs.find((d) => d.name === 'QUICKSTART.md').text;
 
 assert(has(readme, defaults.defaultModel), `README.md does not mention default model ${defaults.defaultModel}`);
 
@@ -62,17 +53,7 @@ assert(
   'README.md is missing Claude CLI base URL example without /v1',
 );
 
-assert(
-  has(quickstart, `ANTHROPIC_BASE_URL=http://localhost:${defaults.port}`),
-  'QUICKSTART.md is missing Claude CLI base URL example without /v1',
-);
-
 assert(has(readme, 'POST /v1/messages'), 'README.md is missing Anthropic Messages endpoint guidance');
-
-assert(
-  has(quickstart, `http://localhost:${defaults.port}/v1/messages`),
-  'QUICKSTART.md is missing native /v1/messages test command',
-);
 
 assert(
   !has(readme, /OpenAI-compatible|chat\/completions/),
@@ -80,13 +61,12 @@ assert(
 );
 
 assert(
-  !has(quickstart, /OpenAI-compatible|chat\/completions/),
-  'QUICKSTART.md still advertises removed OpenAI-compatible bridge behavior',
+  !has(readme, /OPENCODE\.md|BEGINNER_GUIDE\.md|HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE\.md|lab-notes\//),
+  'README.md still points to removed root documentation',
 );
 
 if (defaults.requireCallerAuth) {
   assert(has(readme, 'Authorization: Bearer'), 'README.md is missing caller Authorization Bearer guidance');
-  assert(has(quickstart, 'Authorization: Bearer'), 'QUICKSTART.md is missing caller Authorization Bearer guidance');
 }
 
 if (errors.length) {

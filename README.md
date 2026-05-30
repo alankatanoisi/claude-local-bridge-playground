@@ -22,9 +22,6 @@ This does **not** mean Anthropic has approved this usage. Treat runs as policy-s
 
 For the local CLI runner prototype that now ships in this repo, see [docs/runner-quickstart.html](./docs/runner-quickstart.html).
 The runner can inspect this repo or any other local project by passing that project as `--cwd`.
-For fresh OpenCode sessions, start with [OPENCODE.md](./OPENCODE.md).
-If you are new to Terminal or this repo, start with [BEGINNER_GUIDE.md](./BEGINNER_GUIDE.md) and then
-[HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md](./HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md).
 
 ## Repository lanes (read this first)
 
@@ -33,9 +30,8 @@ If you are new to Terminal or this repo, start with [BEGINNER_GUIDE.md](./BEGINN
 | **Playground (this repo — active)** | `~/Developer/claude-local-bridge-playground` | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main`                             | All harness and runner work                       |
 | **Canonical (archived)**            | `~/Developer/claude-local-bridge`            | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | frozen at `archive-2026-05-*` tags | Codex reference only; local folder kept for Codex |
 
-- Playground PRs and commits belong in **this** GitHub repo only — see [lab-notes/ACTIVE_WORKTREE.md](./lab-notes/ACTIVE_WORKTREE.md) and [lab-notes/PLAYGROUND_PR_POLICY.md](./lab-notes/PLAYGROUND_PR_POLICY.md).
-- Canonical repo is **archived on GitHub** after you confirm; `codex/runner-clean-pr` promotion is paused until you deliberately unarchive.
-- Historical promotion ritual (if ever needed again): [lab-notes/PROMOTION_RITUAL.md](./lab-notes/PROMOTION_RITUAL.md).
+- Playground commits belong in **this** GitHub repo only.
+- Canonical repo is archived/reference-only unless Alan deliberately asks to resume promotion work.
 
 Before edits, agents should sanity-check the lane:
 
@@ -189,10 +185,10 @@ node bin/local-bridge-runner.js \
   "List the top-level files, summarize the project, then stop. Do not edit files."
 ```
 
-**Startup context (default: minimal).** By default the runner does **not** inject `AGENTS.md`, `CLAUDE.md`,
-`OPENCODE.md`, repo maps, or skills into the system prompt. Use `--include-instruction-docs`, `--include-repo-context`,
-`--include-repo-map`, `--include-skills`, or `--agent project` when you want richer project context. `--bare` forces the
-smallest prompt. The bridge may still prepend Claude Code OAuth identity blocks upstream (unchanged in this pass).
+**Startup context (default: minimal).** By default the runner does **not** inject `AGENTS.md`, `CLAUDE.md`, repo maps, or
+skills into the system prompt. Use `--include-instruction-docs`, `--include-repo-context`, `--include-repo-map`,
+`--include-skills`, or `--agent project` when you want richer project context. `--bare` forces the smallest prompt. The
+bridge may still prepend Claude Code OAuth identity blocks upstream.
 
 Useful runner options:
 
@@ -200,7 +196,7 @@ Useful runner options:
 | -------------------------------------------------------- | ---------------------------------------------------------------------- |
 | `--cwd <path>`                                           | Target project folder the tools can inspect or edit                    |
 | `--bare`                                                 | Minimal context: no instruction docs, repo block, or skills            |
-| `--include-instruction-docs`                             | Opt in to AGENTS.md / CLAUDE.md / OPENCODE.md hierarchy                |
+| `--include-instruction-docs`                             | Opt in to AGENTS.md / CLAUDE.md instruction hierarchy                  |
 | `--include-repo-context`                                 | Opt in to session repo-context block (cwd/git fingerprint)             |
 | `--include-claude-md`                                    | Include CLAUDE.md in repo-context (needs `--include-repo-context`)     |
 | `--include-repo-map`                                     | Opt in to repo map inside repo-context                                 |
@@ -256,7 +252,7 @@ After each run, the runner writes a searchable archive under `~/.bridge-runner/a
 - **Import old logs:** `node bin/local-bridge-archive.js ingest-legacy`
 - **Disable:** `--no-archive` or `BRIDGE_RUNNER_ARCHIVE=0`
 
-See [lab-notes/RUNNER_ARCHIVE.md](./lab-notes/RUNNER_ARCHIVE.md) for the full layout. Complementary perf observability: [lab-notes/PERF_PARITY_HANDOFF.md](./lab-notes/PERF_PARITY_HANDOFF.md).
+The archive is local-only by default and is not committed to this repository.
 
 ### Runner perf parity (prompt cache, file cache, shell)
 
