@@ -516,7 +516,9 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             <tr>
               <td><code>--model &lt;name&gt;</code></td>
               <td><code>claude-sonnet-4-6</code></td>
-              <td>Model to request from the bridge</td>
+              <td>
+                Model to request from the bridge. Use <code>--model claude-opus-4-8</code> for the newest Opus model.
+              </td>
             </tr>
             <tr>
               <td><code>--max-tokens &lt;n&gt;</code></td>
@@ -879,9 +881,13 @@ node bin/local-bridge-coordinator.js \
 
         <h3>Use a different model</h3>
         <pre><code>node bin/local-bridge-runner.js \
-  --model claude-opus-4-7 \
+  --model claude-opus-4-8 \
   --max-tokens 4096 \
   "Give me a deep dive on the proxy module"</code></pre>
+        <p>
+          Leave <code>--temperature</code> unset when using <code>claude-opus-4-8</code>. Anthropic rejects non-default
+          sampling settings on Opus 4.8.
+        </p>
       </section>
 
       <section>
@@ -987,8 +993,8 @@ node bin/local-bridge-coordinator.js \
         <h2>Startup context (minimal by default)</h2>
         <p>
           The runner default system prompt is <strong>generic and repo-agnostic</strong>: tool summaries, safety rules,
-          and a neutral coding-assistant identity. It does <strong>not</strong> load project markdown files unless you opt
-          in. Use <code>--include-instruction-docs</code> for the AGENTS.md hierarchy,
+          and a neutral coding-assistant identity. It does <strong>not</strong> load project markdown files unless you
+          opt in. Use <code>--include-instruction-docs</code> for the AGENTS.md hierarchy,
           <code>--include-repo-context</code> for cwd/git fingerprinting, <code>--include-repo-map</code> for a capped
           tree snapshot, or <code>--agent project</code> for a preset that enables several of these at once.
           <code>--bare</code> is the strictest minimal mode.
