@@ -54,6 +54,12 @@ describe('bash tool', () => {
     assert.ok(result.text.includes('timed out'));
   });
 
+  it('honors explicit long eval shell timeouts', async () => {
+    const result = await execute({ command: 'node -e "console.log(123)"' }, { cwd: tmpDir, shellTimeout: 900000 });
+    assert.equal(result.ok, true);
+    assert.ok(result.text.includes('123'));
+  });
+
   it('reports signal when process is killed', async () => {
     // Run a subshell that kills itself with SIGABRT
     const result = await execute({ command: 'bash -c "kill -ABRT \\$\\$"' }, { cwd: tmpDir });

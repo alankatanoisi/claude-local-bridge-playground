@@ -135,4 +135,35 @@ describe('runner output formats', () => {
       modelClient.post = originalPost;
     }
   });
+
+  it('prints parseable JSON when bench-mode bridge calls fail', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-bench-json-fail-'));
+    const originalPost = modelClient.post;
+    modelClient.post = async () => {
+      throw new Error('simulated bridge outage');
+    };
+    const oldExitCode = process.exitCode;
+
+    try {
+      const stdout = await captureStdout(() =>
+        run({
+          prompt: 'attempt realistic task',
+          cwd: tmpDir,
+          model: 'test',
+          maxTokens: 10,
+          maxSteps: 1,
+          outputFormat: 'json',
+          agentProfile: 'bench',
+          quiet: true,
+        }),
+      );
+      const parsed = JSON.parse(stdout);
+      assert.equal(parsed.stopReason, 'bridge_error');
+      assert.match(parsed.finalText, /simulated bridge outage/);
+      assert.equal(parsed.usage.input_tokens, 0);
+    } finally {
+      modelClient.post = originalPost;
+      process.exitCode = oldExitCode;
+    }
+  });
 });

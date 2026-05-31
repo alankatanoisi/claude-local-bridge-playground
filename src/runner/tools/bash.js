@@ -5,7 +5,7 @@
  *
  * Safety bounds:
  *   - Runs inside the project cwd
- *   - Timeout (default 30s, max 120s from --shell-timeout)
+ *   - Timeout (default 30s, max 900s from --shell-timeout)
  *   - Output truncated (default 10KB, enforced via maxBuffer)
  *   - Does NOT parse or restrict commands — the model is trusted
  *     to stay within bounds, and the system prompt discourages
@@ -18,7 +18,7 @@ const safety = require('../safety');
 const persistentShell = require('./persistent-shell');
 
 const DEFAULT_SHELL_TIMEOUT = 30000;
-const MAX_SHELL_TIMEOUT = 120000;
+const MAX_SHELL_TIMEOUT = 900000;
 const DEFAULT_MAX_BUFFER = 1024 * 1024;
 const MAX_OUTPUT_CHARS = 100000;
 

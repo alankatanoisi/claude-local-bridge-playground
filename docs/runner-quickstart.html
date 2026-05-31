@@ -552,6 +552,11 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td>Choose the runner trace JSONL path; the bridge writes a correlated trace separately</td>
             </tr>
             <tr>
+              <td><code>--bridge-url &lt;url&gt;</code></td>
+              <td><code>http://127.0.0.1:11437/v1/messages</code></td>
+              <td>Override the local bridge endpoint/root; useful when the runner is inside a container</td>
+            </tr>
+            <tr>
               <td><code>--include-file &lt;path&gt;</code></td>
               <td>off</td>
               <td>Copy a bounded project file into the prompt context; repeat for multiple files</td>
@@ -723,6 +728,11 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td>Personality preset with richer context defaults (docs + repo map)</td>
             </tr>
             <tr>
+              <td><code>--agent bench</code></td>
+              <td>off</td>
+              <td>Benchmark preset for realistic dev tasks; shell and edit flags still need explicit opt-in</td>
+            </tr>
+            <tr>
               <td><code>--list-agents</code></td>
               <td>—</td>
               <td>List built-in runner personalities</td>
@@ -770,7 +780,7 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             <tr>
               <td><code>--shell-timeout &lt;ms&gt;</code></td>
               <td><code>30000</code></td>
-              <td>Timeout for shell commands</td>
+              <td>Timeout for shell commands; explicit eval runs can raise this up to <code>900000</code></td>
             </tr>
             <tr>
               <td><code>--output-format &lt;f&gt;</code></td>

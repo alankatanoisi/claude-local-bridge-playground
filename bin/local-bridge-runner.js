@@ -44,6 +44,7 @@ Options:\n\
   --human-log <path>   Plain-text readable log path (off by default)\n\
   --trace-level <l>    Flight recorder: off, summary, redacted, or full\n\
   --trace-path <path>  Runner trace JSONL path (bridge trace is correlated separately)\n\
+  --bridge-url <url>   Local bridge Messages endpoint or root (or BRIDGE_RUNNER_BRIDGE_URL env)\n\
   --caller-token <t>   Local bridge caller auth token (or BRIDGE_CALLER_TOKEN env)\n\
   --include-file <p>   Include a bounded relative file in pasted context (repeatable)\n\
   --prompt-template <n> Prepend reusable prompt template: review, cleanup, explore, or a Markdown path\n\
@@ -64,7 +65,7 @@ Options:\n\
   --chaos-ok           Allow risky flag combo: --allow-shell --accept-edits --dont-ask\n\
   --max-wall-clock-ms <n> Stop after N milliseconds\n\
   --max-cost-usd <n>    Stop after estimated cost exceeds N USD\n\
-  --agent <profile>     Runner personality: explore, plan, implement, verify, test, project, …\n\
+  --agent <profile>     Runner personality: explore, plan, implement, verify, test, bench, project, …\n\
   --list-agents         List built-in runner personalities and exit\n\
   --bare                Minimal context: no instruction docs, repo block, or skills\n\
   --include-instruction-docs  Opt in to AGENTS.md / CLAUDE.md instruction hierarchy\n\
@@ -85,7 +86,7 @@ Options:\n\
   --accept-edits       Auto-approve write/edit/patch tools (skip confirmation)\n\
   --dont-ask           Skip confirmation for already-enabled risky tools\n\
   --allow-shell        Enable the bash tool (disabled by default)\n\
-  --shell-timeout <ms> Max time for shell commands in ms (default: 30000)\n\
+  --shell-timeout <ms> Max time for shell commands in ms (default: 30000; cap: 900000)\n\
   --no-network         Best-effort HTTP/HTTPS proxy guard for shell commands; not a sandbox\n\
   --system-prompt <s>  Override the default system prompt\n\
   --allowed-tools <f>  Same as --tools (others hidden + denied)\n\
@@ -136,6 +137,7 @@ async function main() {
         'human-log': { type: 'string' },
         'trace-level': { type: 'string' },
         'trace-path': { type: 'string' },
+        'bridge-url': { type: 'string' },
         'caller-token': { type: 'string' },
         'include-file': { type: 'string', multiple: true },
         'prompt-template': { type: 'string', multiple: true },
@@ -296,6 +298,13 @@ async function main() {
   const shellTimeout = parseInt(args.values['shell-timeout'], 10) || 30000;
   const outputFormat = args.values['output-format'] || 'text';
   const traceLevel = args.values['trace-level'] || 'off';
+  let bridgeUrl;
+  try {
+    bridgeUrl = resolveBridgeUrl(args.values, process.env);
+  } catch (err) {
+    console.error('Error: ' + err.message);
+    process.exit(1);
+  }
   const callerToken = args.values['caller-token'] || process.env.BRIDGE_CALLER_TOKEN || '';
   if (!['off', 'summary', 'redacted', 'full'].includes(traceLevel)) {
     console.error('Error: --trace-level must be one of: off, summary, redacted, full');
@@ -474,6 +483,7 @@ async function main() {
     allowedTools: exposedTools,
     outputFormat,
     traceLevel,
+    bridgeUrl,
   });
 
   await run({
@@ -487,6 +497,7 @@ async function main() {
     humanLogPath: args.values['human-log'],
     traceLevel,
     tracePath: args.values['trace-path'],
+    bridgeUrl,
     callerToken,
     verbose,
     quiet,
@@ -568,6 +579,38 @@ function printRuntimeTips(options) {
   if (options.traceLevel && options.traceLevel !== 'off') {
     console.error('[runner] tip: flight-recorder traces stay local; treat redacted/full traces as sensitive.');
   }
+  if (options.bridgeUrl) {
+    console.error('[runner] bridge url: ' + options.bridgeUrl);
+  }
+}
+
+function normalizeBridgeUrl(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return undefined;
+
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error('--bridge-url must be a valid http:// or https:// URL');
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('--bridge-url must use http:// or https://');
+  }
+
+  const pathName = url.pathname.replace(/\/+$/, '');
+  if (!pathName || pathName === '/') {
+    url.pathname = '/v1/messages';
+  } else if (pathName === '/v1') {
+    url.pathname = '/v1/messages';
+  }
+
+  return url.toString();
+}
+
+function resolveBridgeUrl(values = {}, env = process.env) {
+  return normalizeBridgeUrl(values['bridge-url'] || env.BRIDGE_RUNNER_BRIDGE_URL || '');
 }
 
 function readIncludedFiles(cwd, includeFiles) {
@@ -606,4 +649,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { printRuntimeTips, readIncludedFiles };
+module.exports = { printRuntimeTips, readIncludedFiles, normalizeBridgeUrl, resolveBridgeUrl };

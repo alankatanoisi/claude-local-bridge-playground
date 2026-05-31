@@ -18,6 +18,15 @@ describe('agent profiles', () => {
     assert.equal(applied.maxSteps, 10);
     assert.ok(applied.allowedTools.includes('read_file'));
   });
+
+  it('bench profile exposes realistic dev-task tools but preserves explicit shell/edit opt-ins', () => {
+    const applied = applyProfileToRunOptions('bench', {});
+    assert.equal(applied.maxSteps, 40);
+    assert.ok(applied.allowedTools.includes('bash'));
+    assert.ok(applied.allowedTools.includes('apply_patch'));
+    assert.equal(applied.allowShell, undefined);
+    assert.equal(applied.acceptEdits, undefined);
+  });
 });
 
 describe('fork boundary', () => {

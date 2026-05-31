@@ -857,6 +857,7 @@
                   <option value="implement">implement</option>
                   <option value="verify">verify</option>
                   <option value="test">test</option>
+                  <option value="bench">bench (eval mode)</option>
                   <option value="replay">replay</option>
                   <option value="extractor">extractor</option>
                   <option value="project">project (richer context)</option>
@@ -915,6 +916,10 @@
             <div id="traceFullWarn" class="warn-panel caution runner-only-block">
               <code>--trace-level full</code> can write prompts and source snippets to disk. Use redacted unless you
               need deep debugging.
+            </div>
+            <div class="field runner-only-block">
+              <label for="bridgeUrl">Bridge URL override</label>
+              <input type="text" id="bridgeUrl" placeholder="http://host.docker.internal:11437" />
             </div>
             <div class="field runner-only-block">
               <label for="callerToken">Caller auth token (optional)</label>
@@ -1051,6 +1056,7 @@
       const humanLog = document.getElementById('humanLog');
       const traceLevel = document.getElementById('traceLevel');
       const tracePath = document.getElementById('tracePath');
+      const bridgeUrl = document.getElementById('bridgeUrl');
       const callerToken = document.getElementById('callerToken');
       const cmdOutput = document.getElementById('cmdOutput');
       const copyBtn = document.getElementById('copyBtn');
@@ -1234,6 +1240,7 @@
         if (humanLog.value.trim()) parts.push('--human-log ' + shellQuote(humanLog.value.trim()));
         if (traceLevel.value !== DEFAULTS.traceLevel) parts.push('--trace-level ' + traceLevel.value);
         if (tracePath.value.trim()) parts.push('--trace-path ' + shellQuote(tracePath.value.trim()));
+        if (bridgeUrl.value.trim()) parts.push('--bridge-url ' + shellQuote(bridgeUrl.value.trim()));
         if (callerToken.value.trim()) parts.push('--caller-token ' + shellQuoteOrEnv(callerToken.value.trim()));
         if (systemPrompt.value.trim()) parts.push('--system-prompt ' + shellQuote(systemPrompt.value.trim()));
         if (systemPromptFile.value.trim())
@@ -1380,6 +1387,8 @@
             cautions.push('--system-prompt-file replaces the built-in default prompt for this run.');
           if (appendSystemPrompt.value.trim() || appendSystemPromptFile.value.trim())
             cautions.push('Append-system prompt options add rules after the default or replacement prompt.');
+          if (bridgeUrl.value.trim())
+            cautions.push('--bridge-url changes where model requests are sent; use it for local bridge routing.');
           if (toolChoices.find((c) => c.value === 'apply_patch')?.checked)
             cautions.push('apply_patch is opt-in patch mode; leave it off for the minimal write surface.');
           if (ackResumeRisk.checked)
@@ -1477,6 +1486,7 @@
         humanLog,
         traceLevel,
         tracePath,
+        bridgeUrl,
         callerToken,
         plan,
         noNetwork,
@@ -1858,6 +1868,7 @@
           applyPresetValue(resumePath, 'resumePath', p);
           applyPresetValue(forkFrom, 'forkFrom', p);
           applyPresetValue(tracePath, 'tracePath', p);
+          applyPresetValue(bridgeUrl, 'bridgeUrl', p);
           applyPresetValue(callerToken, 'callerToken', p);
           promptTemplate.value = p.promptTemplate || '';
           customPromptTemplate.value = p.customPromptTemplate || '';

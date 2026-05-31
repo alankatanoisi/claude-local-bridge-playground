@@ -902,14 +902,16 @@ async function run(options) {
       if (transcript) transcript.flush();
       hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.BRIDGE_ERROR });
       process.exitCode = 1;
-      return completeRun({
+      const result = {
         stopReason: STOP_REASONS.BRIDGE_ERROR,
         finalText: msg,
         steps: step,
         duration_ms: Date.now() - startedAt,
         usage: totalUsage,
         events: output.events,
-      });
+      };
+      output.finish(result);
+      return completeRun(result);
     }
 
     hooks.dispatch('post_model_response', { step, runId });

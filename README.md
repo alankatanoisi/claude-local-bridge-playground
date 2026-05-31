@@ -231,38 +231,39 @@ The model-facing tool surface is framed as four capability groups:
 
 Useful runner options:
 
-| Option                                                   | Purpose                                                                |
-| -------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `--cwd <path>`                                           | Target project folder the tools can inspect or edit                    |
-| `--bare`                                                 | Minimal context: no instruction docs, repo block, or skills            |
-| `--include-instruction-docs`                             | Opt in to AGENTS.md / CLAUDE.md instruction hierarchy                  |
-| `--include-repo-context`                                 | Opt in to session repo-context block (cwd/git fingerprint)             |
-| `--include-claude-md`                                    | Include CLAUDE.md in repo-context (needs `--include-repo-context`)     |
-| `--include-repo-map`                                     | Opt in to repo map inside repo-context                                 |
-| `--include-skills`                                       | Opt in to skills listing in the system prompt                          |
-| `--agent <profile>`                                      | Runner personality: explore, plan, implement, project, …               |
-| `--list-agents`                                          | List built-in personalities and exit                                   |
-| `--permission-mode <m>`                                  | default, plan, accept-edits, dont-ask, accept-edits-dont-ask, auto     |
-| `--tools <list>`                                         | Expose only these tools; include `apply_patch` to opt into patch mode  |
-| `--append-system-prompt` / `--append-system-prompt-file` | Add text after the default system prompt                               |
-| `--system-prompt-file`                                   | Replace default system prompt with a file                              |
-| `--exclude-dynamic-system-prompt-sections`               | Put cwd/git fingerprint in the first user message instead              |
-| `--no-session-persistence`                               | Skip writing session checkpoints under ~/.bridge-runner/sessions/      |
-| `--allowed-tools <list>`                                 | Same as `--tools` (legacy name)                                        |
-| `--include-file <path>`                                  | Attach a bounded file from `--cwd` before the model call               |
-| `--prompt-template <name>` / `--template <name>`         | Prepend a reusable prompt template: review, cleanup, explore, or file  |
-| `--human-log <path>`                                     | Write a plain text log of the prompt, tool results, and final answer   |
-| `--trace-level <level>`                                  | Write correlated flight-recorder traces: summary, redacted, or full    |
-| `--trace-path <path>`                                    | Choose the runner trace JSONL path; bridge trace path is correlated    |
-| `--caller-token <token>`                                 | Local bridge caller-auth token; can also use `BRIDGE_CALLER_TOKEN` env |
-| `--plan`                                                 | Plan mode: describe actions instead of executing them                  |
-| `--no-network`                                           | Best-effort HTTP/HTTPS proxy guard for shell, not a network sandbox    |
-| `--system-prompt <s>`                                    | Override the default system prompt                                     |
-| `--continue`                                             | Resume from the latest transcript in ~/.bridge-runner/logs/            |
-| `--stream`                                               | Stream assistant text live while still preserving streamed tool inputs |
-| `--accept-edits`                                         | Auto-approve edit/write tools                                          |
-| `--allow-shell`                                          | Expose the bash tool; hidden by default                                |
-| `--no-archive`                                           | Skip per-turn archive export to `~/.bridge-runner/archive/`            |
+| Option                                                   | Purpose                                                                    |
+| -------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `--cwd <path>`                                           | Target project folder the tools can inspect or edit                        |
+| `--bare`                                                 | Minimal context: no instruction docs, repo block, or skills                |
+| `--include-instruction-docs`                             | Opt in to AGENTS.md / CLAUDE.md instruction hierarchy                      |
+| `--include-repo-context`                                 | Opt in to session repo-context block (cwd/git fingerprint)                 |
+| `--include-claude-md`                                    | Include CLAUDE.md in repo-context (needs `--include-repo-context`)         |
+| `--include-repo-map`                                     | Opt in to repo map inside repo-context                                     |
+| `--include-skills`                                       | Opt in to skills listing in the system prompt                              |
+| `--agent <profile>`                                      | Runner personality: explore, plan, implement, bench, project, …            |
+| `--list-agents`                                          | List built-in personalities and exit                                       |
+| `--permission-mode <m>`                                  | default, plan, accept-edits, dont-ask, accept-edits-dont-ask, auto         |
+| `--tools <list>`                                         | Expose only these tools; include `apply_patch` to opt into patch mode      |
+| `--append-system-prompt` / `--append-system-prompt-file` | Add text after the default system prompt                                   |
+| `--system-prompt-file`                                   | Replace default system prompt with a file                                  |
+| `--exclude-dynamic-system-prompt-sections`               | Put cwd/git fingerprint in the first user message instead                  |
+| `--no-session-persistence`                               | Skip writing session checkpoints under ~/.bridge-runner/sessions/          |
+| `--allowed-tools <list>`                                 | Same as `--tools` (legacy name)                                            |
+| `--include-file <path>`                                  | Attach a bounded file from `--cwd` before the model call                   |
+| `--prompt-template <name>` / `--template <name>`         | Prepend a reusable prompt template: review, cleanup, explore, or file      |
+| `--human-log <path>`                                     | Write a plain text log of the prompt, tool results, and final answer       |
+| `--trace-level <level>`                                  | Write correlated flight-recorder traces: summary, redacted, or full        |
+| `--trace-path <path>`                                    | Choose the runner trace JSONL path; bridge trace path is correlated        |
+| `--bridge-url <url>`                                     | Override local bridge endpoint/root; also reads `BRIDGE_RUNNER_BRIDGE_URL` |
+| `--caller-token <token>`                                 | Local bridge caller-auth token; can also use `BRIDGE_CALLER_TOKEN` env     |
+| `--plan`                                                 | Plan mode: describe actions instead of executing them                      |
+| `--no-network`                                           | Best-effort HTTP/HTTPS proxy guard for shell, not a network sandbox        |
+| `--system-prompt <s>`                                    | Override the default system prompt                                         |
+| `--continue`                                             | Resume from the latest transcript in ~/.bridge-runner/logs/                |
+| `--stream`                                               | Stream assistant text live while still preserving streamed tool inputs     |
+| `--accept-edits`                                         | Auto-approve edit/write tools                                              |
+| `--allow-shell`                                          | Expose the bash tool; hidden by default                                    |
+| `--no-archive`                                           | Skip per-turn archive export to `~/.bridge-runner/archive/`                |
 
 Open [docs/command-builder.html](./docs/command-builder.html) in your browser if you prefer a form that builds these
 commands for you. A conservative first run is read-only or `--plan`; use `--accept-edits` only when file changes are
@@ -300,6 +301,46 @@ The archive is local-only by default and is not committed to this repository.
 - **File cache:** In-memory LRU for `read_file` (invalidates on file change).
 - **Persistent shell:** Opt-in only — `BRIDGE_RUNNER_PERSISTENT_SHELL=1` (default stays spawn-per-command).
 - **Bench:** `node --require ./test/setup.js test/runner/bench/turn-latency.bench.js`
+
+### Harbor / Terminal-Bench evals
+
+This repo includes a Harbor installed-agent adapter at `evals.harbor.cc_bridge_runner_agent:CcBridgeRunnerAgent`.
+It installs the runner inside a Harbor task container while calling the host bridge through `--bridge-url` /
+`BRIDGE_RUNNER_BRIDGE_URL`.
+
+Before the first eval, start the VS Code bridge on the host Mac and confirm a container can see it:
+
+```bash
+docker run --rm curlimages/curl:latest \
+  -s -o /dev/null -w "%{http_code}" \
+  http://host.docker.internal:11437/v1/debug
+```
+
+`401` is the expected result here. It means the container reached the bridge, and the bridge correctly refused the
+debug endpoint without a debug token.
+
+Start with the local smoke task before running larger datasets:
+
+```bash
+harbor run \
+  -p evals/harbor/tasks/cc-bridge-runner-smoke \
+  --agent-import-path evals.harbor.cc_bridge_runner_agent:CcBridgeRunnerAgent \
+  -m claude-sonnet-4-6 \
+  --n-concurrent 1 \
+  --job-name cc-bridge-runner-smoke
+```
+
+For Terminal-Bench through Harbor, keep early runs small and single-threaded:
+
+```bash
+harbor run \
+  -d terminal-bench/terminal-bench-2 \
+  --agent-import-path evals.harbor.cc_bridge_runner_agent:CcBridgeRunnerAgent \
+  -m claude-sonnet-4-6 \
+  --n-tasks 5 \
+  --n-concurrent 1 \
+  --job-name cc-bridge-runner-tbench-smoke
+```
 
 ## OAuth Token Expiry
 

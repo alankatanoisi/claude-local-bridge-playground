@@ -1,0 +1,23 @@
+version = "1.0"
+
+[task]
+name = "alankatanoisi/cc-bridge-runner-smoke"
+description = "Tiny Harbor task used to verify the cc bridge runner installed-agent adapter."
+
+[[task.authors]]
+name = "Alan Man"
+
+[metadata]
+difficulty = "smoke"
+
+[verifier]
+timeout_sec = 120.0
+
+[agent]
+timeout_sec = 1800.0
+
+[environment]
+build_timeout_sec = 600.0
+cpus = 1
+memory_mb = 2048
+storage_mb = 4096
