@@ -315,6 +315,24 @@ After each run, the runner writes a searchable archive under `~/.bridge-runner/a
 
 The archive is local-only by default and is not committed to this repository.
 
+### Usage & cost summary
+
+At the end of every run the runner prints a one-line token/cost summary to **stderr** (stdout stays
+clean for piping), for example:
+
+```
+[runner usage] in=1234 out=567 cache_read=8901 cache_write=234 (reuse 78%) ~$0.0123
+```
+
+- `reuse` is the share of prompt tokens served from the prompt cache (a reuse rate, not a true hit rate).
+- The dollar figure is an **estimate** from a local price table (`src/runner/model-pricing.js`) and now
+  prices cache reads and cache writes separately as well as plain input/output. Unknown model names fall
+  back to the closest family (opus/sonnet/haiku) before the generic default.
+- `--log-level quiet` suppresses the summary; `--verbose` adds a short multi-line breakdown.
+- The same numbers are recorded as a `usage` event in the JSONL transcript and as a **Usage & Cost**
+  section in the `--human-log` file, so token counts and estimated cost are available without redirection.
+- `--max-cost-usd <n>` uses the same estimate to stop a run once it crosses the budget.
+
 ### Runner perf parity (prompt cache, file cache, shell)
 
 - **Prompt cache:** Automatic on every model request (system + tools + stable message prefix breakpoints).

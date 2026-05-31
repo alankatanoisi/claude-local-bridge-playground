@@ -46,4 +46,25 @@ describe('human-readable runner log', () => {
     assert.ok(text.includes('[REDACTED:anthropic_key]'));
     assert.ok(!text.includes(key));
   });
+
+  it('writes a Usage & Cost section', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'human-log-usage-'));
+    const logPath = path.join(tmpDir, 'run.md');
+    const log = new HumanLog(logPath);
+
+    log.writeUsage({
+      model: 'claude-sonnet-4-6',
+      inputTokens: 100,
+      outputTokens: 50,
+      cacheReadTokens: 300,
+      cacheCreationTokens: 0,
+      cacheReadShare: 0.75,
+      costUsd: 0.0012,
+    });
+
+    const text = fs.readFileSync(logPath, 'utf8');
+    assert.ok(text.includes('## Usage & Cost'));
+    assert.ok(text.includes('cache read share: 75%'));
+    assert.ok(text.includes('~$0.0012'));
+  });
 });

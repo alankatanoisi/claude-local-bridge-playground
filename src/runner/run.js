@@ -20,7 +20,7 @@ const { runBootstrap } = require('./bootstrap');
 const { SessionLedger, makeEffectId } = require('./session-ledger');
 const { emitHint } = require('./beginner-hints');
 const { buildAutopsy, writeAutopsyFile, detectSemanticCycles, estimateTokensAdvisory } = require('./loop-autopsy');
-const { estimateCostUsd } = require('./model-pricing');
+const { estimateCostUsd, summarizeUsage } = require('./model-pricing');
 const { loadInstructionMemory } = require('./memory/instruction-memory');
 const { isAutoMemoryEnabled } = require('./memory/auto-memory');
 const instructionDelta = require('./instruction-delta');
@@ -574,6 +574,35 @@ async function run(options) {
   }
 
   function completeRun(result) {
+    // Single owner of end-of-run usage/cost output: stderr (default, suppressed
+    // under quiet), transcript, and human-log. Routing it here covers every
+    // terminal path (success, budget, error) with one site. stdout is left
+    // untouched so the final answer stays clean/pipeable.
+    const usageSummary = summarizeUsage(model, result.usage);
+    if (!quiet) {
+      console.error(usageSummary.oneLine);
+      if (verbose) {
+        console.error('[runner usage]   model: ' + (usageSummary.model || 'unknown'));
+        console.error(
+          '[runner usage]   input ' +
+            usageSummary.inputTokens +
+            ' / output ' +
+            usageSummary.outputTokens +
+            ' / cache_read ' +
+            usageSummary.cacheReadTokens +
+            ' / cache_write ' +
+            usageSummary.cacheCreationTokens,
+        );
+        console.error(
+          '[runner usage]   cache read share ' +
+            Math.round(usageSummary.cacheReadShare * 100) +
+            '% / estimated cost ~$' +
+            usageSummary.costUsd.toFixed(4),
+        );
+      }
+    }
+    if (transcript) transcript.recordUsage(usageSummary);
+    if (humanLog) humanLog.writeUsage(usageSummary);
     if (sessionStore && result.stopReason) {
       const runner = sessionStore.data().runner || {};
       const health = buildHealth({

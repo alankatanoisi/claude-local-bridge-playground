@@ -67,6 +67,15 @@ class Transcript {
     this.append({ type: 'final', text });
     this.flush();
   }
+
+  // Record the end-of-run usage/cost summary. Stores raw counts and derived
+  // fields so scripts get exact token numbers without parsing a display string.
+  // Flushes immediately because this is written after the final event.
+  recordUsage(summary) {
+    if (!summary) return;
+    this.append({ type: 'usage', ...summary });
+    this.flush();
+  }
 }
 
 module.exports = { Transcript, redactHeaders };
