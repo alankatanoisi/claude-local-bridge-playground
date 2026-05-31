@@ -26,12 +26,25 @@ Alan is a beginner at programming and terminal workflows. It is correct to treat
 
 Claude Local Bridge has two layers:
 
-- Bridge layer: VS Code extension, local HTTP server, OAuth/keychain/interceptor/proxy behavior.
-- Runner layer: local CLI agent loop, tools, permissions, transcripts, readable logs, docs, and command builder.
+- Bridge layer: VS Code extension, local HTTP server, OAuth/keychain/interceptor/proxy behavior. Treat this as transport
+  plumbing unless Alan asks for bridge work.
+- Runner layer: local CLI agent loop, capability groups, prompts, templates, profiles, permissions, transcripts,
+  archives, readable logs, docs, and command builder. Treat this as the active product surface.
 
 ## Current Direction
 
-The playground is an Anthropic-native, OAuth-only evidence harness.
+The playground is an Anthropic-native **cc bridge runner lab**. The current goal is to make the runner simpler,
+smaller by default, and easier to extend through project-local primitives. The bridge keeps model transport available,
+but subsequent work should not overfocus on OAuth/interceptor/proxy internals.
+
+Design direction:
+
+- Minimal default prompt and minimal startup context.
+- Explicit opt-ins for instruction docs, repo maps, skills, shell, and advanced patch mode.
+- Customization through `.bridge-runner/` files, prompt templates, profiles, hooks, and command-builder presets.
+- Capability groups over large flat tool menus.
+
+Transport invariants:
 
 - Keep the native Anthropic Messages route: `POST /v1/messages`.
 - Do not restore OpenAI-compatible routes such as `/v1/chat/completions` or `/v1/models`.
@@ -39,7 +52,8 @@ The playground is an Anthropic-native, OAuth-only evidence harness.
 - Upstream model calls should use Claude Code OAuth Bearer credentials only.
 - Dummy API-key strings such as `local` are only local client placeholders and must not be forwarded upstream as `x-api-key`.
 
-Do not modify bridge/auth/proxy internals unless explicitly requested or clearly needed for the OAuth-only direction:
+Do not modify bridge/auth/proxy internals unless explicitly requested or clearly needed to keep runner transport
+working:
 
 - `src/credentials.js`
 - `src/proxy.js`

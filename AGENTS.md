@@ -19,7 +19,7 @@ When adding new JavaScript in the runner, short beginner-friendly `//` comments 
 
 ## Active Repository
 
-Use this repo as the active harness lab unless Alan explicitly asks for canonical promotion work.
+Use this repo as the active runner lab unless Alan explicitly asks for canonical promotion work.
 
 - Local folder: `/Users/alanman/Developer/claude-local-bridge-playground`
 - Expected branch: `main`
@@ -57,9 +57,19 @@ If the folder is home, Downloads, an iCloud checkout, a scratch folder, or the c
 
 ## Current Direction
 
-This playground is an Anthropic-native, OAuth-only bridge and runner harness.
+This playground is now primarily a **cc bridge runner lab**: a small, Anthropic-native local coding-agent loop that we
+can simplify, test, customize, and extend. The bridge/OAuth layer is important plumbing, but it is no longer the main
+product surface for day-to-day work.
 
-Required implications:
+Inspired by minimalist agent designs such as pi, prefer a small core with explicit opt-ins:
+
+- Keep the default system prompt short and generic.
+- Keep startup context minimal unless a profile, template, or flag asks for more.
+- Treat tools as capability groups instead of an ever-growing flat feature list.
+- Prefer prompt templates, `.bridge-runner/` project files, hooks, and profiles for customization.
+- Keep shell and advanced patch mode hidden unless explicitly enabled.
+
+Transport/auth invariants still matter because they keep the runner lane clean:
 
 - Keep `/v1/messages` as the native Anthropic Messages surface.
 - Do not add or restore OpenAI-compatible endpoints such as `/v1/chat/completions` or `/v1/models`.
@@ -68,13 +78,15 @@ Required implications:
 - Do not capture or replay upstream `x-api-key` credentials as a success path.
 - Treat dummy client keys such as `local` as local placeholders only; they must not become upstream Anthropic auth.
 - Keep debug, trace, transcript, and log surfaces redacted because OAuth tokens and fingerprints are sensitive local account state.
-- Document policy risk plainly: this is personal research and disclosure context, not proof of Anthropic approval.
+- Document policy risk plainly when transport/auth behavior is relevant: this is personal research, not proof of
+  Anthropic approval.
 
 For Anthropic API, Claude Code, billing, or policy facts, use official sources first: `docs.anthropic.com`, `code.claude.com/docs`, `support.claude.com`, and official `github.com/anthropics/*` repositories.
 
 ## Project Overview
 
-Claude Local Bridge is a VS Code extension that exposes Claude Code credentials through a local HTTP API on `localhost:11437`.
+Claude Local Bridge is the transport shim: a VS Code extension that exposes Claude Code credentials through a local HTTP
+API on `localhost:11437`.
 
 The runner is an experimental local coding-agent loop on top of that bridge:
 
@@ -82,11 +94,14 @@ The runner is an experimental local coding-agent loop on top of that bridge:
 prompt -> local bridge /v1/messages -> model response -> tool_use -> local tool execution -> tool_result -> repeat
 ```
 
-The bridge owns OAuth, keychain, interceptor, and proxy behavior. The runner owns the local agent loop, tools, permissions, transcripts, and command-line user experience.
+The bridge owns OAuth, keychain, interceptor, and proxy behavior. The runner owns the part we are actively evolving:
+the local agent loop, capability groups, permissions, prompts, profiles, transcripts, archives, and command-line user
+experience.
 
 ## Boundaries
 
-Do not modify bridge/auth/proxy internals unless Alan explicitly asks or the change clearly preserves the OAuth-only direction:
+Do not modify bridge/auth/proxy internals unless Alan explicitly asks or the change is required to keep the runner
+transport working. Most new work should land in the runner/docs lane.
 
 - `src/credentials.js`
 - `src/proxy.js`

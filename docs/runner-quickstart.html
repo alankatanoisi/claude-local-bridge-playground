@@ -259,29 +259,30 @@
     <header>
       <h1>Local Bridge Runner</h1>
       <p>
-        A local coding agent that uses your existing <strong>claude-local-bridge</strong> as its model transport. The
-        playground is OAuth-only: no Anthropic Console API key is used upstream.
+        A compact local coding agent built around a minimal core, explicit capability groups, and project-local
+        customization. The bridge is the model transport; the runner is the surface we actively shape.
       </p>
       <span class="badge read-only">CLI Runner</span>
-      <span class="badge read-only" style="background: #6366f1; margin-left: 0.5rem">Agent OS (playground)</span>
+      <span class="badge read-only" style="background: #6366f1; margin-left: 0.5rem">Minimal Runner Lab</span>
     </header>
 
     <main>
       <section>
         <h2>What it does</h2>
         <p>
-          The runner sends your prompt to the local bridge (usually on <code>localhost:11437</code>), which forwards it
-          upstream using a Claude Code OAuth Bearer token resolved on your Mac. When the model asks to read a file, list
-          a directory, or search text, the runner executes the request safely and sends the result back.
+          The runner sends your prompt through the local bridge (usually on <code>localhost:11437</code>), receives
+          Anthropic-native tool requests, executes approved local tools, and sends the results back to the model. The
+          bridge supplies transport and credentials; the runner supplies the agent loop, tools, prompts, permissions,
+          transcripts, and command-line experience.
         </p>
         <div class="callout success">
-          <strong>Key benefit</strong>
-          You can run agent-style queries from the terminal without setting up a separate Anthropic API key. The bridge
-          intentionally ignores API-key fallback so the OAuth policy experiment stays clean.
+          <strong>Design direction</strong>
+          Keep the core small and make power features explicit: prompt templates, profiles, <code>.bridge-runner/</code>
+          project files, hooks, archives, shell, and advanced patch mode are all opt-in building blocks.
         </div>
         <p>
-          In the <strong>playground</strong> checkout, the runner is layered like a small agent OS: an optional
-          <strong>coordinator</strong> runs phased work (research → synthesize → execute → verify), the
+          In the <strong>playground</strong> checkout, the runner is layered like a small extensible harness: an
+          optional <strong>coordinator</strong> runs phased work (research → synthesize → execute → verify), the
           <strong>kernel</strong> is the core tool loop, and a <strong>session store</strong> keeps canonical
           <code>*.state.json</code> files for reliable resume.
         </p>
@@ -298,18 +299,18 @@
           </thead>
           <tbody>
             <tr>
-              <td><code>/Users/alanman/Developer/claude-local-bridge</code></td>
-              <td>Canonical bridge + runner work you may merge to main.</td>
+              <td><code>/Users/alanman/Developer/claude-local-bridge-playground</code></td>
+              <td>Active runner lab: prompts, tools, permissions, docs, coordinator, hooks, skills, and archives.</td>
             </tr>
             <tr>
-              <td><code>/Users/alanman/Developer/claude-local-bridge-playground</code></td>
-              <td>Experiments: <code>--session-id</code>, context compaction, coordinator CLI, hooks, skills index.</td>
+              <td><code>/Users/alanman/Developer/claude-local-bridge</code></td>
+              <td>Archived canonical reference. Do not use it for playground runner experiments unless Alan asks.</td>
             </tr>
           </tbody>
         </table>
         <div class="callout warn">
           <strong>Unknown option <code>--session-id</code>?</strong>
-          You are in an older checkout. Use the playground folder for harness flags, or run
+          You may be in an older checkout. Use the playground folder for runner-lab flags, or run
           <code>node bin/local-bridge-runner.js --help</code> to see what your copy supports.
         </div>
       </section>
@@ -881,7 +882,7 @@ node bin/local-bridge-coordinator.js \
         <pre><code>node bin/local-bridge-runner.js \
   --model claude-opus-4-8 \
   --max-tokens 4096 \
-  "Give me a deep dive on the proxy module"</code></pre>
+  "Give me a deep dive on src/runner/context-builder.js"</code></pre>
         <p>
           Leave <code>--temperature</code> unset when using <code>claude-opus-4-8</code>. Anthropic rejects non-default
           sampling settings on Opus 4.8.
@@ -891,15 +892,15 @@ node bin/local-bridge-coordinator.js \
       <section>
         <h2>Flight recorder traces</h2>
         <p>
-          Use <code>--trace-level summary</code> when you want evidence about a run without logging prompt bodies. The
-          runner writes a JSONL trace under <code>~/.bridge-runner/traces/</code> and asks the bridge to write a
-          correlated trace under <code>~/.claude-local-bridge/traces/</code>.
+          Use <code>--trace-level summary</code> when you want run metadata without logging prompt bodies. The runner
+          writes a JSONL trace under <code>~/.bridge-runner/traces/</code> and asks the bridge to write a correlated
+          trace under <code>~/.claude-local-bridge/traces/</code>.
         </p>
         <p>
           Summary traces record turn counts, tool decisions, request sizes, visible tool names, response status
           metadata, and model usage or cache counters returned to the runner. <code>redacted</code> adds scrubbed
           request, response, tool-input, and tool-result payloads. <code>full</code> keeps the widest local payload
-          evidence while still redacting authorization and key-looking fields.
+          details while still redacting authorization and key-looking fields.
         </p>
         <p>
           These traces show what this local runner and bridge can observe. They do not expose Anthropic's internal
@@ -998,8 +999,8 @@ node bin/local-bridge-coordinator.js \
           <code>--bare</code> is the strictest minimal mode.
         </p>
         <p>
-          The local bridge may still prepend Claude Code OAuth identity text upstream; that is separate from runner
-          context and is unchanged in the OAuth-only evidence lane.
+          The local bridge may still prepend Claude Code OAuth identity text upstream; that is transport context,
+          separate from the runner's minimal startup context.
         </p>
       </section>
 
@@ -1082,11 +1083,8 @@ node bin/local-bridge-coordinator.js \
           the playground) session persistence, compaction, coordinator phases, hooks, and skills metadata.
         </p>
         <ul>
-          <li><code>lab-notes/AGENT_OS_ARCHITECTURE.md</code> — layer diagram and module map</li>
-          <li>
-            <code>BEGINNER_GUIDE.md</code> and <code>HEADLESS_AGENT_RUNNER_BEGINNER_GUIDE.md</code> — plain-language
-            walkthroughs
-          </li>
+          <li><code>README.md</code> — repository direction, runner defaults, and transport guardrails</li>
+          <li><code>AGENTS.md</code> and <code>CLAUDE.md</code> — instructions for future coding agents</li>
           <li>
             <a href="command-builder.html">Command builder</a> — form that generates runner or coordinator commands
           </li>
@@ -1099,8 +1097,6 @@ node bin/local-bridge-coordinator.js \
       </section>
     </main>
 
-    <footer>
-      Built on top of <a href="https://github.com/alankatanoisi/claude-local-bridge">claude-local-bridge</a>
-    </footer>
+    <footer>Runner lab built on top of the local bridge transport</footer>
   </body>
 </html>

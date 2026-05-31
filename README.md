@@ -1,16 +1,27 @@
-# Claude Local Bridge
+# Claude Local Bridge Playground
 
 > **This is the active repository** ([claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground), branch **`main`**). Canonical [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge) is archived (tags `archive-2026-05-main` and `archive-2026-05-runner-clean-pr`); do not open new PRs there.
 
-A VS Code extension that reads your **Claude Code OAuth credentials** and exposes them as a local Anthropic Messages API bridge on `http://localhost:11437`.
+This repo is now the active lab for the **cc bridge runner**: a small local coding-agent loop that uses the bridge as
+its model transport, then focuses on prompts, tools, permissions, transcripts, archives, and command-line ergonomics.
 
-Use Claude CLI or the local runner with `http://localhost:11437`. The bridge injects your Claude Code OAuth token so no Anthropic Console API key is used upstream.
+The bridge still matters. It exposes a local Anthropic Messages API on `http://localhost:11437` and injects Claude Code
+OAuth credentials so the runner can call models without an Anthropic Console API key. But for new work in this repo,
+treat bridge/OAuth/interceptor code as plumbing and treat the runner as the product surface.
 
-## Current Direction: OAuth-Only Policy Evidence Harness
+## Current Direction: Minimal Runner Lab
 
-This playground is now intentionally **OAuth-only**. The project goal is to test and document whether a user’s own Claude Code OAuth session can still carry local bridge/runner traffic in light of Anthropic’s June 15, 2026 Agent SDK / `claude -p` metering change. Anthropic’s current help page says Agent SDK and `claude -p` usage will move to a separate monthly Agent SDK credit, while interactive Claude Code remains on subscription limits.
+The goal is to build, optimize, and customize a compact local runner inspired by minimalist-but-extensible agent design
+philosophies such as pi:
 
-To keep the evidence clean:
+- Keep the default prompt small and repo-agnostic.
+- Keep startup context minimal until a flag, profile, or template asks for more.
+- Keep the tool surface understandable by grouping capabilities: read, write, recovery, and optional shell.
+- Prefer small extension points over a large core: `.bridge-runner/` prompts, prompt templates, profiles, hooks,
+  archives, and command-builder presets.
+- Remove compatibility layers and old docs when they make the runner harder to understand.
+
+Transport policy still has guardrails:
 
 - The bridge ignores `ANTHROPIC_API_KEY`.
 - The bridge ignores the old `claudeLocalBridge.apiKey` setting.
@@ -18,7 +29,8 @@ To keep the evidence clean:
 - Upstream auth must be `authorization: Bearer <Claude Code OAuth token>`.
 - Any local placeholder key such as `ANTHROPIC_API_KEY=local` is for client-side checks only; it is not forwarded to Anthropic.
 
-This does **not** mean Anthropic has approved this usage. Treat runs as policy-sensitive personal research, not production guidance or a commercial integration pattern.
+This does **not** mean Anthropic has approved this usage. Treat runs as personal research and local tooling, not
+production guidance or a commercial integration pattern.
 
 For the local CLI runner prototype that now ships in this repo, see [docs/runner-quickstart.html](./docs/runner-quickstart.html).
 The runner can inspect this repo or any other local project by passing that project as `--cwd`.
@@ -27,7 +39,7 @@ The runner can inspect this repo or any other local project by passing that proj
 
 | Lane                                | Local folder                                 | GitHub                                                                                            | Branch                             | Use for                                           |
 | ----------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------- |
-| **Playground (this repo — active)** | `~/Developer/claude-local-bridge-playground` | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main`                             | All harness and runner work                       |
+| **Playground (this repo — active)** | `~/Developer/claude-local-bridge-playground` | [claude-local-bridge-playground](https://github.com/alankatanoisi/claude-local-bridge-playground) | `main`                             | Runner experiments, docs, safety, and tooling     |
 | **Canonical (archived)**            | `~/Developer/claude-local-bridge`            | [claude-local-bridge](https://github.com/alankatanoisi/claude-local-bridge)                       | frozen at `archive-2026-05-*` tags | Codex reference only; local folder kept for Codex |
 
 - Playground commits belong in **this** GitHub repo only.
@@ -69,14 +81,21 @@ Defaults below are sourced from `package.json` (`contributes.configuration.prope
 ### Architecture flow
 
 ```
-Claude CLI / local runner
+local runner / Claude CLI
   └──> Claude Local Bridge (http://localhost:11437)
         ↓ credential discovery
         ↓ Anthropic Messages request passthrough
         └──> api.anthropic.com
 ```
 
-The extension discovers credentials automatically (see priority order below), injects the auth header, and streams upstream responses back to callers.
+For runner work, the bridge is just the transport boundary. The runner owns the agent loop:
+
+```text
+prompt -> local bridge /v1/messages -> model response -> tool_use -> local tool execution -> tool_result -> repeat
+```
+
+The extension discovers credentials automatically (see priority order below), injects the auth header, and streams
+upstream responses back to callers.
 
 ---
 
@@ -166,8 +185,9 @@ The Claude Code CLI routes requests through the bridge, which injects the resolv
 
 ## Local Bridge Runner
 
-The runner is an experimental local coding-agent loop that uses this bridge as its model transport. Run it from the
-folder that contains `bin/local-bridge-runner.js`:
+The runner is the active local coding-agent loop in this repo. It uses the bridge as model transport, but its own
+concerns are prompts, tools, permissions, sessions, archives, and extension points. Run it from the folder that contains
+`bin/local-bridge-runner.js`:
 
 ```bash
 cd "/Users/alanman/Developer/claude-local-bridge-playground"
@@ -256,7 +276,7 @@ boundaries, forwarded header names, and upstream status metadata. The correlated
 `~/.bridge-runner/traces/*.runner.jsonl` and `~/.claude-local-bridge/traces/*.bridge.jsonl`.
 
 `redacted` adds scrubbed request, response, tool-input, and tool-result payloads. `full` keeps the broadest local payload
-evidence while still redacting authorization and key-looking fields. Neither mode reveals Anthropic's internal
+details while still redacting authorization and key-looking fields. Neither mode reveals Anthropic's internal
 classification logic or server-side telemetry; it records what this local runner and bridge can observe at their own
 boundaries. Treat redacted and full traces as sensitive source-code logs.
 

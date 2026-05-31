@@ -491,7 +491,9 @@
               <li>Start with a small objective and say whether files may be changed.</li>
               <li>Use a target project folder when the runner code and the folder under review are different.</li>
               <li>Use the generated command in Terminal after the local bridge is already running.</li>
-              <li>The playground bridge is OAuth-only: local placeholder keys are never upstream Anthropic auth.</li>
+              <li>
+                Prefer minimal context first; opt into richer prompts, shell, or advanced patching only when useful.
+              </li>
             </ul>
             <hr class="divider" />
             <div class="field">
@@ -898,7 +900,7 @@
                   <option value="off">off - no trace files</option>
                   <option value="summary">summary - metadata only</option>
                   <option value="redacted">redacted - scrubbed payloads</option>
-                  <option value="full">full - broad local evidence</option>
+                  <option value="full">full - broad local payloads</option>
                 </select>
               </div>
               <div class="field">
@@ -1006,9 +1008,10 @@
           </div>
           <div class="card" style="font-size: 0.8rem; color: var(--muted)">
             <strong>Tip:</strong> Paste this into your terminal and press Enter. The runner connects through your local
-            bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>. The bridge must have a Claude Code OAuth
-            token available; it will not fall back to a real Anthropic API key. Use the
-            <strong>playground</strong> folder for <code>--session-id</code> and the coordinator CLI. If the bridge says
+            bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>, but this page is primarily about shaping
+            runner behavior: prompt templates, capability groups, profiles, approvals, traces, and archives. Use the
+            <strong>playground</strong> folder for runner-lab flags such as <code>--session-id</code> and the
+            coordinator CLI. If the bridge says
             <code style="font-size: 0.75rem">Unauthorized: Missing Bearer token</code>, caller auth is enabled; either
             disable it in VS Code settings or set Caller auth token here. Use
             <code style="font-size: 0.75rem">stream-json</code> when another script or agent needs to parse every runner

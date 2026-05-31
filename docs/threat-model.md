@@ -1,9 +1,18 @@
 # Runner Threat Model
 
+## Scope
+
+This document is about the **runner**: the local agent loop, tool permissions, file access, shell access, transcripts,
+archives, and traces. The bridge/OAuth layer is the model transport boundary, not the main subject of ongoing runner
+design work.
+
+The current design goal is a small default surface with explicit opt-ins. Read tools are convenient, write tools are
+guarded, recovery tools are always available, shell is hidden by default, and advanced patch mode is opt-in.
+
 ## Bridge auth boundary for this playground
 
-This playground is now an **OAuth-only** bridge experiment. Upstream Anthropic calls must use a Claude Code OAuth Bearer
-token. Anthropic Console API-key sources are intentionally ignored so local test results do not mix billing paths.
+This playground remains **OAuth-only** at the transport layer. Upstream Anthropic calls must use a Claude Code OAuth
+Bearer token. Anthropic Console API-key sources are intentionally ignored so local test results do not mix billing paths.
 
 Sensitive bridge diagnostics are also gated: `/v1/debug` requires the local `x-claude-local-bridge-debug-token` printed
 in the Claude Local Bridge Output log. That token is a local debug door code, not an upstream Claude credential.
@@ -13,8 +22,9 @@ in the Claude Local Bridge Output log. That token is a local debug door code, no
 | Category     | Tools                                                  | Scope                                                                                                                                                                                                          |
 | ------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Read**     | `list_files`, `read_file`, `search_text`, `git_status` | Any file inside `cwd` (and its subdirectories) that passes the deny matrix. Git metadata only.                                                                                                                 |
-| **Write**    | `edit_file`, `write_file`, `apply_patch`               | Any file inside `cwd` that passes the deny matrix. Backups saved before mutation. Requires user confirmation (or `--accept-edits`).                                                                            |
+| **Write**    | `edit_file`, `write_file`                              | Any file inside `cwd` that passes the deny matrix. Backups saved before mutation. Requires user confirmation (or `--accept-edits`).                                                                            |
 | **Recovery** | `undo`, `undo_edit`                                    | Restore files from `.bridge-runner/backups/` or the in-memory undo log. Auto-approved.                                                                                                                         |
+| **Advanced** | `apply_patch`                                          | Patch-style edits. Hidden from the default tool surface; opt in explicitly with `--tools apply_patch` or a custom tool list. Requires the same write confirmations and path checks as other write tools.       |
 | **Shell**    | `bash`                                                 | Run shell commands inside `cwd`. **Opt-in only** (`--allow-shell`). Bounded by timeout (default 30s) and output limits (10KB). Filtered environment. Shell argument scanning blocks dangerous path references. |
 
 ## What the model can NEVER touch
@@ -52,7 +62,7 @@ Path patterns that are **always denied** for both read and write:
 User prompt
   → validateCwd() rejects system dirs and non-existent paths
   → evaluateWorkspaceTrust() — no tools until cwd is consented (--trust-workspace or interactive y)
-  → Agent loop sends request to bridge
+  → Runner sends model request through the local bridge
   → Model returns tool_use blocks
   → permissions.check():
       1. confinePath() — realpath containment → deny on escape
