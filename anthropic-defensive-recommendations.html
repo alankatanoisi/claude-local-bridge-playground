@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Security Recommendations: Subscription-Client Spoofing &amp; Billing-Class Circumvention</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #5c6370;
+    --accent: #c15f3c;      /* Claude-ish terracotta */
+    --accent-dark: #9c4626;
+    --bg: #faf9f7;
+    --card: #ffffff;
+    --line: #e7e3dd;
+    --tier0: #c15f3c;
+    --tier1: #2f7d6e;
+    --tier2: #4a6fa5;
+    --warn: #b8860b;
+    --code-bg: #f4f1ec;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.6;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 48px 28px 96px; }
+  header.masthead {
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 22px;
+    margin-bottom: 8px;
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    font-size: .72rem;
+    color: var(--accent-dark);
+    font-weight: 700;
+  }
+  h1 { font-size: 1.95rem; line-height: 1.2; margin: 10px 0 6px; }
+  .subtitle { color: var(--muted); font-size: .98rem; max-width: 70ch; }
+  .meta-note {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--muted);
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: .86rem;
+    color: var(--muted);
+    margin: 22px 0 0;
+  }
+  nav.toc {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin: 30px 0;
+  }
+  nav.toc h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 10px; }
+  nav.toc ol { margin: 0; padding-left: 1.2em; columns: 2; column-gap: 32px; }
+  nav.toc a { color: var(--ink); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); text-decoration: underline; }
+  section { margin: 42px 0; }
+  h2.section { font-size: 1.35rem; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 16px; }
+  h3 { font-size: 1.05rem; margin: 26px 0 8px; }
+  p { margin: 12px 0; }
+  .lead { font-size: 1.05rem; }
+  ul, ol { padding-left: 1.4em; }
+  li { margin: 6px 0; }
+  code { background: var(--code-bg); padding: 1.5px 5px; border-radius: 4px; font-size: .88em; font-family: "SF Mono", Menlo, Consolas, monospace; }
+  pre {
+    background: #20232a; color: #e6e6e6; padding: 18px 20px; border-radius: 10px;
+    overflow-x: auto; font-size: .85rem; line-height: 1.5;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+  }
+  pre .kw { color: #e0a96d; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: .92rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--code-bg); font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 4px 22px; margin: 18px 0; }
+  .tier { border-left: 5px solid var(--line); padding-left: 18px; }
+  .tier-0 { border-color: var(--tier0); }
+  .tier-1 { border-color: var(--tier1); }
+  .tier-2 { border-color: var(--tier2); }
+  .badge { display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; color: #fff; vertical-align: middle; margin-right: 8px; }
+  .badge.t0 { background: var(--tier0); }
+  .badge.t1 { background: var(--tier1); }
+  .badge.t2 { background: var(--tier2); }
+  .callout { background: #fff8ec; border: 1px solid #f0e0bd; border-left: 4px solid var(--warn); border-radius: 6px; padding: 14px 18px; margin: 18px 0; }
+  .callout strong { color: var(--accent-dark); }
+  .pill-list { list-style: none; padding: 0; }
+  .pill-list li { padding: 10px 14px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; margin: 8px 0; }
+  .pill-list li b { color: var(--accent-dark); }
+  .summary-box { background: linear-gradient(135deg, #fff 0%, #fdf3ee 100%); border: 1px solid var(--line); border-top: 4px solid var(--accent); border-radius: 10px; padding: 22px 26px; font-size: 1.02rem; }
+  .prio-list { counter-reset: prio; list-style: none; padding: 0; }
+  .prio-list li { position: relative; padding: 12px 16px 12px 56px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; margin: 10px 0; }
+  .prio-list li::before { counter-increment: prio; content: counter(prio); position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; background: var(--accent); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .84rem; }
+  @media (max-width: 640px) { nav.toc ol { columns: 1; } .wrap { padding: 28px 18px 64px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">External good-faith security contribution</div>
+    <h1>Detecting &amp; Mitigating Subscription-Client Spoofing and Billing-Class Circumvention</h1>
+    <p class="subtitle">Threat model and recommended controls for distinguishing genuine interactive Claude Code usage from programmatic traffic replaying the official client's credentials and fingerprint.</p>
+    <div class="meta-note">
+      Prepared for Anthropic's Trust &amp; Safety, anti-abuse, and platform engineering teams. The cover-email author is a subscriber who independently explored this class of workaround; this document is written from the defender's perspective and is intended to help Anthropic get ahead of the technique rather than react to it.
+    </div>
+  </header>
+
+  <nav class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#summary">Executive summary</a></li>
+      <li><a href="#threat">Threat model</a></li>
+      <li><a href="#root">Root-cause analysis</a></li>
+      <li><a href="#tier0">Tier 0 — Verifiable identity</a></li>
+      <li><a href="#tier1">Tier 1 — Harden soft signals</a></li>
+      <li><a href="#tier2">Tier 2 — Detection &amp; forensics</a></li>
+      <li><a href="#prio">Prioritization</a></li>
+      <li><a href="#fp">False-positive guardrails</a></li>
+      <li><a href="#tldr">One-line summary</a></li>
+    </ol>
+  </nav>
+
+  <section id="summary">
+    <h2 class="section">1. Executive summary</h2>
+    <p class="lead">A class of user-side tooling captures the credentials and request fingerprint of the <strong>official, interactive Claude Code client</strong> and replays them from a programmatic agent loop, so that <strong>programmatic / Agent-SDK-style usage is metered as interactive subscription usage</strong> rather than against the programmatic credit pool.</p>
+    <p>The root weakness is structural: <strong>billing class and client identity are currently inferred from client-supplied, replayable HTTP signals</strong> — user-agent, <code>anthropic-beta</code>, <code>x-app</code>, session-id headers, Stainless headers, and an opaque <code>x-anthropic-billing-header</code> / <code>cch</code> value. Any value the client can send, an imitator can resend.</p>
+    <p>The durable fix is to stop treating soft signals as a trust boundary and move billing/session identity onto <strong>cryptographically verifiable, short-lived, sender-constrained claims issued by Anthropic</strong>. Soft-signal analysis (fingerprint consistency, replay, version drift) remains valuable as a <em>secondary forensic layer</em>, not as the root control.</p>
+    <p>Recommendations are tiered — <span class="badge t0">Tier 0</span> closes the trust boundary, <span class="badge t1">Tier 1</span> hardens soft signals during migration, <span class="badge t2">Tier 2</span> adds detection — with explicit guardrails so the large population of <em>legitimate</em> programmatic users (especially sanctioned third-party tools on the new Agent SDK credit) is correctly routed rather than penalized.</p>
+  </section>
+
+  <section id="threat">
+    <h2 class="section">2. Threat model</h2>
+    <div class="card">
+      <p><b>Actor:</b> an authenticated subscriber (consumer OAuth, Pro/Max) — <em>not</em> an account thief. Credentials are the user's own.</p>
+      <p><b>Capability:</b> local interception of the official client's outbound requests (e.g., a VS Code extension reading keychain credentials via a local proxy/interceptor), capturing the full header set and replaying it from arbitrary local processes.</p>
+      <p><b>Objective:</b> route programmatic agent traffic (custom runners, multi-CLI orchestration, <code>claude -p</code>-style calls wrapped in a bespoke loop) through the request path and headers the server associates with <em>interactive</em> metering.</p>
+      <p><b>Why it works today:</b> the server cannot cryptographically distinguish "the official interactive client made this request" from "something replayed the official client's headers." Billing class is a function of spoofable inputs.</p>
+      <p><b>What breaks it:</b> any control requiring the client to <em>prove</em> possession of a secret, or to present a server-signed, short-lived, request-bound claim an interceptor cannot mint or meaningfully reuse.</p>
+    </div>
+  </section>
+
+  <section id="root">
+    <h2 class="section">3. Root-cause analysis: the trust boundary is in the wrong place</h2>
+    <table>
+      <thead><tr><th>Signal replayed today</th><th>Why it is not a trust boundary</th></tr></thead>
+      <tbody>
+        <tr><td><code>user-agent</code> (e.g. <code>claude-cli/x.y.z</code>)</td><td>Free-text, trivially set</td></tr>
+        <tr><td><code>anthropic-beta</code> flag set + ordering</td><td>Static, copyable, observable</td></tr>
+        <tr><td><code>x-app</code>, <code>x-claude-code-session-id</code></td><td>Client-asserted strings</td></tr>
+        <tr><td>Stainless headers (<code>x-stainless-*</code>)</td><td>Library-emitted, copyable</td></tr>
+        <tr><td><code>x-anthropic-billing-header</code> / <code>cch</code> hash</td><td>Opaque value, captured once and replayed indefinitely</td></tr>
+      </tbody>
+    </table>
+    <div class="callout"><strong>Principle:</strong> treat all of the above as <strong>untrusted hints</strong>. Useful for forensics and UX, never for entitlement decisions. The entitlement decision must rest on something the requester cannot forge.</div>
+  </section>
+
+  <section id="tier0">
+    <h2 class="section"><span class="badge t0">Tier 0</span> Move billing/session identity onto verifiable claims <span style="font-weight:400;color:var(--muted);font-size:.9rem">(the real fix)</span></h2>
+
+    <div class="tier tier-0">
+      <h3>4.1 Server-signed, short-lived session/billing token</h3>
+      <p>Replace the opaque <code>cch</code> with a short-lived <strong>JWS/PASETO</strong> token <em>issued by Anthropic</em> at interactive-session start and verified server-side on every <code>/v1/messages</code> call. Suggested claims:</p>
+      <ul>
+        <li><code>sub</code> — account / user ID</li>
+        <li><code>tid</code> — credential ID (binds claim to a specific token)</li>
+        <li><code>client</code> — client type (interactive CLI, VS Code, programmatic)</li>
+        <li><code>cc_ver</code> — official client version, <em>server-asserted</em>, not echoed from the client</li>
+        <li><code>mode</code> — interactive vs. programmatic</li>
+        <li><code>sid</code> — session ID &nbsp;·&nbsp; <code>seq</code>/<code>nonce</code> — monotonic sequence / per-request nonce</li>
+        <li><code>exp</code> — short expiry (minutes) &nbsp;·&nbsp; <code>bh</code> — body/request hash where feasible</li>
+      </ul>
+      <p>Signed with a key the client never holds, so a replayed or copied token fails signature / <code>exp</code> / <code>seq</code> / <code>bh</code> checks. <strong>Fail closed:</strong> absent, stale, or non-verifying → programmatic credit path, not interactive.</p>
+
+      <h3>4.2 Sender-constrained tokens (proof-of-possession)</h3>
+      <p>Adopt <strong>DPoP</strong> (RFC 9449) or mTLS-style binding so the access token is bound to a key held only by the genuine client. Each request carries a fresh signed proof over method + URL + timestamp (+ optional body hash). An interceptor that captures headers but not the private key cannot produce valid proofs. <em>This single control neutralizes pure header replay.</em></p>
+
+      <h3>4.3 Separate token classes by issuance flow; enforce usage class</h3>
+      <p>Issue distinct credential classes for interactive Claude Code login vs. programmatic/Agent-SDK usage, and <strong>enforce the class at the metering boundary</strong>. An interactive-issued token used programmatically is metered as programmatic (or rejected), regardless of headers — decoupling entitlement from fingerprint.</p>
+
+      <h3>4.4 Client attestation at session start</h3>
+      <p>For interactive metering, require lightweight attestation that an official client instance is actually running (control-plane handshake / heartbeat). Bind the interactive lease to a live, attested session. This most directly defeats "headers without a real client behind them."</p>
+
+      <h3>4.5 Interactive-session lease + policy gate</h3>
+      <pre><span class="kw">IF</span>   consumer OAuth
+ <span class="kw">AND</span>  valid, unexpired, sender-constrained interactive lease
+ <span class="kw">AND</span>  attested active official client session
+<span class="kw">THEN</span> meter as interactive subscription usage
+<span class="kw">ELSE</span> meter as Agent SDK / programmatic credit</pre>
+      <p>The lease is short-lived, renewed by the live client, bound to credential + client + session, non-transferable. Absence of a valid lease is not an error — it is simply the programmatic path.</p>
+    </div>
+  </section>
+
+  <section id="tier1">
+    <h2 class="section"><span class="badge t1">Tier 1</span> Harden the soft signals during migration</h2>
+    <div class="tier tier-1">
+      <ul class="pill-list">
+        <li><b>Bind and rotate <code>cch</code>.</b> Derive it from <code>(cc_version, build, credential/session binding, time window)</code>; recompute server-side; reject values that are stale, that don't correspond to the claimed <code>cc_version</code>, or that are reused across many sessions. Breaks "capture once, replay forever."</li>
+        <li><b>Maintain an authoritative version-tuple matrix.</b> Ground-truth of <code>{CLI, Agent SDK, x-stainless-package-version, VS Code extension, runtime, OS/arch, beta-flag set+ordering}</code> that actually shipped together. Flag or reject <b>impossible tuples</b>.</li>
+        <li><b>Pin and rotate beta-flag sets.</b> Record the exact <code>anthropic-beta</code> combination + ordering per released version. A set matching no shipped version — or lagging past a forced-upgrade window — is high-confidence anomalous. Rotate names/ordering periodically to shorten any captured fingerprint's useful life.</li>
+        <li><b>Enforce forced-upgrade windows.</b> After a deprecation deadline, refuse interactive metering for clients still claiming superseded versions.</li>
+      </ul>
+      <p style="color:var(--muted);font-size:.92rem">These don't make spoofing impossible; they make captured fingerprints <strong>expire quickly</strong> — the practical win.</p>
+    </div>
+  </section>
+
+  <section id="tier2">
+    <h2 class="section"><span class="badge t2">Tier 2</span> Detection &amp; forensic signals <span style="font-weight:400;color:var(--muted);font-size:.9rem">(secondary layer)</span></h2>
+    <div class="tier tier-2">
+      <p>Retain as investigation triggers and risk scores — never as the primary boundary:</p>
+      <ul>
+        <li><b>Replay detectors:</b> same header tuple / <code>cch</code> / session-id reused across many accounts, or far more often than human-paced interactive use.</li>
+        <li><b>Fingerprint-consistency checks:</b> impossible CLI × extension × <code>x-stainless-*</code> × runtime × OS/arch × beta-flag combinations.</li>
+        <li><b>Version-drift detectors:</b> stale client versions after forced-upgrade windows; old billing-header values after a rotation.</li>
+        <li><b>Session-existence cross-check:</b> requests claiming <code>claude-vscode</code> while no VS Code control-plane / attestation session exists.</li>
+        <li><b>OAuth-client consistency:</b> <code>x-app</code> / user-agent claims inconsistent with the OAuth client ID the token was issued to.</li>
+        <li><b>System-prompt structure fingerprinting:</b> hash the system-block structure; identical hashes across unrelated suspicious accounts is a clustering signal.</li>
+        <li><b>Behavioral / content parity:</b> compare to genuine interactive Claude Code — <code>count_tokens</code> preflight presence/cadence, tool-use patterns, turn structure, streaming behavior.</li>
+      </ul>
+      <p style="color:var(--muted);font-size:.92rem">Use for risk scoring and human review, not automated punitive action, to keep false positives low.</p>
+    </div>
+  </section>
+
+  <section id="prio">
+    <h2 class="section">7. Prioritization</h2>
+    <ol class="prio-list">
+      <li><b>DPoP / sender-constrained tokens</b> (4.2) + <b>token-class enforcement</b> (4.3) — highest leverage; structurally defeat header replay.</li>
+      <li><b>Signed session/billing token</b> (4.1) + <b>lease &amp; policy gate</b> (4.5) — formalize the entitlement decision on verifiable state.</li>
+      <li><b>Client attestation</b> (4.4) — closes the "headers without a live client" gap.</li>
+      <li><b>Tier 1</b> — deploy immediately as interim mitigation; cheap relative to impact.</li>
+      <li><b>Tier 2</b> — ongoing forensic layer; feeds investigations and tunes the above.</li>
+    </ol>
+  </section>
+
+  <section id="fp">
+    <h2 class="section">8. False-positive guardrails <span style="font-weight:400;color:var(--muted);font-size:.9rem">(do not break legitimate users)</span></h2>
+    <div class="callout">
+      <ul style="margin:0">
+        <li><strong>Sanctioned programmatic use is not abuse.</strong> With the Agent SDK credit covering third-party tools built on the Agent SDK, the goal is <em>correct routing</em> (interactive vs. credit), not blocking programmatic use. Mis-metering legitimate Agent SDK traffic as a violation is a worse outcome than the abuse itself.</li>
+        <li><strong>Fail toward the credit path</strong>, not toward errors, when interactive entitlement can't be verified.</li>
+        <li><strong>No automated penalties on soft signals alone.</strong> Tier 2 gates review, not bans.</li>
+        <li><strong>Account for legitimate version skew.</strong> Honest users lag updates; treat drift as actionable only past explicit forced-upgrade deadlines.</li>
+        <li><strong>Privacy-preserving attestation.</strong> Collect no more device data than necessary; document it for users.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="tldr">
+    <h2 class="section">9. One-line summary for leadership</h2>
+    <div class="summary-box">
+      Billing class is currently inferred from spoofable client headers; the fix is to issue short-lived, sender-constrained, server-signed session/billing claims and gate interactive metering on a verifiable, attested interactive lease — keeping fingerprint/replay analysis as a secondary forensic layer, with guardrails so sanctioned programmatic (Agent SDK) usage is correctly routed rather than penalized.
+    </div>
+  </section>
+
+  <footer>
+    Defensive recommendations memo · oriented toward detection and mitigation · shared in good faith for the proprietor's use.
+  </footer>
+
+</div>
+</body>
+</html>
