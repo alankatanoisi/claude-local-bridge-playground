@@ -27,6 +27,11 @@ describe('agent profiles', () => {
     assert.equal(applied.allowShell, undefined);
     assert.equal(applied.acceptEdits, undefined);
   });
+
+  it('preserves an explicit maxSteps override over profile defaults', () => {
+    const applied = applyProfileToRunOptions('bench', { maxSteps: 66, explicitOptions: { maxSteps: true } });
+    assert.equal(applied.maxSteps, 66);
+  });
 });
 
 describe('fork boundary', () => {

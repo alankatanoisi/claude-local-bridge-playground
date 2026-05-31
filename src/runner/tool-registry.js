@@ -82,6 +82,8 @@ const TOOLS = {
 
 const WRITE_TOOLS = new Set(['edit_file', 'write_file', 'apply_patch']);
 const DEFAULT_HIDDEN_TOOLS = new Set(['apply_patch']);
+const REDACTION_NOTICE =
+  '[runner notice: this tool output was redacted for safety. Redacted snippets are not byte-exact; do not treat quotes or secret-like strings as exact source.]';
 
 function getDefinitions(ctx) {
   return Object.entries(TOOLS)
@@ -103,6 +105,7 @@ async function runAndScrub(tool, args, ctx, toolUseId) {
   const started = Date.now();
   const toolCtx = toolUseId ? { ...ctx, toolUseId } : ctx;
   const result = await tool.execute(args, toolCtx);
+  let redacted = false;
 
   if (result && result.isStreaming && result.stream) {
     const scrubber = safety.makeStreamingScrubber();
@@ -146,8 +149,11 @@ async function runAndScrub(tool, args, ctx, toolUseId) {
     result.isStreaming = false;
     result.text = assembled;
     result.bytes = bytes;
+    redacted = assembled.includes('[REDACTED');
   } else if (result && result.text) {
-    result.text = safety.scrubSecrets(result.text);
+    const originalText = result.text;
+    result.text = safety.scrubSecrets(originalText);
+    redacted = result.text !== originalText;
   }
 
   // E4: boundary auto-summarization. Runs *after* scrubbing so dropped bytes
@@ -169,6 +175,12 @@ async function runAndScrub(tool, args, ctx, toolUseId) {
       result.summarized = true;
       result.droppedBytes = summarized.droppedBytes;
     }
+  }
+
+  if (result && result.text && redacted) {
+    result.text = REDACTION_NOTICE + '\n' + result.text;
+    result.redacted = true;
+    result.safetyTags = [...new Set([...(result.safetyTags || []), 'redacted_tool_output'])];
   }
 
   const envelope = normalizeToolResult(result, {

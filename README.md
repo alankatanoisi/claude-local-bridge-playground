@@ -205,6 +205,26 @@ node bin/local-bridge-runner.js \
   "List the top-level files, summarize the project, then stop. Do not edit files."
 ```
 
+For disposable test runs, create a fresh throw-away lab instead of reusing an old folder:
+
+```bash
+cd "/Users/alanman/Developer/claude-local-bridge-playground"
+LAB="$(node scripts/create-runner-throwaway-lab.js)"
+node bin/local-bridge-runner.js \
+  --cwd "$LAB" \
+  --agent bench \
+  --trust-workspace \
+  --allow-shell \
+  --accept-edits \
+  --dont-ask \
+  --chaos-ok \
+  --max-steps 24 \
+  "Fix the calculator bug, run npm test, and summarize the result."
+```
+
+The helper prints a new timestamped folder under `~/Documents/claude-local-bridge-runner-throwaway-labs/`. This avoids
+mixing a tiny smoke task with stale files from an older copied repo.
+
 **Startup context (default: minimal).** By default the runner uses a small Anthropic-native system prompt and does **not**
 inject `AGENTS.md`, `CLAUDE.md`, repo maps, repo context, or skills. Use `--include-instruction-docs`,
 `--include-repo-context`, `--include-repo-map`, `--include-skills`, or `--agent project` when you want richer project

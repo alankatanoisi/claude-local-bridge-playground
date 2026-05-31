@@ -34,6 +34,18 @@ describe('runner safety helpers', () => {
     assert.equal(safety.scrubSecrets('hello world'), 'hello world');
   });
 
+  it('does not corrupt code strings that contain token= text', () => {
+    const line = "nested: { text: 'token=' + key },";
+    assert.equal(safety.scrubSecrets(line), line);
+  });
+
+  it('preserves quote delimiters around assignment-style secrets', () => {
+    assert.equal(safety.scrubSecrets("TOKEN='supersecret'"), "TOKEN='[REDACTED]'");
+    assert.equal(safety.scrubSecrets('PASSWORD="supersecret"'), 'PASSWORD="[REDACTED]"');
+    assert.equal(safety.scrubSecrets('API_KEY=supersecret'), 'API_KEY=[REDACTED]');
+    assert.equal(safety.scrubSecrets('const TOKEN="supersecret";'), 'const TOKEN="[REDACTED]";');
+  });
+
   it('buildSafeEnv strips credential variables', () => {
     const oldAws = process.env.AWS_ACCESS_KEY_ID;
     const oldAnthropic = process.env.ANTHROPIC_API_KEY;
@@ -117,6 +129,21 @@ describe('runner secret redaction integration', () => {
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('normal'));
     assert.ok(result.text.includes('[REDACTED:anthropic_key]'));
+    assert.ok(!result.text.includes(ANTHROPIC_KEY));
+  });
+
+  it('marks redacted tool output so the model knows it is not byte-exact', async () => {
+    const filePath = path.join(tmpDir, 'redacted-code.js');
+    fs.writeFileSync(filePath, "const fixture = 'token=' + fakeKey;\nconst key = '" + ANTHROPIC_KEY + "';\n");
+
+    const ctx = { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) };
+    const result = await execute('read_file', { path: 'redacted-code.js' }, ctx, 'tu-test');
+
+    assert.equal(result.ok, true);
+    assert.equal(result.redacted, true);
+    assert.ok(result.text.startsWith('[runner notice: this tool output was redacted for safety.'));
+    assert.ok(result.text.includes("const fixture = 'token=' + fakeKey;"));
+    assert.ok(result.envelope.safetyTags.includes('redacted_tool_output'));
     assert.ok(!result.text.includes(ANTHROPIC_KEY));
   });
 

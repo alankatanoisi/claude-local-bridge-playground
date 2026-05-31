@@ -545,6 +545,9 @@ async function main() {
     systemPromptFile: args.values['system-prompt-file'] || undefined,
     excludeDynamicFromSystem: !!args.values['exclude-dynamic-system-prompt-sections'],
     noSessionPersistence: !!args.values['no-session-persistence'],
+    explicitOptions: {
+      maxSteps: args.values['max-steps'] !== undefined,
+    },
     exposedTools,
   });
 }

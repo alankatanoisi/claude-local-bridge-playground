@@ -166,11 +166,12 @@ function formatAgentList() {
 function applyProfileToRunOptions(profileId, baseOptions = {}) {
   const profile = getProfile(profileId);
   if (!profile) throw new Error('Unknown agent profile: ' + profileId);
+  const explicitOptions = baseOptions.explicitOptions || {};
 
   let merged = {
     ...baseOptions,
     agentProfile: profile.id,
-    maxSteps: profile.maxSteps ?? baseOptions.maxSteps,
+    maxSteps: explicitOptions.maxSteps ? baseOptions.maxSteps : (profile.maxSteps ?? baseOptions.maxSteps),
     plan: profile.plan ?? baseOptions.plan,
     allowShell: profile.allowShell ?? baseOptions.allowShell,
   };

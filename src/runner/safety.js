@@ -141,7 +141,10 @@ const SECRET_PATTERNS = [
   // Generic OAuth-like tokens (ey... base64 JWT headers)
   { pattern: /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, replacement: '[REDACTED:jwt]' },
   // Lines containing explicit secret assignment
-  { pattern: /^(.*(?:SECRET|TOKEN|PASSWORD|API.?KEY)\s*=\s*)[^\s]+/gim, replacement: '$1[REDACTED]' },
+  {
+    pattern: /^(\s*.*(?:SECRET|TOKEN|PASSWORD|API.?KEY)\s*=\s*)(['"]?)([^\s'";,)}]+)(\2)/gim,
+    replacement: (_match, prefix, quote, _value, closeQuote) => prefix + quote + '[REDACTED]' + closeQuote,
+  },
 ];
 
 // ---------------------------------------------------------------------------

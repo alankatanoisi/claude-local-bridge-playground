@@ -29,7 +29,7 @@ function normalizeToolResult(raw, meta = {}) {
     bytes: meta.bytes ?? (text ? Buffer.byteLength(text, 'utf8') : 0),
     truncated,
     refreshHint: meta.refreshHint || null,
-    safetyTags: meta.safetyTags || [],
+    safetyTags: meta.safetyTags || raw.safetyTags || [],
     permission: meta.permission || null,
     effect: meta.effect || null,
     timing_ms: meta.timing_ms || 0,

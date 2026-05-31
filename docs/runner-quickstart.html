@@ -821,6 +821,25 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
   --verbose \
   "List the files in this project and summarize what it does. Do not edit files."</code></pre>
 
+        <h3>Create a clean throw-away lab</h3>
+        <pre><code>cd "/Users/alanman/Developer/claude-local-bridge-playground"
+LAB="$(node scripts/create-runner-throwaway-lab.js)"
+node bin/local-bridge-runner.js \
+  --cwd "$LAB" \
+  --agent bench \
+  --trust-workspace \
+  --allow-shell \
+  --accept-edits \
+  --dont-ask \
+  --chaos-ok \
+  --max-steps 24 \
+  "Fix the calculator bug, run npm test, and summarize the result."</code></pre>
+        <p>
+          This helper creates a brand-new timestamped folder under
+          <code>~/Documents/claude-local-bridge-runner-throwaway-labs/</code>, so an old copied repo cannot pollute a
+          tiny smoke test.
+        </p>
+
         <h3>Review code from stdin</h3>
         <pre><code>cat src/server.js | node bin/local-bridge-runner.js \
   "Review this file for potential bugs"</code></pre>
