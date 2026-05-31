@@ -360,6 +360,13 @@ node bin/local-bridge-runner.js "What is 2 + 2?"</code></pre>
               You will see step-by-step progress in stderr as the model calls <code>list_files</code> and
               <code>read_file</code>.
             </p>
+            <p>
+              At the end of every run the runner prints a one-line token/cost summary to stderr, e.g.
+              <code>[runner usage] in=1234 out=567 cache_read=8901 (reuse 78%) ~$0.0123</code>. The dollar
+              amount is an estimate; <code>reuse</code> is the share of prompt tokens served from cache.
+              Use <code>--log-level quiet</code> to hide it or <code>--verbose</code> for a fuller breakdown.
+              The same numbers are saved to the JSONL transcript and to the <code>--human-log</code> file.
+            </p>
           </div>
         </div>
 

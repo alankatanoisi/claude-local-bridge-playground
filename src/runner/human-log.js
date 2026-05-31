@@ -88,6 +88,20 @@ class HumanLog {
     this.appendSection('Final Answer', text || '');
   }
 
+  writeUsage(summary) {
+    if (!summary) return;
+    const body = [
+      'model: ' + (summary.model || 'unknown'),
+      'input tokens: ' + summary.inputTokens,
+      'output tokens: ' + summary.outputTokens,
+      'cache read tokens: ' + summary.cacheReadTokens,
+      'cache creation tokens: ' + summary.cacheCreationTokens,
+      'cache read share: ' + Math.round((summary.cacheReadShare || 0) * 100) + '%',
+      'estimated cost: ~$' + (summary.costUsd || 0).toFixed(4),
+    ].join('\n');
+    this.appendSection('Usage & Cost', body);
+  }
+
   writeError(message, options = {}) {
     const hint = formatHint(options.stopReason || null, {
       rawMessage: message,

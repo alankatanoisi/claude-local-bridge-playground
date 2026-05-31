@@ -51,4 +51,29 @@ describe('transcript', () => {
     t.append({ type: 'test' });
     assert.ok(fs.existsSync(nestedDir));
   });
+
+  it('records a usage event with raw counts and derived fields', () => {
+    const filePath = path.join(tmpDir, 'usage.jsonl');
+    const t = new Transcript(filePath);
+    t.writeFinal('done');
+    t.recordUsage({
+      model: 'claude-sonnet-4-6',
+      inputTokens: 100,
+      outputTokens: 50,
+      cacheReadTokens: 300,
+      cacheCreationTokens: 0,
+      totalInputTokens: 400,
+      costUsd: 0.0012,
+      cacheReadShare: 0.75,
+      oneLine: '[runner usage] in=100 out=50 cache_read=300 (reuse 75%) ~$0.0012',
+    });
+
+    const lines = fs.readFileSync(filePath, 'utf8').trim().split('\n');
+    const usageEvent = lines.map((l) => JSON.parse(l)).find((e) => e.type === 'usage');
+    assert.ok(usageEvent, 'usage event present');
+    assert.equal(usageEvent.inputTokens, 100);
+    assert.equal(usageEvent.cacheReadTokens, 300);
+    assert.equal(usageEvent.costUsd, 0.0012);
+    assert.equal(usageEvent.cacheReadShare, 0.75);
+  });
 });
