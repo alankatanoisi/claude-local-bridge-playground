@@ -9,6 +9,8 @@ const safety = require('./runner/safety');
 const TRACE_LEVELS = new Set(['off', 'summary', 'redacted', 'full']);
 const SENSITIVE_KEY_PATTERN =
   /authorization|x-api-key|cookie|(?:^|[_-])token(?:$|[_-])|secret|password|access[_-]?key/i;
+const STABLE_IDENTIFIER_KEY_PATTERN =
+  /^[a-z0-9_.-]*(?:device|machine|organization|org|account|session)[_-]?(?:id|uuid)$/i;
 const PREVIEW_BYTES = 20000;
 
 function normalizeTraceLevel(level) {
@@ -42,9 +44,13 @@ function defaultBridgeTracePath(traceId) {
 // This redactor keeps a trace useful without writing common credentials to disk.
 // The `full` level intentionally keeps prompt and source-code payloads intact,
 // but auth/header/key-looking fields are still replaced in every trace level.
+// Stable telemetry identifiers are treated more like auth than code: if the
+// value is labeled as a device/account/org/session id, keeping it rarely helps
+// debug the runner and can make a trace identify the local machine or account.
 function redactValue(value, options = {}) {
   if (value === null || value === undefined) return value;
-  if (typeof value === 'string') return options.full ? value : safety.scrubSecrets(value);
+  if (typeof value === 'string')
+    return options.full ? safety.scrubStableIdentifiers(value) : safety.scrubSecrets(value);
   if (Array.isArray(value)) return value.map((item) => redactValue(item, options));
   if (typeof value !== 'object') return value;
 
@@ -52,6 +58,8 @@ function redactValue(value, options = {}) {
   for (const [key, item] of Object.entries(value)) {
     if (SENSITIVE_KEY_PATTERN.test(key)) {
       out[key] = '[REDACTED:key]';
+    } else if (STABLE_IDENTIFIER_KEY_PATTERN.test(key)) {
+      out[key] = '[REDACTED:stable_identifier]';
     } else {
       out[key] = redactValue(item, options);
     }

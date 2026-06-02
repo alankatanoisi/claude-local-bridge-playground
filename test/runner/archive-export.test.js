@@ -75,6 +75,43 @@ describe('archive export', () => {
     assert.ok(hits.some((h) => h.runId === runId));
   });
 
+  it('redacts stable telemetry identifiers from archive payloads while keeping local session lookup ids', () => {
+    const stableId = '123e4567-e89b-42d3-a456-426614174000';
+    const runId = 'stable-redaction-' + Date.now();
+    const collector = new RunArchiveCollector({
+      runId,
+      sessionId: 'local-session-kept',
+      cwd: '/tmp/project',
+      model: 'claude-test',
+      prompt: 'debug account_uuid=' + stableId,
+    });
+    collector.recordUser('debug account_uuid=' + stableId, '');
+    collector.recordTool(
+      1,
+      'read_file',
+      'toolu_debug_123456789',
+      { path: 'notes.txt', deviceId: stableId },
+      { ok: true, text: 'device_id=' + stableId, bytes: 10 },
+    );
+    finalizeArchiveExport(collector, {
+      stopReason: 'success',
+      finalText: 'organization_uuid=' + stableId,
+      steps: 1,
+      duration_ms: 10,
+      usage: {},
+    });
+
+    const rdir = runDir(runId);
+    const meta = JSON.parse(fs.readFileSync(path.join(rdir, 'meta.json'), 'utf8'));
+    const outcomeText = fs.readFileSync(path.join(rdir, 'outcome.json'), 'utf8');
+    const turnText = fs.readFileSync(path.join(turnsDir(runId), '002-tool-read_file-toolu_de.json'), 'utf8');
+    const allWrittenText = fs.readFileSync(path.join(rdir, 'meta.json'), 'utf8') + outcomeText + turnText;
+
+    assert.equal(meta.sessionId, 'local-session-kept');
+    assert.ok(allWrittenText.includes('[REDACTED:stable_identifier]'));
+    assert.ok(!allWrittenText.includes(stableId));
+  });
+
   it('ingestLegacyFile imports jsonl transcript', () => {
     const logDir = legacyLogsDir();
     fs.mkdirSync(logDir, { recursive: true });

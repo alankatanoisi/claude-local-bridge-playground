@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { Transcript, redactHeaders } = require('../../src/runner/transcript');
+const { Transcript, redactEvent, redactHeaders } = require('../../src/runner/transcript');
 
 describe('transcript', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'transcript-'));
@@ -27,6 +27,29 @@ describe('transcript', () => {
     const headers = { 'content-type': 'application/json' };
     const redacted = redactHeaders(headers);
     assert.equal(redacted['content-type'], 'application/json');
+  });
+
+  it('redacts stable telemetry identifiers in headers and nested transcript events', () => {
+    const stableId = '123e4567-e89b-42d3-a456-426614174000';
+    const redacted = redactEvent({
+      type: 'request',
+      text: 'organization_uuid=' + stableId,
+      headers: {
+        'x-device-id': stableId,
+        'x-local-bridge-run-id': 'run_debug_123',
+      },
+      request: {
+        headers: {
+          'x-session-id': stableId,
+        },
+      },
+    });
+
+    assert.equal(redacted.headers['x-device-id'], '[REDACTED:stable_identifier]');
+    assert.equal(redacted.headers['x-local-bridge-run-id'], 'run_debug_123');
+    assert.equal(redacted.request.headers['x-session-id'], '[REDACTED:stable_identifier]');
+    assert.ok(redacted.text.includes('organization_uuid=[REDACTED:stable_identifier]'));
+    assert.ok(!JSON.stringify(redacted).includes(stableId));
   });
 
   it('writes JSONL events', () => {

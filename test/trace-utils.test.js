@@ -35,6 +35,26 @@ describe('trace utils', () => {
     assert.ok(!JSON.stringify(payload).includes(key));
   });
 
+  it('redacts stable telemetry identifiers while preserving local trace breadcrumbs', () => {
+    const deviceId = '123e4567-e89b-42d3-a456-426614174000';
+    const localTraceId = 'trace_local_debug_123';
+    const payload = redactValue(
+      {
+        trace_id: localTraceId,
+        deviceId,
+        nested: {
+          text: 'organization_uuid=' + deviceId + ' bare ' + deviceId,
+        },
+      },
+      { full: true },
+    );
+
+    assert.equal(payload.trace_id, localTraceId);
+    assert.equal(payload.deviceId, '[REDACTED:stable_identifier]');
+    assert.ok(payload.nested.text.includes('organization_uuid=[REDACTED:stable_identifier]'));
+    assert.ok(payload.nested.text.includes('bare ' + deviceId));
+  });
+
   it('writes JSONL events for a local flight recorder', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'trace-jsonl-'));
     const filePath = path.join(tmpDir, 'trace.jsonl');

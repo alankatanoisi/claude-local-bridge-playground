@@ -30,6 +30,19 @@ describe('runner safety helpers', () => {
     assert.ok(text.includes('Bearer [REDACTED]'));
   });
 
+  it('scrubs labeled stable telemetry identifiers but keeps unlabeled UUID breadcrumbs', () => {
+    const accountUuid = '123e4567-e89b-42d3-a456-426614174000';
+    const localRunUuid = '987e6543-e21b-45d3-b654-426614174999';
+    const text = safety.scrubSecrets(
+      'account_uuid=' + accountUuid + ' local_run_id_for_debug=' + localRunUuid + ' bare ' + localRunUuid,
+    );
+
+    assert.ok(text.includes('account_uuid=[REDACTED:stable_identifier]'));
+    assert.ok(text.includes('local_run_id_for_debug=' + localRunUuid));
+    assert.ok(text.includes('bare ' + localRunUuid));
+    assert.ok(!text.includes(accountUuid));
+  });
+
   it('leaves normal text unchanged', () => {
     assert.equal(safety.scrubSecrets('hello world'), 'hello world');
   });

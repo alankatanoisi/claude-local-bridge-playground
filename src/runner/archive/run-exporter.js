@@ -3,16 +3,19 @@
 const fs = require('fs');
 const path = require('path');
 const safety = require('../safety');
-const { buildTurnEnvelope, turnFilename, scrubTurnObject } = require('./turn-schema');
+const { buildTurnEnvelope, turnFilename } = require('./turn-schema');
 const { runDir, turnsDir } = require('./paths');
 const { upsertCatalogEntry } = require('./indexer');
 const { updateSessionRollup } = require('./session-rollup');
+
+const ARCHIVE_ROOT_ID_OPTIONS = { preserveRootStableIdentifierKeys: ['sessionId'] };
 
 function promptPreview(text, max = 200) {
   const s = String(text || '')
     .replace(/\s+/g, ' ')
     .trim();
-  return s.length <= max ? s : s.slice(0, max) + '…';
+  const preview = s.length <= max ? s : s.slice(0, max) + '…';
+  return safety.scrubSecrets(preview);
 }
 
 function writeTurnFiles(collector) {
@@ -31,7 +34,10 @@ function writeTurnFiles(collector) {
       input: turn.input,
       output: turn.output,
     });
-    const scrubbed = scrubTurnObject(envelope, safety.scrubSecrets);
+    // Turn files can contain model text, tool output, and tool arguments. We
+    // keep the JSON shape intact for archive viewers, then cover sensitive
+    // string values before writing the file.
+    const scrubbed = safety.scrubObject(envelope, safety.scrubSecrets, ARCHIVE_ROOT_ID_OPTIONS);
     const fname = turnFilename(turn.seq, turn.kind, turn.toolName, turn.toolUseId);
     const fpath = path.join(tdir, fname);
     fs.writeFileSync(fpath, JSON.stringify(scrubbed, null, 2) + '\n', 'utf8');
@@ -50,59 +56,69 @@ function finalizeArchiveExport(collector, resultPatch = {}) {
   fs.mkdirSync(rdir, { recursive: true });
 
   const turnFiles = writeTurnFiles(collector);
-  const outcome = collector.outcome || {
-    stopReason: resultPatch.stopReason || 'unknown',
-    finalText: resultPatch.finalText || '',
-    steps: resultPatch.steps ?? 0,
-    duration_ms: resultPatch.duration_ms ?? 0,
-    usage: resultPatch.usage || {},
-    estimatedCostUsd: resultPatch.estimatedCostUsd ?? null,
-  };
+  const outcome = safety.scrubObject(
+    collector.outcome || {
+      stopReason: resultPatch.stopReason || 'unknown',
+      finalText: resultPatch.finalText || '',
+      steps: resultPatch.steps ?? 0,
+      duration_ms: resultPatch.duration_ms ?? 0,
+      usage: resultPatch.usage || {},
+      estimatedCostUsd: resultPatch.estimatedCostUsd ?? null,
+    },
+  );
 
-  const meta = {
-    schemaVersion: 1,
-    runId,
-    sessionId: collector.meta.sessionId,
-    cwd: collector.meta.cwd,
-    model: collector.meta.model,
-    promptPreview: promptPreview(collector.meta.prompt),
-    flags: collector.meta.flags,
-    agentProfile: collector.meta.agentProfile,
-    source: collector.meta.source,
-    coordinator: collector.meta.coordinator,
-    startedAt: collector.meta.startedAt,
-    endedAt,
-    turnCount: collector.turns.length,
-    turnFiles,
-  };
+  const meta = safety.scrubObject(
+    {
+      schemaVersion: 1,
+      runId,
+      sessionId: collector.meta.sessionId,
+      cwd: collector.meta.cwd,
+      model: collector.meta.model,
+      promptPreview: promptPreview(collector.meta.prompt),
+      flags: collector.meta.flags,
+      agentProfile: collector.meta.agentProfile,
+      source: collector.meta.source,
+      coordinator: collector.meta.coordinator,
+      startedAt: collector.meta.startedAt,
+      endedAt,
+      turnCount: collector.turns.length,
+      turnFiles,
+    },
+    safety.scrubSecrets,
+    ARCHIVE_ROOT_ID_OPTIONS,
+  );
 
-  const sources = {
+  const sources = safety.scrubObject({
     transcriptPath: resultPatch.transcriptPath || collector.meta.transcriptPath,
     tracePath: resultPatch.tracePath || collector.meta.tracePath,
     sessionPath: resultPatch.sessionPath || collector.meta.sessionPath,
     ledgerPath: resultPatch.ledgerPath || collector.meta.ledgerPath,
-  };
+  });
 
   fs.writeFileSync(path.join(rdir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n', 'utf8');
   fs.writeFileSync(path.join(rdir, 'outcome.json'), JSON.stringify(outcome, null, 2) + '\n', 'utf8');
   fs.writeFileSync(path.join(rdir, 'sources.json'), JSON.stringify(sources, null, 2) + '\n', 'utf8');
 
-  const catalogEntry = {
-    runId,
-    sessionId: collector.meta.sessionId,
-    cwd: collector.meta.cwd,
-    model: collector.meta.model,
-    source: collector.meta.source,
-    startedAt: collector.meta.startedAt,
-    endedAt,
-    stopReason: outcome.stopReason,
-    promptPreview: meta.promptPreview,
-    steps: outcome.steps,
-    duration_ms: outcome.duration_ms,
-    estimatedCostUsd: outcome.estimatedCostUsd,
-    turnCount: meta.turnCount,
-    agentProfile: collector.meta.agentProfile,
-  };
+  const catalogEntry = safety.scrubObject(
+    {
+      runId,
+      sessionId: collector.meta.sessionId,
+      cwd: collector.meta.cwd,
+      model: collector.meta.model,
+      source: collector.meta.source,
+      startedAt: collector.meta.startedAt,
+      endedAt,
+      stopReason: outcome.stopReason,
+      promptPreview: meta.promptPreview,
+      steps: outcome.steps,
+      duration_ms: outcome.duration_ms,
+      estimatedCostUsd: outcome.estimatedCostUsd,
+      turnCount: meta.turnCount,
+      agentProfile: collector.meta.agentProfile,
+    },
+    safety.scrubSecrets,
+    ARCHIVE_ROOT_ID_OPTIONS,
+  );
 
   upsertCatalogEntry(catalogEntry, !!resultPatch.replaceCatalog);
   if (collector.meta.sessionId) {

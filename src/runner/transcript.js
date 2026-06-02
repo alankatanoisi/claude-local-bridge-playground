@@ -12,8 +12,20 @@
 
 const fs = require('fs');
 const path = require('path');
+const safety = require('./safety');
 
 const SENSITIVE_KEYS = ['authorization', 'x-api-key', 'cookie', 'set-cookie'];
+const STABLE_IDENTIFIER_HEADER_PATTERN =
+  /^[a-z0-9_.-]*(?:device|machine|organization|org|account|session)[_-]?(?:id|uuid)$/i;
+
+function isStableIdentifierHeader(name) {
+  const lower = String(name || '').toLowerCase();
+  // The runner's own trace headers are local breadcrumbs that let a human match
+  // transcript lines to trace files. They are not upstream account telemetry,
+  // so we keep them to preserve debugging value.
+  if (lower.startsWith('x-local-bridge-')) return false;
+  return STABLE_IDENTIFIER_HEADER_PATTERN.test(lower);
+}
 
 function redactHeaders(headers) {
   if (!headers || typeof headers !== 'object') return headers;
@@ -22,15 +34,17 @@ function redactHeaders(headers) {
     const lower = k.toLowerCase();
     if (SENSITIVE_KEYS.includes(lower) && typeof v === 'string') {
       out[k] = v.length > 16 ? v.slice(0, 8) + '…REDACTED…' + v.slice(-4) : '…REDACTED…';
+    } else if (isStableIdentifierHeader(lower) && typeof v === 'string') {
+      out[k] = '[REDACTED:stable_identifier]';
     } else {
-      out[k] = v;
+      out[k] = typeof v === 'string' ? safety.scrubSecrets(v) : v;
     }
   }
   return out;
 }
 
 function redactEvent(event) {
-  const copy = { ...event };
+  const copy = safety.scrubObject(event);
   if (copy.headers) {
     copy.headers = redactHeaders(copy.headers);
   }
@@ -78,4 +92,4 @@ class Transcript {
   }
 }
 
-module.exports = { Transcript, redactHeaders };
+module.exports = { Transcript, redactEvent, redactHeaders };

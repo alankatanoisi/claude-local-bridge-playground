@@ -117,6 +117,30 @@ const DENY_MATRIX_PATTERNS = [
 // Secret redaction patterns
 // ---------------------------------------------------------------------------
 
+// These are not "passwords", but they can still tie logs back to a person,
+// device, account, organization, or long-lived session. We only redact them
+// when nearby text says what the value is (for example "device_id=...").
+// That keeps ordinary UUIDs useful for debugging local runs.
+const STABLE_IDENTIFIER_VALUE =
+  '(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|[A-Za-z0-9][A-Za-z0-9._-]{15,})';
+
+const STABLE_IDENTIFIER_KEY = '[a-z0-9_.-]*(?:device|machine|organization|org|account|session)[_-]?(?:id|uuid)';
+const STABLE_IDENTIFIER_KEY_PATTERN = new RegExp('^' + STABLE_IDENTIFIER_KEY + '$', 'i');
+
+const STABLE_IDENTIFIER_PATTERNS = [
+  {
+    // Matches JSON, headers, and simple assignments:
+    //   "deviceId": "abc..."
+    //   organization_uuid=abc...
+    //   x-session-id: abc...
+    pattern: new RegExp(
+      '((?:["\\\']?)' + STABLE_IDENTIFIER_KEY + '(?:["\\\']?)\\s*[:=]\\s*)(["\\\']?)' + STABLE_IDENTIFIER_VALUE + '\\2',
+      'gi',
+    ),
+    replacement: (_match, prefix, quote) => prefix + quote + '[REDACTED:stable_identifier]' + quote,
+  },
+];
+
 const SECRET_PATTERNS = [
   // Private key blocks (multi-line)
   {
@@ -275,6 +299,26 @@ function confinePath(ctx, inputPath) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Replace stable telemetry-style identifiers when they are labeled in text.
+ * This is intentionally narrower than "redact every UUID" because local run
+ * ids, tool ids, and file names are useful breadcrumbs when debugging.
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+function scrubStableIdentifiers(text) {
+  if (!text || typeof text !== 'string') return text;
+  for (const { pattern, replacement } of STABLE_IDENTIFIER_PATTERNS) {
+    text = text.replace(pattern, replacement);
+  }
+  return text;
+}
+
+function isStableIdentifierKey(key) {
+  return STABLE_IDENTIFIER_KEY_PATTERN.test(String(key || ''));
+}
+
+/**
  * Replace secrets in a text string with redaction markers.
  * Used on all tool results before they enter messages or transcripts.
  *
@@ -283,10 +327,41 @@ function confinePath(ctx, inputPath) {
  */
 function scrubSecrets(text) {
   if (!text || typeof text !== 'string') return text;
+  text = scrubStableIdentifiers(text);
   for (const { pattern, replacement } of SECRET_PATTERNS) {
     text = text.replace(pattern, replacement);
   }
   return text;
+}
+
+/**
+ * Walk through arrays and plain objects, scrubbing any string values found
+ * inside. Think of this like checking every drawer in a filing cabinet: the
+ * shape of the object stays the same, but sensitive text inside gets covered.
+ *
+ * @param {*} value
+ * @param {(text: string) => string} scrubFn
+ * @param {{preserveRootStableIdentifierKeys?: string[]}} options
+ * @returns {*}
+ */
+function scrubObject(value, scrubFn = scrubSecrets, options = {}, parentKey = null, depth = 0) {
+  if (typeof value === 'string') {
+    const preserveRootKeys = options.preserveRootStableIdentifierKeys || [];
+    const isPreservedRootKey = depth === 1 && preserveRootKeys.includes(parentKey);
+    if (isStableIdentifierKey(parentKey) && !isPreservedRootKey) {
+      return '[REDACTED:stable_identifier]';
+    }
+    return scrubFn(value);
+  }
+  if (Array.isArray(value)) return value.map((item) => scrubObject(item, scrubFn, options, parentKey, depth + 1));
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [key, item] of Object.entries(value)) {
+      out[key] = scrubObject(item, scrubFn, options, key, depth + 1);
+    }
+    return out;
+  }
+  return value;
 }
 
 // ---------------------------------------------------------------------------
@@ -377,6 +452,8 @@ module.exports = {
   validateCwd,
   confinePath,
   scrubSecrets,
+  scrubStableIdentifiers,
+  scrubObject,
   buildSafeEnv,
   isPathBlockedByDenyMatrix,
   cachedRealpathSync,
