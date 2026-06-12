@@ -466,6 +466,52 @@
         padding-bottom: 0.2rem;
         margin-top: 0.25rem;
       }
+
+      details.advanced-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        margin-bottom: 1rem;
+      }
+      details.advanced-panel > summary {
+        cursor: pointer;
+        padding: 1rem 1.4rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text);
+        list-style: none;
+      }
+      details.advanced-panel > summary::-webkit-details-marker {
+        display: none;
+      }
+      details.advanced-panel > summary::before {
+        content: '▸ ';
+        color: var(--muted);
+      }
+      details.advanced-panel[open] > summary::before {
+        content: '▾ ';
+      }
+      details.advanced-panel .advanced-body {
+        padding: 0 1.4rem 1.2rem;
+        border-top: 1px solid var(--border);
+      }
+      details.advanced-panel .advanced-body .card {
+        background: transparent;
+        border: none;
+        padding: 1rem 0 0;
+        margin-bottom: 0;
+      }
+      details.advanced-panel .advanced-body .card + .card {
+        border-top: 1px solid var(--border);
+        margin-top: 0.5rem;
+        padding-top: 1rem;
+      }
+
+      .style-hint {
+        font-size: 0.78rem;
+        color: var(--muted);
+        margin-top: 0.35rem;
+      }
     </style>
   </head>
   <body>
@@ -490,128 +536,113 @@
             <ul class="guide-list">
               <li>Start with a small objective and say whether files may be changed.</li>
               <li>Use a target project folder when the runner code and the folder under review are different.</li>
-              <li>Use the generated command in Terminal after the local bridge is already running.</li>
+              <li>Copy the command into <strong>Terminal</strong> after the local bridge is already running.</li>
               <li>
-                Prefer minimal context first; opt into richer prompts, shell, or advanced patching only when useful.
+                All CLI flags are listed in Terminal:
+                <code>node bin/local-bridge-runner.js --help</code>
               </li>
             </ul>
-            <hr class="divider" />
-            <div class="field">
-              <label for="promptTemplate">Prompt template</label>
-              <select id="promptTemplate">
-                <option value="">none</option>
-                <option value="explore">explore — read-only orientation</option>
-                <option value="review">review — findings-first code review</option>
-                <option value="cleanup">cleanup — simplify while preserving behavior</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="customPromptTemplate">Custom template name or path</label>
-              <input
-                type="text"
-                id="customPromptTemplate"
-                placeholder=".bridge-runner/prompts/my-template.md or my-template"
-              />
-            </div>
-            <div class="note show">
-              Templates prepend reusable instructions to the user request with <code>--prompt-template</code>. Project
-              templates live in <code>.bridge-runner/prompts/</code>; global templates live in
-              <code>~/.bridge-runner/prompts/</code>.
-            </div>
-          </div>
-
-          <!-- Attachments -->
-          <div class="card">
-            <h2>Attach files</h2>
-            <div class="field">
-              <label for="attachmentMode">Attachment mode</label>
-              <select id="attachmentMode">
-                <option value="read">Ask model to read these project paths</option>
-                <option value="include">Include file contents with --include-file</option>
-                <option value="stdin">Pipe file contents through stdin</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="attachedPaths">Relative file paths</label>
-              <textarea id="attachedPaths" placeholder="src/server.js&#10;README.md"></textarea>
-            </div>
-            <div id="attachmentNote" class="note"></div>
           </div>
 
           <!-- Presets -->
           <div class="card">
             <h2>Quick presets</h2>
+            <p class="style-hint">Pick a starting point, then adjust permission style or folders below.</p>
             <div class="presets" id="presets">
-              <button class="preset-btn" data-preset="minimal">Minimal context</button>
-              <button class="preset-btn" data-preset="projectContext">Project context</button>
+              <button class="preset-btn" data-preset="minimal">Minimal look-around</button>
               <button class="preset-btn" data-preset="readonly">Read-only exploration</button>
-              <button class="preset-btn" data-preset="session">Session persistence</button>
-              <button class="preset-btn" data-preset="coordinator">Coordinator (playground)</button>
+              <button class="preset-btn" data-preset="plan">Plan first (dry run)</button>
               <button class="preset-btn" data-preset="confirm">Edit with confirmation</button>
               <button class="preset-btn" data-preset="auto">Auto-approve edits</button>
-              <button class="preset-btn" data-preset="full">Full agent + shell</button>
-              <button class="preset-btn" data-preset="plan">Plan mode (dry run)</button>
-              <button class="preset-btn" data-preset="automation">Automation JSON</button>
-              <button class="preset-btn" data-preset="otherfolder">Other local folder</button>
-              <button class="preset-btn" data-preset="freshTask">Fresh task (megathread)</button>
-              <button class="preset-btn" data-preset="resume">Resume session</button>
-              <button class="preset-btn" data-preset="forkBranch">Fork session branch</button>
-              <button class="preset-btn" data-preset="debug">Verbose debug</button>
+              <button class="preset-btn" data-preset="full">Edit + shell</button>
             </div>
           </div>
 
-          <!-- CLI mode -->
-          <div class="card">
-            <h2>CLI mode</h2>
+          <!-- Run settings -->
+          <div class="card" id="permissionCard">
+            <h2>Run settings</h2>
+
             <div class="field">
-              <label for="cliMode">Which binary?</label>
-              <select id="cliMode">
-                <option value="runner">local-bridge-runner.js — single kernel loop</option>
-                <option value="coordinator">local-bridge-coordinator.js — phased top agent (playground)</option>
+              <label for="permissionStyle">What may the runner do?</label>
+              <select id="permissionStyle">
+                <option value="look-only">Look only — read files, no writes</option>
+                <option value="plan-first">Plan first — describe changes, dry-run tools</option>
+                <option value="edit-ask" selected>Edit — ask before each file change</option>
+                <option value="edit-auto">Edit — auto-approve file changes (no shell)</option>
+                <option value="edit-shell">Edit + shell — auto edits and bash (risky)</option>
               </select>
+              <p id="permissionStyleHint" class="style-hint"></p>
             </div>
-            <div id="coordinatorFields" style="display: none">
-              <div class="field">
-                <label for="coordinatorPhases">Phases (comma-separated)</label>
-                <input type="text" id="coordinatorPhases" placeholder="research,synthesize,execute,verify" />
-              </div>
-              <div class="checks">
-                <label class="check-label">
-                  <input type="checkbox" id="noWorkers" checked /> --no-workers (skip background workers)
-                </label>
-              </div>
-            </div>
-          </div>
 
-          <!-- Model & limits -->
-          <div class="card">
-            <h2>Model &amp; limits</h2>
-            <div class="row">
-              <div class="field">
-                <label for="model">Model</label>
-                <select id="model">
-                  <option value="claude-opus-4-8">claude-opus-4-8</option>
-                  <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
-                  <option value="claude-opus-4-7">claude-opus-4-7</option>
-                  <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
-                  <option value="claude-haiku-4-5">claude-haiku-4-5</option>
-                  <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet</option>
-                </select>
-              </div>
+            <input type="checkbox" id="acceptEdits" hidden />
+            <input type="checkbox" id="dontAsk" hidden />
+            <input type="checkbox" id="plan" hidden />
+            <input type="checkbox" id="allowShell" hidden />
+
+            <div id="chaosConflict" class="warn-panel conflict">
+              Blocked combo: shell + auto-edits + no prompts needs <code>--chaos-ok</code> (enable under Advanced or
+              pick Edit + shell preset).
+            </div>
+            <div id="permissionCautions" class="warn-panel caution"></div>
+            <div id="shellWarn" class="shell-warn">
+              &#9888; Shell is on — the model can run Terminal commands in your project folder.
+            </div>
+            <div id="planNote" class="note" style="display: none">
+              Plan mode: the model describes actions instead of executing writes and shell commands.
+            </div>
+
+            <div class="row" style="margin-top: 0.75rem">
               <div class="field">
                 <label for="cwd">Target project folder</label>
                 <input type="text" id="cwd" placeholder="/Users/alanman/path/to/project" />
               </div>
             </div>
             <div class="field">
-              <label for="runnerPath">Runner repo folder</label>
+              <label for="runnerPath">Runner repo folder (where you run the command)</label>
               <input
                 type="text"
                 id="runnerPath"
                 placeholder="/Users/alanman/Developer/claude-local-bridge-playground"
               />
             </div>
-            <div class="row">
+          </div>
+
+          <details class="advanced-panel" id="advancedPanel">
+            <summary>Advanced options</summary>
+            <div class="advanced-body">
+              <!-- Attachments -->
+              <div class="card">
+                <h2>Attach files</h2>
+                <div class="field">
+                  <label for="attachmentMode">Attachment mode</label>
+                  <select id="attachmentMode">
+                    <option value="read">Ask model to read these project paths</option>
+                    <option value="include">Include file contents with --include-file</option>
+                    <option value="stdin">Pipe file contents through stdin</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="attachedPaths">Relative file paths</label>
+                  <textarea id="attachedPaths" placeholder="src/server.js&#10;README.md"></textarea>
+                </div>
+                <div id="attachmentNote" class="note"></div>
+              </div>
+
+              <!-- Model & limits -->
+              <div class="card">
+                <h2>Model &amp; limits</h2>
+                <div class="field">
+                  <label for="model">Model</label>
+                  <select id="model">
+                    <option value="claude-sonnet-4-6" selected>claude-sonnet-4-6 (default)</option>
+                    <option value="claude-opus-4-8">claude-opus-4-8</option>
+                    <option value="claude-opus-4-7">claude-opus-4-7</option>
+                    <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
+                    <option value="claude-haiku-4-5">claude-haiku-4-5</option>
+                    <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet</option>
+                  </select>
+                </div>
+                <div class="row">
               <div class="field">
                 <label for="maxSteps">Max steps</label>
                 <input type="number" id="maxSteps" value="16" min="1" max="200" />
@@ -634,102 +665,93 @@
                 <input type="number" id="maxContextTokens" placeholder="optional" min="1000" step="1000" />
               </div>
             </div>
-            <div class="field">
-              <label for="maxToolCalls">Max tool calls in one turn</label>
-              <input type="number" id="maxToolCalls" placeholder="optional" min="1" max="100" />
-            </div>
-          </div>
-
-          <!-- Permission flags -->
-          <div class="card" id="permissionCard">
-            <h2>Permission flags</h2>
-
-            <div id="chaosConflict" class="warn-panel conflict">
-              Blocked combo: <code>--allow-shell</code> + <code>--accept-edits</code> + <code>--dont-ask</code> requires
-              <code>--chaos-ok</code> (runner will refuse to start).
-            </div>
-            <div id="permissionCautions" class="warn-panel caution"></div>
-
-            <div class="checks" id="permissionChecks">
-              <label class="check-label" id="acceptEditsRow">
-                <input type="checkbox" id="acceptEdits" /> --accept-edits
-              </label>
-              <label class="check-label" id="dontAskRow"> <input type="checkbox" id="dontAsk" /> --dont-ask </label>
-              <label class="check-label"> <input type="checkbox" id="stream" /> --stream </label>
-              <label class="check-label"> <input type="checkbox" id="verbose" /> --verbose </label>
-              <label class="check-label" id="planRow"> <input type="checkbox" id="plan" /> --plan </label>
-              <label class="check-label" id="noNetworkRow">
-                <input type="checkbox" id="noNetwork" /> --no-network
-              </label>
-            </div>
-
-            <div class="field">
-              <label for="outputFormat">Output format</label>
-              <select id="outputFormat">
-                <option value="text">text — normal terminal output</option>
-                <option value="json">json — one final JSON object</option>
-                <option value="stream-json">stream-json — parseable JSON lines</option>
-              </select>
-            </div>
-
-            <div class="field" style="margin-top: 0.5rem">
-              <label for="systemPrompt">Custom system prompt</label>
-              <input type="text" id="systemPrompt" placeholder="Override the built-in system prompt (optional)" />
-            </div>
-            <div class="row runner-only-block">
-              <div class="field">
-                <label for="systemPromptFile">System prompt file</label>
-                <input type="text" id="systemPromptFile" placeholder=".bridge-runner/SYSTEM.md" />
+                <div class="field">
+                  <label for="maxToolCalls">Max tool calls in one turn</label>
+                  <input type="number" id="maxToolCalls" placeholder="optional" min="1" max="100" />
+                </div>
               </div>
-              <div class="field">
-                <label for="appendSystemPromptFile">Append prompt file</label>
-                <input type="text" id="appendSystemPromptFile" placeholder=".bridge-runner/APPEND_SYSTEM.md" />
-              </div>
-            </div>
-            <div class="field runner-only-block">
-              <label for="appendSystemPrompt">Append system prompt text</label>
-              <input type="text" id="appendSystemPrompt" placeholder="Extra rules to add after the default prompt" />
-            </div>
 
-            <div class="toggle-row">
-              <div>
-                <span>Allow shell</span>
-                <span class="detail">&nbsp;(bash tool)</span>
+              <!-- Prompt templates -->
+              <div class="card">
+                <h2>Prompt templates</h2>
+                <div class="field">
+                  <label for="promptTemplate">Built-in template</label>
+                  <select id="promptTemplate">
+                    <option value="">none</option>
+                    <option value="explore">explore — read-only orientation</option>
+                    <option value="review">review — findings-first code review</option>
+                    <option value="cleanup">cleanup — simplify while preserving behavior</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="customPromptTemplate">Custom template name or path</label>
+                  <input
+                    type="text"
+                    id="customPromptTemplate"
+                    placeholder=".bridge-runner/prompts/my-template.md or my-template"
+                  />
+                </div>
               </div>
-              <label class="toggle">
-                <input type="checkbox" id="allowShell" />
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div id="shellWarn" class="shell-warn">
-              &#9888; Enables the model to run shell commands. Use with caution.
-            </div>
-            <div id="planNote" class="note" style="display: none">
-              Plan mode: the model will describe actions instead of executing writes and shell commands.
-            </div>
 
-            <div class="field runner-only-block" style="margin-top: 0.5rem" id="shellTimeoutRow">
-              <label for="shellTimeout">Shell timeout (ms)</label>
-              <input type="number" id="shellTimeout" value="30000" min="100" max="120000" step="1000" />
-            </div>
-            <div class="row">
-              <div class="field">
-                <label for="confirmTimeout">Approval timeout (ms)</label>
-                <input type="number" id="confirmTimeout" placeholder="optional" min="1000" step="1000" />
+              <!-- Output & prompts -->
+              <div class="card">
+                <h2>Output &amp; logging</h2>
+                <div class="checks">
+                  <label class="check-label"> <input type="checkbox" id="stream" /> --stream </label>
+                  <label class="check-label"> <input type="checkbox" id="verbose" /> --verbose </label>
+                  <label class="check-label" id="noNetworkRow">
+                    <input type="checkbox" id="noNetwork" /> --no-network (shell guard)
+                  </label>
+                </div>
+                <div class="field">
+                  <label for="outputFormat">Output format</label>
+                  <select id="outputFormat">
+                    <option value="text">text — normal terminal output</option>
+                    <option value="json">json — one final JSON object</option>
+                    <option value="stream-json">stream-json — parseable JSON lines</option>
+                  </select>
+                </div>
+                <div class="row">
+                  <div class="field">
+                    <label for="confirmTimeout">Approval timeout (ms)</label>
+                    <input type="number" id="confirmTimeout" placeholder="optional" min="1000" step="1000" />
+                  </div>
+                  <div class="field">
+                    <label for="logLevel">Runtime messages</label>
+                    <select id="logLevel">
+                      <option value="">normal</option>
+                      <option value="verbose">verbose</option>
+                      <option value="quiet">quiet</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field" style="margin-top: 0.5rem">
+                  <label for="systemPrompt">Custom system prompt</label>
+                  <input type="text" id="systemPrompt" placeholder="Override the built-in system prompt (optional)" />
+                </div>
+                <div class="row">
+                  <div class="field">
+                    <label for="systemPromptFile">System prompt file</label>
+                    <input type="text" id="systemPromptFile" placeholder=".bridge-runner/SYSTEM.md" />
+                  </div>
+                  <div class="field">
+                    <label for="appendSystemPromptFile">Append prompt file</label>
+                    <input type="text" id="appendSystemPromptFile" placeholder=".bridge-runner/APPEND_SYSTEM.md" />
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="appendSystemPrompt">Append system prompt text</label>
+                  <input type="text" id="appendSystemPrompt" placeholder="Extra rules to add after the default prompt" />
+                </div>
+                <div class="field" id="shellTimeoutRow">
+                  <label for="shellTimeout">Shell timeout (ms)</label>
+                  <input type="number" id="shellTimeout" value="30000" min="100" max="120000" step="1000" />
+                </div>
               </div>
-              <div class="field">
-                <label for="logLevel">Runtime messages</label>
-                <select id="logLevel">
-                  <option value="">normal</option>
-                  <option value="verbose">verbose</option>
-                  <option value="quiet">quiet</option>
-                </select>
-              </div>
-            </div>
 
-            <hr class="divider runner-only-block" />
-
-            <div class="runner-only-block">
+              <!-- Session & context -->
+              <div class="card">
+                <h2>Session &amp; context</h2>
               <p class="subsection-title">Session health</p>
               <div class="checks">
                 <label class="check-label" id="newSessionRow">
@@ -822,17 +844,16 @@
                 <code>--replay</code> and <code>--repair</code> need <code>--session-id</code> or
                 <code>--session-path</code>. They exit without running a normal agent loop.
               </div>
-            </div>
 
-            <div class="field runner-only-block">
-              <label for="sessionId">Session id (playground)</label>
+            <div class="field">
+              <label for="sessionId">Session id</label>
               <input type="text" id="sessionId" placeholder="my-run-1" />
             </div>
-            <div class="field runner-only-block">
+            <div class="field">
               <label for="sessionPath">Session path (optional override)</label>
               <input type="text" id="sessionPath" placeholder="~/.bridge-runner/sessions/my-run-1.state.json" />
             </div>
-            <div class="checks runner-only-block" style="margin-top: 0.5rem">
+            <div class="checks" style="margin-top: 0.5rem">
               <label class="check-label">
                 <input type="checkbox" id="trustedWorkspace" /> --trusted-workspace (enable project hooks)
               </label>
@@ -873,28 +894,28 @@
               </div>
             </div>
 
-            <div class="field runner-only-block">
+            <div class="field">
               <label for="resumePath">Resume from transcript</label>
               <input type="text" id="resumePath" placeholder="~/.bridge-runner/logs/last.jsonl" />
             </div>
 
-            <div class="checks runner-only-block" style="margin-top: 0.5rem">
+            <div class="checks" style="margin-top: 0.5rem">
               <label class="check-label" id="continueRow">
                 <input type="checkbox" id="continueFromLatest" /> --continue (auto-resume from latest)
               </label>
             </div>
 
-            <div class="field runner-only-block">
+            <div class="field">
               <label for="transcript">Transcript path</label>
               <input type="text" id="transcript" placeholder="~/.bridge-runner/logs/&lt;timestamp&gt;.jsonl" />
             </div>
 
-            <div class="field runner-only-block">
+            <div class="field">
               <label for="humanLog">Human-readable log path</label>
               <input type="text" id="humanLog" placeholder="~/.bridge-runner/logs/run-notes.md" />
             </div>
 
-            <div class="row runner-only-block">
+            <div class="row">
               <div class="field">
                 <label for="traceLevel">Flight recorder trace level</label>
                 <select id="traceLevel">
@@ -909,31 +930,26 @@
                 <input type="text" id="tracePath" placeholder="~/.bridge-runner/traces/run.runner.jsonl" />
               </div>
             </div>
-            <div class="note show runner-only-block">
+            <div class="note show">
               Traces help debug what the runner built, what the bridge forwarded, tool decisions, usage, and cache
               counters returned by the model. Treat redacted and full traces like source-code logs.
             </div>
-            <div id="traceFullWarn" class="warn-panel caution runner-only-block">
+            <div id="traceFullWarn" class="warn-panel caution">
               <code>--trace-level full</code> can write prompts and source snippets to disk. Use redacted unless you
               need deep debugging.
             </div>
-            <div class="field runner-only-block">
+            <div class="field">
               <label for="bridgeUrl">Bridge URL override</label>
               <input type="text" id="bridgeUrl" placeholder="http://host.docker.internal:11437" />
             </div>
-            <div class="field runner-only-block">
+            <div class="field">
               <label for="callerToken">Caller auth token (optional)</label>
               <input type="text" id="callerToken" placeholder="$BRIDGE_CALLER_TOKEN or local-dev-token" />
             </div>
-            <div class="note show">
-              Leave this blank unless you intentionally enabled caller auth in VS Code settings. If caller auth is on,
-              use <code>$BRIDGE_CALLER_TOKEN</code> after exporting it in Terminal, or paste the local dev token itself.
-              This token only unlocks your local bridge; it is not your upstream Anthropic credential.
-            </div>
-          </div>
+              </div>
 
-          <!-- Tool catalog -->
-          <div class="card runner-only-block" id="toolsCard">
+              <!-- Tool catalog -->
+              <div class="card" id="toolsCard">
             <h2>
               Capability groups
               <span style="font-weight: 400; font-size: 0.75rem; color: var(--muted)">(what the model can use)</span>
@@ -989,7 +1005,9 @@
                 <span><strong>bash</strong><small>Shell commands</small></span>
               </label>
             </div>
-          </div>
+              </div>
+            </div>
+          </details>
         </div>
 
         <!-- ── RIGHT ── COMMAND OUTPUT ── -->
@@ -1012,11 +1030,10 @@
             </p>
           </div>
           <div class="card" style="font-size: 0.8rem; color: var(--muted)">
-            <strong>Tip:</strong> Paste this into your terminal and press Enter. The runner connects through your local
-            bridge at <code style="font-size: 0.75rem">127.0.0.1:11437</code>, but this page is primarily about shaping
-            runner behavior: prompt templates, capability groups, profiles, approvals, traces, and archives. Use the
-            <strong>playground</strong> folder for runner-lab flags such as <code>--session-id</code> and the
-            coordinator CLI. If the bridge says
+            <strong>Tip:</strong> Paste into <strong>Terminal</strong> and press Enter. Bridge:
+            <code style="font-size: 0.75rem">127.0.0.1:11437</code>. Full flag list:
+            <code style="font-size: 0.75rem">node bin/local-bridge-runner.js --help</code> (run from the playground
+            folder). If the bridge says
             <code style="font-size: 0.75rem">Unauthorized: Missing Bearer token</code>, caller auth is enabled; either
             disable it in VS Code settings or set Caller auth token here. Use
             <code style="font-size: 0.75rem">stream-json</code> when another script or agent needs to parse every runner
@@ -1072,10 +1089,6 @@
       const appendSystemPromptFile = document.getElementById('appendSystemPromptFile');
       const continueFromLatest = document.getElementById('continueFromLatest');
       const toolChoices = Array.from(document.querySelectorAll('#toolChoices input[type="checkbox"]'));
-      const cliMode = document.getElementById('cliMode');
-      const coordinatorFields = document.getElementById('coordinatorFields');
-      const coordinatorPhases = document.getElementById('coordinatorPhases');
-      const noWorkers = document.getElementById('noWorkers');
       const sessionId = document.getElementById('sessionId');
       const sessionPath = document.getElementById('sessionPath');
       const trustedWorkspace = document.getElementById('trustedWorkspace');
@@ -1114,18 +1127,11 @@
       const shellTimeoutRow = document.getElementById('shellTimeoutRow');
       const noNetworkRow = document.getElementById('noNetworkRow');
       const ackResumeRiskRow = document.getElementById('ackResumeRiskRow');
-      const runnerOnlyBlocks = Array.from(document.querySelectorAll('.runner-only-block'));
+      const permissionStyle = document.getElementById('permissionStyle');
+      const permissionStyleHint = document.getElementById('permissionStyleHint');
 
       const PLAYGROUND = '/Users/alanman/Developer/claude-local-bridge-playground';
-
-      const DEFAULTS = {
-        maxSteps: 16,
-        maxTokens: 2000,
-        model: 'claude-sonnet-4-6',
-        shellTimeout: 30000,
-        outputFormat: 'text',
-        traceLevel: 'off',
-      };
+      const READ_TOOL_NAMES = ['list_files', 'read_file', 'search_text', 'git_status'];
       const DEFAULT_TOOL_NAMES = [
         'list_files',
         'read_file',
@@ -1136,7 +1142,99 @@
         'undo',
         'undo_edit',
       ];
-      const READ_TOOL_NAMES = ['list_files', 'read_file', 'search_text', 'git_status'];
+
+      const PERMISSION_STYLE_HINTS = {
+        'look-only': 'Read-only tools only. Safest way to explore a repo.',
+        'plan-first': 'The model describes what it would do without writing files or running shell.',
+        'edit-ask': 'Default — you confirm each file change in Terminal.',
+        'edit-auto': 'Skips write confirmations. Shell stays off.',
+        'edit-shell': 'Auto-edits plus bash. Enables --chaos-ok. Use only when you need tests or npm.',
+      };
+
+      const PERMISSION_STYLES = {
+        'look-only': {
+          plan: true,
+          acceptEdits: false,
+          dontAsk: false,
+          allowShell: false,
+          chaosOk: false,
+          noNetwork: false,
+          agentProfile: 'explore',
+          applyTools: true,
+          tools: READ_TOOL_NAMES,
+        },
+        'plan-first': {
+          plan: true,
+          acceptEdits: false,
+          dontAsk: false,
+          allowShell: false,
+          chaosOk: false,
+          noNetwork: false,
+          agentProfile: 'plan',
+        },
+        'edit-ask': {
+          plan: false,
+          acceptEdits: false,
+          dontAsk: false,
+          allowShell: false,
+          chaosOk: false,
+          noNetwork: false,
+          agentProfile: '',
+        },
+        'edit-auto': {
+          plan: false,
+          acceptEdits: true,
+          dontAsk: false,
+          allowShell: false,
+          chaosOk: false,
+          noNetwork: false,
+          agentProfile: 'implement',
+        },
+        'edit-shell': {
+          plan: false,
+          acceptEdits: true,
+          dontAsk: true,
+          allowShell: true,
+          chaosOk: true,
+          noNetwork: true,
+          agentProfile: 'test',
+        },
+      };
+
+      const DEFAULTS = {
+        maxSteps: 16,
+        maxTokens: 2000,
+        model: 'claude-sonnet-4-6',
+        shellTimeout: 30000,
+        outputFormat: 'text',
+        traceLevel: 'off',
+      };
+
+      function applyPermissionStyle(styleKey, options = {}) {
+        const style = PERMISSION_STYLES[styleKey];
+        if (!style) return;
+        if (!options.skipSelect) permissionStyle.value = styleKey;
+        acceptEdits.checked = !!style.acceptEdits;
+        dontAsk.checked = !!style.dontAsk;
+        plan.checked = !!style.plan;
+        allowShell.checked = !!style.allowShell;
+        chaosOk.checked = !!style.chaosOk;
+        noNetwork.checked = !!style.noNetwork;
+        if (Object.prototype.hasOwnProperty.call(style, 'agentProfile') && !options.keepAgent)
+          agentProfile.value = style.agentProfile || '';
+        if (style.applyTools && style.tools) {
+          toolChoices.forEach((choice) => {
+            choice.checked = style.tools.includes(choice.value);
+          });
+        } else if (!options.keepTools && styleKey !== 'look-only') {
+          toolChoices.forEach((choice) => {
+            choice.checked = DEFAULT_TOOL_NAMES.includes(choice.value);
+          });
+        }
+        if (permissionStyleHint) {
+          permissionStyleHint.textContent = PERMISSION_STYLE_HINTS[styleKey] || '';
+        }
+      }
 
       function getAttachedPaths() {
         return attachedPaths.value
@@ -1158,49 +1256,34 @@
       }
 
       function buildCommandParts() {
-        const isCoordinator = cliMode.value === 'coordinator';
-        const binary = isCoordinator ? 'node bin/local-bridge-coordinator.js' : 'node bin/local-bridge-runner.js';
-        const parts = [binary];
+        const parts = ['node bin/local-bridge-runner.js'];
 
         if (cwd.value.trim()) parts.push('--cwd ' + shellQuote(cwd.value.trim()));
         if (sessionId.value.trim()) parts.push('--session-id ' + shellQuote(sessionId.value.trim()));
-        if (!isCoordinator && sessionPath.value.trim())
-          parts.push('--session-path ' + shellQuote(sessionPath.value.trim()));
-        if (!isCoordinator && trustedWorkspace.checked) parts.push('--trusted-workspace');
-        if (!isCoordinator && trustWorkspace.checked) parts.push('--trust-workspace');
-        if (!isCoordinator && chaosOk.checked) parts.push('--chaos-ok');
-        if (!isCoordinator && sessionExtract.checked) parts.push('--session-extract');
-        if (!isCoordinator && reviewMemory.checked) {
+        if (sessionPath.value.trim()) parts.push('--session-path ' + shellQuote(sessionPath.value.trim()));
+        if (trustedWorkspace.checked) parts.push('--trusted-workspace');
+        if (trustWorkspace.checked) parts.push('--trust-workspace');
+        if (chaosOk.checked) parts.push('--chaos-ok');
+        if (sessionExtract.checked) parts.push('--session-extract');
+        if (reviewMemory.checked) {
           parts.push('--review-memory');
           return parts;
         }
-        if (!isCoordinator && replayMode.checked) {
+        if (replayMode.checked) {
           if (sessionId.value.trim()) parts.push('--session-id ' + shellQuote(sessionId.value.trim()));
           if (sessionPath.value.trim()) parts.push('--session-path ' + shellQuote(sessionPath.value.trim()));
           parts.push('--replay');
           return parts;
         }
-        if (!isCoordinator && repairMode.checked) {
+        if (repairMode.checked) {
           if (sessionId.value.trim()) parts.push('--session-id ' + shellQuote(sessionId.value.trim()));
           if (sessionPath.value.trim()) parts.push('--session-path ' + shellQuote(sessionPath.value.trim()));
           parts.push('--repair');
           return parts;
         }
-        if (!isCoordinator && agentProfile.value) parts.push('--agent ' + agentProfile.value);
-        if (!isCoordinator && maxWallClockMs.value.trim())
-          parts.push('--max-wall-clock-ms ' + maxWallClockMs.value.trim());
-        if (!isCoordinator && maxCostUsd.value.trim()) parts.push('--max-cost-usd ' + maxCostUsd.value.trim());
-
-        if (isCoordinator) {
-          if (coordinatorPhases.value.trim()) parts.push('--phases ' + shellQuote(coordinatorPhases.value.trim()));
-          if (noWorkers.checked) parts.push('--no-workers');
-          if (model.value !== DEFAULTS.model) parts.push('--model ' + model.value);
-          if (+maxTokens.value !== DEFAULTS.maxTokens) parts.push('--max-tokens ' + maxTokens.value);
-          if (outputFormat.value !== DEFAULTS.outputFormat) parts.push('--output-format ' + outputFormat.value);
-          const promptText = buildPromptText();
-          if (promptText) parts.push(shellQuote(promptText));
-          return parts;
-        }
+        if (agentProfile.value) parts.push('--agent ' + agentProfile.value);
+        if (maxWallClockMs.value.trim()) parts.push('--max-wall-clock-ms ' + maxWallClockMs.value.trim());
+        if (maxCostUsd.value.trim()) parts.push('--max-cost-usd ' + maxCostUsd.value.trim());
 
         if (attachmentMode.value === 'include') {
           for (const filePath of getAttachedPaths()) {
@@ -1327,17 +1410,11 @@
       }
 
       function updateUiState() {
-        const isCoordinator = cliMode.value === 'coordinator';
-        coordinatorFields.style.display = isCoordinator ? 'block' : 'none';
-        runnerOnlyBlocks.forEach((el) => {
-          el.style.display = isCoordinator ? 'none' : '';
-        });
-
         const shellOn = allowShell.checked;
         bashToolRow.style.display = shellOn ? '' : 'none';
-        shellWarn.classList.toggle('show', shellOn && !isCoordinator);
-        shellTimeoutRow.classList.toggle('is-muted-control', !shellOn || isCoordinator);
-        noNetworkRow.classList.toggle('is-muted-control', !shellOn || isCoordinator);
+        shellWarn.classList.toggle('show', shellOn);
+        shellTimeoutRow.classList.toggle('is-muted-control', !shellOn);
+        noNetworkRow.classList.toggle('is-muted-control', !shellOn);
 
         const bashChoice = toolChoices.find((c) => c.value === 'bash');
         if (bashChoice) {
@@ -1354,49 +1431,47 @@
         }
 
         const chaosBlocked = hasChaosConflict();
-        chaosConflict.classList.toggle('show', chaosBlocked && !isCoordinator);
+        chaosConflict.classList.toggle('show', chaosBlocked);
 
         const resumeModes = countResumeModes();
-        sessionConflict.classList.toggle('show', resumeModes > 1 && !isCoordinator);
+        sessionConflict.classList.toggle('show', resumeModes > 1);
 
         const ledgerUtility = replayMode.checked || repairMode.checked;
-        ledgerNote.classList.toggle('show', ledgerUtility && !isCoordinator);
+        ledgerNote.classList.toggle('show', ledgerUtility);
         replayMode.closest('.check-label').classList.toggle('is-muted-control', repairMode.checked);
         repairMode.closest('.check-label').classList.toggle('is-muted-control', replayMode.checked);
 
-        ackResumeRiskRow.classList.toggle('is-muted-control', !resumeSession.checked || isCoordinator);
+        ackResumeRiskRow.classList.toggle('is-muted-control', !resumeSession.checked);
 
         const cautions = [];
-        if (!isCoordinator) {
-          if (acceptEdits.checked && !plan.checked) cautions.push('--accept-edits skips write confirmations.');
-          if (dontAsk.checked && !allowShell.checked)
-            cautions.push('--dont-ask does not enable bash; add --allow-shell only when you need shell.');
-          if (dontAsk.checked && allowShell.checked && !chaosOk.checked && !(acceptEdits.checked && chaosBlocked))
-            cautions.push(
-              'With shell on, --dont-ask still asks unless writes are auto-approved or chaos is acknowledged.',
-            );
-          if (plan.checked && (acceptEdits.checked || allowShell.checked))
-            cautions.push('--plan dry-runs tools; accept-edits/shell flags still shape what the model sees.');
-          if (trustedWorkspace.checked)
-            cautions.push('--trusted-workspace runs hooks from .bridge-runner/hooks.json in cwd.');
-          if (autoMemory.checked)
-            cautions.push('--auto-memory injects opt-in runner memory into context (default off in runner).');
-          if (getPromptTemplates().length)
-            cautions.push('Prompt templates prepend reusable instructions before the user request.');
-          if (systemPromptFile.value.trim())
-            cautions.push('--system-prompt-file replaces the built-in default prompt for this run.');
-          if (appendSystemPrompt.value.trim() || appendSystemPromptFile.value.trim())
-            cautions.push('Append-system prompt options add rules after the default or replacement prompt.');
-          if (bridgeUrl.value.trim())
-            cautions.push('--bridge-url changes where model requests are sent; use it for local bridge routing.');
-          if (toolChoices.find((c) => c.value === 'apply_patch')?.checked)
-            cautions.push('apply_patch is opt-in patch mode; leave it off for the minimal write surface.');
-          if (ackResumeRisk.checked)
-            cautions.push(
-              '--ack-resume-risk overrides degraded-session gate — use only when you accept poisoned context.',
-            );
-          if (repairMode.checked) cautions.push('--repair may mutate session ledger; runner shows a plan first.');
-        }
+        if (acceptEdits.checked && !plan.checked) cautions.push('--accept-edits skips write confirmations.');
+        if (dontAsk.checked && !allowShell.checked)
+          cautions.push('--dont-ask does not enable bash; add --allow-shell only when you need shell.');
+        if (dontAsk.checked && allowShell.checked && !chaosOk.checked && !(acceptEdits.checked && chaosBlocked))
+          cautions.push(
+            'With shell on, --dont-ask still asks unless writes are auto-approved or chaos is acknowledged.',
+          );
+        if (plan.checked && (acceptEdits.checked || allowShell.checked))
+          cautions.push('--plan dry-runs tools; accept-edits/shell flags still shape what the model sees.');
+        if (trustedWorkspace.checked)
+          cautions.push('--trusted-workspace runs hooks from .bridge-runner/hooks.json in cwd.');
+        if (autoMemory.checked)
+          cautions.push('--auto-memory injects opt-in runner memory into context (default off in runner).');
+        if (getPromptTemplates().length)
+          cautions.push('Prompt templates prepend reusable instructions before the user request.');
+        if (systemPromptFile.value.trim())
+          cautions.push('--system-prompt-file replaces the built-in default prompt for this run.');
+        if (appendSystemPrompt.value.trim() || appendSystemPromptFile.value.trim())
+          cautions.push('Append-system prompt options add rules after the default or replacement prompt.');
+        if (bridgeUrl.value.trim())
+          cautions.push('--bridge-url changes where model requests are sent; use it for local bridge routing.');
+        if (toolChoices.find((c) => c.value === 'apply_patch')?.checked)
+          cautions.push('apply_patch is opt-in patch mode; leave it off for the minimal write surface.');
+        if (ackResumeRisk.checked)
+          cautions.push(
+            '--ack-resume-risk overrides degraded-session gate — use only when you accept poisoned context.',
+          );
+        if (repairMode.checked) cautions.push('--repair may mutate session ledger; runner shows a plan first.');
         if (cautions.length) {
           permissionCautions.innerHTML = cautions.map((c) => '&#9888; ' + esc(c)).join('<br>');
           permissionCautions.classList.add('show');
@@ -1405,12 +1480,12 @@
           permissionCautions.innerHTML = '';
         }
 
-        traceFullWarn.classList.toggle('show', traceLevel.value === 'full' && !isCoordinator);
+        traceFullWarn.classList.toggle('show', traceLevel.value === 'full');
 
         const planNote = document.getElementById('planNote');
-        if (planNote) planNote.style.display = plan.checked && !isCoordinator ? 'flex' : 'none';
+        if (planNote) planNote.style.display = plan.checked ? 'flex' : 'none';
 
-        copyBtn.disabled = chaosBlocked && !isCoordinator;
+        copyBtn.disabled = chaosBlocked;
         copyBtn.title = chaosBlocked ? 'Fix chaos combo before copying' : '';
       }
 
@@ -1495,9 +1570,6 @@
         appendSystemPrompt,
         appendSystemPromptFile,
         continueFromLatest,
-        cliMode,
-        coordinatorPhases,
-        noWorkers,
         sessionId,
         sessionPath,
         trustedWorkspace,
@@ -1528,10 +1600,16 @@
         excludeDynamicSystem,
         noSessionPersistence,
         permissionMode,
+        permissionStyle,
         ...toolChoices,
       ].forEach((el) => {
         el.addEventListener('input', render);
         el.addEventListener('change', render);
+      });
+
+      permissionStyle.addEventListener('change', () => {
+        applyPermissionStyle(permissionStyle.value);
+        render();
       });
 
       // ── Copy ──
@@ -1555,293 +1633,60 @@
           prompt:
             'List top-level files in this repo and summarize what it does. Use read-only tools only; do not edit files.',
           promptTemplate: 'explore',
+          permissionStyle: 'look-only',
           maxSteps: 8,
           bareContext: true,
-          includeInstructionDocs: false,
-          includeRepoContext: false,
-          acceptEdits: false,
-          plan: true,
           runnerPath: PLAYGROUND,
           cwd: PLAYGROUND,
-          cliMode: 'runner',
-          applyTools: true,
-          tools: READ_TOOL_NAMES,
-        },
-        projectContext: {
-          prompt:
-            'Using project instruction files and repo context, explain how runner startup context is assembled. Do not edit files.',
-          maxSteps: 10,
-          agentProfile: 'project',
-          includeInstructionDocs: true,
-          includeRepoContext: true,
-          includeRepoMap: true,
-          acceptEdits: false,
-          plan: true,
-          runnerPath: PLAYGROUND,
-          cwd: PLAYGROUND,
-          cliMode: 'runner',
         },
         readonly: {
           prompt:
-            'Compare docs/command-builder.html against bin/local-bridge-runner.js --help. List every CLI flag missing from the builder, then trace how permissions.js would treat a read-only run. Do not edit files.',
+            'Read README.md and src/runner/run.js (first 60 lines). Explain the runner loop in plain language. Do not edit files.',
           promptTemplate: 'explore',
+          permissionStyle: 'look-only',
           maxSteps: 10,
-          maxTokens: 2500,
-          maxStepsDefault: false,
-          maxTokensDefault: false,
-          acceptEdits: false,
-          dontAsk: false,
-          allowShell: false,
-          plan: true,
-          stream: false,
           verbose: true,
-          outputFormat: 'text',
           runnerPath: PLAYGROUND,
           cwd: PLAYGROUND,
-          cliMode: 'runner',
-          applyTools: true,
-          tools: READ_TOOL_NAMES,
         },
-        session: {
+        plan: {
           prompt:
-            'Using session id command-builder-demo: read src/runner/session-health.js and session-store.js, summarize resume vs new-session behavior, and say whether this session would be safe to resume. Do not edit files.',
+            'Dry-run: propose one small improvement to docs/command-builder.html. List files and intended edits — do not write files.',
+          promptTemplate: 'review',
+          permissionStyle: 'plan-first',
           maxSteps: 10,
-          maxTokens: 2500,
-          maxStepsDefault: false,
-          maxTokensDefault: false,
-          acceptEdits: false,
-          dontAsk: false,
-          allowShell: false,
-          stream: false,
-          verbose: true,
-          outputFormat: 'text',
           runnerPath: PLAYGROUND,
           cwd: PLAYGROUND,
-          sessionId: 'command-builder-demo',
-          newSession: true,
-          resumeSession: false,
-          continueFromLatest: false,
-          resumePath: '',
-          taskScope: true,
-          cliMode: 'runner',
-        },
-        coordinator: {
-          prompt:
-            'Objective: map how the coordinator phases call the kernel. Read src/runner/coordinator.js and bin/local-bridge-coordinator.js. Produce a phase-by-phase findings list; do not edit files.',
-          maxSteps: 8,
-          maxTokens: 2500,
-          maxStepsDefault: true,
-          maxTokensDefault: false,
-          acceptEdits: false,
-          dontAsk: false,
-          allowShell: false,
-          stream: false,
-          verbose: false,
-          outputFormat: 'stream-json',
-          runnerPath: PLAYGROUND,
-          cwd: PLAYGROUND,
-          sessionId: 'coord-demo-1',
-          cliMode: 'coordinator',
-          coordinatorPhases: 'research,synthesize,execute,verify',
-          noWorkers: true,
         },
         confirm: {
           prompt:
-            'Add one sentence to docs/command-builder.html tip box noting that write tools ask for confirmation by default. Show the exact change you would make, then apply it only if confirmation would still fire (do not use --accept-edits).',
+            'Add one beginner-friendly sentence to the command-builder tip box. Show the exact change first, then apply only if confirmation still fires.',
           promptTemplate: 'cleanup',
+          permissionStyle: 'edit-ask',
           maxSteps: 12,
-          maxTokens: 2500,
-          maxStepsDefault: false,
-          maxTokensDefault: false,
-          acceptEdits: false,
-          dontAsk: false,
-          allowShell: false,
-          stream: false,
-          verbose: false,
-          outputFormat: 'text',
           runnerPath: PLAYGROUND,
           cwd: PLAYGROUND,
         },
         auto: {
           prompt:
-            'In src/runner/beginner-hints.js, add a hint entry for when --chaos-ok is missing (mirror shell-policy validateChaosCombo). Update matching tests if present. Use --accept-edits behavior.',
+            'Fix a small typo or wording issue you find in docs/command-builder.html. Run relevant checks if you change runner code.',
           promptTemplate: 'cleanup',
-          maxSteps: 20,
+          permissionStyle: 'edit-auto',
+          maxSteps: 16,
           maxTokens: 4096,
-          maxStepsDefault: false,
-          maxTokensDefault: false,
-          acceptEdits: true,
-          dontAsk: false,
-          allowShell: false,
-          stream: false,
-          verbose: false,
-          outputFormat: 'text',
           runnerPath: PLAYGROUND,
           cwd: PLAYGROUND,
-          agentProfile: 'implement',
         },
         full: {
           prompt:
-            'Run targeted runner tests for permissions and session-health, then fix any failure you introduced in this repo. Use npm test filtered to those files. Stop when green or explain blockers.',
+            'Run targeted runner tests (permissions, safety), then fix any failure. Use npm test filtered to those files.',
+          permissionStyle: 'edit-shell',
           maxSteps: 24,
           maxTokens: 4096,
-          maxStepsDefault: false,
-          maxTokensDefault: false,
-          acceptEdits: true,
-          dontAsk: true,
-          allowShell: true,
-          chaosOk: true,
-          noNetwork: true,
           stream: true,
           verbose: true,
-          outputFormat: 'text',
           runnerPath: PLAYGROUND,
           cwd: PLAYGROUND,
-          agentProfile: 'test',
-        },
-        plan: {
-          prompt:
-            'Dry-run: propose a minimal change to wire a new runner flag in command-builder.html (read bin/local-bridge-runner.js first). List files, intended edits, and tests — do not write files.',
-          promptTemplate: 'review',
-          maxSteps: 10,
-          maxTokens: 2500,
-          maxStepsDefault: false,
-          maxTokensDefault: false,
-          acceptEdits: false,
-          dontAsk: false,
-          allowShell: false,
-          plan: true,
-          stream: false,
-          verbose: false,
-          outputFormat: 'text',
-          runnerPath: PLAYGROUND,
-          cwd: PLAYGROUND,
-          applyTools: true,
-          tools: READ_TOOL_NAMES,
-        },
-        automation: {
-          prompt:
-            'Emit stream-json friendly progress: list src/runner/*.js, grep for "stopReason", and return a JSON-shaped summary in your final message. Read-only; no edits.',
-          maxSteps: 10,
-          maxTokens: 2500,
-          maxStepsDefault: false,
-          maxTokensDefault: false,
-          acceptEdits: false,
-          dontAsk: false,
-          allowShell: false,
-          stream: false,
-          verbose: false,
-          outputFormat: 'stream-json',
-          traceLevel: 'summary',
-          runnerPath: PLAYGROUND,
-          cwd: PLAYGROUND,
-          applyTools: true,
-          tools: READ_TOOL_NAMES,
-        },
-        otherfolder: {
-          prompt:
-            'You are reviewing a different local project (not the runner repo). List top-level files, package.json scripts, and test entrypoints. Summarize architecture in 8 bullets. Do not edit files.',
-          maxSteps: 10,
-          maxTokens: 2500,
-          maxStepsDefault: false,
-          maxTokensDefault: false,
-          acceptEdits: false,
-          dontAsk: false,
-          allowShell: false,
-          stream: true,
-          verbose: true,
-          outputFormat: 'text',
-          runnerPath: PLAYGROUND,
-          cwd: '/Users/alanman/path/to/another/project',
-          applyTools: true,
-          tools: READ_TOOL_NAMES,
-        },
-        freshTask: {
-          prompt:
-            'One focused task: read README.md plus src/runner/context-builder.js and explain the minimal prompt and capability-group defaults. Then stop.',
-          promptTemplate: 'explore',
-          maxSteps: 8,
-          maxTokens: 2000,
-          maxStepsDefault: true,
-          maxTokensDefault: true,
-          acceptEdits: false,
-          dontAsk: false,
-          allowShell: false,
-          newSession: true,
-          resumeSession: false,
-          continueFromLatest: false,
-          resumePath: '',
-          taskScope: true,
-          compactEachTurn: true,
-          effort: 'medium',
-          stream: false,
-          verbose: true,
-          outputFormat: 'text',
-          runnerPath: PLAYGROUND,
-          cwd: PLAYGROUND,
-          sessionId: 'megathread-task-1',
-        },
-        resume: {
-          prompt:
-            'Resume session megathread-task-1: continue the previous task only if health is not degraded; otherwise explain why a fresh session is safer.',
-          maxSteps: 12,
-          maxTokens: 2500,
-          maxStepsDefault: false,
-          maxTokensDefault: false,
-          acceptEdits: false,
-          dontAsk: false,
-          allowShell: false,
-          resumeSession: true,
-          newSession: false,
-          continueFromLatest: false,
-          resumePath: '',
-          sessionId: 'megathread-task-1',
-          stream: false,
-          verbose: true,
-          outputFormat: 'text',
-          runnerPath: PLAYGROUND,
-          cwd: PLAYGROUND,
-        },
-        forkBranch: {
-          prompt:
-            'Forked attempt: try a different approach to the last task. Read session state metadata only; do not assume prior tool outputs are still valid.',
-          maxSteps: 10,
-          maxTokens: 2500,
-          maxStepsDefault: false,
-          maxTokensDefault: false,
-          acceptEdits: false,
-          dontAsk: false,
-          allowShell: false,
-          forkFrom: 'megathread-task-1',
-          newSession: true,
-          resumeSession: false,
-          continueFromLatest: false,
-          resumePath: '',
-          sessionId: 'megathread-task-1-branch',
-          stream: false,
-          verbose: true,
-          outputFormat: 'text',
-          runnerPath: PLAYGROUND,
-          cwd: PLAYGROUND,
-        },
-        debug: {
-          prompt:
-            'Debug pass: read src/runner/run.js (first 80 lines) and src/runner/permissions.js activeMode(). Explain permission mode selection with examples for --plan and --accept-edits.',
-          maxSteps: 8,
-          maxTokens: 1500,
-          maxStepsDefault: true,
-          maxTokensDefault: false,
-          acceptEdits: false,
-          dontAsk: false,
-          allowShell: false,
-          stream: false,
-          verbose: true,
-          traceLevel: 'redacted',
-          outputFormat: 'text',
-          runnerPath: PLAYGROUND,
-          cwd: PLAYGROUND,
-          applyTools: true,
-          tools: READ_TOOL_NAMES,
         },
       };
 
@@ -1858,13 +1703,11 @@
         if (btn) btn.classList.add('active');
 
         if (p.prompt !== undefined) prompt.value = p.prompt;
+        if (p.permissionStyle) applyPermissionStyle(p.permissionStyle);
         if (!p.permissionsOnly) {
-          if (p.cliMode !== undefined) cliMode.value = p.cliMode;
           applyPresetValue(sessionId, 'sessionId', p);
           applyPresetValue(sessionPath, 'sessionPath', p);
-          applyPresetValue(coordinatorPhases, 'coordinatorPhases', p);
-          applyPresetValue(agentProfile, 'agentProfile', p);
-          if (Object.prototype.hasOwnProperty.call(p, 'noWorkers')) noWorkers.checked = p.noWorkers;
+          if (!p.permissionStyle) applyPresetValue(agentProfile, 'agentProfile', p);
           applyPresetValue(resumePath, 'resumePath', p);
           applyPresetValue(forkFrom, 'forkFrom', p);
           applyPresetValue(tracePath, 'tracePath', p);
@@ -1957,11 +1800,17 @@
           excludeDynamicSystem,
           noSessionPersistence,
         };
-        boolKeys.forEach((key) => {
-          if (Object.prototype.hasOwnProperty.call(p, key)) boolMap[key].checked = !!p[key];
-        });
+        if (!p.permissionStyle) {
+          boolKeys.forEach((key) => {
+            if (Object.prototype.hasOwnProperty.call(p, key)) boolMap[key].checked = !!p[key];
+          });
+        } else {
+          ['stream', 'verbose', 'bareContext', 'taskScope', 'newSession', 'resumeSession'].forEach((key) => {
+            if (Object.prototype.hasOwnProperty.call(p, key)) boolMap[key].checked = !!p[key];
+          });
+        }
 
-        if (p.applyTools && p.tools) {
+        if (!p.permissionStyle && p.applyTools && p.tools) {
           toolChoices.forEach((choice) => {
             choice.checked = p.tools.includes(choice.value);
           });
@@ -1980,6 +1829,8 @@
       });
 
       runnerPath.value = PLAYGROUND;
+      cwd.value = PLAYGROUND;
+      applyPermissionStyle('edit-ask');
       render();
     </script>
   </body>

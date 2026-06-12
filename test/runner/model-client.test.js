@@ -167,4 +167,104 @@ describe('model-client', () => {
       server.close();
     }
   });
+
+  it('reconstructs streamed thinking and signature deltas (extended thinking models)', async () => {
+    const frames = [
+      {
+        type: 'message_start',
+        message: { id: 'msg_02', type: 'message', role: 'assistant', content: [], usage: { input_tokens: 9 } },
+      },
+      {
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'thinking', thinking: '', signature: '' },
+      },
+      {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'signature_delta', signature: 'EosnCkYICxIMMb3LzNrMu' },
+      },
+      { type: 'content_block_stop', index: 0 },
+      { type: 'content_block_start', index: 1, content_block: { type: 'text', text: '' } },
+      { type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: 'Done.' } },
+      { type: 'content_block_stop', index: 1 },
+      { type: 'message_stop' },
+    ];
+
+    const server = http.createServer((req, res) => {
+      req.resume();
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      for (const frame of frames) {
+        res.write('event: ' + frame.type + '\n');
+        res.write('data: ' + JSON.stringify(frame) + '\n\n');
+      }
+      res.end();
+    });
+
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = server.address().port;
+
+    try {
+      const result = await postStream(
+        { model: 'claude-fable-5', max_tokens: 10, messages: [] },
+        null,
+        `http://127.0.0.1:${port}/v1/messages`,
+      );
+
+      assert.deepEqual(result.content, [
+        { type: 'thinking', thinking: '', signature: 'EosnCkYICxIMMb3LzNrMu' },
+        { type: 'text', text: 'Done.' },
+      ]);
+    } finally {
+      server.close();
+    }
+  });
+
+  it('accumulates thinking_delta text before signature_delta', async () => {
+    const frames = [
+      {
+        type: 'message_start',
+        message: { id: 'msg_03', type: 'message', role: 'assistant', content: [] },
+      },
+      {
+        type: 'content_block_start',
+        index: 0,
+        content_block: { type: 'thinking', thinking: '', signature: '' },
+      },
+      { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'Step one. ' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'Step two.' } },
+      {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'signature_delta', signature: 'sig-abc' },
+      },
+      { type: 'content_block_stop', index: 0 },
+      { type: 'message_stop' },
+    ];
+
+    const server = http.createServer((req, res) => {
+      req.resume();
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      for (const frame of frames) {
+        res.write('data: ' + JSON.stringify(frame) + '\n\n');
+      }
+      res.end();
+    });
+
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = server.address().port;
+
+    try {
+      const result = await postStream(
+        { model: 'claude-sonnet-4-6', max_tokens: 10, messages: [] },
+        null,
+        `http://127.0.0.1:${port}/v1/messages`,
+      );
+
+      assert.equal(result.content[0].thinking, 'Step one. Step two.');
+      assert.equal(result.content[0].signature, 'sig-abc');
+    } finally {
+      server.close();
+    }
+  });
 });

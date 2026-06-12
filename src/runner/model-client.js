@@ -177,6 +177,15 @@ function postStream(body, cb, bridgeUrl, opts) {
                   process.stdout.write(event.delta.text);
                   lastText += event.delta.text;
                 }
+              } else if (event.delta.type === 'thinking_delta') {
+                if (!block) fullContent[event.index] = { type: 'thinking', thinking: '', signature: '' };
+                fullContent[event.index].thinking =
+                  (fullContent[event.index].thinking || '') + (event.delta.thinking || '');
+              } else if (event.delta.type === 'signature_delta') {
+                // Fable/Mythos/Opus adaptive thinking: signature is required for multi-turn tool loops.
+                if (!block) fullContent[event.index] = { type: 'thinking', thinking: '', signature: '' };
+                fullContent[event.index].signature =
+                  (fullContent[event.index].signature || '') + (event.delta.signature || '');
               } else if (event.delta.type === 'input_json_delta') {
                 const previous = toolInputBuffers.get(event.index) || '';
                 toolInputBuffers.set(event.index, previous + event.delta.partial_json);
