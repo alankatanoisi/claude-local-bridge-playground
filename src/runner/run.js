@@ -1,23 +1,21 @@
 'use strict';
 
 const fs = require('fs');
-const path = require('path');
 const { buildUserMessage, buildRepoContextBlock, buildDynamicEnvironmentBlock } = require('./context-builder');
 const { resolveContextPolicy } = require('./context-policy');
 const { resolveSystemPrompt } = require('./system-prompt');
 const modelClient = require('./model-client');
-const { getDefinitions, execute, executeForce, executeReadOnlyBatch } = require('./tool-registry');
+const { createToolPipeline, _arePathsDisjoint, _groupDisjointWrites } = require('./tool-pipeline');
 const { Transcript } = require('./transcript');
 const confirm = require('./confirmation');
 const safety = require('./safety');
-const { CATEGORIES } = require('./permissions');
 const { HumanLog } = require('./human-log');
 const { STOP_REASONS } = require('./kernel/contract');
 const { SessionStore, resolveSessionPath } = require('./session-store');
 const { applyCompactionLadder, DEFAULT_POLICY } = require('./context-compactor');
 const { HookDispatcher } = require('./hooks/hook-dispatcher');
 const { runBootstrap } = require('./bootstrap');
-const { SessionLedger, makeEffectId } = require('./session-ledger');
+const { SessionLedger } = require('./session-ledger');
 const { emitHint } = require('./beginner-hints');
 const { buildAutopsy, writeAutopsyFile, detectSemanticCycles, estimateTokensAdvisory } = require('./loop-autopsy');
 const { estimateCostUsd, summarizeUsage } = require('./model-pricing');
@@ -252,55 +250,6 @@ function loadMessagesFromTranscript(filePath, options = {}) {
   }
   while (messages.length > 0 && messages[messages.length - 1].role !== 'user') messages.pop();
   return messages;
-}
-
-// B3: path-disjoint detection over canonicalized paths. Two paths are
-// disjoint iff neither is identical to the other and neither is a
-// prefix-with-separator of the other (catches parent/child conflicts).
-// confinePath returns realpath-anchored absolute paths, so symlink aliasing
-// is mostly defused at the source.
-function _arePathsDisjoint(paths) {
-  for (let i = 0; i < paths.length; i++) {
-    for (let j = i + 1; j < paths.length; j++) {
-      const a = paths[i];
-      const b = paths[j];
-      if (!a || !b) return false;
-      if (a === b) return false;
-      if (a.startsWith(b + path.sep)) return false;
-      if (b.startsWith(a + path.sep)) return false;
-    }
-  }
-  return true;
-}
-
-function _groupDisjointWrites(writeTools, ctx) {
-  const groups = [];
-  let current = [];
-  let currentPaths = [];
-  for (const tu of writeTools) {
-    const args = tu.input || {};
-    const canonical = args.path ? safety.confinePath(ctx, args.path) : null;
-    if (!canonical) {
-      if (current.length) {
-        groups.push(current);
-        current = [];
-        currentPaths = [];
-      }
-      groups.push([tu]);
-      continue;
-    }
-    const candidatePaths = [...currentPaths, canonical];
-    if (_arePathsDisjoint(candidatePaths)) {
-      current.push(tu);
-      currentPaths.push(canonical);
-    } else {
-      if (current.length) groups.push(current);
-      current = [tu];
-      currentPaths = [canonical];
-    }
-  }
-  if (current.length) groups.push(current);
-  return groups;
 }
 
 function persistSession(sessionStore, messages, ctx, noSessionPersistence) {
@@ -573,6 +522,19 @@ async function run(options) {
     archiveCollector.recordUser(prompt, stdinText);
   }
 
+  // The tool pipeline owns everything between "the model emitted tool_use
+  // blocks" and "completed, recorded tool results exist" — see CONTEXT.md
+  // and src/runner/tool-pipeline.js. Constructed once per run; sinks and the
+  // confirm port are fixed for the run's lifetime.
+  const pipeline = createToolPipeline({
+    ctx,
+    runId,
+    confirm,
+    sinks: { ledger, hooks, output, trace, transcript, humanLog, archive: archiveCollector },
+    verbosity: { verbose, quiet },
+    failureLimit: MAX_CONSECUTIVE_FAILURES,
+  });
+
   function completeRun(result) {
     // Single owner of end-of-run usage/cost output: stderr (default, suppressed
     // under quiet), transcript, and human-log. Routing it here covers every
@@ -609,7 +571,7 @@ async function run(options) {
         stopReason: result.stopReason,
         autopsy: result.autopsy,
         compactionGeneration: runner.compactionGeneration || 0,
-        consecutiveToolFailures: ctx._consecutiveToolFailures || 0,
+        consecutiveToolFailures: pipeline.failureStreak,
       });
       sessionStore.updateRunner({ health });
     }
@@ -736,7 +698,7 @@ async function run(options) {
 
   instructionDelta.snapshot(ctx.cwdRealpath);
 
-  const tools = getDefinitions(ctx);
+  const tools = pipeline.toolDefinitions();
   let system = resolveSystemPrompt(ctx, {
     progressive: true,
     contextPolicy,
@@ -748,7 +710,6 @@ async function run(options) {
   const repoContextBlock = buildRepoContextBlock(ctx, contextPolicy);
   const steps = maxSteps || DEFAULT_MAX_STEPS;
   let totalUsage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
-  let consecutiveToolFailures = 0;
   const toolHistory = [];
   const effortLevel = normalizeEffort(effort);
 
@@ -920,11 +881,11 @@ async function run(options) {
       if (humanLog) humanLog.writeError(msg, { stopReason: STOP_REASONS.BRIDGE_ERROR });
       if (trace) trace.append('runner_bridge_error', { run_id: runId, turn: step, message: msg });
       output.emit('error', { message: msg, hint: hint ? { whatHappened: hint.whatHappened, tip: hint.tip } : null });
-      if (step < steps && consecutiveToolFailures < MAX_CONSECUTIVE_FAILURES) {
-        consecutiveToolFailures++;
+      if (step < steps && pipeline.failureStreak < MAX_CONSECUTIVE_FAILURES) {
+        pipeline.recordExternalFailure();
         if (!quiet)
           console.error(
-            '[runner] retrying after bridge error (' + consecutiveToolFailures + '/' + MAX_CONSECUTIVE_FAILURES + ')',
+            '[runner] retrying after bridge error (' + pipeline.failureStreak + '/' + MAX_CONSECUTIVE_FAILURES + ')',
           );
         continue;
       }
@@ -998,7 +959,7 @@ async function run(options) {
         persistSession(
           sessionStore,
           messages,
-          { ...ctx, _consecutiveToolFailures: consecutiveToolFailures },
+          { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
           !!noSessionPersistence,
         );
         hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.CONTEXT_BUDGET_EXCEEDED });
@@ -1031,7 +992,7 @@ async function run(options) {
     persistSession(
       sessionStore,
       messages,
-      { ...ctx, _consecutiveToolFailures: consecutiveToolFailures },
+      { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
       !!noSessionPersistence,
     );
     output.emit('assistant', {
@@ -1071,7 +1032,7 @@ async function run(options) {
       persistSession(
         sessionStore,
         messages,
-        { ...ctx, _consecutiveToolFailures: consecutiveToolFailures },
+        { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
         !!noSessionPersistence,
       );
       hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.MAX_TOOL_CALLS_PER_TURN });
@@ -1122,317 +1083,75 @@ async function run(options) {
       persistSession(
         sessionStore,
         messages,
-        { ...ctx, _consecutiveToolFailures: consecutiveToolFailures },
+        { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
         !!noSessionPersistence,
       );
       if (archiveCollector) archiveCollector.recordFinal(text || '');
       return completeRun(result);
     }
 
-    const toolResults = [];
-
-    // Batch read-only tools before write/shell tools. These tools are still
-    // synchronous today, so this is ordered batching rather than true parallelism.
-    const readTools = [];
-    const writeTools = [];
-    for (const tu of toolUses) {
-      if ((CATEGORIES[tu.name] || '') === 'read-only') readTools.push(tu);
-      else writeTools.push(tu);
-    }
-
-    // ── Step A: parallel read-only tools ──
-    if (readTools.length > 0 && verbose) {
-      console.error('[runner] step ' + step + ': executing ' + readTools.length + ' read-only tools in parallel');
-    }
-    for (const tu of readTools) {
-      appendLedger(ledger, hooks, 'tool_effect_intent', {
-        runId,
-        step,
-        tool: tu.name,
-        toolUseId: tu.id,
-        effectId: makeEffectId(),
-      });
-      hooks.dispatch('pre_tool', { step, tool: tu.name, toolUseId: tu.id });
-    }
-    const readBatch = readTools.length > 0 ? await executeReadOnlyBatch(readTools, ctx) : [];
-    for (const { toolUse: tu, result } of readBatch) {
-      appendLedger(ledger, hooks, 'tool_effect_result', {
-        runId,
-        step,
-        tool: tu.name,
-        toolUseId: tu.id,
-        ok: result.ok,
-      });
-      if (trace) trace.append('tool_requested', traceToolUse(runId, step, tu, trace));
-      if (result.needsConfirmation && ctx.plan) {
-        result.ok = true;
-        result.text = 'Plan mode: would ' + result.proposedAction;
-      }
-      toolHistory.push({ name: tu.name, args: tu.input || {}, ok: result.ok });
-      output.emit('tool_use', { step, tool_use_id: tu.id, name: tu.name, input: tu.input || {} });
-      output.emit('tool_result', {
-        step,
-        tool_use_id: tu.id,
-        name: tu.name,
-        content: result.text || '',
-        is_error: !result.ok,
-        bytes: result.bytes,
-        envelope: result.envelope,
-        permission: result.permission,
-      });
-      if (transcript) {
-        transcript.append({ type: 'tool_call', step, tool: tu.name, args: tu.input, toolUseId: tu.id });
-        transcript.append({
-          type: 'tool_result',
-          step,
-          tool: tu.name,
-          ok: result.ok,
-          text: result.text,
-          bytes: result.bytes,
-          toolUseId: tu.id,
-        });
-      }
-      if (humanLog) humanLog.writeToolResult(step, tu.name, tu.id, result);
-      if (trace) trace.append('tool_finished', traceToolResult(runId, step, tu, result, trace));
-      if (archiveCollector) archiveCollector.recordTool(step, tu.name, tu.id, tu.input, result);
-      hooks.dispatch('post_tool', { step, tool: tu.name, ok: result.ok });
-      toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: result.text || '', is_error: !result.ok });
-      if (verbose)
-        console.error(
-          '[runner] step ' +
-            step +
-            ': tool_result ' +
-            tu.name +
-            ' ok=' +
-            result.ok +
-            (result.text ? ' (' + result.text.length + ' chars)' : ''),
-        );
-    }
-
-    const cycle = detectSemanticCycles(toolHistory);
-    if (cycle) {
-      const msg = 'Semantic cycle detected: repeated ' + cycle.key;
-      emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.SEMANTIC_CYCLE_DETECTED });
-      if (ledger)
-        appendLedger(ledger, hooks, 'run_stopped', { runId, stopReason: STOP_REASONS.SEMANTIC_CYCLE_DETECTED });
-      const autopsy = buildAutopsy({
-        toolHistory,
-        stopReason: STOP_REASONS.SEMANTIC_CYCLE_DETECTED,
-        steps: step,
-        usage: totalUsage,
-        duration_ms: Date.now() - startedAt,
-      });
-      if (resolvedSessionPath) writeAutopsyFile(resolvedSessionPath, autopsy);
-      process.exitCode = 1;
-      if (archiveCollector) archiveCollector.recordError(step, msg);
-      return completeRun({
-        stopReason: STOP_REASONS.SEMANTIC_CYCLE_DETECTED,
-        finalText: msg,
-        steps: step,
-        duration_ms: Date.now() - startedAt,
-        usage: totalUsage,
-        events: output.events,
-        autopsy,
-      });
-    }
-
-    if (maxWallClockMs && Date.now() - startedAt > maxWallClockMs) {
-      const msg = 'Wall clock budget exceeded';
-      emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.WALL_CLOCK_BUDGET_EXCEEDED });
-      process.exitCode = 1;
-      if (archiveCollector) archiveCollector.recordError(step, msg);
-      return completeRun({
-        stopReason: STOP_REASONS.WALL_CLOCK_BUDGET_EXCEEDED,
-        finalText: msg,
-        steps: step,
-        duration_ms: Date.now() - startedAt,
-        usage: totalUsage,
-        events: output.events,
-      });
-    }
-
-    if (maxCostUsd) {
-      const cost = estimateCostUsd(model, totalUsage);
-      if (cost > maxCostUsd) {
-        const msg = 'Cost budget exceeded (~$' + cost.toFixed(4) + ')';
-        emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.COST_BUDGET_EXCEEDED });
-        process.exitCode = 1;
-        if (archiveCollector) archiveCollector.recordError(step, msg);
-        return completeRun({
-          stopReason: STOP_REASONS.COST_BUDGET_EXCEEDED,
-          finalText: msg,
-          steps: step,
-          duration_ms: Date.now() - startedAt,
-          usage: totalUsage,
-          events: output.events,
-        });
-      }
-    }
-
-    // ── Step B: write/shell tools serially (with confirmation) ──
-    // B3: when --accept-edits is on, pre-execute groups of consecutive
-    // writes whose canonical paths are disjoint via Promise.all. The serial
-    // loop below consumes cached results so ledger / transcript / output
-    // events still fire in the model's emitted order.
-    const _parallelResults = new Map();
-    if (ctx.acceptEdits === true && writeTools.length > 1) {
-      const _groups = _groupDisjointWrites(writeTools, ctx);
-      for (const _g of _groups) {
-        if (_g.length < 2) continue;
-        if (ledger) {
-          appendLedger(ledger, hooks, 'tool_use_group', {
-            runId,
-            step,
-            toolUseIds: _g.map((t) => t.id),
-            tools: _g.map((t) => t.name),
-          });
+    const turn = await pipeline.executeTurn(step, toolUses, {
+      // Loop-level stops (semantic cycles, wall-clock, cost) fire once per
+      // turn — after the read batch is recorded, before any write executes.
+      midTurnCheck: (readOutcomes) => {
+        for (const o of readOutcomes) {
+          toolHistory.push({ name: o.toolUse.name, args: o.toolUse.input || {}, ok: o.result.ok });
         }
-        const _groupResults = await Promise.all(_g.map((tu) => executeForce(tu.name, tu.input || {}, ctx, tu.id)));
-        for (let _i = 0; _i < _g.length; _i++) {
-          _parallelResults.set(_g[_i].id, _groupResults[_i]);
+        const cycle = detectSemanticCycles(toolHistory);
+        if (cycle) {
+          return {
+            stop: STOP_REASONS.SEMANTIC_CYCLE_DETECTED,
+            message: 'Semantic cycle detected: repeated ' + cycle.key,
+          };
         }
-      }
-    }
-    for (const toolUse of writeTools) {
-      const toolName = toolUse.name;
-      const args = toolUse.input || {};
-      const toolUseId = toolUse.id;
-      const effectId = makeEffectId();
-      appendLedger(ledger, hooks, 'tool_effect_intent', { runId, step, tool: toolName, toolUseId, effectId });
-      hooks.dispatch('pre_tool', { step, tool: toolName, toolUseId });
-      output.emit('tool_use', { step, tool_use_id: toolUseId, name: toolName, input: args });
-      if (trace) trace.append('tool_requested', traceToolUse(runId, step, toolUse, trace));
-      if (transcript) transcript.append({ type: 'tool_call', step, tool: toolName, args, toolUseId });
-      if (verbose)
-        console.error('[runner] step ' + step + ': tool_call ' + toolName + '(' + JSON.stringify(args) + ')');
-
-      let result = _parallelResults.has(toolUseId)
-        ? _parallelResults.get(toolUseId)
-        : await execute(toolName, args, ctx, toolUseId);
-
-      if (result.needsConfirmation) {
-        if (trace)
-          trace.append('permission_decision', {
-            run_id: runId,
-            turn: step,
-            tool_use_id: toolUseId,
-            tool: toolName,
-            decision: 'approval_required',
-            proposed_action: trace.capture(result.proposedAction),
-            permission: result.permission,
-          });
-        output.emit('approval_required', {
-          step,
-          tool_use_id: toolUseId,
-          name: toolName,
-          proposed_action: result.proposedAction,
-        });
-        if (transcript)
-          transcript.append({ type: 'tool_confirm', step, tool: toolName, proposedAction: result.proposedAction });
-        if (ctx.plan) {
-          result = { ok: true, text: 'Plan mode: would ' + result.proposedAction };
-        } else {
-          const choice = await confirm.ask(result.proposedAction, ctx.confirmTimeout);
-          if (trace)
-            trace.append('approval_resolved', {
-              run_id: runId,
-              turn: step,
-              tool_use_id: toolUseId,
-              tool: toolName,
-              decision: choice,
-            });
-          if (choice === 'allow') result = await executeForce(toolName, args, ctx, toolUseId);
-          else {
-            if (transcript) transcript.append({ type: 'tool_denied', step, tool: toolName });
-            result = { ok: false, text: 'User denied this action.' };
+        if (maxWallClockMs && Date.now() - startedAt > maxWallClockMs) {
+          return { stop: STOP_REASONS.WALL_CLOCK_BUDGET_EXCEEDED, message: 'Wall clock budget exceeded' };
+        }
+        if (maxCostUsd) {
+          const cost = estimateCostUsd(model, totalUsage);
+          if (cost > maxCostUsd) {
+            return {
+              stop: STOP_REASONS.COST_BUDGET_EXCEEDED,
+              message: 'Cost budget exceeded (~$' + cost.toFixed(4) + ')',
+            };
           }
         }
-      }
+        return null;
+      },
+    });
 
-      if (!result.ok && !result.needsConfirmation) {
-        consecutiveToolFailures++;
-        if (consecutiveToolFailures >= MAX_CONSECUTIVE_FAILURES) {
-          const escalate =
-            '\n\n⚠️  ' +
-            consecutiveToolFailures +
-            ' consecutive tool failures. The runner is stopping to prevent an infinite retry loop. Last failure: ' +
-            toolName +
-            ' — ' +
-            result.text;
-          result.text = (result.text || '') + escalate;
-          if (transcript)
-            transcript.append({ type: 'escalation', step, tool: toolName, failures: consecutiveToolFailures });
-          console.error(escalate);
-        } else {
-          if (!quiet)
-            console.error(
-              '[runner] tool failure (' +
-                consecutiveToolFailures +
-                '/' +
-                MAX_CONSECUTIVE_FAILURES +
-                '): ' +
-                toolName +
-                ' — ' +
-                (result.text || 'unknown error').slice(0, 200),
-            );
-        }
-      } else {
-        consecutiveToolFailures = 0;
-      }
-
-      if (transcript)
-        transcript.append({
-          type: 'tool_result',
-          step,
-          tool: toolName,
-          ok: result.ok,
-          text: result.text,
-          bytes: result.bytes,
-          toolUseId,
+    if (turn.aborted) {
+      const { reason, message } = turn.aborted;
+      emitHint(message, { quiet, verbose, stopReason: reason });
+      process.exitCode = 1;
+      if (archiveCollector) archiveCollector.recordError(step, message);
+      const result = {
+        stopReason: reason,
+        finalText: message,
+        steps: step,
+        duration_ms: Date.now() - startedAt,
+        usage: totalUsage,
+        events: output.events,
+      };
+      if (reason === STOP_REASONS.SEMANTIC_CYCLE_DETECTED) {
+        if (ledger) appendLedger(ledger, hooks, 'run_stopped', { runId, stopReason: reason });
+        const autopsy = buildAutopsy({
+          toolHistory,
+          stopReason: reason,
+          steps: step,
+          usage: totalUsage,
+          duration_ms: result.duration_ms,
         });
-      if (humanLog) humanLog.writeToolResult(step, toolName, toolUseId, result);
-      if (trace) trace.append('tool_finished', traceToolResult(runId, step, toolUse, result, trace));
-      if (archiveCollector) archiveCollector.recordTool(step, toolName, toolUseId, args, result);
-      appendLedger(ledger, hooks, 'tool_effect_result', {
-        runId,
-        step,
-        tool: toolName,
-        toolUseId,
-        effectId,
-        ok: result.ok,
-      });
-      hooks.dispatch('post_tool', { step, tool: toolName, ok: result.ok });
-      if (verbose)
-        console.error(
-          '[runner] step ' +
-            step +
-            ': tool_result ' +
-            toolName +
-            ' ok=' +
-            result.ok +
-            (result.text ? ' (' + result.text.length + ' chars)' : ''),
-        );
-      output.emit('tool_result', {
-        step,
-        tool_use_id: toolUseId,
-        name: toolName,
-        content: result.text || '',
-        is_error: !result.ok,
-        bytes: result.bytes,
-      });
-      toolResults.push({
-        type: 'tool_result',
-        tool_use_id: toolUseId,
-        content: result.text || '',
-        is_error: !result.ok,
-      });
+        if (resolvedSessionPath) writeAutopsyFile(resolvedSessionPath, autopsy);
+        result.autopsy = autopsy;
+      }
+      return completeRun(result);
     }
-
-    messages.push({ role: 'user', content: toolResults });
+    messages.push({ role: 'user', content: turn.toolResults });
     persistSession(
       sessionStore,
       messages,
-      { ...ctx, _consecutiveToolFailures: consecutiveToolFailures },
+      { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
       !!noSessionPersistence,
     );
   }
@@ -1471,7 +1190,7 @@ async function run(options) {
   persistSession(
     sessionStore,
     messages,
-    { ...ctx, _consecutiveToolFailures: consecutiveToolFailures },
+    { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
     !!noSessionPersistence,
   );
   if (archiveCollector) archiveCollector.recordError(steps, msg);
@@ -1496,30 +1215,6 @@ function bridgeTraceHeaders(trace, runId, turn) {
   };
 }
 
-function traceToolUse(runId, turn, toolUse, trace) {
-  return {
-    run_id: runId,
-    turn,
-    tool_use_id: toolUse.id,
-    tool: toolUse.name,
-    input_bytes: bytes(toolUse.input || {}),
-    input: trace.capture(toolUse.input || {}),
-  };
-}
-
-function traceToolResult(runId, turn, toolUse, result, trace) {
-  return {
-    run_id: runId,
-    turn,
-    tool_use_id: toolUse.id,
-    tool: toolUse.name,
-    ok: !!result.ok,
-    bytes: result.bytes,
-    result_bytes: bytes(result.text || ''),
-    result: trace.capture(result.text || ''),
-  };
-}
-
 function traceRunResult(result) {
   return {
     steps: result.steps,
@@ -1537,6 +1232,7 @@ module.exports = {
   applyCacheControlBudget,
   addUsage,
   normalizeEffort,
+  // Re-exported from tool-pipeline for existing callers/tests.
   _arePathsDisjoint,
   _groupDisjointWrites,
 };
