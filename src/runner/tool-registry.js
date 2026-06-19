@@ -50,16 +50,7 @@
  * All three return Promises. Synchronous callers should `await`.
  */
 
-const listFiles = require('./tools/list-files');
-const readFile = require('./tools/read-file');
-const searchText = require('./tools/search-text');
-const gitStatus = require('./tools/git-status');
-const editFile = require('./tools/edit-file');
-const writeFile = require('./tools/write-file');
-const applyPatch = require('./tools/apply-patch');
-const undo = require('./tools/undo');
-const undoEdit = require('./tools/undo-edit');
-const bash = require('./tools/bash');
+const { TOOLS, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS } = require('./tool-catalog');
 const permissions = require('./permissions');
 const safety = require('./safety');
 const { normalizeToolResult, resolveToolName } = require('./tool-envelope');
@@ -67,21 +58,6 @@ const { invalidateContextCache } = require('./context-budget');
 const { maybeSummarize } = require('./tool-result-summarizers');
 const searchCache = require('./tools/_search-cache');
 
-const TOOLS = {
-  list_files: listFiles,
-  read_file: readFile,
-  search_text: searchText,
-  git_status: gitStatus,
-  edit_file: editFile,
-  write_file: writeFile,
-  apply_patch: applyPatch,
-  undo: undo,
-  undo_edit: undoEdit,
-  bash: bash,
-};
-
-const WRITE_TOOLS = new Set(['edit_file', 'write_file', 'apply_patch']);
-const DEFAULT_HIDDEN_TOOLS = new Set(['apply_patch']);
 const REDACTION_NOTICE =
   '[runner notice: this tool output was redacted for safety. Redacted snippets are not byte-exact; do not treat quotes or secret-like strings as exact source.]';
 

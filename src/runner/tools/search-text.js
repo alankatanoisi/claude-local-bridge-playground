@@ -10,8 +10,8 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { BLOCKED_DIRS } = require('../permissions');
 const safety = require('../safety');
+const { BLOCKED_DIRS } = safety;
 const searchCache = require('./_search-cache');
 
 const MAX_OUTPUT_LINES = 200;
@@ -205,4 +205,4 @@ function execute(args, ctx) {
   return result;
 }
 
-module.exports = { definition, execute };
+module.exports = { definition, execute, meta: { name: 'search_text', category: 'read-only' } };

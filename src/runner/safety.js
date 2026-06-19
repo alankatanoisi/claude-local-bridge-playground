@@ -81,6 +81,13 @@ const SYSTEM_DIRS = [
   '/dev',
 ];
 
+// Noise directories that traversal tools (list_files, search_text) skip and
+// that the permission layer treats as blocked basenames. Lives here — a shared
+// leaf both the tools and permissions import — so tool modules never depend on
+// permissions.js (which would otherwise create a require cycle once the tool
+// catalog derives categories from the tool modules).
+const BLOCKED_DIRS = ['.git', 'node_modules', 'dist', 'build', 'coverage'];
+
 // ---------------------------------------------------------------------------
 // Deny matrix — path patterns that are always denied (read or write)
 // ---------------------------------------------------------------------------
@@ -461,6 +468,7 @@ module.exports = {
   makeStreamingScrubber,
   STREAM_SCRUB_WINDOW,
   SYSTEM_DIRS,
+  BLOCKED_DIRS,
   DENY_MATRIX_PATTERNS,
   SCRUBBED_ENV_VARS,
 };

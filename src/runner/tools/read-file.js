@@ -133,4 +133,4 @@ function execute(args, ctx) {
   }
 }
 
-module.exports = { definition, execute };
+module.exports = { definition, execute, meta: { name: 'read_file', category: 'read-only' } };

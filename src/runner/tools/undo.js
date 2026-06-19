@@ -88,4 +88,4 @@ function execute(args, ctx) {
   }
 }
 
-module.exports = { definition, execute };
+module.exports = { definition, execute, meta: { name: 'undo', category: 'recovery' } };

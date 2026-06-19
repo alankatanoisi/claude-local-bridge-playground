@@ -45,4 +45,4 @@ function execute(args, ctx) {
   }
 }
 
-module.exports = { definition, execute };
+module.exports = { definition, execute, meta: { name: 'git_status', category: 'read-only' } };

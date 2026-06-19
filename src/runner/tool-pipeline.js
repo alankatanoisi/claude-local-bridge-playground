@@ -56,7 +56,7 @@
 
 const path = require('path');
 const { getDefinitions, execute, executeForce, executeReadOnlyBatch } = require('./tool-registry');
-const { CATEGORIES } = require('./permissions');
+const { CATEGORIES } = require('./tool-catalog');
 const safety = require('./safety');
 const { makeEffectId } = require('./session-ledger');
 const { bytes } = require('../trace-utils');

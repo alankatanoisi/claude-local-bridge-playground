@@ -164,4 +164,4 @@ function executeSpawnSync(command, cwd, env, timeout) {
   }
 }
 
-module.exports = { definition, execute, executeSpawnSync };
+module.exports = { definition, execute, executeSpawnSync, meta: { name: 'bash', category: 'shell' } };

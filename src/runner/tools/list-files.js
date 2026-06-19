@@ -9,7 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { BLOCKED_DIRS } = require('../permissions');
+const { BLOCKED_DIRS } = require('../safety');
 
 function definition() {
   return {
@@ -48,4 +48,4 @@ function execute(args, ctx) {
   }
 }
 
-module.exports = { definition, execute };
+module.exports = { definition, execute, meta: { name: 'list_files', category: 'read-only' } };

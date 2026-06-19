@@ -159,4 +159,4 @@ function execute(args, ctx) {
   return { ok: true, text: 'Patch applied (basic patcher). Backup: ' + backupPath };
 }
 
-module.exports = { definition, execute };
+module.exports = { definition, execute, meta: { name: 'apply_patch', category: 'write', hidden: true } };

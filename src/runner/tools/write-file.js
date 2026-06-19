@@ -107,4 +107,4 @@ function execute(args, ctx) {
   return { ok: true, text: msg, bytes, backupPath, new_hash: sha256Text(content) };
 }
 
-module.exports = { definition, execute };
+module.exports = { definition, execute, meta: { name: 'write_file', category: 'write' } };

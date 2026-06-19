@@ -7,6 +7,8 @@
  * Ghost blocks tell the model what was intentionally compressed.
  */
 
+const { CATEGORIES, WRITE_TOOLS } = require('./tool-catalog');
+
 const COMPACTION_STAGES = Object.freeze(['none', 'clip', 'snip', 'cost', 'ghost', 'summarize']);
 
 const DEFAULT_POLICY = Object.freeze({
@@ -105,8 +107,10 @@ function snipOldToolResults(messages, snipAfter, preserveRecent) {
  * Only fires on tool_results outside the preserved-recent window. The model
  * sees a stale marker telling it to re-read if needed.
  */
-const _READ_TOOLS = new Set(['read_file', 'list_files', 'search_text', 'git_status']);
-const _WRITE_TOOLS = new Set(['write_file', 'edit_file', 'apply_patch']);
+// Derived from each tool's declared category (see tool-catalog.js) instead of
+// re-listing tool names that must be kept in sync by hand.
+const _READ_TOOLS = new Set(Object.keys(CATEGORIES).filter((name) => CATEGORIES[name] === 'read-only'));
+const _WRITE_TOOLS = WRITE_TOOLS;
 
 function _walkToolEvents(messages, fn) {
   for (let i = 0; i < messages.length; i++) {

@@ -6,19 +6,8 @@
 
 const path = require('path');
 const safety = require('./safety');
-
-const CATEGORIES = {
-  list_files: 'read-only',
-  read_file: 'read-only',
-  search_text: 'read-only',
-  git_status: 'read-only',
-  edit_file: 'write',
-  write_file: 'write',
-  apply_patch: 'write',
-  undo: 'recovery',
-  undo_edit: 'recovery',
-  bash: 'shell',
-};
+// CATEGORIES is derived from each tool module's own meta — see tool-catalog.js.
+const { CATEGORIES } = require('./tool-catalog');
 
 const MODES = {
   default: { 'read-only': 'allow', write: 'ask', shell: 'ask', recovery: 'allow' },
@@ -48,7 +37,7 @@ const BLOCKED_PATTERNS = [
   /^.*_token$/i,
   /^.*secret.*$/i,
 ];
-const BLOCKED_DIRS = ['.git', 'node_modules', 'dist', 'build', 'coverage'];
+const { BLOCKED_DIRS } = safety;
 
 function isInsideProject(requestedPath, cwd) {
   if (path.isAbsolute(requestedPath)) return false;
@@ -376,7 +365,6 @@ module.exports = {
   isBlockedBasename,
   isBlockedDir,
   invalidateDecisionCache,
-  BLOCKED_DIRS,
   CATEGORIES,
   MODES,
 };
