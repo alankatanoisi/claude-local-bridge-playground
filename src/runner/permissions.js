@@ -10,15 +10,45 @@ const safety = require('./safety');
 const { CATEGORIES } = require('./tool-catalog');
 
 const MODES = {
-  default: { 'read-only': 'allow', write: 'ask', shell: 'ask', recovery: 'allow' },
-  acceptEdits: { 'read-only': 'allow', write: 'allow', shell: 'ask', recovery: 'allow' },
-  dontAsk: { 'read-only': 'allow', write: 'ask', shell: 'allow', recovery: 'allow' },
-  acceptEditsAndDontAsk: { 'read-only': 'allow', write: 'allow', shell: 'allow', recovery: 'allow' },
+  default: {
+    'read-only': 'allow',
+    write: 'ask',
+    shell: 'ask',
+    recovery: 'allow',
+    orchestration: 'ask',
+    worktree: 'ask',
+  },
+  acceptEdits: {
+    'read-only': 'allow',
+    write: 'allow',
+    shell: 'ask',
+    recovery: 'allow',
+    orchestration: 'ask',
+    worktree: 'allow',
+  },
+  dontAsk: {
+    'read-only': 'allow',
+    write: 'ask',
+    shell: 'allow',
+    recovery: 'allow',
+    orchestration: 'allow',
+    worktree: 'allow',
+  },
+  acceptEditsAndDontAsk: {
+    'read-only': 'allow',
+    write: 'allow',
+    shell: 'allow',
+    recovery: 'allow',
+    orchestration: 'allow',
+    worktree: 'allow',
+  },
   plan: {
     'read-only': 'plan_only',
     write: 'plan_only',
     shell: 'plan_only',
     recovery: 'plan_only',
+    orchestration: 'plan_only',
+    worktree: 'plan_only',
   },
 };
 
@@ -251,6 +281,19 @@ function _checkUncached(toolName, args, ctx) {
     return enrichDecision(
       { decision: 'deny', reason: "Tool '" + toolName + "' is not in the allow-list." },
       { category: 'unknown', mode, ruleId: 'allowed_tools', severity: 'hard_deny', explanation: 'Unknown tool.' },
+    );
+  }
+
+  if (toolName === 'spawn_agent' && (ctx.spawnDepth || 0) > 0) {
+    return enrichDecision(
+      { decision: 'deny', reason: 'Child agents cannot spawn further children.' },
+      {
+        category: 'orchestration',
+        mode,
+        ruleId: 'spawn_depth',
+        severity: 'hard_deny',
+        explanation: 'spawn_agent is only available in the top-level runner.',
+      },
     );
   }
 

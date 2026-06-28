@@ -20,7 +20,7 @@
  *     → tool-catalog → tools → safety
  */
 
-const VALID_CATEGORIES = new Set(['read-only', 'write', 'shell', 'recovery']);
+const VALID_CATEGORIES = new Set(['read-only', 'write', 'shell', 'recovery', 'orchestration', 'worktree']);
 
 // Insertion order is the order tools are offered to the model — preserved from
 // the historical TOOLS map so the tools array (and its prompt cache) is stable.
@@ -28,6 +28,11 @@ const TOOL_MODULES = [
   require('./tools/list-files'),
   require('./tools/read-file'),
   require('./tools/search-text'),
+  require('./tools/glob'),
+  require('./tools/manage-tasks'),
+  require('./tools/spawn-agent'),
+  require('./tools/enter-worktree'),
+  require('./tools/exit-worktree'),
   require('./tools/git-status'),
   require('./tools/edit-file'),
   require('./tools/write-file'),

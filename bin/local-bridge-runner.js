@@ -65,8 +65,8 @@ Options:\n\
   --chaos-ok           Allow risky flag combo: --allow-shell --accept-edits --dont-ask\n\
   --max-wall-clock-ms <n> Stop after N milliseconds\n\
   --max-cost-usd <n>    Stop after estimated cost exceeds N USD\n\
-  --agent <profile>     Runner personality: explore, plan, implement, verify, test, bench, project, …\n\
-  --list-agents         List built-in runner personalities and exit\n\
+  --agent <name|path>   Runner personality: built-in id, file name, or path to agent .md\n\
+  --list-agents         List built-in and file-based runner personalities and exit\n\
   --bare                Minimal context: no instruction docs, repo block, or skills\n\
   --include-instruction-docs  Opt in to AGENTS.md / CLAUDE.md instruction hierarchy\n\
   --include-repo-context      Opt in to session repo-context block (fingerprint)\n\
@@ -86,6 +86,7 @@ Options:\n\
   --accept-edits       Auto-approve write/edit/patch tools (skip confirmation)\n\
   --dont-ask           Skip confirmation for already-enabled risky tools\n\
   --allow-shell        Enable the bash tool (disabled by default)\n\
+  --test-watch         After successful writes, run detected tests (requires --allow-shell)\n\
   --shell-timeout <ms> Max time for shell commands in ms (default: 30000; cap: 900000)\n\
   --no-network         Best-effort HTTP/HTTPS proxy guard for shell commands; not a sandbox\n\
   --system-prompt <s>  Override the default system prompt\n\
@@ -181,6 +182,7 @@ async function main() {
         'accept-edits': { type: 'boolean' },
         'dont-ask': { type: 'boolean' },
         'allow-shell': { type: 'boolean' },
+        'test-watch': { type: 'boolean' },
         'shell-timeout': { type: 'string' },
         'output-format': { type: 'string' },
         'no-network': { type: 'boolean' },
@@ -210,7 +212,7 @@ async function main() {
 
   if (args.values['list-agents']) {
     const { formatAgentList } = require('../src/runner/agents/registry');
-    console.log(formatAgentList());
+    console.log(formatAgentList(path.resolve(args.values.cwd || process.cwd())));
     process.exit(0);
   }
 
@@ -295,6 +297,11 @@ async function main() {
   const acceptEdits = args.values['accept-edits'] ? true : permDefaults.acceptEdits;
   const dontAsk = args.values['dont-ask'] ? true : permDefaults.dontAsk;
   const allowShell = args.values['allow-shell'] ? true : permDefaults.allowShell;
+  const testWatch = !!args.values['test-watch'];
+  if (testWatch && !allowShell) {
+    console.error('Error: --test-watch requires --allow-shell (tests run through the shell tool path).');
+    process.exit(1);
+  }
   const shellTimeout = parseInt(args.values['shell-timeout'], 10) || 30000;
   const outputFormat = args.values['output-format'] || 'text';
   const traceLevel = args.values['trace-level'] || 'off';
@@ -478,6 +485,7 @@ async function main() {
     acceptEdits,
     dontAsk,
     allowShell,
+    testWatch,
     noNetwork,
     exposedTools,
     allowedTools: exposedTools,
@@ -504,6 +512,7 @@ async function main() {
     acceptEdits,
     dontAsk,
     allowShell,
+    testWatch,
     shellTimeout,
     outputFormat,
     resume,
@@ -569,6 +578,9 @@ function printRuntimeTips(options) {
     console.error('[runner] warning: --allow-shell exposes bash. Read the proposed command before approving it.');
   } else if (options.dontAsk) {
     console.error('[runner] tip: --dont-ask does not enable bash. Add --allow-shell only when shell access is needed.');
+  }
+  if (options.testWatch) {
+    console.error('[runner] tip: --test-watch runs detected tests after successful writes (npm test, pytest, or BRIDGE_RUNNER_TEST_CMD).');
   }
   if (options.noNetwork) {
     console.error('[runner] warning: --no-network is a best-effort shell proxy guard, not a network sandbox.');

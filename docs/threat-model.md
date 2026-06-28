@@ -21,11 +21,29 @@ in the Claude Local Bridge Output log. That token is a local debug door code, no
 
 | Category     | Tools                                                  | Scope                                                                                                                                                                                                          |
 | ------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Read**     | `list_files`, `read_file`, `search_text`, `git_status` | Any file inside `cwd` (and its subdirectories) that passes the deny matrix. Git metadata only.                                                                                                                 |
+| **Read**     | `list_files`, `read_file`, `search_text`, `glob`, `git_status` | Any file inside `cwd` (and its subdirectories) that passes the deny matrix. Git metadata only.                                                                                                                 |
+| **Session**  | `manage_tasks`                                         | In-session task checklist stored in the session file; no filesystem access.                                                                                                                                    |
+| **Orchestration** | `spawn_agent`                                     | Spawns a child runner subprocess with a chosen agent profile. Top-level only (`spawnDepth === 0`). Asks by default; capped at 8 spawns per run. Child inherits cwd deny matrix; cannot recurse.              |
+| **Worktree**  | `enter_worktree`, `exit_worktree`                 | Creates an isolated git worktree on a fresh branch and switches cwd into it; `exit_worktree` restores the original cwd. Worktrees live under `~/.bridge-runner/worktrees/`. Requires a git repo. Asks by default; `cleanup=true` removes the worktree and branch. |
 | **Write**    | `edit_file`, `write_file`                              | Any file inside `cwd` that passes the deny matrix. Backups saved before mutation. Requires user confirmation (or `--accept-edits`).                                                                            |
 | **Recovery** | `undo`, `undo_edit`                                    | Restore files from `.bridge-runner/backups/` or the in-memory undo log. Auto-approved.                                                                                                                         |
 | **Advanced** | `apply_patch`                                          | Patch-style edits. Hidden from the default tool surface; opt in explicitly with `--tools apply_patch` or a custom tool list. Requires the same write confirmations and path checks as other write tools.       |
 | **Shell**    | `bash`                                                 | Run shell commands inside `cwd`. **Opt-in only** (`--allow-shell`). Bounded by timeout (default 30s) and output limits (10KB). Filtered environment. Shell argument scanning blocks dangerous path references. |
+
+## File-based agents (`--agent <name|path>`)
+
+Markdown agent files (YAML frontmatter + prompt body) can extend built-in `--agent` profiles. They are loaded from
+`.bridge-runner/agents/` or an explicit path the user passes on the CLI.
+
+| Risk                          | Mitigation                                                                 |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| Untrusted third-party prompts | Body is appended to the system prompt only; cannot bypass deny matrix     |
+| Tool widening                 | Frontmatter `tools` are mapped to the runner catalog; unknown tools dropped |
+| Network egress                | `WebFetch`, `WebSearch`, and MCP tool names are always dropped             |
+| Shell without consent         | `Bash` maps to `bash` only when `--allow-shell` is already set           |
+| Path escape via `--agent`     | User-directed path (like `--system-prompt-file`); not auto-scanned        |
+
+Built-in profile ids always take precedence over file agents with the same name.
 
 ## What the model can NEVER touch
 

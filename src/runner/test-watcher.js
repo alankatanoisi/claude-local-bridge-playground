@@ -55,6 +55,7 @@ function detectTestCommand(cwd) {
 
 function isWatchEnabled(ctx) {
   if (!ctx || !ctx.allowShell) return false;
+  if (ctx.testWatch) return true;
   return process.env.BRIDGE_RUNNER_TEST_WATCH === '1';
 }
 
@@ -109,9 +110,25 @@ function runIfEnabled(ctx) {
   };
 }
 
+function formatVerificationAppendix(watch) {
+  if (!watch || !watch.ran) return '';
+  const lines = ['[verification] Ran ' + watch.command + ' (' + (watch.source || 'detected') + ').'];
+  if (watch.ok) {
+    lines.push('[verification] Tests/checks passed (' + watch.durationMs + ' ms).');
+  } else if (watch.reason === 'timeout') {
+    lines.push('[verification] Timed out after ' + watch.durationMs + ' ms. Fix or narrow the test command.');
+  } else {
+    lines.push('[verification] Failed (exit ' + watch.exitCode + '). Review output and fix before finishing.');
+  }
+  if (watch.stdout && watch.stdout.trim()) lines.push('[stdout]\n' + watch.stdout.trim());
+  if (watch.stderr && watch.stderr.trim()) lines.push('[stderr]\n' + watch.stderr.trim());
+  return lines.join('\n');
+}
+
 module.exports = {
   detectTestCommand,
   isWatchEnabled,
   runIfEnabled,
+  formatVerificationAppendix,
   DEFAULT_BUDGET_MS,
 };

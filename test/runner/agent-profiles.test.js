@@ -2,13 +2,24 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const { getProfile, applyProfileToRunOptions, assertForkAllowed } = require('../../src/runner/agents/registry');
+
+function tmp(label) {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'agent-profile-' + label + '-'));
+}
 
 describe('agent profiles', () => {
   it('explore profile is read-only', () => {
     const p = getProfile('explore');
     assert.ok(p);
-    assert.ok(p.allowedTools.every((t) => ['list_files', 'read_file', 'search_text', 'git_status'].includes(t)));
+    assert.ok(
+      p.allowedTools.every((t) =>
+        ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks'].includes(t),
+      ),
+    );
     assert.equal(p.forkAllowed, false);
   });
 
@@ -31,6 +42,49 @@ describe('agent profiles', () => {
   it('preserves an explicit maxSteps override over profile defaults', () => {
     const applied = applyProfileToRunOptions('bench', { maxSteps: 66, explicitOptions: { maxSteps: true } });
     assert.equal(applied.maxSteps, 66);
+  });
+
+  it('resolves file agent from .bridge-runner/agents/ when cwd is provided', () => {
+    const cwd = tmp('file-agent');
+    const dir = path.join(cwd, '.bridge-runner', 'agents');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'file-tester.md'),
+      `---
+name: file-tester
+description: Temp file agent for tests
+tools: Read, Grep
+model: inherit
+---
+Test body.`,
+    );
+
+    const p = getProfile('file-tester', { cwd });
+    assert.ok(p);
+    assert.equal(p.id, 'file-tester');
+    assert.ok(p.fileAgent);
+    assert.ok(p.allowedTools.includes('read_file'));
+    assert.match(p.systemPromptAddon, /Test body/);
+  });
+
+  it('applyProfileToRunOptions works for file agents', () => {
+    const cwd = tmp('apply-file');
+    const dir = path.join(cwd, '.bridge-runner', 'agents');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'apply-me.md'),
+      `---
+name: apply-me
+description: Apply test agent
+tools: Read
+model: inherit
+---
+Addon text.`,
+    );
+
+    const applied = applyProfileToRunOptions('apply-me', { cwd });
+    assert.equal(applied.agentProfile, 'apply-me');
+    assert.match(applied.appendSystemPrompt, /Addon text/);
   });
 });
 

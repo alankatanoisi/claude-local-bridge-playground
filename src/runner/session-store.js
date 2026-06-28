@@ -51,6 +51,7 @@ function defaultSession(sessionId, overrides = {}) {
       undoLog: [],
       consecutiveToolFailures: 0,
       activeTaskIds: [],
+      tasks: [],
       compactionGeneration: 0,
       flags: {},
     },

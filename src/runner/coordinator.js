@@ -108,7 +108,7 @@ class Coordinator {
           cwd: input.cwd,
           phase: 'research',
           agent: 'explore',
-          allowedTools: ['list_files', 'read_file', 'search_text', 'git_status'],
+          allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks', 'spawn_agent'],
           maxSteps: 6,
         });
         artifacts.workerResults.push(workerResult);

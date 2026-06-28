@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Runner Expansion Roadmap — Critical Assessment &amp; 5 Future Directions</title>
+    <style>
+      :root {
+        --bg: #fafafa;
+        --fg: #1a1a1a;
+        --muted: #666;
+        --accent: #2563eb;
+        --accent-light: #dbeafe;
+        --code-bg: #f3f4f6;
+        --border: #e5e7eb;
+        --success: #059669;
+        --warn: #d97706;
+        --danger: #dc2626;
+        --info: #6366f1;
+        --radius: 8px;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.65;
+        color: var(--fg);
+        background: var(--bg);
+        margin: 0;
+        padding: 0;
+      }
+
+      header {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        color: #fff;
+        padding: 3rem 1.5rem 2.5rem;
+        text-align: center;
+      }
+      header h1 {
+        margin: 0 0 0.5rem;
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      header p {
+        margin: 0 auto;
+        opacity: 0.9;
+        font-size: 1.05rem;
+        max-width: 720px;
+      }
+      header .meta {
+        margin-top: 1rem;
+        font-size: 0.85rem;
+        opacity: 0.7;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      main {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+
+      section {
+        margin-bottom: 2.75rem;
+      }
+
+      h2 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin: 0 0 0.75rem;
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 0.4rem;
+      }
+      h3 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 1.25rem 0 0.5rem;
+        color: var(--accent);
+      }
+      h4 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin: 0.9rem 0 0.3rem;
+        color: var(--fg);
+      }
+
+      p, li { font-size: 0.97rem; }
+
+      code, kbd {
+        background: var(--code-bg);
+        padding: 0.1rem 0.35rem;
+        border-radius: 4px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.88em;
+      }
+
+      pre {
+        background: var(--code-bg);
+        padding: 0.9rem 1rem;
+        border-radius: var(--radius);
+        overflow-x: auto;
+        font-size: 0.85rem;
+        line-height: 1.55;
+        border: 1px solid var(--border);
+      }
+
+      .callout {
+        border-left: 4px solid var(--accent);
+        background: var(--accent-light);
+        padding: 0.9rem 1rem;
+        border-radius: 0 var(--radius) var(--radius) 0;
+        margin: 1rem 0;
+        font-size: 0.93rem;
+      }
+      .callout.warn { border-left-color: var(--warn); background: #fef3c7; }
+      .callout.danger { border-left-color: var(--danger); background: #fee2e2; }
+      .callout.success { border-left-color: var(--success); background: #d1fae5; }
+
+      .direction {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.25rem 1.4rem;
+        margin: 1rem 0 1.5rem;
+        box-shadow: var(--shadow);
+      }
+      .direction h3 {
+        margin-top: 0;
+        display: flex;
+        align-items: baseline;
+        gap: 0.6rem;
+      }
+      .direction h3 .num {
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: var(--accent);
+        color: #fff;
+        padding: 0.15rem 0.55rem;
+        border-radius: 9999px;
+        letter-spacing: 0.04em;
+      }
+      .direction .tagline {
+        font-style: italic;
+        color: var(--muted);
+        margin: 0 0 0.85rem;
+        font-size: 0.92rem;
+      }
+      .direction .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin: 0.6rem 0 0.85rem;
+      }
+      .chip {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 0.2rem 0.55rem;
+        border-radius: 9999px;
+        background: var(--code-bg);
+        color: var(--muted);
+      }
+      .chip.effort-s { background: #d1fae5; color: #065f46; }
+      .chip.effort-m { background: #fef3c7; color: #92400e; }
+      .chip.effort-l { background: #fee2e2; color: #991b1b; }
+      .chip.cat-safety { background: #ede9fe; color: #5b21b6; }
+      .chip.cat-dx { background: #dbeafe; color: #1e40af; }
+      .chip.cat-ops { background: #e0f2fe; color: #075985; }
+      .chip.cat-evals { background: #fce7f3; color: #9d174d; }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0.5rem 0;
+        font-size: 0.92rem;
+      }
+      th, td {
+        border: 1px solid var(--border);
+        padding: 0.55rem 0.7rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: var(--code-bg);
+        font-weight: 700;
+      }
+
+      ul, ol { margin: 0.3rem 0 0.75rem; padding-left: 1.4rem; }
+      li { margin: 0.18rem 0; }
+
+      .toc {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1rem 1.25rem;
+        margin-bottom: 2rem;
+      }
+      .toc ol { margin: 0.5rem 0 0; }
+      .toc a { color: var(--accent); text-decoration: none; }
+      .toc a:hover { text-decoration: underline; }
+
+      footer {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 1.5rem;
+        color: var(--muted);
+        font-size: 0.85rem;
+        border-top: 1px solid var(--border);
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Runner Expansion Roadmap — Critical Assessment</h1>
+      <p>
+        A second opinion on <code>docs/runner-expansion-roadmap.md</code>, plus five future directions
+        that the current document either under-weights or omits entirely.
+      </p>
+      <div class="meta">companion to runner-expansion-roadmap.md · v1 · read-only assessment</div>
+    </header>
+
+    <main>
+      <!-- ───────────────────────── Part 1: Critical assessment ───────────────────────── -->
+      <section id="assessment">
+        <h2>Part 1 — Honest assessment of the existing roadmap</h2>
+
+        <div class="callout success">
+          <strong>What the roadmap gets right.</strong> The document is unusually
+          thoughtful for a roadmap. It avoids vendor lock-in, anchors every proposed
+          feature to the threat model (read-only / writes / shell / orchestration
+          categories), is realistic about what is already shipped (test-watcher,
+          presets, agent profiles, structured tools), and consistently steers
+          toward "docs / presets / agents" rather than reflexively adding tools.
+          The "Principle to encode in presets" sidebar (every <em>implement</em>
+          preset nudges toward a verifier) is a strong piece of process design,
+          not just feature design.
+        </div>
+
+        <h3>Five honest gaps</h3>
+
+        <ol>
+          <li>
+            <strong>The roadmap is feature-shaped, not failure-shaped.</strong>
+            It enumerates capabilities to add (run-log search, test-watcher, repo
+            map, prompt library) but contains very little material on
+            <em>regression budgets, observability of the runner itself, or how
+            to know a release broke something subtly.</em> There is a threat
+            model but no <em>operability</em> model.
+          </li>
+          <li>
+            <strong>"Spawn" is treated as one feature, not a system.</strong>
+            <code>spawn_agent</code> ships with a fork-depth=1 cap and an
+            8-spawn-per-run cap (see <code>src/runner/tools/spawn-agent.js</code>),
+            but the roadmap does not discuss how a richer orchestration story
+            (queues, retries, parallelism, partial-result merging,
+            cancellation, cost ceilings) would interact with those invariants.
+            Today the cap is a hard ceiling; tomorrow it will be a UX
+            limitation that users route around by chaining shell calls.
+          </li>
+          <li>
+            <strong>Evaluation is mentioned, not designed.</strong> The
+            roadmap promises "verification presets" and "tests after edits",
+            which are tactics. There is no <em>evals harness</em> for the
+            runner itself — a way to replay a known-good transcript and assert
+            that a new build produces equivalent tool calls, permission
+            decisions, and trace shape. Without this, every refactor of
+            tool-catalog or worker-runtime is a leap of faith.
+          </li>
+          <li>
+            <strong>The command-builder is positioned as docs, but it is
+              software.</strong> It contains real parsing logic
+            (shell-quoting, session-mode conflict detection, chaos guards).
+            A doc-style page accreting JS becomes a maintenance liability —
+            a stress test of the current file (see <a href="#cb">Part 3 of
+              the parent conversation</a>) surfaced a CSS bug that has been
+            shipped, a shell-quoting bug that is exploitable on
+            attacker-controlled filenames, and several state-machine
+            inconsistencies. The roadmap should call out a plan for either
+            slimming the builder or adopting tests for it.
+          </li>
+          <li>
+            <strong>Recovery is under-specified.</strong> The roadmap mentions
+            replay/repair and traces, but a "you ran the wrong command —
+            what now?" story is missing. Backups, <code>undo</code>, and
+            recovery tools are listed under capability groups but never as
+            <em>workflows</em>. A user who has just had a botched
+            <code>--accept-edits</code> run wants a single
+            <code>cc undo last-run</code>, not a five-step grep through
+            transcripts.
+          </li>
+        </ol>
+
+        <h3>Where the roadmap could be braver</h3>
+        <ul>
+          <li>
+            It catalogs Anthropic's published tips at length (the long table)
+            but rarely says <em>"we explicitly disagree with this and here is
+              why."</em> A roadmap that says no out loud is a stronger
+            roadmap. (Examples: subagents-for-context-windowing is presented
+            neutrally, but the threat model arguably implies the runner
+            <em>should</em> resist long-running parallel agents on local
+            machines.)
+          </li>
+          <li>
+            "Docs/presets" is doing a lot of work as a bucket. Roughly a
+            third of the table maps to it. Some of those rows deserve to be
+            their own features (e.g. a real prompt-template registry under
+            <code>.bridge-runner/prompts/</code>, with discovery and
+            validation, not just "write a markdown file").
+          </li>
+        </ul>
+      </section>
+
+      <!-- ───────────────────────── Part 2: Five future directions ───────────────────────── -->
+      <section id="directions">
+        <h2>Part 2 — Five additional future directions</h2>
+
+        <p>
+          Each direction below names an explicit gap in the current roadmap,
+          proposes a minimum-viable shape, and lists what it would force us to
+          decide. Effort labels are rough order of magnitude. Categories
+          align with the existing roadmap's framing (Safety, Developer
+          experience, Operations, Evals).
+        </p>
+
+        <!-- Direction 1 -->
+        <div class="direction" id="dir-1">
+          <h3><span class="num">1</span> Runner self-evals: golden-transcript replay harness</h3>
+          <p class="tagline">
+            Treat the runner like a compiler — assert that a new build produces
+            the same tool calls, permission decisions, and trace shape on a
+            corpus of canned sessions.
+          </p>
+          <div class="meta-row">
+            <span class="chip cat-evals">Category: Evals</span>
+            <span class="chip effort-m">Effort: Medium</span>
+            <span class="chip">Phase 2</span>
+            <span class="chip">No new tools</span>
+          </div>
+
+          <h4>Why</h4>
+          <p>
+            Every refactor of <code>tool-catalog.js</code>,
+            <code>permissions.js</code>, or <code>worker-runtime.js</code> can
+            change the shape of tool calls, the order of permission checks, or
+            the bytes that flow to disk in a trace. There is currently no way
+            to know whether such a change is a bugfix or a regression — the
+            only signal is an angry user a week later. This is the largest
+            silent risk in the project.
+          </p>
+
+          <h4>Minimum-viable shape</h4>
+          <ul>
+            <li>
+              Add <code>test/runner/golden/</code> with canned transcripts:
+              for each, a pinned model output stream (the assistant's
+              tool-call JSON) and the expected <em>runner side</em> of the
+              interaction — which tools were dispatched, with what
+              permissions, what files were touched, what bytes were written
+              to the trace.
+            </li>
+            <li>
+              A <code>cc runner eval</code> command that replays the model
+              stream into the runner with a fake model client, then diffs
+              actual vs. expected runner behavior.
+            </li>
+            <li>
+              CI gate: PRs to <code>src/runner/</code> must not regress
+              goldens without an explicit "approve regression" commit message.
+            </li>
+          </ul>
+
+          <h4>What it forces us to decide</h4>
+          <ul>
+            <li>What counts as "behavior" — exit code only, or full tool-call sequence, or trace bytes?</li>
+            <li>How to make goldens portable when paths/timestamps differ.</li>
+            <li>Whether to redact secrets from goldens (yes) and how that interacts with full-trace mode.</li>
+          </ul>
+        </div>
+
+        <!-- Direction 2 -->
+        <div class="direction" id="dir-2">
+          <h3><span class="num">2</span> First-class recovery workflow: <code>cc undo last-run</code></h3>
+          <p class="tagline">
+            Promote backups and per-run history from "tools that exist" to a
+            single, discoverable workflow. The runner already has the
+            primitives; users just don't know how to chain them.
+          </p>
+          <div class="meta-row">
+            <span class="chip cat-safety">Category: Safety</span>
+            <span class="chip effort-s">Effort: Small</span>
+            <span class="chip">Phase 1</span>
+            <span class="chip">CLI + docs</span>
+          </div>
+
+          <h4>Why</h4>
+          <p>
+            Today the recovery story is: "look at <code>.bridge-runner/backups/</code>,
+            find the file, run <code>undo &lt;path&gt;</code>". This is fine if
+            one file was touched. It is hostile if a run with
+            <code>--accept-edits</code> rewrote a dozen files and the user
+            wants to revert the entire session. The runner already records
+            which files were edited (it has to, for the backup system) — it
+            just doesn't expose that record as a unit.
+          </p>
+
+          <h4>Minimum-viable shape</h4>
+          <ul>
+            <li>
+              Per-run manifest: every session writes
+              <code>.bridge-runner/runs/&lt;session-id&gt;/manifest.json</code>
+              with the list of edits made and which backup file restores each.
+            </li>
+            <li>
+              <code>cc undo last-run</code> reverts every file in the most
+              recent run's manifest, in reverse edit order, with a diff
+              preview and confirmation prompt.
+            </li>
+            <li>
+              <code>cc undo run &lt;session-id&gt;</code> and <code>cc undo
+              list-runs</code> for older sessions.
+            </li>
+            <li>
+              The command-builder grows a "recovery" tab pointing at these
+              commands so they are discoverable without reading the README.
+            </li>
+          </ul>
+
+          <h4>What it forces us to decide</h4>
+          <ul>
+            <li>How to handle partial reverts when a later run also touched a file.</li>
+            <li>Whether to store inverse-diff patches (small, robust) or full backups (large, simpler).</li>
+            <li>Garbage-collection policy for old run manifests.</li>
+          </ul>
+        </div>
+
+        <!-- Direction 3 -->
+        <div class="direction" id="dir-3">
+          <h3><span class="num">3</span> Cost &amp; budget telemetry as a first-class signal</h3>
+          <p class="tagline">
+            Make tokens, wall-clock, and spawn-count visible <em>during</em> a
+            run and enforceable as soft and hard caps. Currently the only
+            cap is the per-run spawn ceiling.
+          </p>
+          <div class="meta-row">
+            <span class="chip cat-ops">Category: Operations</span>
+            <span class="chip effort-m">Effort: Medium</span>
+            <span class="chip">Phase 2</span>
+            <span class="chip">CLI + runtime</span>
+          </div>
+
+          <h4>Why</h4>
+          <p>
+            Users currently learn that a run was expensive after the bill
+            arrives. The roadmap mentions usage counters in traces but no
+            workflow around them. Three concrete pain points: (a) no way to
+            say "stop the run if input tokens exceed X"; (b) no live signal
+            during long sessions; (c) child agents from <code>spawn_agent</code>
+            have their own budgets that the parent cannot observe.
+          </p>
+
+          <h4>Minimum-viable shape</h4>
+          <ul>
+            <li>
+              Three new flags: <code>--budget-input-tokens N</code>,
+              <code>--budget-output-tokens N</code>,
+              <code>--budget-wall-seconds N</code>. Soft caps emit a structured
+              warning event; hard caps end the run cleanly with a "budget
+              exceeded" state.
+            </li>
+            <li>
+              A new event in the trace stream:
+              <code>{ type: "budget", input_tokens, output_tokens,
+                wall_ms, spawns, depth }</code>, emitted at every
+              tool boundary. Trace consumers (incl. flight recorder) can
+              plot this.
+            </li>
+            <li>
+              Child agents inherit the parent's remaining budget by default;
+              a future <code>spawn_agent</code> argument can carve out a
+              sub-budget explicitly.
+            </li>
+            <li>
+              The command-builder grows a "budget" panel in the Permissions
+              section.
+            </li>
+          </ul>
+
+          <h4>What it forces us to decide</h4>
+          <ul>
+            <li>Whose token count is authoritative — API response or local estimate.</li>
+            <li>How to surface a soft-cap warning to the model without confusing it.</li>
+            <li>Whether hard-cap termination unwinds in-flight edits.</li>
+          </ul>
+        </div>
+
+        <!-- Direction 4 -->
+        <div class="direction" id="dir-4">
+          <h3><span class="num">4</span> Tool capability profiles &amp; per-tool deny-by-default</h3>
+          <p class="tagline">
+            Move from the four coarse permission categories (read / writes /
+            shell / orchestration) toward composable per-tool profiles, while
+            keeping the simple categories as the default UX.
+          </p>
+          <div class="meta-row">
+            <span class="chip cat-safety">Category: Safety</span>
+            <span class="chip effort-l">Effort: Large</span>
+            <span class="chip">Phase 3</span>
+            <span class="chip">Runtime + tools + docs</span>
+          </div>
+
+          <h4>Why</h4>
+          <p>
+            Today, <code>--accept-edits</code> permits all write tools, and
+            <code>--allow-shell</code> permits <code>bash</code> wholesale.
+            Users frequently want something narrower: "allow
+            <code>edit_file</code> but not <code>write_file</code>", "allow
+            <code>bash</code> but only for <code>git status</code>", "allow
+            <code>spawn_agent</code> but cap depth at 1 even for trusted
+            roots". Today this requires either accepting more than necessary
+            or writing custom agent profiles.
+          </p>
+
+          <h4>Minimum-viable shape</h4>
+          <ul>
+            <li>
+              Tool profiles in <code>.bridge-runner/profiles/&lt;name&gt;.json</code>
+              describing per-tool allow/deny rules, optional arg-shape
+              constraints (regex on shell command, max file size for
+              <code>write_file</code>, etc.), and a human-readable rationale.
+            </li>
+            <li>
+              <code>--profile name</code> CLI flag layered <em>over</em> the
+              existing category flags, so the simple story still works.
+            </li>
+            <li>
+              Profiles are first-class in the command-builder as a dropdown
+              alongside the current permission style.
+            </li>
+            <li>
+              A built-in profile per common scenario: <code>review-only</code>,
+              <code>edit-source-no-shell</code>,
+              <code>git-readonly-shell</code>, etc.
+            </li>
+          </ul>
+
+          <h4>What it forces us to decide</h4>
+          <ul>
+            <li>Profile semantics: deny-overrides-allow vs. last-match-wins.</li>
+            <li>How profiles compose with the chaos-mode (all-three-on) interlock — profiles must not bypass the interlock.</li>
+            <li>Whether the model is told about its profile (yes — denied tools should be visibly absent or marked).</li>
+          </ul>
+        </div>
+
+        <!-- Direction 5 -->
+        <div class="direction" id="dir-5">
+          <h3><span class="num">5</span> A prompt-template registry under <code>.bridge-runner/prompts/</code></h3>
+          <p class="tagline">
+            Stop treating prompt templates as folklore. Give them discovery,
+            validation, parameters, and provenance — the same things tools
+            and agents already have.
+          </p>
+          <div class="meta-row">
+            <span class="chip cat-dx">Category: DX</span>
+            <span class="chip effort-s">Effort: Small / Medium</span>
+            <span class="chip">Phase 1–2</span>
+            <span class="chip">Files + CLI</span>
+          </div>
+
+          <h4>Why</h4>
+          <p>
+            The existing roadmap calls out <code>grill</code>, <code>simplify</code>,
+            <code>verify</code>, <code>explanatory</code>, etc., as
+            "docs/presets" entries — i.e. write a markdown file somewhere.
+            That works at small scale and falls over at medium scale: there
+            is no listing, no parameter validation ("this template expects a
+            <code>$path</code> variable"), no version/owner metadata, no way
+            for one project to inherit templates from a parent project.
+          </p>
+
+          <h4>Minimum-viable shape</h4>
+          <ul>
+            <li>
+              <code>.bridge-runner/prompts/&lt;name&gt;.md</code> with YAML
+              frontmatter: <code>title</code>, <code>summary</code>,
+              <code>parameters: [...]</code>, <code>recommended-tools: [...]</code>,
+              <code>recommended-permissions: ...</code>,
+              <code>tags: [...]</code>.
+            </li>
+            <li>
+              CLI: <code>cc prompts list</code>, <code>cc prompts show
+                &lt;name&gt;</code>, <code>cc prompts validate</code>.
+            </li>
+            <li>
+              <code>--prompt-template name</code> already exists; extend it
+              with <code>--prompt-arg key=value</code> for parameter
+              substitution at runtime.
+            </li>
+            <li>
+              The command-builder learns to read this registry (file:// fetch
+              or shipped JSON) and auto-suggest the recommended permissions
+              and tools for the chosen template — closing the loop between
+              prompt intent and runtime safety.
+            </li>
+            <li>
+              Built-in templates ship in <code>src/runner/prompts/</code> and
+              user templates override them by name.
+            </li>
+          </ul>
+
+          <h4>What it forces us to decide</h4>
+          <ul>
+            <li>How to handle prompt-injection from user-supplied parameter values (escape, or refuse strings that look like control tokens).</li>
+            <li>Whether templates can compose ("verify-then-grill") or stay flat.</li>
+            <li>The provenance/trust story for templates pulled from elsewhere.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ───────────────────────── Part 3: Summary table ───────────────────────── -->
+      <section id="summary">
+        <h2>Part 3 — At-a-glance summary</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Direction</th>
+              <th>Category</th>
+              <th>Effort</th>
+              <th>Phase</th>
+              <th>Closes which gap?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td>Golden-transcript replay harness</td>
+              <td>Evals</td>
+              <td>Medium</td>
+              <td>2</td>
+              <td>Silent regressions in runner refactors</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td><code>cc undo last-run</code> recovery workflow</td>
+              <td>Safety</td>
+              <td>Small</td>
+              <td>1</td>
+              <td>Recovery is primitive-only, no workflow</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td>Budget telemetry &amp; caps (tokens, wall, spawns)</td>
+              <td>Operations</td>
+              <td>Medium</td>
+              <td>2</td>
+              <td>Cost is invisible until it isn't</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td>Composable tool capability profiles</td>
+              <td>Safety</td>
+              <td>Large</td>
+              <td>3</td>
+              <td>Permission categories are too coarse</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td>Prompt-template registry with frontmatter</td>
+              <td>DX</td>
+              <td>Small/Med</td>
+              <td>1–2</td>
+              <td>Prompt templates are folklore, not artifacts</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout">
+          <strong>Sequencing recommendation.</strong> Start with #2 (recovery)
+          and #5 (prompt registry) — both are small, both unlock UX wins, and
+          neither perturbs the runtime. Then #1 (golden-transcript evals)
+          before any work on #3 or #4, because both #3 and #4 will refactor
+          permission and runtime paths, and you want a safety net first.
+        </div>
+      </section>
+
+      <!-- ───────────────────────── Part 4: Non-goals ───────────────────────── -->
+      <section id="nongoals">
+        <h2>Part 4 — Explicit non-goals</h2>
+        <p>
+          A roadmap that says no is more useful than one that says maybe.
+          These ideas were considered for inclusion and explicitly dropped:
+        </p>
+        <ul>
+          <li>
+            <strong>Removing the <code>spawn_depth = 1</code> cap.</strong>
+            Tempting (it would enable richer orchestration), but the threat
+            model relies on a finite tree. Solve queueing and budgets first
+            (#3), then revisit.
+          </li>
+          <li>
+            <strong>A web UI that runs the runner remotely.</strong>
+            Diverges from the "local bridge" identity. The command-builder
+            is the right level of UI.
+          </li>
+          <li>
+            <strong>A plugin marketplace for tools.</strong> Tools are the
+            most security-sensitive surface in the system. Stay curated.
+          </li>
+          <li>
+            <strong>Auto-applying model-suggested permission escalations.</strong>
+            If the model asks for shell access mid-run, the answer is no.
+            The user re-runs with broader permissions; the runner does not
+            negotiate.
+          </li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      Generated as a companion to <code>docs/runner-expansion-roadmap.md</code>.
+      Read-only assessment — no source files were modified to produce this document.
+    </footer>
+  </body>
+</html>

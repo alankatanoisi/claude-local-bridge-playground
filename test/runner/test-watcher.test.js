@@ -75,4 +75,38 @@ describe('Ext-13 test-watcher', () => {
       else process.env.BRIDGE_RUNNER_TEST_CMD = prevCmd;
     }
   });
+
+  it('runIfEnabled honors ctx.testWatch without env var', () => {
+    const cwd = tmp('flag');
+    fs.writeFileSync(path.join(cwd, 'package.json'), JSON.stringify({ scripts: { test: 'echo ok' } }));
+    const prevWatch = process.env.BRIDGE_RUNNER_TEST_WATCH;
+    delete process.env.BRIDGE_RUNNER_TEST_WATCH;
+    try {
+      const r = watcher.runIfEnabled({
+        cwd,
+        cwdRealpath: fs.realpathSync(cwd),
+        allowShell: true,
+        testWatch: true,
+      });
+      assert.equal(r.ran, true);
+      assert.equal(r.ok, true);
+    } finally {
+      if (prevWatch === undefined) delete process.env.BRIDGE_RUNNER_TEST_WATCH;
+      else process.env.BRIDGE_RUNNER_TEST_WATCH = prevWatch;
+    }
+  });
+
+  it('formatVerificationAppendix summarizes failures', () => {
+    const text = watcher.formatVerificationAppendix({
+      ran: true,
+      ok: false,
+      command: 'npm test --silent',
+      source: 'package.json',
+      durationMs: 12,
+      exitCode: 1,
+      stderr: 'failed',
+    });
+    assert.match(text, /\[verification\] Failed/);
+    assert.match(text, /failed/);
+  });
 });

@@ -11,6 +11,12 @@ const BUILT_IN_TEMPLATES = Object.freeze({
     'Simplify the relevant code or docs while preserving behavior. Prefer deleting stale paths, reducing duplicated logic, and keeping changes easy to review.',
   explore:
     'Explore read-only. Inspect before concluding, avoid edits and shell unless explicitly requested, and summarize the structure, important files, and practical next steps.',
+  verify:
+    'After making changes, verify your work before finishing. Run relevant tests or checks, show the command output, and fix failures you introduced.',
+  grill:
+    'Grill the user on these changes with concrete questions. Do not treat the task as complete until the user demonstrates understanding.',
+  simplify:
+    'After changes, review for reuse, quality, efficiency, and instruction-doc compliance. Simplify where possible without changing behavior.',
 });
 
 function userHome() {

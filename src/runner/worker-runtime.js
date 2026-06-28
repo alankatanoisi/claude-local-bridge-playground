@@ -26,11 +26,20 @@ class WorkerRuntime {
   spawnWorker(spec, options = {}) {
     const workerId = makeWorkerId();
     const phase = spec.phase || 'research';
-    const profile = spec.agent ? getProfile(spec.agent) : null;
-    const allowed = (
-      spec.allowedTools ||
-      profile?.allowedTools || ['list_files', 'read_file', 'search_text', 'git_status']
-    ).join(',');
+    const profile = spec.agent
+      ? getProfile(spec.agent, { cwd: spec.cwd, allowShell: !!(spec.allowShell || options.allowShell) })
+      : null;
+    const allowedList = spec.allowedTools ||
+      profile?.allowedTools || [
+        'list_files',
+        'read_file',
+        'search_text',
+        'glob',
+        'git_status',
+        'manage_tasks',
+        'spawn_agent',
+      ];
+    const allowed = allowedList.join(',');
 
     const args = [
       this.runnerBin,
@@ -47,7 +56,10 @@ class WorkerRuntime {
       '--trust-workspace',
     ];
 
-    if (profile?.allowShell) args.push('--allow-shell');
+    if (profile?.allowShell || allowedList.includes('bash')) args.push('--allow-shell');
+    if (spec.acceptEdits || options.acceptEdits) args.push('--accept-edits');
+    if (spec.dontAsk || options.dontAsk) args.push('--dont-ask');
+    if (spec.agent) args.push('--agent', spec.agent);
 
     args.push(spec.prompt);
 

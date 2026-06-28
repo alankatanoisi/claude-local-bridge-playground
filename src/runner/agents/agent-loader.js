@@ -1,0 +1,286 @@
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+
+/** Claude Code tool name -> runner tool names. */
+const CC_TOOL_MAP = Object.freeze({
+  Read: ['read_file', 'list_files'],
+  Edit: ['edit_file'],
+  Write: ['write_file'],
+  Grep: ['search_text'],
+  Glob: ['glob'],
+  Bash: ['bash'],
+});
+
+/** Dropped outright — no network egress in the runner. */
+const DROPPED_CC_TOOLS = new Set(['WebFetch', 'WebSearch']);
+
+/** Conservative model alias table; unknown aliases do not override the caller model. */
+const MODEL_ALIASES = Object.freeze({
+  opus: 'claude-opus-4-6',
+  haiku: 'claude-haiku-4-5',
+});
+
+const STABLE_TOOL_ORDER = [
+  'list_files',
+  'read_file',
+  'search_text',
+  'glob',
+  'manage_tasks',
+  'git_status',
+  'edit_file',
+  'write_file',
+  'apply_patch',
+  'undo',
+  'undo_edit',
+  'bash',
+];
+
+function userHome() {
+  return process.env.HOME || process.env.USERPROFILE || '';
+}
+
+function agentDirs(cwd) {
+  const dirs = [];
+  if (cwd) dirs.push(path.join(cwd, '.bridge-runner', 'agents'));
+  const home = userHome();
+  if (home) dirs.push(path.join(home, '.bridge-runner', 'agents'));
+  return dirs;
+}
+
+function readIfFile(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  const stat = fs.statSync(filePath);
+  if (!stat.isFile()) return null;
+  return fs.readFileSync(filePath, 'utf8');
+}
+
+function looksLikePath(nameOrPath) {
+  const key = String(nameOrPath || '').trim();
+  return path.isAbsolute(key) || key.includes(path.sep) || key.endsWith('.md');
+}
+
+function candidatePaths(cwd, nameOrPath) {
+  const key = String(nameOrPath || '').trim();
+  if (!key) return [];
+
+  if (looksLikePath(key)) {
+    const base = cwd || process.cwd();
+    return [path.isAbsolute(key) ? key : path.resolve(base, key)];
+  }
+
+  const names = key.endsWith('.md') ? [key] : [key + '.md', key];
+  const candidates = [];
+  for (const dir of agentDirs(cwd)) {
+    for (const name of names) candidates.push(path.join(dir, name));
+  }
+  return candidates;
+}
+
+function resolveAgentFile(cwd, nameOrPath) {
+  const key = String(nameOrPath || '').trim();
+  if (!key) return null;
+
+  for (const filePath of candidatePaths(cwd, key)) {
+    const text = readIfFile(filePath);
+    if (text) {
+      const base = path.basename(filePath, path.extname(filePath));
+      return { name: base, source: filePath, text };
+    }
+  }
+  return null;
+}
+
+/**
+ * Minimal frontmatter parser for leading --- blocks (flat key: value lines).
+ */
+function parseFrontmatter(text) {
+  const raw = String(text || '');
+  if (!raw.startsWith('---')) {
+    throw new Error('Agent file must start with YAML frontmatter (---).');
+  }
+  const end = raw.indexOf('\n---', 3);
+  if (end === -1) throw new Error('Agent file frontmatter is missing closing ---.');
+
+  const header = raw.slice(3, end).trim();
+  const body = raw.slice(end + 4).replace(/^\n/, '');
+  const fields = {};
+
+  for (const line of header.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const colon = trimmed.indexOf(':');
+    if (colon === -1) continue;
+    const key = trimmed.slice(0, colon).trim();
+    let value = trimmed.slice(colon + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    fields[key] = value;
+  }
+
+  if (!fields.name) throw new Error('Agent frontmatter must include name.');
+  if (!fields.description) throw new Error('Agent frontmatter must include description.');
+
+  return {
+    name: fields.name.trim(),
+    description: fields.description.trim(),
+    tools: fields.tools || '',
+    model: fields.model ? fields.model.trim() : undefined,
+    body: body.trim(),
+    sourceFields: fields,
+  };
+}
+
+function parseCcToolList(toolsField) {
+  if (!toolsField || !String(toolsField).trim()) return [];
+  return String(toolsField)
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
+function isDroppedCcTool(name) {
+  if (DROPPED_CC_TOOLS.has(name)) return true;
+  if (name.startsWith('mcp__')) return true;
+  if (name === 'chrome-mcp' || name === 'computer-use') return true;
+  return false;
+}
+
+function catalogNames() {
+  const { TOOLS } = require('../tool-catalog');
+  return new Set(Object.keys(TOOLS));
+}
+
+/**
+ * Map Claude Code tool names to runner catalog names with safety gating.
+ */
+function mapTools(ccTools, { allowShell = false } = {}) {
+  const CATALOG_NAMES = catalogNames();
+  const mapped = new Set(['manage_tasks']);
+  const dropped = [];
+  const gated = [];
+
+  for (const ccName of ccTools) {
+    if (isDroppedCcTool(ccName)) {
+      dropped.push(ccName);
+      continue;
+    }
+    const runnerNames = CC_TOOL_MAP[ccName];
+    if (!runnerNames) {
+      dropped.push(ccName);
+      continue;
+    }
+    for (const runnerName of runnerNames) {
+      if (!CATALOG_NAMES.has(runnerName)) continue;
+      if (runnerName === 'bash' && !allowShell) {
+        if (!gated.includes('Bash')) gated.push('Bash');
+        continue;
+      }
+      mapped.add(runnerName);
+    }
+  }
+
+  const allowedTools = STABLE_TOOL_ORDER.filter((t) => mapped.has(t));
+  return { allowedTools, dropped, gated };
+}
+
+function mapModel(alias) {
+  const key = String(alias || '')
+    .trim()
+    .toLowerCase();
+  if (!key || key === 'inherit' || key === 'sonnet') return undefined;
+  return MODEL_ALIASES[key];
+}
+
+function compileAgentProfile(parsed, opts = {}) {
+  const ccTools = parseCcToolList(parsed.tools);
+  const { allowedTools, dropped, gated } = mapTools(ccTools, opts);
+  const model = mapModel(parsed.model);
+
+  const profile = {
+    id: parsed.name,
+    description: parsed.description,
+    allowedTools,
+    maxSteps: opts.maxSteps ?? 12,
+    trustMode: 'inherit',
+    spawnMode: 'worker',
+    forkAllowed: false,
+    outputSchema: 'findings',
+    context: { minimal: true },
+    systemPromptAddon: parsed.body || '',
+    source: opts.source,
+    fileAgent: true,
+  };
+
+  if (model) profile.model = model;
+  if (dropped.length) profile.droppedToolsNote = 'Dropped unsupported tools: ' + dropped.join(', ');
+  if (gated.length) {
+    profile.gatedToolsNote = 'Shell tools require --allow-shell: ' + gated.join(', ');
+  }
+
+  return profile;
+}
+
+function loadAgentProfile(nameOrPath, opts = {}) {
+  const resolved = resolveAgentFile(opts.cwd, nameOrPath);
+  if (!resolved) return null;
+  const parsed = parseFrontmatter(resolved.text);
+  parsed.name = parsed.name || resolved.name;
+  return compileAgentProfile(parsed, {
+    ...opts,
+    source: resolved.source,
+  });
+}
+
+function listAgentFilesInDir(dir) {
+  if (!dir || !fs.existsSync(dir)) return [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  return entries.filter((e) => e.isFile() && e.name.endsWith('.md')).map((e) => path.join(dir, e.name));
+}
+
+function discoverFileAgentSummaries(cwd) {
+  const seen = new Set();
+  const summaries = [];
+
+  for (const dir of agentDirs(cwd)) {
+    const isProject = cwd && dir === path.join(cwd, '.bridge-runner', 'agents');
+    const label = isProject ? 'project' : 'global';
+
+    for (const filePath of listAgentFilesInDir(dir)) {
+      try {
+        const text = readIfFile(filePath);
+        if (!text) continue;
+        const parsed = parseFrontmatter(text);
+        if (seen.has(parsed.name)) continue;
+        seen.add(parsed.name);
+        summaries.push({
+          id: parsed.name,
+          description: parsed.description,
+          source: filePath,
+          scope: label,
+        });
+      } catch {
+        // Skip malformed agent files in discovery lists.
+      }
+    }
+  }
+
+  return summaries.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+module.exports = {
+  agentDirs,
+  candidatePaths,
+  resolveAgentFile,
+  parseFrontmatter,
+  parseCcToolList,
+  mapTools,
+  mapModel,
+  compileAgentProfile,
+  loadAgentProfile,
+  discoverFileAgentSummaries,
+  CC_TOOL_MAP,
+  MODEL_ALIASES,
+};

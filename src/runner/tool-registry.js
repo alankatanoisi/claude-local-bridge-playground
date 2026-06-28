@@ -65,6 +65,7 @@ function getDefinitions(ctx) {
   return Object.entries(TOOLS)
     .filter(([name]) => {
       if (name === 'bash' && !(ctx && ctx.allowShell)) return false;
+      if (name === 'spawn_agent' && (ctx?.spawnDepth || 0) > 0) return false;
       if (ctx && ctx.allowedTools) return ctx.allowedTools.has(name);
       if (DEFAULT_HIDDEN_TOOLS.has(name)) return false;
       return true;

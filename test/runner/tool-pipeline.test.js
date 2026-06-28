@@ -115,10 +115,15 @@ describe('tool pipeline — toolDefinitions', () => {
     // these unless --allow-shell or --allowed-tools changes the surface.
     assert.deepEqual([...names].sort(), [
       'edit_file',
+      'enter_worktree',
+      'exit_worktree',
       'git_status',
+      'glob',
       'list_files',
+      'manage_tasks',
       'read_file',
       'search_text',
+      'spawn_agent',
       'undo',
       'undo_edit',
       'write_file',

@@ -60,6 +60,7 @@ const { CATEGORIES } = require('./tool-catalog');
 const safety = require('./safety');
 const { makeEffectId } = require('./session-ledger');
 const { bytes } = require('../trace-utils');
+const { runIfEnabled, formatVerificationAppendix } = require('./test-watcher');
 
 // B3: path-disjoint detection over canonicalized paths. Two paths are
 // disjoint iff neither is identical to the other and neither is a
@@ -430,6 +431,20 @@ function createToolPipeline(deps = {}) {
       recordCompleted(step, tu, result, effectId);
       toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: result.text || '', is_error: !result.ok });
       outcomes.push({ toolUse: tu, result, phase: 'write' });
+    }
+
+    const hadSuccessfulWrite = outcomes.some((o) => o.phase === 'write' && o.result && o.result.ok);
+    if (hadSuccessfulWrite && !ctx.plan) {
+      const watch = runIfEnabled(ctx);
+      if (watch.ran) {
+        const appendix = formatVerificationAppendix(watch);
+        const lastWrite = [...outcomes].reverse().find((o) => o.phase === 'write');
+        if (lastWrite && appendix) {
+          lastWrite.result.text = (lastWrite.result.text || '') + '\n\n' + appendix;
+          const idx = toolResults.findIndex((tr) => tr.tool_use_id === lastWrite.toolUse.id);
+          if (idx >= 0) toolResults[idx].content = lastWrite.result.text;
+        }
+      }
     }
 
     return { toolResults, outcomes, failureStreak, escalated, aborted: null };

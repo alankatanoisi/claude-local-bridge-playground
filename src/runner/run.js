@@ -255,11 +255,21 @@ function loadMessagesFromTranscript(filePath, options = {}) {
 function persistSession(sessionStore, messages, ctx, noSessionPersistence) {
   if (!sessionStore || noSessionPersistence) return;
   sessionStore.setMessages(messages);
+  const tasks = Array.isArray(ctx.tasks) ? ctx.tasks : [];
   sessionStore.updateRunner({
     undoLog: ctx.undoLog || [],
     consecutiveToolFailures: ctx._consecutiveToolFailures || 0,
+    tasks,
+    activeTaskIds: tasks.filter((t) => t.status === 'in_progress').map((t) => t.id),
   });
   sessionStore.saveSoon();
+}
+
+function hydrateRunnerStateFromSession(ctx, sessionStore) {
+  if (!sessionStore) return;
+  const runner = sessionStore.data().runner || {};
+  if (Array.isArray(runner.tasks)) ctx.tasks = runner.tasks;
+  else if (!ctx.tasks) ctx.tasks = [];
 }
 
 function appendLedger(ledger, hooks, type, payload) {
@@ -347,6 +357,7 @@ async function run(options) {
     appendSystemPrompt,
     appendSystemPromptFile,
     noSessionPersistence,
+    testWatch,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
@@ -367,7 +378,9 @@ async function run(options) {
     allowedTools: exposedToolsList ? new Set(exposedToolsList) : null,
     contextPolicy,
     undoLog: [],
-    spawnDepth: spawnDepth || 0,
+    tasks: [],
+    testWatch: !!testWatch,
+    spawnDepth: spawnDepth ?? (parseInt(process.env.BRIDGE_RUNNER_SPAWN_DEPTH, 10) || 0),
     workspaceTrusted: false,
     autoMemory: isAutoMemoryEnabled({ autoMemory }),
   };
@@ -626,6 +639,7 @@ async function run(options) {
   let messages;
   if (resume && sessionStore && sessionStore.exists()) {
     sessionStore.load();
+    hydrateRunnerStateFromSession(ctx, sessionStore);
     const resumeCheck = assertResumeAllowed(sessionStore, { ackResumeRisk: !!ackResumeRisk });
     if (!resumeCheck.allowed) {
       emitHint(resumeCheck.message, { quiet, verbose, stopReason: 'resume_degraded' });
@@ -687,6 +701,7 @@ async function run(options) {
     if (transcript) transcript.append({ type: 'user_prompt', text: prompt });
     if (sessionStore && !noSessionPersistence) {
       sessionStore.load();
+      hydrateRunnerStateFromSession(ctx, sessionStore);
       if (newSession) {
         sessionStore.updateRunner({ health: null, compactionGeneration: 0, consecutiveToolFailures: 0 });
       }

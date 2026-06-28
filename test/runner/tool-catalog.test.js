@@ -16,6 +16,11 @@ describe('tool catalog — derived maps', () => {
       'list_files',
       'read_file',
       'search_text',
+      'glob',
+      'manage_tasks',
+      'spawn_agent',
+      'enter_worktree',
+      'exit_worktree',
       'git_status',
       'edit_file',
       'write_file',
@@ -31,6 +36,11 @@ describe('tool catalog — derived maps', () => {
       list_files: 'read-only',
       read_file: 'read-only',
       search_text: 'read-only',
+      glob: 'read-only',
+      manage_tasks: 'read-only',
+      spawn_agent: 'orchestration',
+      enter_worktree: 'worktree',
+      exit_worktree: 'worktree',
       git_status: 'read-only',
       edit_file: 'write',
       write_file: 'write',
@@ -49,7 +59,7 @@ describe('tool catalog — derived maps', () => {
     assert.deepEqual([...catalog.DEFAULT_HIDDEN_TOOLS], ['apply_patch']);
   });
 
-  it('every category is one of the four valid kinds', () => {
+  it('every category is one of the six valid kinds', () => {
     for (const [name, category] of Object.entries(catalog.CATEGORIES)) {
       assert.ok(catalog.VALID_CATEGORIES.has(category), name + ' has a valid category');
     }

@@ -472,6 +472,36 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             </p>
           </div>
           <div class="tool-card">
+            <h4>glob</h4>
+            <p>
+              Find files by glob pattern (for example <code>**/*.test.js</code>). Results are relative paths sorted by
+              modification time, capped at 100 files. Skips noisy directories like <code>node_modules</code>.
+            </p>
+          </div>
+          <div class="tool-card">
+            <h4>manage_tasks</h4>
+            <p>
+              In-session task checklist the model can create, update, and complete. Stored in the session file — no
+              filesystem access. Useful for multi-step runs.
+            </p>
+          </div>
+          <div class="tool-card">
+            <h4>spawn_agent</h4>
+            <p>
+              Delegate a focused subtask to a child agent with its own context. Uses built-in or file agents via
+              <code>WorkerRuntime</code>. Top-level only — children cannot spawn further children. Asks for confirmation
+              unless <code>--dont-ask</code> is set.
+            </p>
+          </div>
+          <div class="tool-card">
+            <h4>enter_worktree / exit_worktree</h4>
+            <p>
+              Create an isolated git worktree on a fresh branch and switch into it, so edits happen without touching the
+              main checkout. <code>exit_worktree</code> restores the original cwd; pass <code>cleanup=true</code> to
+              remove the worktree and branch. Requires <code>--cwd</code> to be a git repo.
+            </p>
+          </div>
+          <div class="tool-card">
             <h4>git_status</h4>
             <p>Run <code>git status --short</code>. Read-only. Never adds, commits, resets, or pushes.</p>
           </div>
@@ -501,6 +531,23 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             </p>
           </div>
         </div>
+      </section>
+
+      <section>
+        <h2>Custom agents from files</h2>
+        <p>
+          Pass <code>--agent &lt;name&gt;</code> or <code>--agent path/to/agent.md</code> to load a Markdown file with YAML
+          frontmatter (the same format as
+          <a href="https://github.com/VoltAgent/awesome-claude-code-subagents">awesome-claude-code-subagents</a>).
+          Bare names resolve under <code>.bridge-runner/agents/</code> in the project, then
+          <code>~/.bridge-runner/agents/</code>.
+        </p>
+        <p>
+          This repo ships <code>code-reviewer</code>, <code>debugger</code>, <code>refactoring-specialist</code>, and
+          <code>test-automator</code> under <code>.bridge-runner/agents/</code>. Claude Code tool names are mapped to
+          runner tools; network and MCP tools are dropped. <code>Bash</code> requires <code>--allow-shell</code>.
+        </p>
+        <pre><code>node bin/local-bridge-runner.js --cwd . --agent code-reviewer "Review src/runner/agents/"</code></pre>
       </section>
 
       <section>
@@ -670,9 +717,14 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td>Stop after estimated API cost exceeds N USD (advisory pricing table)</td>
             </tr>
             <tr>
-              <td><code>--agent &lt;profile&gt;</code></td>
+              <td><code>--agent &lt;name|path&gt;</code></td>
               <td>off</td>
-              <td>Built-in profile: explore, plan, implement, verify, test, replay, extractor</td>
+              <td>Built-in profile, file name under <code>.bridge-runner/agents/</code>, or path to agent <code>.md</code></td>
+            </tr>
+            <tr>
+              <td><code>--list-agents</code></td>
+              <td>off</td>
+              <td>List built-in and discovered file agents, then exit</td>
             </tr>
             <tr>
               <td><code>--review-memory</code></td>
@@ -780,6 +832,11 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td>Expose the bash tool to the model</td>
             </tr>
             <tr>
+              <td><code>--test-watch</code></td>
+              <td>off</td>
+              <td>After successful writes, auto-run detected tests (requires <code>--allow-shell</code>)</td>
+            </tr>
+            <tr>
               <td><code>--dont-ask</code></td>
               <td>off</td>
               <td>Auto-approve shell commands once bash is enabled</td>
@@ -824,7 +881,7 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
         <h3>Inspect a different local folder</h3>
         <pre><code>node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/path/to/another/project" \
-  --allowed-tools list_files,read_file,search_text,git_status \
+  --allowed-tools list_files,read_file,search_text,glob,git_status \
   --verbose \
   "List the files in this project and summarize what it does. Do not edit files."</code></pre>
 
@@ -865,7 +922,7 @@ node bin/local-bridge-runner.js \
         <h3>Record metadata at each local boundary</h3>
         <pre><code>node bin/local-bridge-runner.js \
   --trace-level summary \
-  --allowed-tools list_files,read_file,search_text,git_status \
+  --allowed-tools list_files,read_file,search_text,glob,git_status \
   "Inspect this repo and stop without editing files."</code></pre>
 
         <h3>Search-first workflow</h3>
@@ -889,7 +946,7 @@ node bin/local-bridge-runner.js \
 node bin/local-bridge-runner.js \
   --cwd "/Users/alanman/Developer/claude-local-bridge-playground" \
   --session-id quickstart-demo \
-  --allowed-tools list_files,read_file,search_text,git_status \
+  --allowed-tools list_files,read_file,search_text,glob,git_status \
   --max-steps 6 \
   "List src/runner files and summarize. Do not edit files."</code></pre>
         <p>Check <code>~/.bridge-runner/sessions/quickstart-demo.state.json</code> after the run.</p>
@@ -992,6 +1049,7 @@ node bin/local-bridge-coordinator.js \
         </p>
         <p>
           Read-only tools (<code>list_files</code>, <code>read_file</code>, <code>search_text</code>,
+          <code>glob</code>,
           <code>git_status</code>) are batched before write and shell tools. This means the model's read requests
           execute faster without waiting for confirmation prompts.
         </p>

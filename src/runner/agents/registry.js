@@ -1,16 +1,19 @@
 'use strict';
 
+const path = require('path');
+
 /**
  * Built-in runner personalities — tools, limits, context defaults, and prompt addons.
  */
 
 const { applyPermissionMode } = require('../permission-mode');
+const { loadAgentProfile, discoverFileAgentSummaries } = require('./agent-loader');
 
 const PROFILES = Object.freeze({
   explore: {
     id: 'explore',
     description: 'Read-only codebase exploration (minimal context)',
-    allowedTools: ['list_files', 'read_file', 'search_text', 'git_status'],
+    allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks'],
     maxSteps: 8,
     trustMode: 'inherit',
     spawnMode: 'worker',
@@ -22,7 +25,7 @@ const PROFILES = Object.freeze({
   plan: {
     id: 'plan',
     description: 'Plan mode — describe actions without executing writes',
-    allowedTools: ['list_files', 'read_file', 'search_text', 'git_status'],
+    allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks'],
     maxSteps: 10,
     trustMode: 'inherit',
     spawnMode: 'kernel',
@@ -45,6 +48,8 @@ const PROFILES = Object.freeze({
       'write_file',
       'undo',
       'undo_edit',
+      'enter_worktree',
+      'exit_worktree',
     ],
     maxSteps: 16,
     trustMode: 'inherit',
@@ -58,7 +63,7 @@ const PROFILES = Object.freeze({
   verify: {
     id: 'verify',
     description: 'Read-only verification of repo state',
-    allowedTools: ['list_files', 'read_file', 'search_text', 'git_status'],
+    allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks'],
     maxSteps: 6,
     trustMode: 'inherit',
     spawnMode: 'worker',
@@ -70,7 +75,7 @@ const PROFILES = Object.freeze({
   test: {
     id: 'test',
     description: 'Test-running specialist (shell optional)',
-    allowedTools: ['list_files', 'read_file', 'search_text', 'git_status', 'bash'],
+    allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks', 'bash'],
     maxSteps: 8,
     trustMode: 'inherit',
     spawnMode: 'worker',
@@ -94,6 +99,8 @@ const PROFILES = Object.freeze({
       'undo_edit',
       'bash',
       'apply_patch',
+      'enter_worktree',
+      'exit_worktree',
     ],
     maxSteps: 40,
     trustMode: 'trusted_required',
@@ -107,7 +114,7 @@ const PROFILES = Object.freeze({
   replay: {
     id: 'replay',
     description: 'Ledger debugger — read-only session analysis',
-    allowedTools: ['list_files', 'read_file', 'search_text'],
+    allowedTools: ['list_files', 'read_file', 'search_text', 'glob'],
     maxSteps: 4,
     trustMode: 'inherit',
     spawnMode: 'worker',
@@ -118,7 +125,7 @@ const PROFILES = Object.freeze({
   extractor: {
     id: 'extractor',
     description: 'Background session learning — proposes memory entries',
-    allowedTools: ['list_files', 'read_file', 'search_text'],
+    allowedTools: ['list_files', 'read_file', 'search_text', 'glob'],
     maxSteps: 6,
     trustMode: 'trusted_required',
     spawnMode: 'worker',
@@ -146,25 +153,52 @@ const PROFILES = Object.freeze({
   },
 });
 
-function getProfile(id) {
-  return PROFILES[id] || null;
+function getProfile(id, options = {}) {
+  if (!id) return null;
+  if (PROFILES[id]) return PROFILES[id];
+
+  const cwd = options.cwd;
+  if (!cwd && !looksLikeAgentPath(id)) return null;
+
+  return loadAgentProfile(id, {
+    cwd: cwd || process.cwd(),
+    allowShell: !!options.allowShell,
+  });
+}
+
+function looksLikeAgentPath(id) {
+  const key = String(id || '').trim();
+  return key.includes('/') || key.includes(path.sep) || key.endsWith('.md');
 }
 
 function listProfiles() {
   return Object.values(PROFILES);
 }
 
-function formatAgentList() {
-  const lines = ['Built-in runner personalities (--agent <id>):\n'];
+function formatAgentList(cwd) {
+  const lines = ['Built-in runner personalities (--agent <name|path>):\n'];
   for (const p of listProfiles()) {
-    lines.push('  ' + p.id.padEnd(12) + p.description);
+    lines.push('  ' + p.id.padEnd(16) + p.description);
   }
-  lines.push('\nDefault startup context is minimal. Use --agent project or context flags for richer injection.');
+
+  const fileAgents = discoverFileAgentSummaries(cwd || process.cwd());
+  if (fileAgents.length) {
+    lines.push('\nFile agents (.bridge-runner/agents/ or --agent <path>):\n');
+    for (const a of fileAgents) {
+      lines.push('  ' + a.id.padEnd(16) + a.description + ' [' + a.scope + ']');
+    }
+  }
+
+  lines.push('\nLoad any Markdown+frontmatter agent with --agent <name> or --agent path/to/agent.md.');
+  lines.push('Default startup context is minimal. Use --agent project or context flags for richer injection.');
   return lines.join('\n');
 }
 
 function applyProfileToRunOptions(profileId, baseOptions = {}) {
-  const profile = getProfile(profileId);
+  const profile = getProfile(profileId, {
+    cwd: baseOptions.cwd,
+    allowShell: baseOptions.allowShell,
+  });
   if (!profile) throw new Error('Unknown agent profile: ' + profileId);
   const explicitOptions = baseOptions.explicitOptions || {};
 

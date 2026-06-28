@@ -82,6 +82,11 @@ const TOOL_SUMMARIES = Object.freeze({
   list_files: 'List files and directories under a path',
   read_file: 'Read file contents by relative path',
   search_text: 'Search for text patterns in the project',
+  glob: 'Find files by glob pattern (e.g. **/*.js)',
+  manage_tasks: 'Update the in-session task checklist',
+  spawn_agent: 'Delegate a subtask to a child agent (isolated context)',
+  enter_worktree: 'Create an isolated git worktree and switch into it',
+  exit_worktree: 'Leave the active worktree and restore original cwd',
   git_status: 'Show git status (short format)',
   edit_file: 'Replace exact string in a file',
   write_file: 'Create or overwrite a file',
@@ -93,7 +98,10 @@ const TOOL_SUMMARIES = Object.freeze({
 
 function buildToolSummarySection(ctx) {
   const lines = ['## Capability groups\n'];
-  lines.push('- Read: list_files, read_file, search_text, git_status');
+  lines.push('- Read: list_files, read_file, search_text, glob, git_status');
+  lines.push('- Session: manage_tasks');
+  lines.push('- Orchestration: spawn_agent');
+  lines.push('- Worktree: enter_worktree, exit_worktree');
   lines.push('- Write: edit_file, write_file');
   if (ctx && ctx.allowedTools && ctx.allowedTools.has('apply_patch')) {
     lines.push('- Advanced write: apply_patch');
@@ -105,6 +113,8 @@ function buildToolSummarySection(ctx) {
   lines.push('\n## Available tools (summaries)\n');
   for (const [name, summary] of Object.entries(TOOL_SUMMARIES)) {
     if (name === 'bash' && !(ctx && ctx.allowShell)) continue;
+    if (name === 'spawn_agent' && (ctx?.spawnDepth || 0) > 0) continue;
+    if ((name === 'enter_worktree' || name === 'exit_worktree') && ctx?.plan) continue;
     if (name === 'apply_patch' && !(ctx && ctx.allowedTools && ctx.allowedTools.has(name))) continue;
     if (ctx && ctx.allowedTools && !ctx.allowedTools.has(name)) continue;
     lines.push('- ' + name + ': ' + summary);
