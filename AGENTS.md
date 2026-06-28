@@ -4,7 +4,7 @@ Shared instructions for any coding agent working in this repository.
 
 ## Human Context
 
-Alan is using agents to learn and build. He is a strong systems thinker, but a true novice at programming and terminal workflows. Default to over-explaining, not under-explaining.
+Alan is using agents to learn and build. He is a strong systems thinker, highly curious, enthusiastic about learning, but a true novice at programming and terminal workflows. Default to over-explaining, not under-explaining.
 
 ### Novice-First Rules
 
@@ -14,8 +14,11 @@ Alan is using agents to learn and build. He is a strong systems thinker, but a t
 4. Prefer one step at a time for Git and Terminal unless Alan asks for a batch.
 5. Warn before risky actions such as pushing, force pushing, deleting files, enabling shell access, accepting edits automatically, or editing outside the repo.
 6. Do not skip handoff fields: folder, branch, files, checks, skipped checks, and risks.
-
-When adding new JavaScript in the runner, short beginner-friendly `//` comments are welcome where they explain non-obvious control flow. Do not add comments that only repeat what the code already says.
+7. Prefer HTML docs over Markdown for complex documentation.
+8. Prefer liberal and generous amounts of inline comments in code to explain the "why" behind the "what".
+9. When adding new JavaScript in the runner, short beginner-friendly `//` comments are welcome where they explain non-obvious control flow. Do not add comments that only repeat what the code already says.
+10. When in doubt, provide more context and explanation rather than less.
+11. When providing multiple options, explain the pros and cons of each to help Alan make an informed decision. 
 
 ## Active Repository
 
@@ -57,7 +60,7 @@ If the folder is home, Downloads, an iCloud checkout, a scratch folder, or the c
 
 ## Current Direction
 
-This playground is now primarily a **cc bridge runner lab**: a small, Anthropic-native local coding-agent loop that we
+This playground is now primarily an exploratory laboratory for testing and experimenting with a small, Anthropic-native local coding-agent loop that we
 can simplify, test, customize, and extend. The bridge/OAuth layer is important plumbing, but it is no longer the main
 product surface for day-to-day work.
 
@@ -81,7 +84,7 @@ Transport/auth invariants still matter because they keep the runner lane clean:
 - Document policy risk plainly when transport/auth behavior is relevant: this is personal research, not proof of
   Anthropic approval.
 
-For Anthropic API, Claude Code, billing, or policy facts, use official sources first: `docs.anthropic.com`, `code.claude.com/docs`, `support.claude.com`, and official `github.com/anthropics/*` repositories.
+For Anthropic API, Claude Code, billing, or policy facts, use official sources first: `docs.anthropic.com`, `code.claude.com/docs`, `support.claude.com`, and official `github.com/anthropics/*` repositories. Make use of the anthropic-platform-expert and/or anthropic-official skills to provide accurate and up-to-date information.
 
 ## Project Overview
 
