@@ -36,6 +36,7 @@
           "format": "prettier --write \"src/**/*.js\" \"test/**/*.js\" \"*.json\" \"*.md\"",
           "format:check": "prettier --check \"src/**/*.js\" \"test/**/*.js\" \"*.json\" \"*.md\"",
           "check:docs": "node scripts/check-doc-defaults.js",
+          "runner:eval": "node bin/local-bridge-runner.js runner eval",
           "test:keploy": "jest --coverage --coverageReporters=text --coverageReporters=cobertura --collectCoverageFrom='./**/*.{js,jsx,ts,tsx}'"
      },
      "devDependencies": {

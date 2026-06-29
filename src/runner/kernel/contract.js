@@ -23,7 +23,11 @@ const STOP_REASONS = Object.freeze({
   SEMANTIC_CYCLE_DETECTED: 'semantic_cycle_detected',
   WALL_CLOCK_BUDGET_EXCEEDED: 'wall_clock_budget_exceeded',
   COST_BUDGET_EXCEEDED: 'cost_budget_exceeded',
+  INPUT_TOKEN_BUDGET_EXCEEDED: 'input_token_budget_exceeded',
+  OUTPUT_TOKEN_BUDGET_EXCEEDED: 'output_token_budget_exceeded',
   PREDICTIVE_CONTEXT_BUDGET_EXCEEDED: 'predictive_context_budget_exceeded',
+  PREDICTIVE_INPUT_TOKEN_BUDGET_EXCEEDED: 'predictive_input_token_budget_exceeded',
+  PREDICTIVE_OUTPUT_TOKEN_BUDGET_EXCEEDED: 'predictive_output_token_budget_exceeded',
   RETRY_BUDGET_EXCEEDED: 'retry_budget_exceeded',
 });
 
@@ -38,6 +42,7 @@ const KERNEL_EVENT_TYPES = Object.freeze([
   'error',
   'result',
   'compaction',
+  'budget',
 ]);
 
 /**

@@ -60,6 +60,12 @@ class WorkerRuntime {
     if (spec.acceptEdits || options.acceptEdits) args.push('--accept-edits');
     if (spec.dontAsk || options.dontAsk) args.push('--dont-ask');
     if (spec.agent) args.push('--agent', spec.agent);
+    if (typeof spec.budgetRemaining?.input_tokens === 'number') {
+      args.push('--budget-input-tokens', String(spec.budgetRemaining.input_tokens));
+    }
+    if (typeof spec.budgetRemaining?.output_tokens === 'number') {
+      args.push('--budget-output-tokens', String(spec.budgetRemaining.output_tokens));
+    }
 
     args.push(spec.prompt);
 

@@ -940,6 +940,15 @@
                     <label for="maxCostUsd">Max cost USD</label>
                     <input type="text" id="maxCostUsd" placeholder="2.00" />
                   </div>
+                  <div class="field">
+                    <label for="budgetInputTokens">Budget input tokens (hard cap)</label>
+                    <input type="text" id="budgetInputTokens" placeholder="200000" />
+                    <div class="small">Soft warning at 80%. Uses API usage counters; child spawns inherit remaining budget.</div>
+                  </div>
+                  <div class="field">
+                    <label for="budgetOutputTokens">Budget output tokens (hard cap)</label>
+                    <input type="text" id="budgetOutputTokens" placeholder="32000" />
+                  </div>
                 </div>
 
                 <div class="field">
@@ -1174,6 +1183,8 @@
       const customAgent = document.getElementById('customAgent');
       const maxWallClockMs = document.getElementById('maxWallClockMs');
       const maxCostUsd = document.getElementById('maxCostUsd');
+      const budgetInputTokens = document.getElementById('budgetInputTokens');
+      const budgetOutputTokens = document.getElementById('budgetOutputTokens');
       const newSession = document.getElementById('newSession');
       const resumeSession = document.getElementById('resumeSession');
       const ackResumeRisk = document.getElementById('ackResumeRisk');
@@ -1363,6 +1374,8 @@
         if (agentName) parts.push('--agent ' + shellQuote(agentName));
         if (maxWallClockMs.value.trim()) parts.push('--max-wall-clock-ms ' + maxWallClockMs.value.trim());
         if (maxCostUsd.value.trim()) parts.push('--max-cost-usd ' + maxCostUsd.value.trim());
+        if (budgetInputTokens.value.trim()) parts.push('--budget-input-tokens ' + budgetInputTokens.value.trim());
+        if (budgetOutputTokens.value.trim()) parts.push('--budget-output-tokens ' + budgetOutputTokens.value.trim());
 
         if (attachmentMode.value === 'include') {
           for (const filePath of getAttachedPaths()) {
@@ -1667,6 +1680,8 @@
         customAgent,
         maxWallClockMs,
         maxCostUsd,
+        budgetInputTokens,
+        budgetOutputTokens,
         newSession,
         resumeSession,
         ackResumeRisk,

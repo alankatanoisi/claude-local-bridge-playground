@@ -1,0 +1,98 @@
+{
+  "id": "read-list-then-answer",
+  "description": "Read-only loop: list_files then final text answer.",
+  "prompt": "What files are here?",
+  "cwd_files": {
+    "hello.js": "console.log('hi');\n"
+  },
+  "run": {
+    "maxSteps": 3,
+    "allowedTools": [
+      "list_files",
+      "read_file"
+    ]
+  },
+  "model_script": [
+    {
+      "content": [
+        {
+          "type": "text",
+          "text": "Let me list the directory."
+        },
+        {
+          "type": "tool_use",
+          "id": "tu1",
+          "name": "list_files",
+          "input": {
+            "path": "."
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 40,
+        "output_tokens": 20
+      }
+    },
+    {
+      "content": [
+        {
+          "type": "text",
+          "text": "I found hello.js in the workspace."
+        }
+      ],
+      "usage": {
+        "input_tokens": 80,
+        "output_tokens": 15
+      }
+    }
+  ],
+  "expect": {
+    "stopReason": "success",
+    "steps": 2,
+    "tool_sequence": [
+      {
+        "name": "list_files",
+        "ok": true,
+        "permission": {
+          "category": "read-only",
+          "mode": "default",
+          "ruleId": "mode_policy",
+          "matchedGuards": [],
+          "severity": "bypassable_ask",
+          "explanation": "Allowed by current permission mode.",
+          "decision": "allow"
+        }
+      }
+    ],
+    "stream_event_types": [
+      "system",
+      "model_request",
+      "budget",
+      "assistant",
+      "tool_use",
+      "tool_result",
+      "budget",
+      "budget",
+      "model_request",
+      "budget",
+      "assistant",
+      "result"
+    ],
+    "trace_event_types": [
+      "run_started",
+      "runner_context_prepared",
+      "runner_model_request_built",
+      "budget",
+      "runner_model_response_received",
+      "tool_requested",
+      "tool_finished",
+      "budget",
+      "budget",
+      "runner_model_request_built",
+      "budget",
+      "runner_model_response_received",
+      "run_completed"
+    ],
+    "files_touched": []
+  }
+}

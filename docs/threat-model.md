@@ -141,6 +141,24 @@ Redacted patterns:
 | `eyJ...` (JWTs)                          | `[REDACTED:jwt]`               |
 | `SECRET=...` / `TOKEN=...` assignments   | `*= [REDACTED]`                |
 
+## Budget telemetry and token caps
+
+The runner exposes live budget signals for long sessions and nested `spawn_agent` children:
+
+| Flag | Behavior |
+| ---- | -------- |
+| `--max-wall-clock-ms` | Hard stop when wall time exceeds N ms (existing) |
+| `--max-cost-usd` | Hard stop when estimated cost exceeds N USD (existing) |
+| `--budget-input-tokens` | Hard stop when cumulative API `input_tokens` reach N; soft warning at 80% |
+| `--budget-output-tokens` | Hard stop when cumulative API `output_tokens` reach N; soft warning at 80% |
+
+Stream-json and flight-recorder traces may include `{ type: "budget", input_tokens, output_tokens, wall_ms, spawns, depth }`
+at tool boundaries. Soft warnings surface as `budget_warning` events and stderr hints; they do not bypass permission
+guards. Child agents inherit the parent's **remaining** token budget via CLI flags on the worker subprocess.
+
+Hard-cap termination stops the loop at the next boundary; it does **not** auto-revert in-flight edits — use recovery
+tools (`undo`, run manifests when available) if a partial run must be rolled back.
+
 ## Known limitations
 
 ### 1. No hard outbound network restriction (mitigated)

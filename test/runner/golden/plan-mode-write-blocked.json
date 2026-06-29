@@ -1,0 +1,100 @@
+{
+  "id": "plan-mode-write-blocked",
+  "description": "Plan mode fabricates write results without touching disk.",
+  "prompt": "Edit notes.txt to say updated.",
+  "cwd_files": {
+    "notes.txt": "original\n"
+  },
+  "run": {
+    "maxSteps": 3,
+    "plan": true,
+    "allowedTools": [
+      "read_file",
+      "edit_file"
+    ]
+  },
+  "model_script": [
+    {
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "tu1",
+          "name": "edit_file",
+          "input": {
+            "path": "notes.txt",
+            "old_string": "original",
+            "new_string": "updated"
+          }
+        }
+      ],
+      "usage": {
+        "input_tokens": 55,
+        "output_tokens": 30
+      }
+    },
+    {
+      "content": [
+        {
+          "type": "text",
+          "text": "In plan mode I would update notes.txt."
+        }
+      ],
+      "usage": {
+        "input_tokens": 90,
+        "output_tokens": 12
+      }
+    }
+  ],
+  "expect": {
+    "stopReason": "success",
+    "steps": 2,
+    "tool_sequence": [
+      {
+        "name": "edit_file",
+        "ok": true,
+        "permission": {
+          "category": "write",
+          "mode": "plan",
+          "ruleId": "mode_policy",
+          "matchedGuards": [],
+          "severity": "bypassable_ask",
+          "explanation": "Plan mode — dry run only.",
+          "decision": "ask",
+          "proposedAction": "(plan mode) Edit notes.txt — replace string → \"updated\""
+        }
+      }
+    ],
+    "stream_event_types": [
+      "system",
+      "model_request",
+      "budget",
+      "assistant",
+      "budget",
+      "tool_use",
+      "approval_required",
+      "tool_result",
+      "budget",
+      "model_request",
+      "budget",
+      "assistant",
+      "result"
+    ],
+    "trace_event_types": [
+      "run_started",
+      "runner_context_prepared",
+      "runner_model_request_built",
+      "budget",
+      "runner_model_response_received",
+      "budget",
+      "tool_requested",
+      "permission_decision",
+      "tool_finished",
+      "budget",
+      "runner_model_request_built",
+      "budget",
+      "runner_model_response_received",
+      "run_completed"
+    ],
+    "files_touched": []
+  }
+}
