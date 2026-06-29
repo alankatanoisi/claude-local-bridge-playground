@@ -65,6 +65,23 @@ Manifests inherit the same secret-redaction posture as other on-disk artifacts: 
 file contents. The backups they point at live under `.bridge-runner/backups/` and are themselves project source — treat
 both as local evidence.
 
+## Prompt-template parameters (`--prompt-arg`)
+
+Prompt templates (`.bridge-runner/prompts/<name>.md` + built-ins) may declare `{{name}}` placeholders filled at runtime
+with `--prompt-arg key=value`. A parameter value is text spliced directly into the system/user prompt, so it is treated
+as untrusted input:
+
+| Risk                              | Mitigation                                                                                          |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Forged conversation turns         | Values containing `\n\nHuman:` / `\n\nAssistant:` / `\n\nSystem:` are **refused**, not escaped       |
+| Special/control tokens            | `<|…|>`, `[INST]`/`[/INST]`, and role-ish XML tags (`<system>`, `<tool>`) are refused                |
+| Template-composition break-out    | Values containing `{{`/`}}`, a bare `---` fence, or our `## Prompt template:` / `## User request` headers are refused |
+| Oversized values                  | Values over 2000 characters are refused                                                              |
+| Missing required parameters       | The run fails **before** any model call, rather than sending a half-filled template                 |
+
+Template **bodies** are author-controlled text (same trust level as `.bridge-runner/SYSTEM.md`); only the parameter
+*values* are gated. This is refusal-by-default, not best-effort escaping.
+
 ## What the model can NEVER touch
 
 These are enforced at the permission layer **before any tool executes**. No CLI flag can override them.

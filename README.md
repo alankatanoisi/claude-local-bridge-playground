@@ -243,6 +243,50 @@ Project-local prompt primitives live under `.bridge-runner/`:
 Matching global files under `~/.bridge-runner/` are also loaded. Project files win over global replacement prompts;
 append files are applied global first, then project, then CLI flags.
 
+### Prompt-template registry
+
+Prompt templates are reusable instruction snippets prepended to your request with `--prompt-template <name>`. They live
+as Markdown files with optional YAML frontmatter and resolve in this order (first match wins):
+
+1. project — `<cwd>/.bridge-runner/prompts/<name>.md`
+2. global — `~/.bridge-runner/prompts/<name>.md`
+3. built-in — shipped with the runner (`explore`, `review`, `cleanup`, `verify`, `grill`, `simplify`)
+
+Frontmatter gives a template a typed shape so it can be listed, validated, and parameterized:
+
+```markdown
+---
+title: Review (findings-first)
+summary: Review the relevant code for correctness, safety, and missing tests.
+parameters: focus?
+recommended-tools: read_file, search_text, git_status
+recommended-permissions: look-only
+tags: review, quality
+---
+Review the relevant code... Lead with concrete findings.
+
+{{focus}}
+```
+
+`parameters` is a comma list where a trailing `?` marks a parameter optional. The body references parameters as
+`{{name}}`, and you fill them at runtime with repeatable `--prompt-arg key=value`:
+
+```bash
+node bin/local-bridge-runner.js --prompt-template review --prompt-arg focus="error handling in run.js" "Review my change"
+```
+
+Parameter values are **attacker-influenced text**, so the runner refuses values that look like prompt-injection or
+control tokens (forged `Human:`/`Assistant:` turns, `<|…|>` tokens, `{{ }}` delimiters, frontmatter fences) rather than
+splicing them into the prompt. Missing required parameters fail the run before any model call.
+
+Browse and validate the registry with the `local-bridge-prompts` CLI (run from the playground folder):
+
+```bash
+node bin/local-bridge-prompts.js list                 # all templates (project > global > built-in)
+node bin/local-bridge-prompts.js show review          # metadata + body for one template
+node bin/local-bridge-prompts.js validate             # lint every template; non-zero exit on errors
+```
+
 The model-facing tool surface is framed as four capability groups:
 
 - **Read:** `list_files`, `read_file`, `search_text`, `glob`, `git_status`
@@ -329,6 +373,7 @@ Useful runner options:
 | `--allowed-tools <list>`                                 | Same as `--tools` (legacy name)                                                    |
 | `--include-file <path>`                                  | Attach a bounded file from `--cwd` before the model call                           |
 | `--prompt-template <name>` / `--template <name>`         | Prepend a reusable prompt template: review, cleanup, explore, or file              |
+| `--prompt-arg key=value`                                 | Fill a `{{key}}` placeholder in the chosen prompt template (repeatable)            |
 | `--human-log <path>`                                     | Write a plain text log of the prompt, tool results, and final answer               |
 | `--trace-level <level>`                                  | Write correlated flight-recorder traces: summary, redacted, or full                |
 | `--trace-path <path>`                                    | Choose the runner trace JSONL path; bridge trace path is correlated                |
