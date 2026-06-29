@@ -43,11 +43,19 @@ function atomicWriteFile(filePath, content) {
   }
 }
 
+// Monotonic counter so two backups taken in the same millisecond never collide.
+// This matters for run-level recovery: when a single run edits the same file
+// twice, each edit must keep its own backup, otherwise reverting the run in
+// reverse order would walk the file back to an intermediate state, not the
+// pre-run original. Date.now() alone is too coarse to guarantee that.
+let _backupSeq = 0;
+
 function saveBackup(filePath, contentBuffer, cwd) {
   const backupsRoot = cwd || path.dirname(filePath);
   const backupsDir = path.join(backupsRoot, '.bridge-runner', 'backups');
   fs.mkdirSync(backupsDir, { recursive: true });
-  const backupPath = path.join(backupsDir, path.basename(filePath) + '-' + Date.now() + '.bak');
+  const unique = Date.now() + '-' + (_backupSeq++).toString(36) + '-' + crypto.randomBytes(3).toString('hex');
+  const backupPath = path.join(backupsDir, path.basename(filePath) + '-' + unique + '.bak');
   fs.writeFileSync(backupPath, contentBuffer);
   return backupPath;
 }

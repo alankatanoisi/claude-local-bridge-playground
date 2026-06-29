@@ -86,6 +86,7 @@ const TOOL_SUMMARIES = Object.freeze({
   search_text: 'Search for text patterns in the project',
   glob: 'Find files by glob pattern (e.g. **/*.js)',
   manage_tasks: 'Update the in-session task checklist',
+  ask_user_question: 'Structured multiple-choice clarification for the operator',
   list_worktrees: 'List active worktree slots and orphan worktree directories',
   run_skill: 'Load a skill document body by name (read-only)',
   manage_shell_jobs: 'Start/list/poll/kill background shell jobs',

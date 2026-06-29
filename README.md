@@ -243,10 +243,56 @@ Project-local prompt primitives live under `.bridge-runner/`:
 Matching global files under `~/.bridge-runner/` are also loaded. Project files win over global replacement prompts;
 append files are applied global first, then project, then CLI flags.
 
+### Prompt-template registry
+
+Prompt templates are reusable instruction snippets prepended to your request with `--prompt-template <name>`. They live
+as Markdown files with optional YAML frontmatter and resolve in this order (first match wins):
+
+1. project — `<cwd>/.bridge-runner/prompts/<name>.md`
+2. global — `~/.bridge-runner/prompts/<name>.md`
+3. built-in — shipped with the runner (`explore`, `review`, `cleanup`, `verify`, `grill`, `simplify`)
+
+Frontmatter gives a template a typed shape so it can be listed, validated, and parameterized:
+
+```markdown
+---
+title: Review (findings-first)
+summary: Review the relevant code for correctness, safety, and missing tests.
+parameters: focus?
+recommended-tools: read_file, search_text, git_status
+recommended-permissions: look-only
+tags: review, quality
+---
+
+Review the relevant code... Lead with concrete findings.
+
+{{focus}}
+```
+
+`parameters` is a comma list where a trailing `?` marks a parameter optional. The body references parameters as
+`{{name}}`, and you fill them at runtime with repeatable `--prompt-arg key=value`:
+
+```bash
+node bin/local-bridge-runner.js --prompt-template review --prompt-arg focus="error handling in run.js" "Review my change"
+```
+
+Parameter values are **attacker-influenced text**, so the runner refuses values that look like prompt-injection or
+control tokens (forged `Human:`/`Assistant:` turns, `<|…|>` tokens, `{{ }}` delimiters, frontmatter fences) rather than
+splicing them into the prompt. Missing required parameters fail the run before any model call.
+
+Browse and validate the registry with the `local-bridge-prompts` CLI (run from the playground folder):
+
+```bash
+node bin/local-bridge-prompts.js list                 # all templates (project > global > built-in)
+node bin/local-bridge-prompts.js show review          # metadata + body for one template
+node bin/local-bridge-prompts.js validate             # lint every template; non-zero exit on errors
+```
+
 The model-facing tool surface is framed as four capability groups:
 
 - **Read:** `list_files`, `read_file`, `search_text`, `glob`, `git_status`
 - **Session:** `manage_tasks` — in-session checklist stored in the session file
+- **Clarification:** `ask_user_question` — structured multiple-choice prompts (TTY required; fail closed in workers/`--dont-ask`)
 - **Orchestration:** `spawn_agent` — delegate a subtask to a child agent (top-level only; asks by default)
 - **Worktree:** `enter_worktree`, `exit_worktree`, `list_worktrees` — parallel git worktree slots per run
 - **Skills:** `run_skill` — load a skill document body by name (read-only)
@@ -256,6 +302,33 @@ The model-facing tool surface is framed as four capability groups:
 
 `apply_patch` still exists for advanced patch-style edits, but it is hidden by default. Opt into it explicitly with
 `--tools apply_patch` or include it in a comma-separated `--tools` / `--allowed-tools` list.
+
+### Recovery: undo a whole run
+
+The `undo` / `undo_edit` tools recover a single file. For rolling back an entire run — say an `--accept-edits` run that
+touched a dozen files — the runner writes a **per-run manifest** to `<cwd>/.bridge-runner/runs/<run-id>/manifest.json`
+listing every edit and the backup saved before it. The `local-bridge-undo` CLI turns those manifests into a one-command
+rollback. Run it from the playground folder and point `--cwd` at the project the runner edited:
+
+```bash
+# List recorded runs, newest first
+node bin/local-bridge-undo.js list-runs --cwd /path/to/project
+
+# Preview reverting the most recent run (changes nothing)
+node bin/local-bridge-undo.js last-run --cwd /path/to/project --dry-run
+
+# Revert it — asks you to confirm first (add --yes to skip the prompt in scripts)
+node bin/local-bridge-undo.js last-run --cwd /path/to/project
+
+# Revert an older run by its run id or session id
+node bin/local-bridge-undo.js run <run-id|session-id> --cwd /path/to/project
+```
+
+Files are restored to their pre-run state in reverse order. If a file changed **after** the run you are reverting (a
+later run, a manual edit, Git), it is marked `diverged` and skipped unless you add `--force`, so newer work is never
+clobbered by surprise. In a non-interactive shell the command **fails closed**: without `--yes` (or `--dry-run`) it
+refuses rather than silently rewriting files. Manifests are small JSON pointers (they reference backups, they do not copy
+file bodies) and are not auto-deleted; prune old ones by removing the matching `.bridge-runner/runs/<run-id>` folder.
 
 ### Custom agents from files
 
@@ -323,6 +396,7 @@ Useful runner options:
 | `--allowed-tools <list>`                                 | Same as `--tools` (legacy name)                                                    |
 | `--include-file <path>`                                  | Attach a bounded file from `--cwd` before the model call                           |
 | `--prompt-template <name>` / `--template <name>`         | Prepend a reusable prompt template: review, cleanup, explore, or file              |
+| `--prompt-arg key=value`                                 | Fill a `{{key}}` placeholder in the chosen prompt template (repeatable)            |
 | `--human-log <path>`                                     | Write a plain text log of the prompt, tool results, and final answer               |
 | `--trace-level <level>`                                  | Write correlated flight-recorder traces: summary, redacted, or full                |
 | `--trace-path <path>`                                    | Choose the runner trace JSONL path; bridge trace path is correlated                |

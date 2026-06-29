@@ -22,7 +22,7 @@ in the Claude Local Bridge Output log. That token is a local debug door code, no
 | Category     | Tools                                                  | Scope                                                                                                                                                                                                          |
 | ------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Read**     | `list_files`, `read_file`, `search_text`, `glob`, `git_status` | Any file inside `cwd` (and its subdirectories) that passes the deny matrix. Git metadata only.                                                                                                                 |
-| **Session**  | `manage_tasks`                                         | In-session task checklist stored in the session file; no filesystem access.                                                                                                                                    |
+| **Session**  | `manage_tasks`, `ask_user_question`                    | Task checklist in the session file; structured operator questions (TTY-only, fail closed in workers and `--dont-ask`). |
 | **Orchestration** | `spawn_agent`                                     | Spawns a child runner subprocess with a chosen agent profile. Top-level only (`spawnDepth === 0`). Asks by default; capped at 8 spawns per run. Child inherits cwd deny matrix; cannot recurse.              |
 | **Worktree**  | `enter_worktree`, `exit_worktree`, `list_worktrees` | Multiple named **slots** per run (`slot` parameter); each creates an isolated git worktree on a fresh branch and switches cwd. Re-enter a slot to switch between parallel worktrees. `list_worktrees` lists active slots and orphan dirs under `~/.bridge-runner/worktrees/`. Requires a git repo. Asks by default; `cleanup=true` removes the worktree and branch. |
 | **Skills**    | `run_skill`                                       | Loads a skill Markdown body by name from `.bridge-runner/skills/` or `.cursor/skills/`. Read-only text return — does not execute embedded shell or network instructions. |
@@ -45,6 +45,43 @@ Markdown agent files (YAML frontmatter + prompt body) can extend built-in `--age
 | Path escape via `--agent`     | User-directed path (like `--system-prompt-file`); not auto-scanned        |
 
 Built-in profile ids always take precedence over file agents with the same name.
+
+## Run-level recovery (`local-bridge-undo` CLI)
+
+The write tools already save a backup before every mutation and record it in the in-memory undo log. At run-exit the
+runner also persists that log to a **per-run manifest** at `<cwd>/.bridge-runner/runs/<run-id>/manifest.json`. The
+operator-facing `local-bridge-undo` CLI (`list-runs`, `show`, `last-run`, `run <id>`) reverts a whole run from those
+backups. It is **not** a model-callable tool and adds no new model permission surface — it composes existing primitives.
+
+| Property                  | Behavior                                                                                                            |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Path confinement          | Revert targets pass `safety.confinePath()`; a tampered manifest pointing outside `cwd` is marked `denied` and skipped |
+| Divergence protection     | A file changed after the run (`current sha ≠ run's last write`) is `diverged` and skipped unless `--force`           |
+| Created files             | A file the run created (no backup) is removed on revert; a divergent created file needs `--force`                   |
+| Non-interactive fail-safe | Without `--yes`/`--dry-run` and no TTY, revert refuses (exit 2) rather than silently rewriting files                 |
+| Manifest contents         | Edit paths, tool names, SHA-256 hashes, and backup paths — no file bodies. Treat as sensitive (it lists project paths) |
+| Garbage collection        | None automatic in v1; manifests are pruned manually by deleting `.bridge-runner/runs/<run-id>`                       |
+
+Manifests inherit the same secret-redaction posture as other on-disk artifacts: they store hashes and relative paths, not
+file contents. The backups they point at live under `.bridge-runner/backups/` and are themselves project source — treat
+both as local evidence.
+
+## Prompt-template parameters (`--prompt-arg`)
+
+Prompt templates (`.bridge-runner/prompts/<name>.md` + built-ins) may declare `{{name}}` placeholders filled at runtime
+with `--prompt-arg key=value`. A parameter value is text spliced directly into the system/user prompt, so it is treated
+as untrusted input:
+
+| Risk                              | Mitigation                                                                                          |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Forged conversation turns         | Values containing `\n\nHuman:` / `\n\nAssistant:` / `\n\nSystem:` are **refused**, not escaped       |
+| Special/control tokens            | `<|…|>`, `[INST]`/`[/INST]`, and role-ish XML tags (`<system>`, `<tool>`) are refused                |
+| Template-composition break-out    | Values containing `{{`/`}}`, a bare `---` fence, or our `## Prompt template:` / `## User request` headers are refused |
+| Oversized values                  | Values over 2000 characters are refused                                                              |
+| Missing required parameters       | The run fails **before** any model call, rather than sending a half-filled template                 |
+
+Template **bodies** are author-controlled text (same trust level as `.bridge-runner/SYSTEM.md`); only the parameter
+*values* are gated. This is refusal-by-default, not best-effort escaping.
 
 ## What the model can NEVER touch
 

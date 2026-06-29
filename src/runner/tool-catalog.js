@@ -30,6 +30,7 @@ const TOOL_MODULES = [
   require('./tools/search-text'),
   require('./tools/glob'),
   require('./tools/manage-tasks'),
+  require('./tools/ask-user-question'),
   require('./tools/spawn-agent'),
   require('./tools/enter-worktree'),
   require('./tools/list-worktrees'),

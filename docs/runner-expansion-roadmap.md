@@ -189,7 +189,13 @@ coordinator-worker contexts: return a safe no-op or auto-deny message (workers a
 
 **Risk:** Low.
 
-### 4.5 `cc undo last-run` — recovery workflow
+### 4.5 `cc undo last-run` — recovery workflow — shipped
+
+**Status:** Implemented. Per-run manifests at `.bridge-runner/runs/<run-id>/manifest.json` (written from the undo log at
+every run-exit) plus the operator CLI `bin/local-bridge-undo.js` (`list-runs`, `show`, `last-run`, `run <id|session>`).
+Reverts restore each file's pre-run backup; a file changed after the run is `diverged` and skipped unless `--force`;
+non-interactive runs fail closed without `--yes`. The directory is keyed by run id (always unique); the session id is
+stored inside so `undo run <session-id>` resolves to the most recent run of that session.
 
 **Category:** Safety · **Effort:** Small · **Source:** [extensions §2](./runner-expansion-roadmap-extensions.html#dir-2)
 
@@ -209,7 +215,13 @@ garbage-collection for old manifests.
 
 **Risk:** Low — composes existing primitives; no new model-callable tools required.
 
-### 4.6 Prompt-template registry — `.bridge-runner/prompts/`
+### 4.6 Prompt-template registry — `.bridge-runner/prompts/` — shipped
+
+**Status:** Implemented in `src/runner/prompts/registry.js` with built-ins under `src/runner/prompts/*.md`. Frontmatter
+(`title`, `summary`, `parameters`, `recommended-tools`, `recommended-permissions`, `tags`); override order
+project > global > built-in; `cc prompts list|show|validate` via `bin/local-bridge-prompts.js`; `--prompt-arg key=value`
+substitution with refusal-by-default of injection-looking values. Command-builder reads a shipped registry snapshot to
+suggest permissions/tools for the chosen template.
 
 **Category:** DX · **Effort:** Small–medium · **Source:** [extensions §5](./runner-expansion-roadmap-extensions.html#dir-5)
 
@@ -235,9 +247,9 @@ for imported templates.
 1. **`glob`** — shipped
 2. **Task checklist** — shipped (`manage_tasks`)
 3. **Verification presets** — shipped (`--test-watch`, `verify`/`grill`/`simplify` templates, command-builder preset)
-4. **`cc undo last-run` recovery workflow** — small UX win; unlocks safety story (next priority)
-5. **Prompt-template registry** — small/medium; upgrades §10 "docs/presets" rows into real artifacts
-6. **`read_file` paging** — small polish
+4. **`cc undo last-run` recovery workflow** — shipped
+5. **Prompt-template registry** — shipped
+6. **`read_file` paging** — small polish (next priority)
 7. **`ask_user_question`** — needs careful TTY/non-TTY matrix testing
 
 ---
@@ -656,15 +668,15 @@ Before any non-read-only or non-self-hosted CI use:
 
 **Sequencing** (from [extensions companion](./runner-expansion-roadmap-extensions.html#summary)):
 
-1. **Phase 1 next:** `cc undo last-run` recovery workflow (§4.5), then prompt-template registry (§4.6) — small, no runtime
-   perturbation.
+1. **Phase 1 next:** `read_file` paging (§4.4), then `ask_user_question` (§4.3) — `cc undo last-run` (§4.5) and the
+   prompt-template registry (§4.6) are shipped.
 2. **Phase 2 next:** golden-transcript replay harness (§5.8) **before** budget telemetry (§5.9) or capability profiles
    (§6.1) — safety net for permission/runtime refactors.
 3. **Phase 2 follow-ups:** parallel worktree orchestration, background bash + polling, executable hooks, `skill` execution.
 4. **Keep network tools off the table** until egress policy is designed and documented (§7).
 
 **Shipped:** file-based agent loader (slice 1); model-callable `spawn_agent` (slice 2); git worktree isolation (slice 3);
-read-only GitHub Actions POC (§12).
+read-only GitHub Actions POC (§12); `cc undo last-run` recovery workflow (§4.5); prompt-template registry (§4.6).
 
 When implementation starts, update `README.md`, `docs/threat-model.md` (if safety surface changes), and
 `docs/command-builder.html` in the same change set as the runner code.

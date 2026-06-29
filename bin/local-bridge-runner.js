@@ -14,7 +14,7 @@ const { parseArgs } = require('util');
 const fs = require('fs');
 const path = require('path');
 const { run } = require('../src/runner/run');
-const { applyPromptTemplates, resolvePromptTemplate } = require('../src/runner/prompt-templates');
+const { applyPromptTemplates, resolvePromptTemplate, substituteParameters } = require('../src/runner/prompt-templates');
 const safety = require('../src/runner/safety');
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
@@ -49,6 +49,7 @@ Options:\n\
   --include-file <p>   Include a bounded relative file in pasted context (repeatable)\n\
   --prompt-template <n> Prepend reusable prompt template: review, cleanup, explore, or a Markdown path\n\
   --template <n>        Alias for --prompt-template\n\
+  --prompt-arg k=v      Fill a {{k}} placeholder in the prompt template (repeatable)\n\
   --resume <path>      Resume from a transcript (appends new prompt to existing conversation)\n\
   --session-id <id>    Canonical session id (*.state.json under ~/.bridge-runner/sessions/)\n\
   --session-path <p>   Explicit path to session state JSON file\n\
@@ -147,6 +148,7 @@ async function main() {
         'include-file': { type: 'string', multiple: true },
         'prompt-template': { type: 'string', multiple: true },
         template: { type: 'string', multiple: true },
+        'prompt-arg': { type: 'string', multiple: true },
         resume: { type: 'string' },
         'session-id': { type: 'string' },
         'session-path': { type: 'string' },
@@ -320,12 +322,28 @@ async function main() {
   const promptTemplateNames = [...(args.values['prompt-template'] || []), ...(args.values.template || [])];
   if (promptTemplateNames.length > 0) {
     try {
-      const templates = promptTemplateNames.map((name) => resolvePromptTemplate(cwd, name));
+      // Parse repeatable --prompt-arg key=value into a flat map (last wins).
+      const promptArgs = parsePromptArgs(args.values['prompt-arg'] || []);
+      const templates = promptTemplateNames.map((name) => {
+        const template = resolvePromptTemplate(cwd, name);
+        // Fill {{placeholders}} from --prompt-arg. substituteParameters validates
+        // required params and refuses injection-looking values; it is a no-op for
+        // templates with no placeholders and no args.
+        template.text = substituteParameters(
+          template.text,
+          promptArgs,
+          template.prompt ? template.prompt.parameters : [],
+        );
+        return template;
+      });
       prompt = applyPromptTemplates(prompt, templates);
     } catch (err) {
       console.error('Error: ' + err.message);
       process.exit(1);
     }
+  } else if ((args.values['prompt-arg'] || []).length > 0) {
+    console.error('Error: --prompt-arg requires --prompt-template (no template selected to fill).');
+    process.exit(1);
   }
   const model = args.values.model || DEFAULT_MODEL;
   let maxTokens = parseInt(args.values['max-tokens'], 10) || DEFAULT_MAX_TOKENS;
@@ -640,7 +658,9 @@ function printRuntimeTips(options) {
     console.error('[runner] tip: --dont-ask does not enable bash. Add --allow-shell only when shell access is needed.');
   }
   if (options.testWatch) {
-    console.error('[runner] tip: --test-watch runs detected tests after successful writes (npm test, pytest, or BRIDGE_RUNNER_TEST_CMD).');
+    console.error(
+      '[runner] tip: --test-watch runs detected tests after successful writes (npm test, pytest, or BRIDGE_RUNNER_TEST_CMD).',
+    );
   }
   if (options.noNetwork) {
     console.error('[runner] warning: --no-network is a best-effort shell proxy guard, not a network sandbox.');
@@ -688,6 +708,23 @@ function resolveBridgeUrl(values = {}, env = process.env) {
   return normalizeBridgeUrl(values['bridge-url'] || env.BRIDGE_RUNNER_BRIDGE_URL || '');
 }
 
+// Parse repeatable `--prompt-arg key=value` flags into a plain object. The value
+// may itself contain '=' (only the first one splits). A flag with no '=' is a
+// usage error — we fail loudly rather than guess.
+function parsePromptArgs(rawArgs) {
+  const out = {};
+  for (const raw of rawArgs) {
+    const eq = String(raw).indexOf('=');
+    if (eq === -1) {
+      throw new Error('--prompt-arg must be key=value (got "' + raw + '")');
+    }
+    const key = raw.slice(0, eq).trim();
+    if (!key) throw new Error('--prompt-arg is missing a key before "=" (got "' + raw + '")');
+    out[key] = raw.slice(eq + 1);
+  }
+  return out;
+}
+
 function readIncludedFiles(cwd, includeFiles) {
   const cwdCheck = safety.validateCwd(cwd);
   if (!cwdCheck.valid) {
@@ -724,4 +761,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { printRuntimeTips, readIncludedFiles, normalizeBridgeUrl, resolveBridgeUrl };
+module.exports = { printRuntimeTips, readIncludedFiles, normalizeBridgeUrl, resolveBridgeUrl, parsePromptArgs };
