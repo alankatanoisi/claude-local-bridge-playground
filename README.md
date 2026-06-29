@@ -263,6 +263,7 @@ recommended-tools: read_file, search_text, git_status
 recommended-permissions: look-only
 tags: review, quality
 ---
+
 Review the relevant code... Lead with concrete findings.
 
 {{focus}}
