@@ -366,6 +366,34 @@ clean for piping), for example:
 - The same numbers are recorded as a `usage` event in the JSONL transcript and as a **Usage & Cost**
   section in the `--human-log` file, so token counts and estimated cost are available without redirection.
 - `--max-cost-usd <n>` uses the same estimate to stop a run once it crosses the budget.
+- `--budget-input-tokens <n>` and `--budget-output-tokens <n>` enforce hard token caps using API
+  usage counters. A soft warning event fires at 80% of each cap; stream-json consumers also receive
+  `{ type: "budget", input_tokens, output_tokens, wall_ms, spawns, depth }` at tool boundaries.
+- Child agents spawned via `spawn_agent` inherit the parent's remaining token budget by default.
+
+### Golden-transcript eval harness
+
+Replay canned model transcripts through a fake client — no live OAuth — and assert runner-side
+behavior (tool dispatch order, permission decisions, trace event types):
+
+```bash
+npm run runner:eval
+# or
+node bin/local-bridge-runner.js runner eval
+node bin/local-bridge-runner.js runner eval read-list   # filter by case id substring
+node bin/local-bridge-runner.js runner eval --update    # refresh expect blocks after intentional changes
+```
+
+Golden cases live in `test/runner/golden/*.json`. Each case pins a `model_script` (assistant tool-call
+stream) and an `expect` snapshot. Paths, timestamps, and secrets are normalized before diffing. When you
+change runner behavior on purpose, run with `--update` and commit the refreshed `expect` blocks together
+with the code change so reviewers can see the regression approval explicitly.
+
+### Tool capability profiles (`--profile`)
+
+Composable per-tool allow/deny profiles layer over permission flags. Built-ins: `review-only`,
+`edit-source-no-shell`, `git-readonly-shell`. Project files: `.bridge-runner/profiles/<name>.json`.
+List with `--list-profiles`.
 
 ### Runner perf parity (prompt cache, file cache, shell)
 

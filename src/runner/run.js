@@ -30,6 +30,7 @@ const {
   RECOMMENDATIONS,
 } = require('./session-health');
 const { assertForkAllowed, applyProfileToRunOptions } = require('./agents/registry');
+const { applyToolProfileToRunOptions, computeAllowedTools } = require('./tool-profiles');
 const {
   JsonlTrace,
   bodySummary,
@@ -41,6 +42,7 @@ const {
 } = require('../trace-utils');
 const { isArchiveEnabled, RunArchiveCollector } = require('./archive/collector');
 const { finalizeArchiveExport } = require('./archive/run-exporter');
+const { createBudgetTracker } = require('./budget-tracker');
 
 const DEFAULT_MAX_STEPS = 16;
 const MAX_CONSECUTIVE_FAILURES = 2;
@@ -304,6 +306,9 @@ async function run(options) {
   if (options.agentProfile) {
     options = applyProfileToRunOptions(options.agentProfile, options);
   }
+  if (options.toolProfileName) {
+    options = applyToolProfileToRunOptions(options);
+  }
   const contextPolicy = resolveContextPolicy(options);
   options = { ...options, contextPolicy };
 
@@ -344,6 +349,9 @@ async function run(options) {
     chaosOk,
     maxWallClockMs,
     maxCostUsd,
+    budgetInputTokens,
+    budgetOutputTokens,
+    parentBudgetRemaining,
     spawnDepth,
     sessionExtract,
     skipTrustGate,
@@ -358,6 +366,7 @@ async function run(options) {
     appendSystemPromptFile,
     noSessionPersistence,
     testWatch,
+    toolProfile,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
@@ -375,7 +384,9 @@ async function run(options) {
     plan: !!plan,
     noNetwork: !!noNetwork,
     confirmTimeout: typeof confirmTimeout === 'number' && confirmTimeout > 0 ? confirmTimeout : null,
-    allowedTools: exposedToolsList ? new Set(exposedToolsList) : null,
+    _cliToolAllowlist: exposedToolsList ? new Set(exposedToolsList) : null,
+    allowedTools: null,
+    toolProfile: toolProfile || null,
     contextPolicy,
     undoLog: [],
     tasks: [],
@@ -384,6 +395,8 @@ async function run(options) {
     workspaceTrusted: false,
     autoMemory: isAutoMemoryEnabled({ autoMemory }),
   };
+
+  ctx.allowedTools = computeAllowedTools(ctx);
 
   if (!skipTrustGate && process.env.BRIDGE_RUNNER_TEST !== '1') {
     const boot = await runBootstrap({
@@ -498,6 +511,21 @@ async function run(options) {
   const humanLog = humanLogPath ? new HumanLog(humanLogPath, { verbose, quiet }) : null;
   const output = makeOutput(outputFormat);
   const startedAt = Date.now();
+  const inheritedParentBudget =
+    parentBudgetRemaining ||
+    (process.env.BRIDGE_RUNNER_BUDGET_INPUT_REMAINING || process.env.BRIDGE_RUNNER_BUDGET_OUTPUT_REMAINING
+      ? {
+          input_tokens: parseInt(process.env.BRIDGE_RUNNER_BUDGET_INPUT_REMAINING, 10) || undefined,
+          output_tokens: parseInt(process.env.BRIDGE_RUNNER_BUDGET_OUTPUT_REMAINING, 10) || undefined,
+        }
+      : null);
+  const budgetTracker = createBudgetTracker({
+    startedAt,
+    budgetInputTokens,
+    budgetOutputTokens,
+    parentRemaining: inheritedParentBudget,
+  });
+  ctx.budgetTracker = budgetTracker;
   const normalizedTraceLevel = normalizeTraceLevel(traceLevel);
   const trace =
     normalizedTraceLevel === 'off'
@@ -547,6 +575,29 @@ async function run(options) {
     verbosity: { verbose, quiet },
     failureLimit: MAX_CONSECUTIVE_FAILURES,
   });
+
+  function syncBudgetRemaining(totalUsage) {
+    if (!budgetTracker) return;
+    const remaining = budgetTracker.remainingAfterUsage(totalUsage);
+    ctx.budgetInputRemaining = remaining.input_tokens;
+    ctx.budgetOutputRemaining = remaining.output_tokens;
+  }
+
+  function emitBudgetBoundary(step, totalUsage) {
+    if (!budgetTracker) return null;
+    const verdict = budgetTracker.evaluate(totalUsage, ctx);
+    output.emit('budget', verdict.event);
+    if (trace) trace.append('budget', { run_id: runId, turn: step, ...verdict.event });
+    syncBudgetRemaining(totalUsage);
+    for (const warning of verdict.warnings || []) {
+      if (!quiet) emitHint(warning.message, { quiet, verbose, stopReason: warning.stopReason });
+      output.emit('budget_warning', { step, kind: warning.kind, message: warning.message });
+    }
+    if (verdict.stop) {
+      return { stop: verdict.stop, message: verdict.message };
+    }
+    return null;
+  }
 
   function completeRun(result) {
     // Single owner of end-of-run usage/cost output: stderr (default, suppressed
@@ -925,6 +976,27 @@ async function run(options) {
     if (transcript) transcript.append({ type: 'assistant', step, content: response.content });
     if (humanLog) humanLog.writeAssistant(step, response);
     totalUsage = addUsage(totalUsage, response.usage);
+    const budgetStopAfterModel = emitBudgetBoundary(step, totalUsage);
+    if (budgetStopAfterModel) {
+      const { stop, message } = budgetStopAfterModel;
+      emitHint(message, { quiet, verbose, stopReason: stop });
+      process.exitCode = 1;
+      if (transcript) transcript.append({ type: 'error', step, message });
+      if (humanLog) humanLog.writeError(message, { stopReason: stop });
+      const result = {
+        stopReason: stop,
+        finalText: message,
+        steps: step,
+        duration_ms: Date.now() - startedAt,
+        usage: totalUsage,
+        events: output.events,
+      };
+      output.emit('error', { message, duration_ms: result.duration_ms, num_turns: step, usage: totalUsage });
+      output.finish(result);
+      if (trace) trace.append('run_failed', { run_id: runId, ...traceRunResult(result), stop_reason: stop });
+      if (ledger) appendLedger(ledger, hooks, 'run_stopped', { runId, stopReason: stop });
+      return completeRun(result);
+    }
     if (trace) {
       trace.append('runner_model_response_received', {
         run_id: runId,
@@ -1131,9 +1203,13 @@ async function run(options) {
             };
           }
         }
+        const budgetStop = emitBudgetBoundary(step, totalUsage);
+        if (budgetStop) return budgetStop;
         return null;
       },
     });
+
+    emitBudgetBoundary(step, totalUsage);
 
     if (turn.aborted) {
       const { reason, message } = turn.aborted;

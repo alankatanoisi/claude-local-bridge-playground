@@ -65,6 +65,10 @@ Options:\n\
   --chaos-ok           Allow risky flag combo: --allow-shell --accept-edits --dont-ask\n\
   --max-wall-clock-ms <n> Stop after N milliseconds\n\
   --max-cost-usd <n>    Stop after estimated cost exceeds N USD\n\
+  --budget-input-tokens <n>  Hard stop when cumulative input tokens reach N (soft warn at 80%)\n\
+  --budget-output-tokens <n> Hard stop when cumulative output tokens reach N (soft warn at 80%)\n\
+  --profile <name|path>  Layer a tool capability profile over permission flags\n\
+  --list-profiles        List built-in and file-based capability profiles and exit\n\
   --agent <name|path>   Runner personality: built-in id, file name, or path to agent .md\n\
   --list-agents         List built-in and file-based runner personalities and exit\n\
   --bare                Minimal context: no instruction docs, repo block, or skills\n\
@@ -159,6 +163,11 @@ async function main() {
         'chaos-ok': { type: 'boolean' },
         'max-wall-clock-ms': { type: 'string' },
         'max-cost-usd': { type: 'string' },
+        'budget-input-tokens': { type: 'string' },
+        'budget-output-tokens': { type: 'string' },
+        profile: { type: 'string' },
+        'list-profiles': { type: 'boolean' },
+        update: { type: 'boolean' },
         agent: { type: 'string' },
         'list-agents': { type: 'boolean' },
         bare: { type: 'boolean' },
@@ -210,9 +219,43 @@ async function main() {
     process.exit(0);
   }
 
+  if (args.positionals[0] === 'runner' && args.positionals[1] === 'eval') {
+    const { runGoldenEval, DEFAULT_GOLDEN_DIR } = require('../src/runner/golden-eval');
+    const filter = args.positionals[2] || null;
+    const goldenDir = args.values.cwd ? path.join(path.resolve(args.values.cwd), 'golden') : DEFAULT_GOLDEN_DIR;
+    runGoldenEval({
+      dir: fs.existsSync(goldenDir) ? goldenDir : DEFAULT_GOLDEN_DIR,
+      filter,
+      update: !!args.values.update,
+      verbose: !args.values.quiet,
+    })
+      .then((summary) => {
+        if (!summary.ok) {
+          for (const result of summary.results) {
+            if (!result.ok && result.message) console.error(result.message);
+          }
+          process.exit(1);
+        }
+        if (!args.values.quiet) {
+          console.error('[runner eval] ' + summary.total + ' golden case(s) passed');
+        }
+      })
+      .catch((err) => {
+        console.error('Error: ' + err.message);
+        process.exit(1);
+      });
+    return;
+  }
+
   if (args.values['list-agents']) {
     const { formatAgentList } = require('../src/runner/agents/registry');
     console.log(formatAgentList(path.resolve(args.values.cwd || process.cwd())));
+    process.exit(0);
+  }
+
+  if (args.values['list-profiles']) {
+    const { formatProfileList } = require('../src/runner/tool-profiles');
+    console.log(formatProfileList(path.resolve(args.values.cwd || process.cwd())));
     process.exit(0);
   }
 
@@ -539,7 +582,10 @@ async function main() {
     chaosOk: !!args.values['chaos-ok'],
     maxWallClockMs: parseInt(args.values['max-wall-clock-ms'], 10) || undefined,
     maxCostUsd: parseFloat(args.values['max-cost-usd']) || undefined,
+    budgetInputTokens: parseInt(args.values['budget-input-tokens'], 10) || undefined,
+    budgetOutputTokens: parseInt(args.values['budget-output-tokens'], 10) || undefined,
     agentProfile: args.values.agent || undefined,
+    toolProfileName: args.values.profile || undefined,
     sessionExtract: !!args.values['session-extract'],
     skipTrustGate: process.env.BRIDGE_RUNNER_TEST === '1' && !args.values['trust-workspace'],
     noArchive: !!args.values['no-archive'],

@@ -141,6 +141,42 @@ Redacted patterns:
 | `eyJ...` (JWTs)                          | `[REDACTED:jwt]`               |
 | `SECRET=...` / `TOKEN=...` assignments   | `*= [REDACTED]`                |
 
+## Budget telemetry and token caps
+
+The runner exposes live budget signals for long sessions and nested `spawn_agent` children:
+
+| Flag | Behavior |
+| ---- | -------- |
+| `--max-wall-clock-ms` | Hard stop when wall time exceeds N ms (existing) |
+| `--max-cost-usd` | Hard stop when estimated cost exceeds N USD (existing) |
+| `--budget-input-tokens` | Hard stop when cumulative API `input_tokens` reach N; soft warning at 80% |
+| `--budget-output-tokens` | Hard stop when cumulative API `output_tokens` reach N; soft warning at 80% |
+
+Stream-json and flight-recorder traces may include `{ type: "budget", input_tokens, output_tokens, wall_ms, spawns, depth }`
+at tool boundaries. Soft warnings surface as `budget_warning` events and stderr hints; they do not bypass permission
+guards. Child agents inherit the parent's **remaining** token budget via CLI flags on the worker subprocess.
+
+Hard-cap termination stops the loop at the next boundary; it does **not** auto-revert in-flight edits — use recovery
+tools (`undo`, run manifests when available) if a partial run must be rolled back.
+
+## Composable tool capability profiles (`--profile`)
+
+Per-tool profiles layer **over** coarse permission flags (`--accept-edits`, `--allow-shell`). They cannot bypass the
+hard-deny matrix (`.env`, `.ssh/`, path escapes, shell scanner hits) or the `--chaos-ok` interlock.
+
+| Source | Path |
+| ------ | ---- |
+| Built-in | `review-only`, `edit-source-no-shell`, `git-readonly-shell` |
+| Project | `.bridge-runner/profiles/<name>.json` |
+| User | `~/.bridge-runner/profiles/<name>.json` |
+
+Profile JSON supports per-tool `allow`/`deny` and optional constraints (`bash.command_regex`, `write_file.max_bytes`).
+Denied tools are **removed** from the model tool list (not merely blocked at execution). List profiles with
+`--list-profiles`.
+
+**Composition:** `--profile` applies after `--agent` personality defaults; `--tools` intersects with the profile
+exposure set (narrower only).
+
 ## Known limitations
 
 ### 1. No hard outbound network restriction (mitigated)

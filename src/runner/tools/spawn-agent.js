@@ -103,6 +103,14 @@ async function execute(args, ctx) {
   const runtime = ensureWorkerRuntime(ctx);
   const maxSteps = clampSteps(args.max_steps ?? profile.maxSteps ?? DEFAULT_STEPS);
 
+  const budgetRemaining =
+    typeof ctx.budgetInputRemaining === 'number' || typeof ctx.budgetOutputRemaining === 'number'
+      ? {
+          input_tokens: ctx.budgetInputRemaining,
+          output_tokens: ctx.budgetOutputRemaining,
+        }
+      : null;
+
   const result = await runtime.spawnWorker(
     {
       agent: agentName,
@@ -113,6 +121,8 @@ async function execute(args, ctx) {
       allowShell: !!ctx.allowShell,
       acceptEdits: !!ctx.acceptEdits,
       dontAsk: !!ctx.dontAsk,
+      budgetRemaining,
+      toolProfile: ctx.toolProfile?.id || null,
     },
     { allowShell: !!ctx.allowShell },
   );
