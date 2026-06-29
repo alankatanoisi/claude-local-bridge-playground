@@ -22,7 +22,7 @@ function definition() {
     description:
       'Search for a text pattern inside the project. ' +
       'Prefers ripgrep, falls back to grep or Node walk. ' +
-      'Skips .git, node_modules, dist, build, coverage.',
+      'Skips .git, node_modules, dist, build, coverage, and actions-runner.',
     input_schema: {
       type: 'object',
       properties: {
@@ -84,7 +84,9 @@ function searchWithRg(pattern, targetDir) {
 
 function searchWithGrep(pattern, targetDir) {
   const cmd =
-    'grep -r -i -n --max-count=50 --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build --exclude-dir=coverage ' +
+    'grep -r -i -n --max-count=50 ' +
+    BLOCKED_DIRS.map((d) => '--exclude-dir=' + shellEscape(d)).join(' ') +
+    ' ' +
     shellEscape(pattern) +
     ' .';
   const result = execSync(cmd, {

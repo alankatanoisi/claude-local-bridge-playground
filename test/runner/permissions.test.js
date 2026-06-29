@@ -43,6 +43,11 @@ describe('permissions — read-only tools', () => {
     assert.equal(result.decision, 'deny');
   });
 
+  it('denies direct reads inside actions-runner', () => {
+    const result = check('read_file', { path: 'actions-runner/.runner' }, { cwd });
+    assert.equal(result.decision, 'deny');
+  });
+
   it('denies read_file for *.pem', () => {
     const result = check('read_file', { path: 'keys/id_rsa.pem' }, { cwd });
     assert.equal(result.decision, 'deny');

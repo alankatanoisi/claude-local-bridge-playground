@@ -51,6 +51,17 @@ describe('glob tool', () => {
     assert.match(result.text, /escapes working directory/);
   });
 
+  it('skips the local GitHub Actions runner install directory', () => {
+    const runnerDir = path.join(tmpDir, 'actions-runner');
+    fs.mkdirSync(runnerDir, { recursive: true });
+    fs.writeFileSync(path.join(runnerDir, 'secret-log.txt'), 'runner internals');
+
+    const result = execute({ pattern: '**/*.txt' }, ctx);
+
+    assert.equal(result.ok, true);
+    assert.ok(!result.text.includes('actions-runner'));
+  });
+
   it('requires pattern', () => {
     const result = execute({}, ctx);
     assert.equal(result.ok, false);

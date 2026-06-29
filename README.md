@@ -34,6 +34,8 @@ Treat runs as personal research and local tooling, and experimental exploration 
 For the local CLI runner prototype that now ships in this repo, see [docs/runner-quickstart.html](./docs/runner-quickstart.html).
 To explore which Claude Code harness capabilities are prudent to add next, see
 [docs/runner-expansion-roadmap.md](./docs/runner-expansion-roadmap.md).
+For the manual self-hosted GitHub Actions proof of concept, see
+[docs/bridge-runner-actions-poc.md](./docs/bridge-runner-actions-poc.md).
 
 The runner can inspect this repo or any other local project by passing that project as `--cwd`.
 
@@ -70,7 +72,7 @@ Defaults below are sourced from `package.json` (`contributes.configuration.prope
 | Setting                               | Default (from package.json) | Notes                                            |
 | ------------------------------------- | --------------------------- | ------------------------------------------------ |
 | `claudeLocalBridge.port`              | `11437`                     | Local bridge listens on `http://localhost:11437` |
-| `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-6`         | Used when requests omit `model`                  |
+| `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-5`         | Used when requests omit `model`                  |
 | `claudeLocalBridge.anthropicBaseUrl`  | `https://api.anthropic.com` | Upstream Anthropic endpoint                      |
 | `claudeLocalBridge.logRequests`       | `false`                     | Verbose request/response logging                 |
 | `claudeLocalBridge.requireCallerAuth` | `false`                     | Optional local Bearer-token gate for API routes  |
@@ -132,7 +134,7 @@ Open **VS Code Settings** and search for `Claude Local Bridge`:
 | ------------------------------------- | --------------------------- | ----------------------------------------- |
 | `claudeLocalBridge.port`              | `11437`                     | HTTP server port                          |
 | `claudeLocalBridge.anthropicBaseUrl`  | `https://api.anthropic.com` | Override for staging                      |
-| `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-6`         | Default model when none is specified      |
+| `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-5`         | Default model when none is specified      |
 | `claudeLocalBridge.logRequests`       | `false`                     | Verbose request logging to Output channel |
 | `claudeLocalBridge.requireCallerAuth` | `false`                     | Enforce Bearer token for incoming callers |
 | `claudeLocalBridge.callerAuthToken`   | `""`                        | Static Bearer token override              |

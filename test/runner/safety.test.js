@@ -120,6 +120,7 @@ describe('runner safety helpers', () => {
     assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/apple-cert.p12'), true);
     assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/service-account.json'), true);
     assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/firebase-adminsdk-prod.json'), true);
+    assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/actions-runner/.runner'), true);
     assert.equal(safety.isPathBlockedByDenyMatrix('/tmp/project/src/app.js'), false);
   });
 });

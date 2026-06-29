@@ -20,7 +20,7 @@ function definition() {
     description:
       'Find files by glob pattern (e.g. **/*.js, src/**/*.ts). ' +
       'Results are relative paths sorted by modification time (newest first). ' +
-      'Skips .git, node_modules, dist, build, and coverage. Capped at 100 files.',
+      'Skips .git, node_modules, dist, build, coverage, and actions-runner. Capped at 100 files.',
     input_schema: {
       type: 'object',
       properties: {

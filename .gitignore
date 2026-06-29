@@ -3,6 +3,7 @@ node_modules
 *.vsix
 *.log
 .bridge-runner/
+actions-runner/
 
 # macOS metadata
 .DS_Store

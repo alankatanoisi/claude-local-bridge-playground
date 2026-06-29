@@ -1,0 +1,68 @@
+name: Bridge Runner Read-Only POC
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: Safe read-only prompt for the local bridge runner
+        required: false
+        default: Summarize the repository structure, current git status, and likely next safe checks. Do not edit files.
+      max_steps:
+        description: Small limit for model/tool turns
+        required: false
+        default: '4'
+
+permissions:
+  contents: read
+
+jobs:
+  readonly-poc:
+    name: Invoke local bridge runner
+    runs-on: self-hosted
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run bridge runner read-only POC
+        env:
+          BRIDGE_RUNNER_POC_PROMPT: ${{ inputs.prompt }}
+          BRIDGE_RUNNER_POC_MAX_STEPS: ${{ inputs.max_steps }}
+          BRIDGE_RUNNER_POC_ARTIFACT_DIR: ${{ github.workspace }}/.bridge-runner/actions-poc
+        run: bash scripts/github-actions-readonly-poc.sh
+
+      - name: Upload runner JSON
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bridge-runner-readonly-poc-json
+          path: .bridge-runner/actions-poc/bridge-runner-readonly-poc.json
+          if-no-files-found: ignore
+
+      - name: Upload human log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bridge-runner-readonly-poc-human-log
+          path: .bridge-runner/actions-poc/bridge-runner-readonly-poc-human-log.md
+          if-no-files-found: ignore
+
+      - name: Upload runner trace
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bridge-runner-readonly-poc-trace
+          path: |
+            .bridge-runner/actions-poc/bridge-runner-readonly-poc.runner.jsonl
+            .bridge-runner/actions-poc/bridge-runner-readonly-poc.stderr.log
+          if-no-files-found: ignore

@@ -33,4 +33,16 @@ describe('search_text tool', () => {
     // Should not crash even with shell metacharacters in the pattern
     assert.equal(result.ok, true);
   });
+
+  it('skips the local GitHub Actions runner install directory', () => {
+    const runnerDir = path.join(tmpDir, 'actions-runner');
+    fs.mkdirSync(runnerDir, { recursive: true });
+    fs.writeFileSync(path.join(runnerDir, 'runner-secret.txt'), 'do-not-search-this-text\n');
+
+    const result = execute({ pattern: 'do-not-search-this-text' }, ctx);
+
+    assert.equal(result.ok, true);
+    assert.ok(!result.text.includes('actions-runner'));
+    assert.ok(!result.text.includes('do-not-search-this-text'));
+  });
 });

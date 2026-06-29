@@ -4,7 +4,7 @@
  * list_files tool — read-only directory listing.
  *
  * Lists files and directories under a relative path.
- * Skips noisy folders (.git, node_modules, dist, build, coverage) by default.
+ * Skips noisy folders (.git, node_modules, dist, build, coverage, actions-runner) by default.
  */
 
 const fs = require('fs');
@@ -16,7 +16,7 @@ function definition() {
     name: 'list_files',
     description:
       'List files and directories under a relative path. ' +
-      'Skips .git, node_modules, dist, build, and coverage by default.',
+      'Skips .git, node_modules, dist, build, coverage, and actions-runner by default.',
     input_schema: {
       type: 'object',
       properties: {

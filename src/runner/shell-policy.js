@@ -44,7 +44,7 @@ const NETWORK_PATTERNS = [
   /\bgit\s+pull\b/i,
 ];
 
-const HARD_DENY_PATH_SEGMENTS = ['.git/', '.ssh/', '.aws/', '.claude/', '.bridge-runner/'];
+const HARD_DENY_PATH_SEGMENTS = ['.git/', '.ssh/', '.aws/', '.claude/', '.bridge-runner/', 'actions-runner/'];
 
 const BLOCKED_ENV_VAR_PATTERNS = [
   /\$ANTHROPIC_/i,

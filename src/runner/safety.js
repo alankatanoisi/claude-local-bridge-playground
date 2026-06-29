@@ -86,7 +86,7 @@ const SYSTEM_DIRS = [
 // leaf both the tools and permissions import — so tool modules never depend on
 // permissions.js (which would otherwise create a require cycle once the tool
 // catalog derives categories from the tool modules).
-const BLOCKED_DIRS = ['.git', 'node_modules', 'dist', 'build', 'coverage'];
+const BLOCKED_DIRS = ['.git', 'node_modules', 'dist', 'build', 'coverage', 'actions-runner'];
 
 // ---------------------------------------------------------------------------
 // Deny matrix — path patterns that are always denied (read or write)
@@ -100,6 +100,7 @@ const DENY_MATRIX_PATTERNS = [
   (p) => p.includes('/.claude/') || p.endsWith('/.claude'),
   (p) => p.includes('/.gnupg/') || p.endsWith('/.gnupg'),
   (p) => p.includes('/node_modules/') || p.endsWith('/node_modules'),
+  (p) => p.includes('/actions-runner/') || p.endsWith('/actions-runner'),
   // Block env files conservatively: .env, .env.test, .envrc, .env.example.
   (p) => /^\.env/i.test(path.basename(p)),
   (p) => path.basename(p) === '.netrc',

@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bridge Runner Read-Only GitHub Actions POC</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f8fb;
+        --panel: #ffffff;
+        --text: #172033;
+        --muted: #5d667a;
+        --line: #d9deea;
+        --accent: #0f766e;
+        --accent-soft: #dff5f1;
+        --warn: #9a3412;
+        --warn-soft: #fff1e8;
+        --code: #111827;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          16px/1.6 system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+
+      main {
+        width: min(980px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 40px 0 56px;
+      }
+
+      header {
+        padding: 28px 0 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h1,
+      h2 {
+        line-height: 1.15;
+        letter-spacing: 0;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: clamp(2rem, 4vw, 3.25rem);
+      }
+
+      h2 {
+        margin: 34px 0 14px;
+        font-size: 1.35rem;
+      }
+
+      p {
+        margin: 0 0 14px;
+      }
+
+      .lede {
+        max-width: 760px;
+        color: var(--muted);
+        font-size: 1.1rem;
+      }
+
+      .notice {
+        margin: 22px 0 0;
+        padding: 14px 16px;
+        border: 1px solid #fed7aa;
+        border-radius: 8px;
+        background: var(--warn-soft);
+        color: var(--warn);
+      }
+
+      section {
+        margin-top: 26px;
+      }
+
+      .panel {
+        padding: 20px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+      }
+
+      ol,
+      ul {
+        margin: 0;
+        padding-left: 1.35rem;
+      }
+
+      li + li {
+        margin-top: 8px;
+      }
+
+      code {
+        padding: 0.1rem 0.32rem;
+        border-radius: 5px;
+        background: #eef2f7;
+        color: var(--code);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.92em;
+      }
+
+      .artifact-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      .artifact {
+        padding: 14px;
+        border: 1px solid #b7e4dd;
+        border-radius: 8px;
+        background: var(--accent-soft);
+      }
+
+      .artifact strong {
+        display: block;
+        color: var(--accent);
+      }
+
+      .footer-note {
+        margin-top: 36px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Bridge Runner Read-Only GitHub Actions POC</h1>
+        <p class="lede">
+          A manual self-hosted GitHub Actions workflow that asks the local bridge runner to perform a dry, read-only
+          pass over the playground repository.
+        </p>
+        <p class="notice">
+          This is personal research infrastructure. It is not Anthropic-approved infrastructure, and it is not a
+          production CI/CD system.
+        </p>
+      </header>
+
+      <section class="panel">
+        <h2>What It Does</h2>
+        <ul>
+          <li>Runs only when Alan manually starts <code>Bridge Runner Read-Only POC</code> from GitHub Actions.</li>
+          <li>Runs only on the configured self-hosted runner.</li>
+          <li>Checks that <code>http://127.0.0.1:11437/</code> answers.</li>
+          <li>Invokes the local bridge runner with <code>--plan</code> and only read-only tools.</li>
+          <li>Uploads runner JSON, human log, and trace artifacts.</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>How To Run It</h2>
+        <ol>
+          <li>Open the playground repository on GitHub in a browser.</li>
+          <li>Click the <code>Actions</code> tab.</li>
+          <li>Click <code>Bridge Runner Read-Only POC</code>.</li>
+          <li>Click <code>Run workflow</code>.</li>
+          <li>Leave the default prompt and <code>max_steps</code> value for the first run.</li>
+          <li>Click the green <code>Run workflow</code> button.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>Success Artifacts</h2>
+        <p>Success means the job finishes with a green check mark and these downloadable artifacts appear:</p>
+        <div class="artifact-grid">
+          <div class="artifact"><strong>bridge-runner-readonly-poc-json</strong> Structured runner result</div>
+          <div class="artifact"><strong>bridge-runner-readonly-poc-human-log</strong> Human-readable run log</div>
+          <div class="artifact"><strong>bridge-runner-readonly-poc-trace</strong> Summary trace and stderr log</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Common Failures</h2>
+        <ul>
+          <li><code>Could not connect to the local bridge</code>: open VS Code and start Claude Local Bridge.</li>
+          <li>
+            <code>This POC is only intended for the playground repository</code>: the job is in the wrong checkout.
+          </li>
+          <li>
+            <code>BRIDGE_RUNNER_POC_MAX_STEPS must be a number</code>: rerun with a number such as <code>4</code>.
+          </li>
+          <li>Missing artifacts after an early failure: read the job log first.</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>Safety Boundaries</h2>
+        <ul>
+          <li>The workflow uses <code>workflow_dispatch</code> only.</li>
+          <li>The job has <code>contents: read</code> GitHub permissions.</li>
+          <li>
+            The runner command does not include <code>--allow-shell</code>, <code>--accept-edits</code>, or
+            <code>--dont-ask</code>.
+          </li>
+          <li><code>actions-runner/</code> is ignored by Git and skipped by runner file traversal tools.</li>
+        </ul>
+      </section>
+
+      <p class="footer-note">Saved next to the Markdown version for browser-friendly reading.</p>
+    </main>
+  </body>
+</html>
