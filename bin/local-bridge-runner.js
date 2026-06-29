@@ -247,6 +247,20 @@ async function main() {
     return;
   }
 
+  if (args.positionals[0] === 'runner' && args.positionals[1] === 'worktrees' && args.positionals[2] === 'list') {
+    const { scanOrphanWorktreeDirs, worktreeRoot } = require('../src/runner/worktree-utils');
+    const orphans = scanOrphanWorktreeDirs();
+    console.log('Worktree storage: ' + worktreeRoot());
+    if (!orphans.length) {
+      console.log('No orphan worktree directories found.');
+    } else {
+      console.log('Orphan worktree directories (' + orphans.length + '):');
+      for (const dir of orphans) console.log('  ' + dir);
+      console.log('\nPrune: git worktree remove <path> && git branch -D <branch>');
+    }
+    process.exit(0);
+  }
+
   if (args.values['list-agents']) {
     const { formatAgentList } = require('../src/runner/agents/registry');
     console.log(formatAgentList(path.resolve(args.values.cwd || process.cwd())));

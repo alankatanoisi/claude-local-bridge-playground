@@ -120,8 +120,10 @@ describe('tool pipeline — toolDefinitions', () => {
       'git_status',
       'glob',
       'list_files',
+      'list_worktrees',
       'manage_tasks',
       'read_file',
+      'run_skill',
       'search_text',
       'spawn_agent',
       'undo',
@@ -129,6 +131,7 @@ describe('tool pipeline — toolDefinitions', () => {
       'write_file',
     ]);
     assert.ok(!names.includes('bash'), 'bash hidden without allowShell');
+    assert.ok(!names.includes('manage_shell_jobs'), 'manage_shell_jobs hidden without allowShell');
     assert.ok(!names.includes('apply_patch'), 'apply_patch hidden by default');
   });
 

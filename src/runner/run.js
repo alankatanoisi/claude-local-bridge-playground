@@ -493,6 +493,7 @@ async function run(options) {
   const hooks = new HookDispatcher(ctx.cwdRealpath, {
     trustedWorkspace: !!options.trustedWorkspace,
     workspaceTrusted: ctx.workspaceTrusted,
+    ctx,
   });
   if (ledger) {
     appendLedger(ledger, hooks, 'session_started', { runId, cwd: ctx.cwdRealpath });

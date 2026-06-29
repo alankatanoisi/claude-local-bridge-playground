@@ -86,6 +86,9 @@ const TOOL_SUMMARIES = Object.freeze({
   search_text: 'Search for text patterns in the project',
   glob: 'Find files by glob pattern (e.g. **/*.js)',
   manage_tasks: 'Update the in-session task checklist',
+  list_worktrees: 'List active worktree slots and orphan worktree directories',
+  run_skill: 'Load a skill document body by name (read-only)',
+  manage_shell_jobs: 'Start/list/poll/kill background shell jobs',
   spawn_agent: 'Delegate a subtask to a child agent (isolated context)',
   enter_worktree: 'Create an isolated git worktree and switch into it',
   exit_worktree: 'Leave the active worktree and restore original cwd',
@@ -103,14 +106,14 @@ function buildToolSummarySection(ctx) {
   lines.push('- Read: list_files, read_file, search_text, glob, git_status');
   lines.push('- Session: manage_tasks');
   lines.push('- Orchestration: spawn_agent');
-  lines.push('- Worktree: enter_worktree, exit_worktree');
+  lines.push('- Worktree: enter_worktree, exit_worktree, list_worktrees');
   lines.push('- Write: edit_file, write_file');
   if (ctx && ctx.allowedTools && ctx.allowedTools.has('apply_patch')) {
     lines.push('- Advanced write: apply_patch');
   }
   lines.push('- Recovery: undo, undo_edit');
   if (ctx && ctx.allowShell) {
-    lines.push('- Shell: bash');
+    lines.push('- Shell: bash, manage_shell_jobs');
   }
   lines.push('\n## Available tools (summaries)\n');
   if (ctx?.toolProfile) {

@@ -1,33 +1,33 @@
 'use strict';
 
 /**
- * enter_worktree — create an isolated git worktree on a fresh branch and
- * switch the runner's cwd into it. All subsequent tool calls operate inside
- * the worktree until exit_worktree is called.
+ * enter_worktree — create or switch to an isolated git worktree slot.
  *
- * Safety:
- * - Branch name is sanitized and prefixed with bridge-runner/.
- * - Worktree path lives under ~/.bridge-runner/worktrees/<id>/ (outside the
- *   repo, so it doesn't pollute the working tree as untracked files).
- * - Only one worktree active per run (ctx.worktree).
- * - No shell interpolation: git is invoked via execFileSync with arg arrays.
+ * Multiple slots can exist per run (parallel orchestration). Each slot gets its
+ * own branch under bridge-runner/ and directory under ~/.bridge-runner/worktrees/.
  */
 
-const { execFileSync } = require('child_process');
-const path = require('path');
-const crypto = require('crypto');
 const fs = require('fs');
-const os = require('os');
-
-const BRANCH_PREFIX = 'bridge-runner/';
-const MAX_BRANCH_LEN = 60;
+const path = require('path');
+const {
+  BRANCH_PREFIX,
+  git,
+  sanitizeBranchSuffix,
+  makeBranchSuffix,
+  findRepoRoot,
+  ensureWorktreeDir,
+  normalizeSlot,
+  ensureWorktreeState,
+  saveRepoRoot,
+  activateSlot,
+} = require('../worktree-utils');
 
 function definition() {
   return {
     name: 'enter_worktree',
     description:
       'Create an isolated git worktree on a fresh branch and switch the runner into it. ' +
-      'Subsequent tools operate inside the worktree until exit_worktree. ' +
+      'Use slot to manage multiple parallel worktrees in one run (switch by re-entering the same slot). ' +
       'Requires the cwd to be a git repository.',
     input_schema: {
       type: 'object',
@@ -36,9 +36,13 @@ function definition() {
           type: 'string',
           description: 'Optional branch name suffix (sanitized). Defaults to a generated id.',
         },
+        slot: {
+          type: 'string',
+          description: 'Named worktree slot (default: "default"). Re-enter an existing slot to switch cwd.',
+        },
         description: {
           type: 'string',
-          description: 'Optional short description recorded on ctx.worktree for logging.',
+          description: 'Optional short description recorded for logging.',
         },
       },
       required: [],
@@ -46,58 +50,24 @@ function definition() {
   };
 }
 
-function git(args, cwd, { timeoutMs = 10000 } = {}) {
-  return execFileSync('git', args, {
-    cwd,
-    encoding: 'utf8',
-    timeout: timeoutMs,
-    maxBuffer: 2 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  }).trim();
-}
-
-function sanitizeBranchSuffix(raw) {
-  const base = String(raw || '').trim();
-  if (!base) return null;
-  const cleaned = base
-    .replace(/[^a-zA-Z0-9._-]/g, '-') // no slashes — avoid invalid git branch names
-    .replace(/-{2,}/g, '-') // collapse runs of dashes
-    .replace(/^[-._]+|[-._]+$/g, ''); // strip leading/trailing separators
-  if (!cleaned) return null;
-  const sliced = cleaned.slice(0, MAX_BRANCH_LEN);
-  return sliced;
-}
-
-function makeBranchSuffix() {
-  const stamp = new Date().toISOString().replace(/[:.]/g, '').slice(0, 15);
-  const rand = crypto.randomBytes(3).toString('hex');
-  return stamp + '-' + rand;
-}
-
-function worktreeRoot() {
-  const home = process.env.HOME || process.env.USERPROFILE || os.tmpdir();
-  return path.join(home, '.bridge-runner', 'worktrees');
-}
-
-function findRepoRoot(cwd) {
-  try {
-    return git(['rev-parse', '--show-toplevel'], cwd);
-  } catch {
-    return null;
-  }
-}
-
-function ensureWorktreeDir() {
-  const dir = worktreeRoot();
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
 function execute(args, ctx) {
-  if (ctx.worktree) {
+  const slot = normalizeSlot(args && args.slot);
+  ensureWorktreeState(ctx);
+
+  if (ctx.worktrees[slot]) {
+    activateSlot(ctx, slot);
+    const wt = ctx.worktrees[slot];
     return {
-      ok: false,
-      text: 'A worktree is already active for this run. Call exit_worktree first.',
+      ok: true,
+      text:
+        'Switched to existing worktree slot "' +
+        slot +
+        '".\n' +
+        '  branch: ' +
+        wt.branch +
+        '\n' +
+        '  path:   ' +
+        wt.path,
     };
   }
 
@@ -109,6 +79,8 @@ function execute(args, ctx) {
       text: 'Not a git repository. enter_worktree requires --cwd to be inside a git repo.',
     };
   }
+
+  saveRepoRoot(ctx, cwd, repoRoot);
 
   const suffix = sanitizeBranchSuffix(args && args.branch) || makeBranchSuffix();
   const branch = BRANCH_PREFIX + suffix;
@@ -128,24 +100,22 @@ function execute(args, ctx) {
     };
   }
 
-  const originalCwd = ctx.cwd;
-  const originalCwdRealpath = ctx.cwdRealpath;
-  ctx.worktree = {
+  ctx.worktrees[slot] = {
     path: wtPath,
     branch,
     repoRoot,
-    originalCwd,
-    originalCwdRealpath,
+    slot,
     description: String((args && args.description) || '').slice(0, 200),
     enteredAt: Date.now(),
   };
-  ctx.cwd = wtPath;
-  ctx.cwdRealpath = wtPath;
+  activateSlot(ctx, slot);
 
   return {
     ok: true,
     text:
-      'Entered worktree.\n' +
+      'Entered worktree slot "' +
+      slot +
+      '".\n' +
       '  branch: ' +
       branch +
       '\n' +
@@ -155,7 +125,7 @@ function execute(args, ctx) {
       '  repo:   ' +
       repoRoot +
       '\n' +
-      'All subsequent tools operate inside the worktree. Call exit_worktree to return.',
+      'Use another slot for parallel isolation, or exit_worktree when done.',
   };
 }
 

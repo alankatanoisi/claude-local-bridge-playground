@@ -1071,6 +1071,14 @@
                     <input type="checkbox" value="exit_worktree" />
                     <span><strong>exit_worktree</strong><small>Leave worktree, optionally clean up</small></span>
                   </label>
+                  <label class="check-label tool-choice">
+                    <input type="checkbox" value="list_worktrees" />
+                    <span><strong>list_worktrees</strong><small>List active slots and orphan worktree dirs</small></span>
+                  </label>
+                  <label class="check-label tool-choice">
+                    <input type="checkbox" value="run_skill" />
+                    <span><strong>run_skill</strong><small>Load a skill document body by name</small></span>
+                  </label>
                   <div class="capability-group">Write</div>
                   <label class="check-label tool-choice">
                     <input type="checkbox" value="edit_file" checked />
@@ -1098,6 +1106,10 @@
                   <label class="check-label tool-choice" id="bashToolRow" style="display: none">
                     <input type="checkbox" value="bash" />
                     <span><strong>bash</strong><small>Shell commands</small></span>
+                  </label>
+                  <label class="check-label tool-choice" id="manageShellJobsRow" style="display: none">
+                    <input type="checkbox" value="manage_shell_jobs" />
+                    <span><strong>manage_shell_jobs</strong><small>Background shell jobs (start/list/poll/kill)</small></span>
                   </label>
                 </div>
               </div>
@@ -1174,6 +1186,7 @@
       const copyFeedback = document.getElementById('copyFeedback');
       const shellWarn = document.getElementById('shellWarn');
       const bashToolRow = document.getElementById('bashToolRow');
+      const manageShellJobsRow = document.getElementById('manageShellJobsRow');
       const attachmentNote = document.getElementById('attachmentNote');
       const plan = document.getElementById('plan');
       const noNetwork = document.getElementById('noNetwork');
@@ -1240,6 +1253,8 @@
         'git_status',
         'manage_tasks',
         'spawn_agent',
+        'list_worktrees',
+        'run_skill',
         'edit_file',
         'write_file',
         'undo',
@@ -1453,7 +1468,9 @@
         if (confirmTimeout.value.trim()) parts.push('--confirm-timeout ' + confirmTimeout.value.trim());
         if (logLevel.value) parts.push('--log-level ' + logLevel.value);
         const selectedTools = getSelectedTools();
-        const exposedDefaults = allowShell.checked ? [...DEFAULT_TOOL_NAMES, 'bash'] : DEFAULT_TOOL_NAMES;
+        const exposedDefaults = allowShell.checked
+          ? [...DEFAULT_TOOL_NAMES, 'bash', 'manage_shell_jobs']
+          : DEFAULT_TOOL_NAMES;
         if (!sameTools(selectedTools, exposedDefaults)) {
           parts.push('--tools ' + shellQuote(selectedTools.join(',') || 'none'));
         }
@@ -1468,7 +1485,7 @@
 
       function getSelectedTools() {
         return toolChoices
-          .filter((choice) => choice.checked && (choice.value !== 'bash' || allowShell.checked))
+          .filter((choice) => choice.checked && (choice.value !== 'bash' && choice.value !== 'manage_shell_jobs' || allowShell.checked))
           .map((choice) => choice.value);
       }
 
@@ -1520,6 +1537,7 @@
       function updateUiState() {
         const shellOn = allowShell.checked;
         bashToolRow.style.display = shellOn ? '' : 'none';
+        if (manageShellJobsRow) manageShellJobsRow.style.display = shellOn ? '' : 'none';
         shellWarn.classList.toggle('show', shellOn);
         shellTimeoutRow.classList.toggle('is-muted-control', !shellOn);
         noNetworkRow.classList.toggle('is-muted-control', !shellOn);
@@ -1530,6 +1548,7 @@
         }
 
         const bashChoice = toolChoices.find((c) => c.value === 'bash');
+        const manageShellChoice = toolChoices.find((c) => c.value === 'manage_shell_jobs');
         if (bashChoice) {
           const bashLabel = bashChoice.closest('.tool-choice');
           if (bashLabel) bashLabel.classList.toggle('is-muted-control', !shellOn);
@@ -1540,6 +1559,18 @@
           if (!shellOn) {
             bashChoice.checked = false;
             delete bashChoice.dataset.shellWasShown;
+          }
+        }
+        if (manageShellChoice) {
+          const manageLabel = manageShellChoice.closest('.tool-choice');
+          if (manageLabel) manageLabel.classList.toggle('is-muted-control', !shellOn);
+          if (shellOn && !manageShellChoice.dataset.shellWasShown) {
+            manageShellChoice.checked = true;
+            manageShellChoice.dataset.shellWasShown = '1';
+          }
+          if (!shellOn) {
+            manageShellChoice.checked = false;
+            delete manageShellChoice.dataset.shellWasShown;
           }
         }
 
