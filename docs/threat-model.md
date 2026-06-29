@@ -24,11 +24,12 @@ in the Claude Local Bridge Output log. That token is a local debug door code, no
 | **Read**     | `list_files`, `read_file`, `search_text`, `glob`, `git_status` | Any file inside `cwd` (and its subdirectories) that passes the deny matrix. Git metadata only.                                                                                                                 |
 | **Session**  | `manage_tasks`                                         | In-session task checklist stored in the session file; no filesystem access.                                                                                                                                    |
 | **Orchestration** | `spawn_agent`                                     | Spawns a child runner subprocess with a chosen agent profile. Top-level only (`spawnDepth === 0`). Asks by default; capped at 8 spawns per run. Child inherits cwd deny matrix; cannot recurse.              |
-| **Worktree**  | `enter_worktree`, `exit_worktree`                 | Creates an isolated git worktree on a fresh branch and switches cwd into it; `exit_worktree` restores the original cwd. Worktrees live under `~/.bridge-runner/worktrees/`. Requires a git repo. Asks by default; `cleanup=true` removes the worktree and branch. |
+| **Worktree**  | `enter_worktree`, `exit_worktree`, `list_worktrees` | Multiple named **slots** per run (`slot` parameter); each creates an isolated git worktree on a fresh branch and switches cwd. Re-enter a slot to switch between parallel worktrees. `list_worktrees` lists active slots and orphan dirs under `~/.bridge-runner/worktrees/`. Requires a git repo. Asks by default; `cleanup=true` removes the worktree and branch. |
+| **Skills**    | `run_skill`                                       | Loads a skill Markdown body by name from `.bridge-runner/skills/` or `.cursor/skills/`. Read-only text return — does not execute embedded shell or network instructions. |
 | **Write**    | `edit_file`, `write_file`                              | Any file inside `cwd` that passes the deny matrix. Backups saved before mutation. Requires user confirmation (or `--accept-edits`).                                                                            |
 | **Recovery** | `undo`, `undo_edit`                                    | Restore files from `.bridge-runner/backups/` or the in-memory undo log. Auto-approved.                                                                                                                         |
 | **Advanced** | `apply_patch`                                          | Patch-style edits. Hidden from the default tool surface; opt in explicitly with `--tools apply_patch` or a custom tool list. Requires the same write confirmations and path checks as other write tools.       |
-| **Shell**    | `bash`                                                 | Run shell commands inside `cwd`. **Opt-in only** (`--allow-shell`). Bounded by timeout (default 30s) and output limits (10KB). Filtered environment. Shell argument scanning blocks dangerous path references. |
+| **Shell**    | `bash`, `manage_shell_jobs`                            | Run shell commands inside `cwd`. **Opt-in only** (`--allow-shell`). Synchronous `bash` is bounded by timeout (default 30s) and output limits (10KB). `manage_shell_jobs` runs background commands (max 8 per run) with poll/kill; same shell-policy scanner applies. Filtered environment. Shell argument scanning blocks dangerous path references. |
 
 ## File-based agents (`--agent <name|path>`)
 
@@ -176,6 +177,20 @@ Denied tools are **removed** from the model tool list (not merely blocked at exe
 
 **Composition:** `--profile` applies after `--agent` personality defaults; `--tools` intersects with the profile
 exposure set (narrower only).
+
+## Executable hooks (`.bridge-runner/hooks.json`)
+
+Hooks can log lifecycle events or run trusted shell commands when `"action": "exec"` or `"run"` is set.
+
+| Risk | Mitigation |
+| ---- | ---------- |
+| Arbitrary command execution | Requires workspace trust **and** `"trusted": true` in hooks.json |
+| Secret exfiltration via hook output | Hook stdout/stderr pass through `scrubSecrets()` before logging |
+| Reading `.env` / keys via hook command | Same `scanShellCommand()` hard-deny patterns as `bash` |
+| Network egress | Hook env inherits scrubbed `buildSafeEnv()`; `--no-network` proxy guard applies |
+| Runaway hook | `spawnSync` timeout (default 120s, max 120s); output capped at 8KB in hook results |
+
+Exec hooks are **user-configured**, not model-callable. The model cannot add or modify hook commands mid-run.
 
 ## Known limitations
 

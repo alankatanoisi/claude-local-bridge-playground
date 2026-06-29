@@ -248,10 +248,11 @@ The model-facing tool surface is framed as four capability groups:
 - **Read:** `list_files`, `read_file`, `search_text`, `glob`, `git_status`
 - **Session:** `manage_tasks` — in-session checklist stored in the session file
 - **Orchestration:** `spawn_agent` — delegate a subtask to a child agent (top-level only; asks by default)
-- **Worktree:** `enter_worktree`, `exit_worktree` — isolate edits on a git worktree branch
+- **Worktree:** `enter_worktree`, `exit_worktree`, `list_worktrees` — parallel git worktree slots per run
+- **Skills:** `run_skill` — load a skill document body by name (read-only)
 - **Write:** `edit_file`, `write_file`
 - **Recovery:** `undo`, `undo_edit`
-- **Shell:** `bash`, hidden unless `--allow-shell` is set
+- **Shell:** `bash`, `manage_shell_jobs` — hidden unless `--allow-shell` is set
 
 `apply_patch` still exists for advanced patch-style edits, but it is hidden by default. Opt into it explicitly with
 `--tools apply_patch` or include it in a comma-separated `--tools` / `--allowed-tools` list.
@@ -274,11 +275,31 @@ etc.). `WebFetch` / `WebSearch` and MCP tools are dropped. `Bash` is included on
 The `spawn_agent` tool lets the main loop delegate a focused subtask to a child runner (isolated context).
 Children cannot spawn further children. Spawning asks for confirmation unless `--dont-ask` is set.
 
-The `enter_worktree` / `exit_worktree` tools create an isolated git worktree on a fresh branch so risky
-edits happen without touching the main checkout. `enter_worktree` switches the runner's cwd into the
-worktree; all subsequent tools operate inside it. `exit_worktree` restores the original cwd and, with
-`cleanup=true`, removes the worktree and branch. Default is `cleanup=false` to preserve work for review.
-Worktrees live under `~/.bridge-runner/worktrees/`. Requires `--cwd` to be a git repo.
+The `enter_worktree` / `exit_worktree` tools create isolated git worktrees on fresh branches so risky
+edits happen without touching the main checkout. Use the optional `slot` parameter to run **multiple parallel
+worktrees** in one session — re-enter the same slot to switch cwd between them. `list_worktrees` shows active
+slots and orphan directories under `~/.bridge-runner/worktrees/`. `enter_worktree` switches the runner's cwd into
+the worktree; all subsequent tools operate inside it until you switch slots or call `exit_worktree`, which restores
+the original cwd and, with `cleanup=true`, removes the worktree and branch. Default is `cleanup=false` to preserve
+work for review. Requires `--cwd` to be a git repo.
+
+List orphan worktrees from the CLI (no model call):
+
+```bash
+node bin/local-bridge-runner.js runner worktrees list
+```
+
+The `run_skill` tool loads a skill Markdown body by name from `.bridge-runner/skills/` or `.cursor/skills/`.
+It is read-only — it returns text for the model to follow; it does not execute shell or network actions embedded
+in the skill document.
+
+With `--allow-shell`, `manage_shell_jobs` starts long-running shell commands in the background (dev servers, watch
+tasks), then lists, polls, or kills them by job id. Background commands pass the same shell-policy scanner as
+synchronous `bash`. Up to eight jobs per run.
+
+Project hooks in `.bridge-runner/hooks.json` can use `"action": "exec"` (or `"run"`) to run a trusted shell command
+at lifecycle events (`session_start`, `pre_tool`, `post_tool`, `session_end`, …). Exec hooks require workspace trust
+and `"trusted": true` in the hooks config; hook commands are scanned by the same shell policy as `bash`.
 
 Useful runner options:
 

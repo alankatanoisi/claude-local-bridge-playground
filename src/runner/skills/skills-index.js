@@ -11,7 +11,9 @@ const PER_ENTRY_CAP = 280;
 const TOTAL_CAP = 2800;
 
 function skillsDirs(cwd) {
-  return [path.join(cwd, '.bridge-runner', 'skills')];
+  const dirs = [path.join(cwd, '.bridge-runner', 'skills')];
+  dirs.push(path.join(cwd, '.cursor', 'skills'));
+  return dirs;
 }
 
 function parseFrontmatter(raw) {
@@ -58,6 +60,13 @@ function buildSkillsIndex(cwd) {
   return { entries, listing: listing.slice(0, TOTAL_CAP) };
 }
 
+function resolveSkillEntry(cwd, nameOrId) {
+  const key = String(nameOrId || '').trim();
+  if (!key) return null;
+  const index = buildSkillsIndex(cwd);
+  return index.entries.find((entry) => entry.id === key || path.basename(entry.filePath, '.md') === key) || null;
+}
+
 function loadSkillBody(entry) {
   if (!entry || !entry.filePath || !fs.existsSync(entry.filePath)) return null;
   const raw = fs.readFileSync(entry.filePath, 'utf8');
@@ -70,4 +79,6 @@ module.exports = {
   TOTAL_CAP,
   buildSkillsIndex,
   loadSkillBody,
+  resolveSkillEntry,
+  skillsDirs,
 };

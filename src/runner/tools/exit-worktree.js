@@ -1,26 +1,31 @@
 'use strict';
 
 /**
- * exit_worktree — leave the active worktree and optionally clean it up.
- *
- * Restores ctx.cwd / ctx.cwdRealpath to the original values captured by
- * enter_worktree. With cleanup=true, removes the worktree directory and
- * deletes the branch. Default is cleanup=false so the model's work is
- * preserved for manual review.
+ * exit_worktree — leave a worktree slot and optionally clean it up.
  */
 
-const { execFileSync } = require('child_process');
 const fs = require('fs');
+const {
+  git,
+  normalizeSlot,
+  ensureWorktreeState,
+  syncWorktreeAlias,
+  deactivateToRepoRoot,
+} = require('../worktree-utils');
 
 function definition() {
   return {
     name: 'exit_worktree',
     description:
-      'Leave the active worktree and restore the original cwd. ' +
-      'cleanup=true removes the worktree and deletes its branch (default: false — keep work for review).',
+      'Leave a worktree slot and restore cwd to the repo root (or another active slot). ' +
+      'cleanup=true removes the worktree directory and deletes its branch.',
     input_schema: {
       type: 'object',
       properties: {
+        slot: {
+          type: 'string',
+          description: 'Worktree slot to exit (default: active slot).',
+        },
         cleanup: {
           type: 'boolean',
           description: 'If true, remove the worktree directory and delete the branch.',
@@ -31,27 +36,18 @@ function definition() {
   };
 }
 
-function git(args, cwd, { timeoutMs = 10000 } = {}) {
-  return execFileSync('git', args, {
-    cwd,
-    encoding: 'utf8',
-    timeout: timeoutMs,
-    maxBuffer: 2 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  }).trim();
-}
-
 function execute(args, ctx) {
-  if (!ctx.worktree) {
-    return { ok: false, text: 'No worktree is active. Call enter_worktree first.' };
+  ensureWorktreeState(ctx);
+  const slot = normalizeSlot((args && args.slot) || ctx.activeWorktreeSlot);
+  const wt = ctx.worktrees[slot];
+
+  if (!wt) {
+    return { ok: false, text: 'No worktree slot "' + slot + '" is active in this run.' };
   }
 
-  const wt = ctx.worktree;
   const cleanup = !!(args && args.cleanup);
   const notes = [];
-
-  ctx.cwd = wt.originalCwd;
-  ctx.cwdRealpath = wt.originalCwdRealpath;
+  const wasActive = ctx.activeWorktreeSlot === slot;
 
   if (cleanup) {
     try {
@@ -74,11 +70,25 @@ function execute(args, ctx) {
     notes.push('Clean up manually with: git worktree remove ' + wt.path);
   }
 
-  delete ctx.worktree;
+  delete ctx.worktrees[slot];
+
+  if (wasActive) {
+    const remaining = Object.keys(ctx.worktrees);
+    if (remaining.length) {
+      const nextSlot = remaining[0];
+      ctx.activeWorktreeSlot = nextSlot;
+      ctx.cwd = ctx.worktrees[nextSlot].path;
+      ctx.cwdRealpath = ctx.worktrees[nextSlot].path;
+      notes.push('Switched active cwd to slot "' + nextSlot + '".');
+    } else {
+      deactivateToRepoRoot(ctx);
+    }
+  }
+  syncWorktreeAlias(ctx);
 
   return {
     ok: true,
-    text: 'Exited worktree.\n  ' + notes.join('\n  '),
+    text: 'Exited worktree slot "' + slot + '".\n  ' + notes.join('\n  '),
   };
 }
 

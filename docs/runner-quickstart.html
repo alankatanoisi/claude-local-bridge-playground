@@ -494,11 +494,22 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             </p>
           </div>
           <div class="tool-card">
-            <h4>enter_worktree / exit_worktree</h4>
+            <h4>enter_worktree / exit_worktree / list_worktrees</h4>
             <p>
-              Create an isolated git worktree on a fresh branch and switch into it, so edits happen without touching the
-              main checkout. <code>exit_worktree</code> restores the original cwd; pass <code>cleanup=true</code> to
-              remove the worktree and branch. Requires <code>--cwd</code> to be a git repo.
+              Create isolated git worktrees on fresh branches and switch into them, so edits happen without touching the
+              main checkout. Use the optional <code>slot</code> parameter for <strong>parallel worktrees</strong> in one
+              run — re-enter the same slot to switch cwd. <code>list_worktrees</code> shows active slots and orphan dirs.
+              <code>exit_worktree</code> restores the original cwd; pass <code>cleanup=true</code> to remove the
+              worktree and branch. CLI: <code>node bin/local-bridge-runner.js runner worktrees list</code>. Requires
+              <code>--cwd</code> to be a git repo.
+            </p>
+          </div>
+          <div class="tool-card">
+            <h4>run_skill</h4>
+            <p>
+              Load a skill Markdown body by name from <code>.bridge-runner/skills/</code> or
+              <code>.cursor/skills/</code>. Read-only — returns text for the model; does not execute shell or network
+              steps embedded in the skill.
             </p>
           </div>
           <div class="tool-card">
@@ -513,10 +524,11 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             </p>
           </div>
           <div class="tool-card">
-            <h4>bash</h4>
+            <h4>bash / manage_shell_jobs</h4>
             <p>
-              Optional shell tool with timeouts and output limits. It is hidden from the model unless you pass
-              <code>--allow-shell</code>.
+              Optional shell tools with timeouts and output limits. Hidden from the model unless you pass
+              <code>--allow-shell</code>. <code>manage_shell_jobs</code> runs long-lived commands in the background
+              (start/list/poll/kill) with the same shell-policy scanner as synchronous <code>bash</code>.
             </p>
           </div>
           <div class="tool-card">
