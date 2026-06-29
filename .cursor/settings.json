@@ -1,0 +1,10 @@
+{
+  "plugins": {
+    "agent-compatibility": {
+      "enabled": true
+    },
+    "compound-engineering": {
+      "enabled": true
+    }
+  }
+}
