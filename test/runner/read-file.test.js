@@ -17,6 +17,7 @@ describe('read_file tool', () => {
     const result = execute({ path: 'hello.txt' }, { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) });
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('Hello, world!'));
+    assert.ok(result.text.includes('1|'));
   });
 
   it('respects max_bytes', () => {
@@ -24,8 +25,7 @@ describe('read_file tool', () => {
     fs.writeFileSync(filePath, 'A'.repeat(1000));
     const result = execute({ path: 'long.txt', max_bytes: 100 }, { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) });
     assert.equal(result.ok, true);
-    assert.ok(result.text.includes('truncated'));
-    // Text should be much shorter than 1000 chars (the original file)
+    assert.ok(result.text.includes('PARTIAL') || result.text.includes('max_bytes'));
     assert.ok(result.text.length < 500);
   });
 
@@ -43,7 +43,7 @@ describe('read_file tool', () => {
         { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) },
       );
       assert.equal(result.ok, true);
-      assert.ok(result.text.includes('truncated'));
+      assert.ok(result.text.includes('PARTIAL') || result.text.includes('max_bytes'));
       assert.ok(result.text.length < 200);
     } finally {
       fs.readFileSync = originalReadFileSync;
@@ -73,6 +73,39 @@ describe('read_file tool', () => {
     const result = execute({}, { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) });
     assert.equal(result.ok, false);
     assert.ok(result.text.includes('Missing'));
+  });
+
+  it('returns empty file marker', () => {
+    const filePath = path.join(tmpDir, 'empty.txt');
+    fs.writeFileSync(filePath, '');
+    const result = execute({ path: 'empty.txt' }, { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) });
+    assert.equal(result.ok, true);
+    assert.equal(result.text, '(empty file)');
+  });
+
+  it('pages with offset and limit', () => {
+    const filePath = path.join(tmpDir, 'lines.txt');
+    fs.writeFileSync(filePath, Array.from({ length: 20 }, (_, i) => 'line-' + (i + 1)).join('\n'));
+    const result = execute(
+      { path: 'lines.txt', offset: 11, limit: 5 },
+      { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) },
+    );
+    assert.equal(result.ok, true);
+    assert.ok(result.text.includes('11|line-11'));
+    assert.ok(result.text.includes('15|line-15'));
+    assert.ok(!result.text.includes('10|line-10'));
+    assert.ok(result.text.includes('offset=16'));
+  });
+
+  it('reports offset past EOF', () => {
+    const filePath = path.join(tmpDir, 'short.txt');
+    fs.writeFileSync(filePath, 'one\ntwo\n');
+    const result = execute(
+      { path: 'short.txt', offset: 99 },
+      { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) },
+    );
+    assert.equal(result.ok, true);
+    assert.ok(result.text.includes('past end of file'));
   });
 });
 

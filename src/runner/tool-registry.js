@@ -158,6 +158,9 @@ async function runAndScrub(tool, args, ctx, toolUseId) {
   const envelope = normalizeToolResult(result, {
     timing_ms: Date.now() - started,
     toolName: tool.name || 'unknown',
+    truncated: !!result.truncated,
+    offset: result.offset,
+    bytes: result.bytes,
   });
   return { ...result, envelope };
 }

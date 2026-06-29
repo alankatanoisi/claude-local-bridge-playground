@@ -114,6 +114,7 @@ describe('tool pipeline — toolDefinitions', () => {
     // The default-exposed set is a contract: the model sees these and only
     // these unless --allow-shell or --allowed-tools changes the surface.
     assert.deepEqual([...names].sort(), [
+      'ask_user_question',
       'edit_file',
       'enter_worktree',
       'exit_worktree',

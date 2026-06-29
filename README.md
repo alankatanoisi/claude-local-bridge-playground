@@ -292,6 +292,7 @@ The model-facing tool surface is framed as four capability groups:
 
 - **Read:** `list_files`, `read_file`, `search_text`, `glob`, `git_status`
 - **Session:** `manage_tasks` — in-session checklist stored in the session file
+- **Clarification:** `ask_user_question` — structured multiple-choice prompts (TTY required; fail closed in workers/`--dont-ask`)
 - **Orchestration:** `spawn_agent` — delegate a subtask to a child agent (top-level only; asks by default)
 - **Worktree:** `enter_worktree`, `exit_worktree`, `list_worktrees` — parallel git worktree slots per run
 - **Skills:** `run_skill` — load a skill document body by name (read-only)
