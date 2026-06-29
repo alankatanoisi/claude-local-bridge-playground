@@ -42,6 +42,7 @@ const {
 } = require('../trace-utils');
 const { isArchiveEnabled, RunArchiveCollector } = require('./archive/collector');
 const { finalizeArchiveExport } = require('./archive/run-exporter');
+const { disposeSessions } = require('./lsp/lsp-session');
 const { createBudgetTracker } = require('./budget-tracker');
 const { writeRunManifest } = require('./recovery/run-manifest');
 
@@ -388,6 +389,7 @@ async function run(options) {
     appendSystemPromptFile,
     noSessionPersistence,
     testWatch,
+    enableLsp,
     toolProfile,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
@@ -413,6 +415,7 @@ async function run(options) {
     undoLog: [],
     tasks: [],
     testWatch: !!testWatch,
+    enableLsp: !!enableLsp,
     spawnDepth: spawnDepth ?? (parseInt(process.env.BRIDGE_RUNNER_SPAWN_DEPTH, 10) || 0),
     workspaceTrusted: false,
     autoMemory: isAutoMemoryEnabled({ autoMemory }),
@@ -631,6 +634,7 @@ async function run(options) {
   }
 
   function completeRun(result) {
+    disposeSessions(ctx);
     // Single owner of end-of-run usage/cost output: stderr (default, suppressed
     // under quiet), transcript, and human-log. Routing it here covers every
     // terminal path (success, budget, error) with one site. stdout is left

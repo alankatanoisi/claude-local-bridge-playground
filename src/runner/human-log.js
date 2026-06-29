@@ -76,6 +76,7 @@ class HumanLog {
         'tool_use_id: ' + toolUseId,
         'ok: ' + !!result.ok,
         result.bytes === undefined ? null : 'bytes: ' + result.bytes,
+        result.multimodal ? 'multimodal: true (image/document blocks sent to model only)' : null,
         '',
         result.text || '',
       ]

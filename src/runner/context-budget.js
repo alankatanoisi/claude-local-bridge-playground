@@ -82,7 +82,8 @@ function setCachedDynamicTail(ctx, tail) {
 /** One-line tool summaries for progressive disclosure (full schemas stay in API tools array). */
 const TOOL_SUMMARIES = Object.freeze({
   list_files: 'List files and directories under a path',
-  read_file: 'Read file contents by relative path',
+  read_file: 'Read text, images (.png/.jpg/.gif/.webp), or PDF files by relative path',
+  lsp_query: 'Language-server queries (definition, references, hover, diagnostics)',
   search_text: 'Search for text patterns in the project',
   glob: 'Find files by glob pattern (e.g. **/*.js)',
   manage_tasks: 'Update the in-session task checklist',

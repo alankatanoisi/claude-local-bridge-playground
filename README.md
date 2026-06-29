@@ -290,7 +290,7 @@ node bin/local-bridge-prompts.js validate             # lint every template; non
 
 The model-facing tool surface is framed as four capability groups:
 
-- **Read:** `list_files`, `read_file`, `search_text`, `glob`, `git_status`
+- **Read:** `list_files`, `read_file` (text + images/PDF), `search_text`, `glob`, `git_status`, `lsp_query` (opt-in)
 - **Session:** `manage_tasks` — in-session checklist stored in the session file
 - **Clarification:** `ask_user_question` — structured multiple-choice prompts (TTY required; fail closed in workers/`--dont-ask`)
 - **Orchestration:** `spawn_agent` — delegate a subtask to a child agent (top-level only; asks by default)
@@ -370,6 +370,14 @@ With `--allow-shell`, `manage_shell_jobs` starts long-running shell commands in 
 tasks), then lists, polls, or kills them by job id. Background commands pass the same shell-policy scanner as
 synchronous `bash`. Up to eight jobs per run.
 
+`read_file` automatically returns multimodal content for images (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`) and PDF
+files inside `cwd`. Image/PDF bytes are attached as Anthropic content blocks for the model; human logs and transcripts
+store summaries only (not raw base64). Size caps: 7MB images, 10MB PDFs.
+
+With `--enable-lsp`, the `lsp_query` tool talks to a local language server over stdio (for example
+`typescript-language-server` for `.ts`/`.js` files). Actions: `definition`, `references`, `hover`, `diagnostics`.
+Install the server globally or on PATH before use.
+
 Project hooks in `.bridge-runner/hooks.json` can use `"action": "exec"` (or `"run"`) to run a trusted shell command
 at lifecycle events (`session_start`, `pre_tool`, `post_tool`, `session_end`, …). Exec hooks require workspace trust
 and `"trusted": true` in the hooks config; hook commands are scanned by the same shell policy as `bash`.
@@ -409,6 +417,7 @@ Useful runner options:
 | `--stream`                                               | Stream assistant text live while still preserving streamed tool inputs             |
 | `--accept-edits`                                         | Auto-approve edit/write tools                                                      |
 | `--allow-shell`                                          | Expose the bash tool; hidden by default                                            |
+| `--enable-lsp`                                           | Expose `lsp_query` (requires a language server on PATH)                          |
 | `--test-watch`                                           | After successful writes, auto-run detected tests (requires `--allow-shell`)        |
 | `--no-archive`                                           | Skip per-turn archive export to `~/.bridge-runner/archive/`                        |
 

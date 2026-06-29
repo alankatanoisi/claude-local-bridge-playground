@@ -21,7 +21,7 @@ in the Claude Local Bridge Output log. That token is a local debug door code, no
 
 | Category     | Tools                                                  | Scope                                                                                                                                                                                                          |
 | ------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Read**     | `list_files`, `read_file`, `search_text`, `glob`, `git_status` | Any file inside `cwd` (and its subdirectories) that passes the deny matrix. Git metadata only.                                                                                                                 |
+| **Read**     | `list_files`, `read_file`, `search_text`, `glob`, `git_status`, `lsp_query` | Text reads are path-confined. `read_file` also supports images/PDF as multimodal blocks (size caps; logs redact base64). `lsp_query` is opt-in (`--enable-lsp`) and spawns a local language-server subprocess. |
 | **Session**  | `manage_tasks`, `ask_user_question`                    | Task checklist in the session file; structured operator questions (TTY-only, fail closed in workers and `--dont-ask`). |
 | **Orchestration** | `spawn_agent`                                     | Spawns a child runner subprocess with a chosen agent profile. Top-level only (`spawnDepth === 0`). Asks by default; capped at 8 spawns per run. Child inherits cwd deny matrix; cannot recurse.              |
 | **Worktree**  | `enter_worktree`, `exit_worktree`, `list_worktrees` | Multiple named **slots** per run (`slot` parameter); each creates an isolated git worktree on a fresh branch and switches cwd. Re-enter a slot to switch between parallel worktrees. `list_worktrees` lists active slots and orphan dirs under `~/.bridge-runner/worktrees/`. Requires a git repo. Asks by default; `cleanup=true` removes the worktree and branch. |
@@ -228,6 +228,15 @@ Hooks can log lifecycle events or run trusted shell commands when `"action": "ex
 | Runaway hook | `spawnSync` timeout (default 120s, max 120s); output capped at 8KB in hook results |
 
 Exec hooks are **user-configured**, not model-callable. The model cannot add or modify hook commands mid-run.
+
+## Multimodal read_file and LSP
+
+| Risk | Mitigation |
+| ---- | ---------- |
+| Large image/PDF token burn | Hard caps (7MB images, 10MB PDFs); human logs/transcripts store summaries, not base64 payloads |
+| Reading sensitive screenshots | Same deny matrix as text reads (`.env`, keys blocked) |
+| Arbitrary LSP subprocess | Opt-in `--enable-lsp`; scrubbed env; sessions disposed at run end; read-only tool category |
+| Missing language server | Fail closed with install hint; no shell fallback |
 
 ## Known limitations
 

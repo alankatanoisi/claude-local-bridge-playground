@@ -91,6 +91,7 @@ Options:\n\
   --accept-edits       Auto-approve write/edit/patch tools (skip confirmation)\n\
   --dont-ask           Skip confirmation for already-enabled risky tools\n\
   --allow-shell        Enable the bash tool (disabled by default)\n\
+  --enable-lsp         Expose lsp_query (requires a language server on PATH)\n\
   --test-watch         After successful writes, run detected tests (requires --allow-shell)\n\
   --shell-timeout <ms> Max time for shell commands in ms (default: 30000; cap: 900000)\n\
   --no-network         Best-effort HTTP/HTTPS proxy guard for shell commands; not a sandbox\n\
@@ -193,6 +194,7 @@ async function main() {
         'accept-edits': { type: 'boolean' },
         'dont-ask': { type: 'boolean' },
         'allow-shell': { type: 'boolean' },
+        'enable-lsp': { type: 'boolean' },
         'test-watch': { type: 'boolean' },
         'shell-timeout': { type: 'string' },
         'output-format': { type: 'string' },
@@ -372,6 +374,7 @@ async function main() {
   const acceptEdits = args.values['accept-edits'] ? true : permDefaults.acceptEdits;
   const dontAsk = args.values['dont-ask'] ? true : permDefaults.dontAsk;
   const allowShell = args.values['allow-shell'] ? true : permDefaults.allowShell;
+  const enableLsp = !!args.values['enable-lsp'];
   const testWatch = !!args.values['test-watch'];
   if (testWatch && !allowShell) {
     console.error('Error: --test-watch requires --allow-shell (tests run through the shell tool path).');
@@ -560,6 +563,7 @@ async function main() {
     acceptEdits,
     dontAsk,
     allowShell,
+    enableLsp,
     testWatch,
     noNetwork,
     exposedTools,
@@ -587,6 +591,7 @@ async function main() {
     acceptEdits,
     dontAsk,
     allowShell,
+    enableLsp,
     testWatch,
     shellTimeout,
     outputFormat,

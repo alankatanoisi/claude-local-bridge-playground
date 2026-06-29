@@ -179,6 +179,7 @@ function formatProfileList(cwd) {
 
 function isBaseEligible(name, ctx) {
   if ((name === 'bash' || name === 'manage_shell_jobs') && !(ctx && ctx.allowShell)) return false;
+  if (name === 'lsp_query' && !(ctx && ctx.enableLsp)) return false;
   if (name === 'spawn_agent' && (ctx?.spawnDepth || 0) > 0) return false;
   return true;
 }
