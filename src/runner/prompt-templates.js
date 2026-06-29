@@ -1,74 +1,66 @@
 'use strict';
 
-const fs = require('fs');
+// Thin compatibility layer over the prompt-template registry (prompts/registry.js).
+//
+// History: this module used to hold the built-in templates inline as a frozen
+// object and read project/global ".bridge-runner/prompts/*.md" as raw text.
+// The registry (roadmap §4.6) is now the source of truth — built-ins live as
+// Markdown files with frontmatter under src/runner/prompts/, and the registry
+// handles override order, parameter parsing, and substitution. This file keeps
+// the original public API (resolvePromptTemplate / applyPromptTemplates /
+// BUILT_IN_TEMPLATES) so existing callers and the CLI keep working unchanged.
+
 const path = require('path');
+const registry = require('./prompts/registry');
 
-const BUILT_IN_TEMPLATES = Object.freeze({
-  review:
-    'Review the relevant code for correctness, safety, maintainability, and missing tests. ' +
-    'Lead with concrete findings, then mention any residual risk.',
-  cleanup:
-    'Simplify the relevant code or docs while preserving behavior. Prefer deleting stale paths, reducing duplicated logic, and keeping changes easy to review.',
-  explore:
-    'Explore read-only. Inspect before concluding, avoid edits and shell unless explicitly requested, and summarize the structure, important files, and practical next steps.',
-  verify:
-    'After making changes, verify your work before finishing. Run relevant tests or checks, show the command output, and fix failures you introduced.',
-  grill:
-    'Grill the user on these changes with concrete questions. Do not treat the task as complete until the user demonstrates understanding.',
-  simplify:
-    'After changes, review for reuse, quality, efficiency, and instruction-doc compliance. Simplify where possible without changing behavior.',
-});
+// Built-in template bodies, derived from the shipped Markdown files. Kept for
+// backward compatibility; new code should prefer the registry directly.
+const BUILT_IN_TEMPLATES = Object.freeze(
+  Object.fromEntries(
+    registry
+      .listBuiltinNames()
+      .map((name) => [name, registry.loadBuiltin(name)])
+      .filter(([, prompt]) => prompt)
+      .map(([name, prompt]) => [name, prompt.body]),
+  ),
+);
 
-function userHome() {
-  return process.env.HOME || process.env.USERPROFILE || '';
+function looksLikePath(nameOrPath) {
+  const key = String(nameOrPath || '').trim();
+  return path.isAbsolute(key) || key.includes(path.sep);
 }
 
-function templateDirs(cwd) {
-  const dirs = [];
-  if (cwd) dirs.push(path.join(cwd, '.bridge-runner', 'prompts'));
-  const home = userHome();
-  if (home) dirs.push(path.join(home, '.bridge-runner', 'prompts'));
-  return dirs;
-}
-
-function readIfFile(filePath) {
-  if (!filePath || !fs.existsSync(filePath)) return null;
-  const stat = fs.statSync(filePath);
-  if (!stat.isFile()) return null;
-  return fs.readFileSync(filePath, 'utf8').trim();
-}
-
-function candidatePaths(cwd, nameOrPath) {
-  if (path.isAbsolute(nameOrPath) || nameOrPath.includes(path.sep)) {
-    return [path.resolve(cwd || process.cwd(), nameOrPath)];
-  }
-
-  const names = nameOrPath.endsWith('.md') ? [nameOrPath] : [nameOrPath + '.md', nameOrPath];
-  const candidates = [];
-  for (const dir of templateDirs(cwd)) {
-    for (const name of names) candidates.push(path.join(dir, name));
-  }
-  return candidates;
-}
-
+/**
+ * Resolve a prompt template by name or path.
+ *
+ * Returns { name, source, text, prompt } where `text` is the prompt body
+ * (frontmatter stripped) and `prompt` is the full registry object (parameters,
+ * recommended tools/permissions, …) — or undefined for a raw path with no
+ * frontmatter. Built-in sources are labelled `builtin:<name>`.
+ */
 function resolvePromptTemplate(cwd, nameOrPath) {
   const key = String(nameOrPath || '').trim();
   if (!key) throw new Error('Prompt template name cannot be empty.');
 
-  for (const filePath of candidatePaths(cwd, key)) {
-    const text = readIfFile(filePath);
-    if (text) return { name: key, source: filePath, text };
+  if (looksLikePath(key)) {
+    const prompt = registry.loadPromptFromPath(cwd, key);
+    if (!prompt) throw new Error('Prompt template file not found: ' + key);
+    return { name: prompt.name, source: prompt.source, text: prompt.body, prompt };
   }
 
-  if (BUILT_IN_TEMPLATES[key]) {
-    return { name: key, source: 'builtin:' + key, text: BUILT_IN_TEMPLATES[key] };
+  // Bare name — strip a redundant .md so "review.md" still resolves "review".
+  const name = key.endsWith('.md') ? key.slice(0, -3) : key;
+  const prompt = registry.loadPrompt(cwd, name);
+  if (prompt) {
+    return { name: prompt.name, source: prompt.source, text: prompt.body, prompt };
   }
 
+  const available = registry.listPrompts(cwd).map((p) => p.name);
   throw new Error(
     'Prompt template not found: ' +
       key +
       '. Try one of: ' +
-      Object.keys(BUILT_IN_TEMPLATES).sort().join(', ') +
+      available.join(', ') +
       ', or add a Markdown file under .bridge-runner/prompts/.',
   );
 }
@@ -85,4 +77,6 @@ module.exports = {
   BUILT_IN_TEMPLATES,
   applyPromptTemplates,
   resolvePromptTemplate,
+  // Re-exported for the CLI's --prompt-arg substitution path.
+  substituteParameters: registry.substituteParameters,
 };

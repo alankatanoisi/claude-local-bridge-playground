@@ -697,6 +697,7 @@
                     <option value="grill">grill — question the user before finishing</option>
                     <option value="simplify">simplify — review quality after edits</option>
                   </select>
+                  <small id="promptTemplateHint" style="display: none; color: var(--muted); margin-top: 0.35rem"></small>
                 </div>
                 <div class="field">
                   <label for="customPromptTemplate">Custom template name or path</label>
@@ -705,6 +706,14 @@
                     id="customPromptTemplate"
                     placeholder=".bridge-runner/prompts/my-template.md or my-template"
                   />
+                </div>
+                <div class="field">
+                  <label for="promptArgs">Template args (fills <code>{{name}}</code> placeholders)</label>
+                  <input type="text" id="promptArgs" placeholder="focus=error handling  area=src/runner" />
+                  <small style="color: var(--muted); margin-top: 0.25rem">
+                    Space-separated <code>key=value</code> pairs → one <code>--prompt-arg</code> each. Run
+                    <code>node bin/local-bridge-prompts.js show &lt;name&gt;</code> to see a template's parameters.
+                  </small>
                 </div>
               </div>
 
@@ -1146,6 +1155,41 @@
             event (including <code>compaction</code> and <code>stopReason</code>). Set a human-readable log path when
             you want a plain text record of the prompt, tool calls, and final answer.
           </div>
+          <div class="card" id="recoveryCard">
+            <h2>
+              Recovery
+              <span class="badge-recovery">undo last-run</span>
+            </h2>
+            <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem">
+              Every run that edits files records a manifest under
+              <code style="font-size: 0.75rem">.bridge-runner/runs/&lt;run-id&gt;/</code>. Roll a whole run back from
+              its backups with the recovery CLI (run from the playground folder, point <code>--cwd</code> at the project
+              the runner edited):
+            </p>
+            <div class="terminal">
+              <div class="terminal-bar">
+                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                <span class="title">recovery</span>
+              </div>
+              <pre style="margin: 0"><code># list recorded runs (newest first)
+node bin/local-bridge-undo.js list-runs --cwd /path/to/project
+
+# preview reverting the most recent run (changes nothing)
+node bin/local-bridge-undo.js last-run --cwd /path/to/project --dry-run
+
+# revert it (asks to confirm; add --yes in scripts)
+node bin/local-bridge-undo.js last-run --cwd /path/to/project
+
+# revert an older run by run id or session id
+node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/project</code></pre>
+            </div>
+            <p style="font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem">
+              A file changed <em>after</em> the run you are reverting is marked <strong>diverged</strong> and skipped
+              unless you add <code>--force</code>, so a later run's work is never clobbered by surprise. Old manifests
+              are not auto-deleted — prune them by removing the matching
+              <code style="font-size: 0.75rem">.bridge-runner/runs/&lt;run-id&gt;</code> folder.
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -1155,6 +1199,21 @@
       const prompt = document.getElementById('prompt');
       const promptTemplate = document.getElementById('promptTemplate');
       const customPromptTemplate = document.getElementById('customPromptTemplate');
+      const promptArgs = document.getElementById('promptArgs');
+      const promptTemplateHint = document.getElementById('promptTemplateHint');
+
+      // Shipped snapshot of the built-in prompt registry (src/runner/prompts/*.md
+      // frontmatter). Mirrored here so the builder can suggest permissions/tools
+      // for the selected template without a filesystem read. Keep in sync when a
+      // built-in template's recommended-permissions / recommended-tools change.
+      const PROMPT_REGISTRY = {
+        explore: { permissions: 'look-only', tools: 'list_files, read_file, search_text, glob, git_status', params: '' },
+        review: { permissions: 'look-only', tools: 'read_file, search_text, git_status', params: 'focus?' },
+        cleanup: { permissions: 'edit-ask', tools: 'read_file, search_text, edit_file, write_file', params: '' },
+        verify: { permissions: 'edit-shell', tools: 'read_file, search_text, edit_file, write_file, bash', params: '' },
+        grill: { permissions: 'look-only', tools: 'read_file, search_text, git_status', params: 'focus?' },
+        simplify: { permissions: 'edit-ask', tools: 'read_file, search_text, edit_file, write_file', params: '' },
+      };
       const attachmentMode = document.getElementById('attachmentMode');
       const attachedPaths = document.getElementById('attachedPaths');
       const model = document.getElementById('model');
@@ -1415,6 +1474,11 @@
         for (const templateName of getPromptTemplates()) {
           parts.push('--prompt-template ' + shellQuote(templateName));
         }
+        if (getPromptTemplates().length) {
+          for (const arg of getPromptArgs()) {
+            parts.push('--prompt-arg ' + shellQuote(arg));
+          }
+        }
         if (model.value !== DEFAULTS.model) parts.push('--model ' + model.value);
         if (+maxTokens.value !== DEFAULTS.maxTokens) parts.push('--max-tokens ' + maxTokens.value);
         if (+maxSteps.value !== DEFAULTS.maxSteps) parts.push('--max-steps ' + maxSteps.value);
@@ -1500,6 +1564,29 @@
         return names;
       }
 
+      // Space-separated key=value pairs → ['key=value', ...] for --prompt-arg.
+      function getPromptArgs() {
+        return promptArgs.value
+          .split(/\s+/)
+          .map((pair) => pair.trim())
+          .filter((pair) => pair.includes('='));
+      }
+
+      // Show the selected built-in template's recommended permissions/tools and
+      // parameters, so the form auto-suggests a safe setup for that template.
+      function renderPromptHint() {
+        const meta = PROMPT_REGISTRY[promptTemplate.value];
+        if (!meta) {
+          promptTemplateHint.style.display = 'none';
+          promptTemplateHint.textContent = '';
+          return;
+        }
+        const bits = ['Recommended: permissions ' + meta.permissions + ' · tools ' + meta.tools];
+        if (meta.params) bits.push('Parameters: ' + meta.params + ' — fill with --prompt-arg');
+        promptTemplateHint.textContent = bits.join('  •  ');
+        promptTemplateHint.style.display = '';
+      }
+
       function sameTools(left, right) {
         return left.length === right.length && left.every((name, index) => name === right[index]);
       }
@@ -1535,6 +1622,7 @@
       }
 
       function updateUiState() {
+        renderPromptHint();
         const shellOn = allowShell.checked;
         bashToolRow.style.display = shellOn ? '' : 'none';
         if (manageShellJobsRow) manageShellJobsRow.style.display = shellOn ? '' : 'none';
@@ -1681,6 +1769,7 @@
         prompt,
         promptTemplate,
         customPromptTemplate,
+        promptArgs,
         attachmentMode,
         attachedPaths,
         model,
