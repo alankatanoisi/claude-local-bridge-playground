@@ -460,8 +460,17 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
           <div class="tool-card">
             <h4>read_file</h4>
             <p>
-              Read a file by relative path. Respects byte and line limits. Blocks secret-looking files
-              (<code>.env</code>, <code>*.pem</code>, <code>credentials*.json</code>, etc.).
+              Read a file by relative path. Text files support offset/limit paging. Images
+              (<code>.png</code>, <code>.jpg</code>, <code>.gif</code>, <code>.webp</code>) and PDFs return multimodal
+              blocks for the model (size caps apply). Blocks secret-looking files (<code>.env</code>, <code>*.pem</code>,
+              etc.).
+            </p>
+          </div>
+          <div class="tool-card">
+            <h4>lsp_query</h4>
+            <p>
+              Query a local language server for definition, references, hover, or diagnostics. Hidden unless you pass
+              <code>--enable-lsp</code> and install a server such as <code>typescript-language-server</code>.
             </p>
           </div>
           <div class="tool-card">

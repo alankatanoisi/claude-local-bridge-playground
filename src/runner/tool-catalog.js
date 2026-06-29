@@ -38,6 +38,7 @@ const TOOL_MODULES = [
   require('./tools/manage-shell-jobs'),
   require('./tools/run-skill'),
   require('./tools/git-status'),
+  require('./tools/lsp-query'),
   require('./tools/edit-file'),
   require('./tools/write-file'),
   require('./tools/apply-patch'),

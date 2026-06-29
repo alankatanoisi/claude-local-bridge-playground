@@ -61,6 +61,7 @@ const safety = require('./safety');
 const { makeEffectId } = require('./session-ledger');
 const { bytes } = require('../trace-utils');
 const { runIfEnabled, formatVerificationAppendix } = require('./test-watcher');
+const { buildToolResultContent } = require('./tool-result-content');
 
 // B3: path-disjoint detection over canonicalized paths. Two paths are
 // disjoint iff neither is identical to the other and neither is a
@@ -311,7 +312,12 @@ function createToolPipeline(deps = {}) {
         result = fabricatePlanResult(result);
       }
       recordCompleted(step, tu, result, readEffectIds.get(tu.id));
-      toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: result.text || '', is_error: !result.ok });
+      toolResults.push({
+        type: 'tool_result',
+        tool_use_id: tu.id,
+        content: buildToolResultContent(result),
+        is_error: !result.ok,
+      });
       const outcome = { toolUse: tu, result, phase: 'read' };
       readOutcomes.push(outcome);
       outcomes.push(outcome);
@@ -429,7 +435,12 @@ function createToolPipeline(deps = {}) {
       if (noteWriteOutcome(step, tu.name, result)) escalated = true;
 
       recordCompleted(step, tu, result, effectId);
-      toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: result.text || '', is_error: !result.ok });
+      toolResults.push({
+        type: 'tool_result',
+        tool_use_id: tu.id,
+        content: buildToolResultContent(result),
+        is_error: !result.ok,
+      });
       outcomes.push({ toolUse: tu, result, phase: 'write' });
     }
 

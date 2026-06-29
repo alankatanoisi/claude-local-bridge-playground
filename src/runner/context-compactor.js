@@ -8,6 +8,7 @@
  */
 
 const { CATEGORIES, WRITE_TOOLS } = require('./tool-catalog');
+const { stringifyToolResultContent } = require('./tool-result-content');
 
 const COMPACTION_STAGES = Object.freeze(['none', 'clip', 'snip', 'cost', 'ghost', 'summarize']);
 
@@ -58,7 +59,7 @@ function clipToolResults(messages, maxChars) {
     if (msg.role !== 'user' || !Array.isArray(msg.content)) return msg;
     const content = msg.content.map((block) => {
       if (block.type !== 'tool_result') return block;
-      const text = String(block.content || '');
+      const text = stringifyToolResultContent(block.content);
       if (text.length <= maxChars) return block;
       changed = true;
       return {
@@ -84,7 +85,7 @@ function snipOldToolResults(messages, snipAfter, preserveRecent) {
     if (idx >= cutoff || msg.role !== 'user' || !Array.isArray(msg.content)) return msg;
     const content = msg.content.map((block) => {
       if (block.type !== 'tool_result') return block;
-      const text = String(block.content || '');
+      const text = stringifyToolResultContent(block.content);
       if (text.length < 200) return block;
       changed = true;
       return {

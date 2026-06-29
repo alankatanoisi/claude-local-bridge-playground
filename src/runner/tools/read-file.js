@@ -11,6 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const fileCache = require('./_file-cache');
+const { detectMediaKind, readImageResult, readPdfResult } = require('../media-read');
 
 const MAX_BYTES_DEFAULT = 50000;
 const MAX_LINES_DEFAULT = 1000;
@@ -165,8 +166,8 @@ function definition() {
   return {
     name: 'read_file',
     description:
-      'Read the contents of a file by relative path. ' +
-      'Use offset (1-based line number) and limit/max_lines for paging large files. ' +
+      'Read the contents of a file by relative path. Text files support offset/limit paging. ' +
+      'Images (.png, .jpg, .gif, .webp) and PDFs return multimodal blocks for the model. ' +
       'Respects max_bytes (default 50KB) and max_lines (default 1000).',
     input_schema: {
       type: 'object',
@@ -211,7 +212,17 @@ function execute(args, ctx) {
     }
 
     if (stats.size === 0) {
-      return { ok: true, text: '(empty file)', bytes: 0 };
+      const kind = detectMediaKind(args.path);
+      if (kind === 'text') return { ok: true, text: '(empty file)', bytes: 0 };
+      return { ok: false, text: 'Empty ' + kind + ' file: ' + args.path };
+    }
+
+    const mediaKind = detectMediaKind(args.path);
+    if (mediaKind === 'image') {
+      return readImageResult(target, args.path, stats);
+    }
+    if (mediaKind === 'pdf') {
+      return readPdfResult(target, args.path, stats);
     }
 
     const maxBytes = getLimit(args.max_bytes, MAX_BYTES_DEFAULT, MAX_BYTES_HARD_CAP);

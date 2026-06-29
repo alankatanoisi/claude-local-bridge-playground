@@ -107,6 +107,19 @@ describe('read_file tool', () => {
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('past end of file'));
   });
+
+  it('returns multimodal blocks for png images', () => {
+    const filePath = path.join(tmpDir, 'pixel.png');
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC',
+      'base64',
+    );
+    fs.writeFileSync(filePath, png);
+    const result = execute({ path: 'pixel.png' }, { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) });
+    assert.equal(result.ok, true);
+    assert.equal(result.multimodal, true);
+    assert.equal(result.contentBlocks[0].type, 'image');
+  });
 });
 
 describe('read_file tool — file cache', () => {

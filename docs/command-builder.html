@@ -729,6 +729,9 @@
                   <label class="check-label is-muted-control" id="testWatchRow">
                     <input type="checkbox" id="testWatch" /> --test-watch (auto-run tests after writes)
                   </label>
+                  <label class="check-label" id="enableLspRow">
+                    <input type="checkbox" id="enableLsp" /> --enable-lsp (expose lsp_query tool)
+                  </label>
                 </div>
                 <div class="field">
                   <label for="outputFormat">Output format</label>
@@ -1048,7 +1051,7 @@
                   </label>
                   <label class="check-label tool-choice">
                     <input type="checkbox" value="read_file" checked />
-                    <span><strong>read_file</strong><small>Read bounded text files</small></span>
+                    <span><strong>read_file</strong><small>Read text, images (.png/.jpg/.gif/.webp), or PDF files</small></span>
                   </label>
                   <label class="check-label tool-choice">
                     <input type="checkbox" value="search_text" checked />
@@ -1061,6 +1064,10 @@
                   <label class="check-label tool-choice">
                     <input type="checkbox" value="git_status" checked />
                     <span><strong>git_status</strong><small>Inspect Git changes</small></span>
+                  </label>
+                  <label class="check-label tool-choice" id="lspQueryRow" style="display: none">
+                    <input type="checkbox" value="lsp_query" />
+                    <span><strong>lsp_query</strong><small>LSP definition/references/hover/diagnostics</small></span>
                   </label>
                   <div class="capability-group">Session</div>
                   <label class="check-label tool-choice">
@@ -1246,6 +1253,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const shellWarn = document.getElementById('shellWarn');
       const bashToolRow = document.getElementById('bashToolRow');
       const manageShellJobsRow = document.getElementById('manageShellJobsRow');
+      const lspQueryRow = document.getElementById('lspQueryRow');
+      const enableLsp = document.getElementById('enableLsp');
       const attachmentNote = document.getElementById('attachmentNote');
       const plan = document.getElementById('plan');
       const noNetwork = document.getElementById('noNetwork');
@@ -1529,12 +1538,17 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           parts.push('--allow-shell');
           if (+shellTimeout.value !== DEFAULTS.shellTimeout) parts.push('--shell-timeout ' + shellTimeout.value);
         }
+        if (enableLsp.checked) parts.push('--enable-lsp');
         if (confirmTimeout.value.trim()) parts.push('--confirm-timeout ' + confirmTimeout.value.trim());
         if (logLevel.value) parts.push('--log-level ' + logLevel.value);
         const selectedTools = getSelectedTools();
         const exposedDefaults = allowShell.checked
-          ? [...DEFAULT_TOOL_NAMES, 'bash', 'manage_shell_jobs']
-          : DEFAULT_TOOL_NAMES;
+          ? enableLsp.checked
+            ? [...DEFAULT_TOOL_NAMES, 'bash', 'manage_shell_jobs', 'lsp_query']
+            : [...DEFAULT_TOOL_NAMES, 'bash', 'manage_shell_jobs']
+          : enableLsp.checked
+            ? [...DEFAULT_TOOL_NAMES, 'lsp_query']
+            : DEFAULT_TOOL_NAMES;
         if (!sameTools(selectedTools, exposedDefaults)) {
           parts.push('--tools ' + shellQuote(selectedTools.join(',') || 'none'));
         }
@@ -1549,7 +1563,12 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
 
       function getSelectedTools() {
         return toolChoices
-          .filter((choice) => choice.checked && (choice.value !== 'bash' && choice.value !== 'manage_shell_jobs' || allowShell.checked))
+          .filter(
+            (choice) =>
+              choice.checked &&
+              ((choice.value !== 'bash' && choice.value !== 'manage_shell_jobs') || allowShell.checked) &&
+              (choice.value !== 'lsp_query' || enableLsp.checked),
+          )
           .map((choice) => choice.value);
       }
 
@@ -1624,8 +1643,10 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       function updateUiState() {
         renderPromptHint();
         const shellOn = allowShell.checked;
+        const lspOn = enableLsp.checked;
         bashToolRow.style.display = shellOn ? '' : 'none';
         if (manageShellJobsRow) manageShellJobsRow.style.display = shellOn ? '' : 'none';
+        if (lspQueryRow) lspQueryRow.style.display = lspOn ? '' : 'none';
         shellWarn.classList.toggle('show', shellOn);
         shellTimeoutRow.classList.toggle('is-muted-control', !shellOn);
         noNetworkRow.classList.toggle('is-muted-control', !shellOn);
@@ -1659,6 +1680,19 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           if (!shellOn) {
             manageShellChoice.checked = false;
             delete manageShellChoice.dataset.shellWasShown;
+          }
+        }
+        const lspChoice = toolChoices.find((c) => c.value === 'lsp_query');
+        if (lspChoice) {
+          const lspLabel = lspChoice.closest('.tool-choice');
+          if (lspLabel) lspLabel.classList.toggle('is-muted-control', !lspOn);
+          if (lspOn && !lspChoice.dataset.lspWasShown) {
+            lspChoice.checked = true;
+            lspChoice.dataset.lspWasShown = '1';
+          }
+          if (!lspOn) {
+            lspChoice.checked = false;
+            delete lspChoice.dataset.lspWasShown;
           }
         }
 
@@ -2029,6 +2063,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           'acceptEdits',
           'dontAsk',
           'allowShell',
+          'enableLsp',
           'stream',
           'verbose',
           'plan',
@@ -2062,6 +2097,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           acceptEdits,
           dontAsk,
           allowShell,
+          enableLsp,
           stream,
           verbose,
           plan,
