@@ -18,7 +18,7 @@ Alan is using agents to learn and build. He is a strong systems thinker, highly 
 8. Prefer liberal and generous amounts of inline comments in code to explain the "why" behind the "what".
 9. When adding new JavaScript in the runner, short beginner-friendly `//` comments are welcome where they explain non-obvious control flow. Do not add comments that only repeat what the code already says.
 10. When in doubt, provide more context and explanation rather than less.
-11. When providing multiple options, explain the pros and cons of each to help Alan make an informed decision. 
+11. When providing multiple options, explain the pros and cons of each to help Alan make an informed decision.
 
 ## Active Repository
 

@@ -19,11 +19,11 @@ Ship **Phase 2** of the runner expansion roadmap — subagents, file-based agent
 
 ### Phase 2 — three slices
 
-| Slice | Feature | Key files |
-|-------|---------|-----------|
-| 1 | File-based agent loader (`.md` + YAML frontmatter → runner profiles) | `src/runner/agents/agent-loader.js`, `src/runner/agents/registry.js`, `test/runner/agent-loader.test.js` |
-| 2 | Model-callable `spawn_agent` (child runner via `WorkerRuntime`, `spawnDepth` cap) | `src/runner/tools/spawn-agent.js`, `src/runner/permissions.js`, `test/runner/spawn-agent.test.js` |
-| 3 | Git worktree isolation (`enter_worktree` / `exit_worktree`) | `src/runner/tools/enter-worktree.js`, `src/runner/tools/exit-worktree.js`, `test/runner/worktree-tools.test.js` |
+| Slice | Feature                                                                           | Key files                                                                                                       |
+| ----- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 1     | File-based agent loader (`.md` + YAML frontmatter → runner profiles)              | `src/runner/agents/agent-loader.js`, `src/runner/agents/registry.js`, `test/runner/agent-loader.test.js`        |
+| 2     | Model-callable `spawn_agent` (child runner via `WorkerRuntime`, `spawnDepth` cap) | `src/runner/tools/spawn-agent.js`, `src/runner/permissions.js`, `test/runner/spawn-agent.test.js`               |
+| 3     | Git worktree isolation (`enter_worktree` / `exit_worktree`)                       | `src/runner/tools/enter-worktree.js`, `src/runner/tools/exit-worktree.js`, `test/runner/worktree-tools.test.js` |
 
 Also included in the same commit (earlier uncommitted slices):
 
@@ -126,16 +126,16 @@ For granular implementation decisions and debugging history:
 
 Invoke these when the next session starts, depending on focus:
 
-| Skill | When |
-|-------|------|
-| `anthropic-official` | Any Anthropic API, Claude Code, billing, or policy questions |
-| `anthropic-platform-expert` | Agents SDK, Messages API, model/tool behavior |
-| `tdd` | Implementing the next tool slice with tests first |
-| `harness-engineering-playbook` | Parallel worktrees, subagent orchestration, harness parity |
+| Skill                           | When                                                          |
+| ------------------------------- | ------------------------------------------------------------- |
+| `anthropic-official`            | Any Anthropic API, Claude Code, billing, or policy questions  |
+| `anthropic-platform-expert`     | Agents SDK, Messages API, model/tool behavior                 |
+| `tdd`                           | Implementing the next tool slice with tests first             |
+| `harness-engineering-playbook`  | Parallel worktrees, subagent orchestration, harness parity    |
 | `improve-codebase-architecture` | Refactoring coordinator/worker-runtime for parallel worktrees |
-| `documentation-engineer` | Large doc updates beyond command-builder |
-| `readme-generator` | If README needs a maintainer-grade refresh after next feature |
-| `handoff` | End of next session |
+| `documentation-engineer`        | Large doc updates beyond command-builder                      |
+| `readme-generator`              | If README needs a maintainer-grade refresh after next feature |
+| `handoff`                       | End of next session                                           |
 
 ---
 
