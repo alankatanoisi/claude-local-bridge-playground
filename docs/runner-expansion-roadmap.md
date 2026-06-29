@@ -13,6 +13,7 @@ playground's minimal-core, OAuth-only, local-first direction.
 - [Threat model](./threat-model.md) — safety invariants new tools must respect
 - [Roadmap extensions (critical assessment)](./runner-expansion-roadmap-extensions.html) — companion critique and five future directions
 - [Bridge runner Actions POC](./bridge-runner-actions-poc.md) — read-only GitHub Actions invocation on self-hosted runner
+- [Agent assignment blocks](./runner-expansion-agent-assignments.md) — copy-paste prompts for cloud/local coding agents (§13 sequencing)
 
 **Official Claude Code references (primary sources):**
 
