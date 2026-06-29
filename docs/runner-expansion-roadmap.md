@@ -11,6 +11,8 @@ playground's minimal-core, OAuth-only, local-first direction.
 - [Runner quick start](./runner-quickstart.html) — how to run the runner today
 - [Command builder](./command-builder.html) — form UI that assembles CLI flags
 - [Threat model](./threat-model.md) — safety invariants new tools must respect
+- [Roadmap extensions (critical assessment)](./runner-expansion-roadmap-extensions.html) — companion critique and five future directions
+- [Bridge runner Actions POC](./bridge-runner-actions-poc.md) — read-only GitHub Actions invocation on self-hosted runner
 
 **Official Claude Code references (primary sources):**
 
@@ -74,6 +76,15 @@ Much of what feels like "missing harness" is already runner plumbing:
 | Flight recorder                  | `--trace-level`, `--trace-path`                                                     |
 
 The runner is **smaller in tool count** but **not empty** in harness depth.
+
+### Operability gap (honest note)
+
+This roadmap is **feature-shaped more than failure-shaped**. We have a strong threat model (`docs/threat-model.md`) but
+not yet an **operability model**: how to detect subtle runner regressions, observe cost and spawn budgets live, and
+recover from a bad `--accept-edits` run without grep-ing transcripts. The
+[extensions companion](./runner-expansion-roadmap-extensions.html) names these gaps explicitly; Phase 1–3 additions
+below (recovery workflow, prompt registry, golden-transcript evals, budget telemetry, capability profiles) address them
+without duplicating that document's full rationale.
 
 ---
 
@@ -177,13 +188,56 @@ coordinator-worker contexts: return a safe no-op or auto-deny message (workers a
 
 **Risk:** Low.
 
+### 4.5 `cc undo last-run` — recovery workflow
+
+**Category:** Safety · **Effort:** Small · **Source:** [extensions §2](./runner-expansion-roadmap-extensions.html#dir-2)
+
+**Why:** Backups and per-file `undo` / `undo_edit` already exist (`.bridge-runner/backups/` via
+`src/runner/tools/file-write-utils.js`). The gap is **workflow**: after a botched `--accept-edits` run touching many
+files, users must manually find backups. The runner already records edits for backup purposes — expose that as a unit.
+
+**Minimum-viable shape:**
+
+- Per-run manifest: `.bridge-runner/runs/<session-id>/manifest.json` listing edits and backup paths
+- `cc undo last-run` — revert the most recent run's manifest (reverse edit order, diff preview, confirmation)
+- `cc undo run <session-id>` and `cc undo list-runs` for older sessions
+- Command-builder **recovery** tab pointing at these commands (discoverability)
+
+**Decisions to make:** partial reverts when a later run touched the same file; inverse-diff vs full backup storage;
+garbage-collection for old manifests.
+
+**Risk:** Low — composes existing primitives; no new model-callable tools required.
+
+### 4.6 Prompt-template registry — `.bridge-runner/prompts/`
+
+**Category:** DX · **Effort:** Small–medium · **Source:** [extensions §5](./runner-expansion-roadmap-extensions.html#dir-5)
+
+**Why:** Patterns like `grill`, `simplify`, and `verify` are scattered as "write a markdown file" folklore (§10). At
+medium scale we need listing, parameter validation, and provenance — the same treatment tools and agents already get.
+
+**Minimum-viable shape:**
+
+- `.bridge-runner/prompts/<name>.md` with YAML frontmatter: `title`, `summary`, `parameters`, `recommended-tools`,
+  `recommended-permissions`, `tags`
+- CLI: `cc prompts list`, `cc prompts show <name>`, `cc prompts validate`
+- Extend `--prompt-template` with `--prompt-arg key=value` for runtime substitution
+- Built-ins in `src/runner/prompts/`; user templates override by name
+- Command-builder reads registry (or shipped JSON) and auto-suggests permissions/tools for the chosen template
+
+**Decisions to make:** prompt-injection from user-supplied parameter values; flat vs composable templates; trust story
+for imported templates.
+
+**Risk:** Low — files + CLI; `--prompt-template` already exists.
+
 ### Recommended Phase 1 order
 
 1. **`glob`** — shipped
 2. **Task checklist** — shipped (`manage_tasks`)
 3. **Verification presets** — shipped (`--test-watch`, `verify`/`grill`/`simplify` templates, command-builder preset)
-4. **`read_file` paging** — small polish (next)
-5. **`ask_user_question`** — needs careful TTY/non-TTY matrix testing
+4. **`cc undo last-run` recovery workflow** — small UX win; unlocks safety story (next priority)
+5. **Prompt-template registry** — small/medium; upgrades §10 "docs/presets" rows into real artifacts
+6. **`read_file` paging** — small polish
+7. **`ask_user_question`** — needs careful TTY/non-TTY matrix testing
 
 ---
 
@@ -197,14 +251,11 @@ These are worth doing but need explicit scoping and safety design.
 `--agent <name|path>`. Curated examples in `.bridge-runner/agents/`. Compatible with the
 `awesome-claude-code-subagents` format (tool/model mapping + safety gating).
 
-**Not yet:** git worktrees (slice 3).
-
 ### 5.1 Model-callable subagents (`spawn_agent` tool) — shipped (slice 2)
 
 **Status:** Implemented in `src/runner/tools/spawn-agent.js`. Top-level model can call `spawn_agent` to delegate via
-`WorkerRuntime`. Hidden when `spawnDepth > 0`. Permission category `orchestration` (ask by default).
-
-**Not yet:** git worktrees (slice 3).
+`WorkerRuntime`. Hidden when `spawnDepth > 0`. Permission category `orchestration` (ask by default). Capped at
+8 spawns per run (`MAX_SPAWNS_PER_RUN`).
 
 ### 5.2 Future orchestration polish
 
@@ -246,16 +297,81 @@ all tools operate inside the worktree until exit. Permission category `worktree`
 
 **Effort:** High; needs language-server lifecycle management. Defer unless a concrete language need appears.
 
-### 5.6 Richer `Read` (images, PDF)
+### 5.7 Richer `Read` (images, PDF)
 
 **Why:** Multimodal debugging, screenshot review.
 
 **Effort:** Medium–high — depends on whether bridge `/v1/messages` accepts image/PDF content blocks with OAuth route.
 Investigate before building.
 
+### 5.8 Golden-transcript replay harness
+
+**Category:** Evals · **Effort:** Medium · **Source:** [extensions §1](./runner-expansion-roadmap-extensions.html#dir-1)
+
+**Why:** Refactors to `tool-catalog.js`, `permissions.js`, or `worker-runtime.js` can change tool-call shape, permission
+order, or trace bytes with no automated signal — only an angry user later. Treat the runner like a compiler: replay
+known-good sessions and assert equivalent runner-side behavior.
+
+**Minimum-viable shape:**
+
+- `test/runner/golden/` — canned transcripts: pinned model output stream + expected runner side (tools dispatched,
+  permissions, files touched, trace bytes)
+- `cc runner eval` — replay through a fake model client, diff actual vs expected
+- CI gate: PRs touching `src/runner/` must not regress goldens without explicit approval
+
+**Sequencing:** Land **before** budget telemetry (§5.9) and capability profiles (§6) — both refactor permission/runtime
+paths and need this safety net.
+
+**Decisions to make:** what counts as "behavior" (exit code vs full sequence vs trace bytes); path/timestamp portability;
+secret redaction in goldens.
+
+### 5.9 Budget telemetry and token caps
+
+**Category:** Operations · **Effort:** Medium · **Source:** [extensions §3](./runner-expansion-roadmap-extensions.html#dir-3)
+
+**Already shipped:** `--max-wall-clock-ms` and `--max-cost-usd` are enforced in `src/runner/run.js` (hard stops at loop
+boundaries). Do not rebuild these.
+
+**Still missing:**
+
+- `--budget-input-tokens N` / `--budget-output-tokens N` — soft caps emit structured warnings; hard caps end cleanly
+- Live trace event: `{ type: "budget", input_tokens, output_tokens, wall_ms, spawns, depth }` at tool boundaries
+- Child agents from `spawn_agent` inherit parent's remaining budget by default; optional sub-budget carve-out later
+- Command-builder **budget** panel in Permissions section
+
+**Decisions to make:** authoritative token count (API vs local estimate); how to surface soft-cap warnings to the model;
+whether hard-cap termination unwinds in-flight edits.
+
 ---
 
-## 6. Deferred — network surface (explicitly out of scope for now)
+## 6. Phase 3 — Fine-grained control (later)
+
+These need the eval harness (§5.8) in place first.
+
+### 6.1 Composable tool capability profiles
+
+**Category:** Safety · **Effort:** Large · **Source:** [extensions §4](./runner-expansion-roadmap-extensions.html#dir-4)
+
+**Why:** `--accept-edits` permits all write tools; `--allow-shell` permits `bash` wholesale. Users often want narrower
+scopes: `edit_file` but not `write_file`, `bash` only for `git status`, `spawn_agent` with depth cap even on trusted
+roots. Today that requires custom agent profiles or over-broad flags.
+
+**Minimum-viable shape:**
+
+- `.bridge-runner/profiles/<name>.json` — per-tool allow/deny, optional arg-shape constraints (shell command regex,
+  `write_file` size cap), human-readable rationale
+- `--profile name` layered **over** existing category flags (simple story unchanged)
+- Built-in profiles: `review-only`, `edit-source-no-shell`, `git-readonly-shell`, etc.
+- Command-builder profile dropdown alongside permission style
+
+**Invariants:** profiles must **not** bypass the `--chaos-ok` interlock or the hard-deny matrix (`.env`, `.ssh`, path
+escapes). Denied tools should be absent or visibly marked in the model's tool list.
+
+**Decisions to make:** deny-overrides-allow vs last-match-wins; profile composition with chaos mode.
+
+---
+
+## 7. Deferred — network surface (explicitly out of scope for now)
 
 Per playground direction and `docs/threat-model.md` § Known limitations, outbound network is **not hard-restricted**
 today (`--no-network` is a best-effort proxy guard for shell only).
@@ -271,7 +387,7 @@ controls marked as advanced/risky.
 
 ---
 
-## 7. Superfluous / out of scope for this lab
+## 8. Superfluous / out of scope for this lab
 
 These Claude Code tools or settings areas conflict with minimal, single-user, OAuth-only runner goals:
 
@@ -290,9 +406,21 @@ These Claude Code tools or settings areas conflict with minimal, single-user, OA
 | Plugins / marketplaces / managed settings   | Enterprise distribution; use `.bridge-runner/` primitives |
 | OpenAI-compatible routes / API-key fallback | Transport invariants — never restore                      |
 
+### Explicit non-goals (decisions to say no)
+
+From the [extensions companion](./runner-expansion-roadmap-extensions.html#nongoals) — a roadmap that says no is more
+useful than one that says maybe:
+
+| Decision | Rationale |
+| -------- | --------- |
+| Remove `spawn_depth = 1` cap | Threat model relies on a finite tree; solve queueing and budgets (§5.9) first |
+| Remote web UI that runs the runner | Diverges from local-bridge identity; command-builder is the right UI level |
+| Plugin marketplace for tools | Tools are the most security-sensitive surface; stay curated |
+| Auto-apply model-suggested permission escalations | If the model asks for shell mid-run, user re-runs with broader flags; runner does not negotiate |
+
 ---
 
-## 8. Invariants any future build must preserve
+## 9. Invariants any future build must preserve
 
 From `CLAUDE.md`, `AGENTS.md`, and `docs/threat-model.md`:
 
@@ -309,7 +437,7 @@ From `CLAUDE.md`, `AGENTS.md`, and `docs/threat-model.md`:
 
 ---
 
-## 9. Command builder — what to add when tools land
+## 10. Command builder — what to add when tools land
 
 Today the builder's **Capability groups** panel (`#toolChoices`) lists all 10 tools. When Phase 1+ tools ship:
 
@@ -320,9 +448,13 @@ Today the builder's **Capability groups** panel (`#toolChoices`) lists all 10 to
 
 No large UI rewrite required until network or subagent tools need **risk panels** (similar to chaos-ok / shell warnings).
 
+**Planned builder surfaces (doc-only until each direction ships):** recovery tab (`cc undo last-run`), budget panel
+(token/wall caps), profile dropdown (§6.1), prompt-registry reader that auto-suggests permissions/tools (§4.6). Do not
+implement builder UI ahead of the underlying runner capability.
+
 ---
 
-## 10. Claude Code power user patterns — adoption map
+## 11. Claude Code power user patterns — adoption map
 
 Anthropic's [Claude Code power user tips](https://support.claude.com/en/articles/14554000-claude-code-power-user-tips)
 collects workflow patterns from the Claude Code team. The article's headline advice: **verification is the single most
@@ -339,6 +471,7 @@ build, and what belongs to the hosted Claude Code product (not this OAuth lab).
 | **Docs/presets** | No new runner code; document or add command-builder presets          |
 | **Phase 1**      | Small local build aligned with §4                                    |
 | **Phase 2**      | Bigger build aligned with §5                                         |
+| **Phase 3**      | Fine-grained control aligned with §6                                 |
 | **Defer**        | Network, sandbox, or policy work not ready                           |
 | **Out of scope** | Hosted product, TUI polish, or conflicts with minimal-core direction |
 
@@ -349,7 +482,7 @@ build, and what belongs to the hosted Claude Code product (not this OAuth lab).
 | **Verification** (#1 tip)   | Tests after edits, `/simplify`, browser check    | **Phase 1–2**                     | Expand test-watcher; verification presets; hooks that run commands |
 | Working in parallel         | `--worktree`, subagent isolation, `/batch`       | **Phase 2** / Out                 | Worktree tools + Agent tool; `/batch` is hosted-scale              |
 | Planning                    | Plan mode, effort, model choice                  | **Have**                          | `--plan`, `--effort`, `--model`, `--agent plan`                    |
-| Prompting                   | “Grill me”, “prove it works”, detailed specs     | **Docs/presets**                  | `.bridge-runner/prompts/`, built-in templates                      |
+| Prompting                   | “Grill me”, “prove it works”, detailed specs     | **Phase 1** (§4.6) / presets    | `.bridge-runner/prompts/` registry, built-in templates               |
 | Learning                    | Explanatory/Learning output styles               | **Docs/presets**                  | `--append-system-prompt`, custom templates                         |
 | CLAUDE.md & memory          | Team `CLAUDE.md`, auto-memory, notes dirs        | **Have** / Docs                   | `--include-instruction-docs`, `--auto-memory`                      |
 | Commands, skills, subagents | Skills, `.claude/agents/`, code-review agents    | **Partial** → **Phase 2**         | `--agent`, coordinator; skill _execution_ missing                  |
@@ -381,7 +514,7 @@ verification step (tests, lint, or explicit “show diff”) — matching the ar
 
 | Pattern                                                  | Adoption                                                                                                       |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Multiple sessions in git worktrees (`claude --worktree`) | **Phase 2** — `enter_worktree` / `exit_worktree` tools (§5.2). Highest leverage for safe parallel experiments. |
+| Multiple sessions in git worktrees (`claude --worktree`) | **Shipped** — `enter_worktree` / `exit_worktree` (§5.3). Parallel orchestration still Phase 2 follow-up. |
 | Subagents with `isolation: worktree`                     | **Phase 2** — combines Agent tool + worktree isolation.                                                        |
 | `/batch` (fan-out dozens of worktree agents)             | **Out of scope** — hosted orchestration at scale; coordinator is the lab's lighter analog.                     |
 | Name/color-code sessions                                 | **Docs/presets** — use `--session-id`, `--human-log`, `--transcript`; terminal tab color is user-side.         |
@@ -413,7 +546,7 @@ These patterns need **prompt templates and command-builder presets**, not new to
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------- |
 | Team `CLAUDE.md` checked into git                   | **Have** — `--include-instruction-docs`, `--include-claude-md`                                |
 | “Update CLAUDE.md so you don’t repeat that mistake” | **Docs** — user prompt pattern; runner can write via `edit_file` when edits allowed           |
-| `@claude` in GitHub PR comments                     | **Out of scope** — GitHub Action / claude.ai integration                                      |
+| `@claude` in GitHub PR comments (hosted bot)     | **Out of scope** — Anthropic's hosted GitHub Action / claude.ai integration; see §12 for the **local** read-only POC |
 | Auto-memory (`/memory`)                             | **Have** — `--auto-memory`                                                                    |
 | Per-task notes directory                            | **Docs** — point `CLAUDE.md` at `.bridge-runner/notes/`; optional auto-memory extension later |
 
@@ -421,8 +554,8 @@ These patterns need **prompt templates and command-builder presets**, not new to
 
 | Pattern                                         | Runner today                                                        | Adoption                                                                                           |
 | ----------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Repeated workflows → skills (`.claude/skills/`) | Skills **listed** with `--include-skills`; not executable           | **Phase 2** — `skill` execution tool (§5.4); lab uses `.bridge-runner/` or `.cursor/skills/` paths |
-| Custom subagents (`.claude/agents/`)            | Built-in `--agent` profiles; **file loader shipped** (`.bridge-runner/agents/`); coordinator workers | **Phase 2 slice 2** — model-callable `Agent` tool; load external `.md` on demand today via `--agent <path>` |
+| Repeated workflows → skills (`.claude/skills/`) | Skills **listed** with `--include-skills`; not executable           | **Phase 2** — `skill` execution tool (§5.5); lab uses `.bridge-runner/` or `.cursor/skills/` paths |
+| Custom subagents (`.claude/agents/`)            | Built-in `--agent` profiles; **file loader + spawn_agent shipped** | Load via `--agent <path>`; model-callable delegation in §5.1        |
 | Read-only agent (`tools: Read`)                 | **Have** — `--agent explore`, look-only preset, read-only `--tools` |                                                                                                    |
 | Code-review agent team on PR open               | **Partial** — `verify` agent + coordinator                          | **Phase 2** — document coordinator recipe; no GitHub webhook in lab                                |
 | Inline bash in slash commands                   | N/A (no slash UI)                                                   | **Out of scope** — use hooks or prompt templates with `--include-file` instead                     |
@@ -448,7 +581,7 @@ hard-deny matrix, documented in `threat-model.md`.
 
 | Pattern                                         | Runner today                                                  | Adoption                                                                  |
 | ----------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Pre-approve `Bash(npm run *)`, `Edit(/docs/**)` | Category-level allow/ask/deny only                            | **Phase 2** — granular permission rules in `.bridge-runner/settings.json` |
+| Pre-approve `Bash(npm run *)`, `Edit(/docs/**)` | Category-level allow/ask/deny only                            | **Phase 3** — composable profiles in `.bridge-runner/profiles/` (§6.1) |
 | Auto mode (classifier auto-approves safe ops)   | `--permission-mode auto` maps to `dontAsk` without classifier | **Defer** — real auto mode needs static analysis; don't fake it           |
 | Sandboxing (`/sandbox`)                         | Shell-policy scanner + deny matrix; no OS sandbox             | **Defer** — large lift; document `--no-network` as weak guard             |
 | Long-running uninterrupted work                 | `--max-wall-clock-ms`, `--dont-ask`, coordinator              | **Have** with caveats; **Phase 2** Stop hooks                             |
@@ -457,8 +590,11 @@ hard-deny matrix, documented in `threat-model.md`.
 ### Out of scope (hosted / product UI)
 
 Do not plan runner work for: `/loop`, `/schedule`, teleport, remote control, mobile/iMessage, plugin marketplace,
-`/statusline`, `/color`, `/voice`, `/keybindings`, `/btw`, GitHub `@claude` Action, `/batch` at hundreds of agents,
-Artifact, or claude.ai web sessions.
+`/statusline`, `/color`, `/voice`, `/keybindings`, `/btw`, hosted GitHub `@claude` Action (PR-comment bot), `/batch`
+at hundreds of agents, Artifact, or claude.ai web sessions.
+
+**Distinct from out of scope:** §12 documents an accepted **local** read-only Actions POC (`workflow_dispatch` on
+self-hosted runner) — not the hosted `@claude` bot.
 
 ### SDK and multi-repo patterns
 
@@ -476,17 +612,58 @@ The power user guide reinforces three priorities already in this roadmap and ele
 1. **Verification loop** (article #1) — **shipped** for v1: `--test-watch` flag, test-watcher appendix after writes, `verify`/`grill`/`simplify` prompt templates, command-builder “Verify after edits” preset. Phase 2: executable PostToolUse hooks.
 2. **Parallel safe edits** — worktrees + subagents stay Phase 2 flagships.
 3. **Skills/subagents execution** — close the gap between listing and doing.
-4. **Zero-code wins** — prompt templates (`grill`, `simplify`, explanatory) and command-builder presets cost little and
-   match team practices immediately.
+4. **Zero-code wins** — prompt-template registry (§4.6) and command-builder presets cost little and match team practices
+   immediately.
 
 ---
 
-## 11. Recommended next step
+## 12. Headless / CI invocation (accepted lane)
 
-1. **Phase 2 follow-ups:** parallel worktree orchestration, background bash + polling, executable hooks, `skill` execution.
-2. **Keep network tools off the table** until egress policy is designed and documented.
+Personal research lane for invoking the runner outside an interactive terminal session. **Not** the hosted GitHub
+`@claude` PR-comment bot (that remains out of scope in §8 and §11).
 
-**Shipped:** file-based agent loader (slice 1); model-callable `spawn_agent` tool (slice 2); git worktree isolation (slice 3).
+### Read-only Actions POC (shipped)
+
+Documented in [bridge-runner-actions-poc.md](./bridge-runner-actions-poc.md). Workflow:
+[`.github/workflows/bridge-runner-readonly-poc.yml`](../.github/workflows/bridge-runner-readonly-poc.yml).
+
+| Property | Value |
+| -------- | ----- |
+| Trigger | `workflow_dispatch` only — no push, PR, or schedule |
+| Runner | Self-hosted on operator's Mac |
+| GitHub permissions | `contents: read` |
+| Bridge | `http://127.0.0.1:11437/` must be up (VS Code + Claude Local Bridge) |
+| Runner flags | `--plan` + read-only tools only; no `--allow-shell`, `--accept-edits`, or `--dont-ask` |
+| Artifacts | JSON output, human log, trace uploaded on success |
+| Ignored paths | `actions-runner/` gitignored; skipped by file traversal |
+
+**Policy posture:** personal research infrastructure, not Anthropic-approved production CI. OAuth credentials stay on the
+self-hosted machine; the workflow does not embed API keys.
+
+### Future hardening (not commitments)
+
+Before any non-read-only or non-self-hosted CI use:
+
+- Secrets handling and credential scoping for GitHub-hosted runners
+- Command and branch allowlists in the workflow
+- `docs/threat-model.md` update for CI invocation boundaries
+- Explicit opt-in for write/shell in CI (likely never on shared runners)
+
+---
+
+## 13. Recommended next step
+
+**Sequencing** (from [extensions companion](./runner-expansion-roadmap-extensions.html#summary)):
+
+1. **Phase 1 next:** `cc undo last-run` recovery workflow (§4.5), then prompt-template registry (§4.6) — small, no runtime
+   perturbation.
+2. **Phase 2 next:** golden-transcript replay harness (§5.8) **before** budget telemetry (§5.9) or capability profiles
+   (§6.1) — safety net for permission/runtime refactors.
+3. **Phase 2 follow-ups:** parallel worktree orchestration, background bash + polling, executable hooks, `skill` execution.
+4. **Keep network tools off the table** until egress policy is designed and documented (§7).
+
+**Shipped:** file-based agent loader (slice 1); model-callable `spawn_agent` (slice 2); git worktree isolation (slice 3);
+read-only GitHub Actions POC (§12).
 
 When implementation starts, update `README.md`, `docs/threat-model.md` (if safety surface changes), and
 `docs/command-builder.html` in the same change set as the runner code.
