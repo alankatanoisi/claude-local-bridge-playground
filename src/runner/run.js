@@ -41,6 +41,7 @@ const {
 } = require('../trace-utils');
 const { isArchiveEnabled, RunArchiveCollector } = require('./archive/collector');
 const { finalizeArchiveExport } = require('./archive/run-exporter');
+const { writeRunManifest } = require('./recovery/run-manifest');
 
 const DEFAULT_MAX_STEPS = 16;
 const MAX_CONSECUTIVE_FAILURES = 2;
@@ -253,6 +254,11 @@ function loadMessagesFromTranscript(filePath, options = {}) {
 }
 
 function persistSession(sessionStore, messages, ctx, noSessionPersistence) {
+  // Drop a per-run recovery manifest regardless of session persistence. The
+  // manifest lives under cwd/.bridge-runner/runs/ and powers `undo last-run`;
+  // it must exist even when --no-session-persistence is set, because the user
+  // still wants to be able to roll back the files this run touched.
+  syncRunManifest(ctx);
   if (!sessionStore || noSessionPersistence) return;
   sessionStore.setMessages(messages);
   const tasks = Array.isArray(ctx.tasks) ? ctx.tasks : [];
@@ -263,6 +269,22 @@ function persistSession(sessionStore, messages, ctx, noSessionPersistence) {
     activeTaskIds: tasks.filter((t) => t.status === 'in_progress').map((t) => t.id),
   });
   sessionStore.saveSoon();
+}
+
+// Write the run's recovery manifest from the in-memory undo log. Cheap and
+// idempotent: it overwrites the manifest with the full undo log each time, so
+// calling it at every run-exit branch keeps the manifest complete. No-ops when
+// the run made no edits (read-only runs leave nothing to undo).
+function syncRunManifest(ctx) {
+  if (!ctx || !ctx.runManifestMeta) return;
+  try {
+    writeRunManifest(ctx.cwdRealpath || ctx.cwd, {
+      ...ctx.runManifestMeta,
+      undoLog: ctx.undoLog || [],
+    });
+  } catch {
+    // Recovery manifests are best-effort; never let manifest IO fail a run.
+  }
 }
 
 function hydrateRunnerStateFromSession(ctx, sessionStore) {
@@ -498,6 +520,14 @@ async function run(options) {
   const humanLog = humanLogPath ? new HumanLog(humanLogPath, { verbose, quiet }) : null;
   const output = makeOutput(outputFormat);
   const startedAt = Date.now();
+  // Metadata the recovery manifest needs. Keyed by runId (always unique); the
+  // session id is recorded too so `undo run <session-id>` can find this run.
+  ctx.runManifestMeta = {
+    runId,
+    sessionId: sessionId || null,
+    model,
+    startedAt: new Date(startedAt).toISOString(),
+  };
   const normalizedTraceLevel = normalizeTraceLevel(traceLevel);
   const trace =
     normalizedTraceLevel === 'off'

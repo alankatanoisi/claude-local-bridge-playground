@@ -45,6 +45,26 @@ Markdown agent files (YAML frontmatter + prompt body) can extend built-in `--age
 
 Built-in profile ids always take precedence over file agents with the same name.
 
+## Run-level recovery (`local-bridge-undo` CLI)
+
+The write tools already save a backup before every mutation and record it in the in-memory undo log. At run-exit the
+runner also persists that log to a **per-run manifest** at `<cwd>/.bridge-runner/runs/<run-id>/manifest.json`. The
+operator-facing `local-bridge-undo` CLI (`list-runs`, `show`, `last-run`, `run <id>`) reverts a whole run from those
+backups. It is **not** a model-callable tool and adds no new model permission surface — it composes existing primitives.
+
+| Property                  | Behavior                                                                                                            |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Path confinement          | Revert targets pass `safety.confinePath()`; a tampered manifest pointing outside `cwd` is marked `denied` and skipped |
+| Divergence protection     | A file changed after the run (`current sha ≠ run's last write`) is `diverged` and skipped unless `--force`           |
+| Created files             | A file the run created (no backup) is removed on revert; a divergent created file needs `--force`                   |
+| Non-interactive fail-safe | Without `--yes`/`--dry-run` and no TTY, revert refuses (exit 2) rather than silently rewriting files                 |
+| Manifest contents         | Edit paths, tool names, SHA-256 hashes, and backup paths — no file bodies. Treat as sensitive (it lists project paths) |
+| Garbage collection        | None automatic in v1; manifests are pruned manually by deleting `.bridge-runner/runs/<run-id>`                       |
+
+Manifests inherit the same secret-redaction posture as other on-disk artifacts: they store hashes and relative paths, not
+file contents. The backups they point at live under `.bridge-runner/backups/` and are themselves project source — treat
+both as local evidence.
+
 ## What the model can NEVER touch
 
 These are enforced at the permission layer **before any tool executes**. No CLI flag can override them.

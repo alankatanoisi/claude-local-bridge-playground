@@ -256,6 +256,33 @@ The model-facing tool surface is framed as four capability groups:
 `apply_patch` still exists for advanced patch-style edits, but it is hidden by default. Opt into it explicitly with
 `--tools apply_patch` or include it in a comma-separated `--tools` / `--allowed-tools` list.
 
+### Recovery: undo a whole run
+
+The `undo` / `undo_edit` tools recover a single file. For rolling back an entire run — say an `--accept-edits` run that
+touched a dozen files — the runner writes a **per-run manifest** to `<cwd>/.bridge-runner/runs/<run-id>/manifest.json`
+listing every edit and the backup saved before it. The `local-bridge-undo` CLI turns those manifests into a one-command
+rollback. Run it from the playground folder and point `--cwd` at the project the runner edited:
+
+```bash
+# List recorded runs, newest first
+node bin/local-bridge-undo.js list-runs --cwd /path/to/project
+
+# Preview reverting the most recent run (changes nothing)
+node bin/local-bridge-undo.js last-run --cwd /path/to/project --dry-run
+
+# Revert it — asks you to confirm first (add --yes to skip the prompt in scripts)
+node bin/local-bridge-undo.js last-run --cwd /path/to/project
+
+# Revert an older run by its run id or session id
+node bin/local-bridge-undo.js run <run-id|session-id> --cwd /path/to/project
+```
+
+Files are restored to their pre-run state in reverse order. If a file changed **after** the run you are reverting (a
+later run, a manual edit, Git), it is marked `diverged` and skipped unless you add `--force`, so newer work is never
+clobbered by surprise. In a non-interactive shell the command **fails closed**: without `--yes` (or `--dry-run`) it
+refuses rather than silently rewriting files. Manifests are small JSON pointers (they reference backups, they do not copy
+file bodies) and are not auto-deleted; prune old ones by removing the matching `.bridge-runner/runs/<run-id>` folder.
+
 ### Custom agents from files
 
 Use `--agent <name>` or `--agent path/to/agent.md` to load a Markdown file with YAML frontmatter (the same format as
