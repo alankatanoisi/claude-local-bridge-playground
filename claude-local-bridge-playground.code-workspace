@@ -2,6 +2,18 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"name": "claude-local-bridge",
+			"path": "../claude-local-bridge"
+		},
+		{
+			"name": "bin",
+			"path": "bin"
+		},
+		{
+			"name": ".bridge-runner",
+			"path": "../../.bridge-runner"
 		}
 	],
 	"settings": {

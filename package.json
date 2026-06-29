@@ -1,112 +1,114 @@
 {
-  "name": "claude-local-bridge",
-  "displayName": "Claude Local Bridge",
-  "description": "Exposes Claude Code OAuth credentials as a local Anthropic Messages API bridge on localhost:11437",
-  "version": "1.0.0",
-  "publisher": "alankatanoisi",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/alankatanoisi/claude-local-bridge"
-  },
-  "categories": [
-    "Other",
-    "Machine Learning"
-  ],
-  "keywords": [
-    "claude",
-    "anthropic",
-    "llm",
-    "bridge",
-    "proxy",
-    "ai",
-    "api"
-  ],
-  "engines": {
-    "vscode": "^1.85.0"
-  },
-  "activationEvents": [
-    "onStartupFinished"
-  ],
-  "main": "./src/extension.js",
-  "scripts": {
-    "test": "node --require ./test/setup.js --test test/*.test.js test/runner/*.test.js",
-    "lint": "eslint --config eslint.config.cjs src/ test/",
-    "lint:fix": "eslint --config eslint.config.cjs src/ test/ --fix",
-    "format": "prettier --write \"src/**/*.js\" \"test/**/*.js\" \"*.json\" \"*.md\"",
-    "format:check": "prettier --check \"src/**/*.js\" \"test/**/*.js\" \"*.json\" \"*.md\"",
-    "check:docs": "node scripts/check-doc-defaults.js"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.0.0",
-    "eslint": "^9.0.0",
-    "globals": "^15.0.0",
-    "prettier": "^3.0.0"
-  },
-  "contributes": {
-    "configuration": {
-      "title": "Claude Local Bridge",
-      "properties": {
-        "claudeLocalBridge.port": {
-          "type": "number",
-          "default": 11437,
-          "description": "Port for the local HTTP API server"
-        },
-        "claudeLocalBridge.anthropicBaseUrl": {
-          "type": "string",
-          "default": "https://api.anthropic.com",
-          "description": "Anthropic API base URL (override for staging or custom gateway)"
-        },
-        "claudeLocalBridge.defaultModel": {
-          "type": "string",
-          "default": "claude-sonnet-4-5",
-          "description": "Default model to use when none is specified in the request"
-        },
-        "claudeLocalBridge.logRequests": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable verbose request/response logging to the Output channel"
-        },
-        "claudeLocalBridge.traceLevel": {
-          "type": "string",
-          "enum": [
-            "off",
-            "summary",
-            "redacted",
-            "full"
-          ],
-          "default": "off",
-          "description": "Write local bridge flight-recorder traces. full includes prompt and source-code payloads; auth-looking fields stay redacted."
-        },
-        "claudeLocalBridge.requireCallerAuth": {
-          "type": "boolean",
-          "default": false,
-          "description": "Require Authorization: Bearer token on bridge endpoints (except explicit unauthenticated allowlist)"
-        },
-        "claudeLocalBridge.callerAuthToken": {
-          "type": "string",
-          "default": "",
-          "description": "Static caller auth Bearer token for local clients when caller auth is enabled"
-        }
-      }
-    },
-    "commands": [
-      {
-        "command": "claudeLocalBridge.start",
-        "title": "Claude Local Bridge: Start Server"
-      },
-      {
-        "command": "claudeLocalBridge.stop",
-        "title": "Claude Local Bridge: Stop Server"
-      },
-      {
-        "command": "claudeLocalBridge.showStatus",
-        "title": "Claude Local Bridge: Show Status"
-      },
-      {
-        "command": "claudeLocalBridge.showCredentialSource",
-        "title": "Claude Local Bridge: Show Credential Source"
-      }
-    ]
-  }
+     "name": "claude-local-bridge",
+     "displayName": "Claude Local Bridge",
+     "description": "Exposes Claude Code OAuth credentials as a local Anthropic Messages API bridge on localhost:11437",
+     "version": "1.0.0",
+     "publisher": "alankatanoisi",
+     "license": "MIT",
+     "repository": {
+          "type": "git",
+          "url": "https://github.com/alankatanoisi/claude-local-bridge"
+     },
+     "categories": [
+          "Other",
+          "Machine Learning"
+     ],
+     "keywords": [
+          "claude",
+          "anthropic",
+          "llm",
+          "bridge",
+          "proxy",
+          "ai",
+          "api"
+     ],
+     "engines": {
+          "vscode": "^1.85.0"
+     },
+     "activationEvents": [
+          "onStartupFinished"
+     ],
+     "main": "./src/extension.js",
+     "scripts": {
+          "test": "node --require ./test/setup.js --test test/*.test.js test/runner/*.test.js",
+          "lint": "eslint --config eslint.config.cjs src/ test/",
+          "lint:fix": "eslint --config eslint.config.cjs src/ test/ --fix",
+          "format": "prettier --write \"src/**/*.js\" \"test/**/*.js\" \"*.json\" \"*.md\"",
+          "format:check": "prettier --check \"src/**/*.js\" \"test/**/*.js\" \"*.json\" \"*.md\"",
+          "check:docs": "node scripts/check-doc-defaults.js",
+          "test:keploy": "jest --coverage --coverageReporters=text --coverageReporters=cobertura --collectCoverageFrom='./**/*.{js,jsx,ts,tsx}'"
+     },
+     "devDependencies": {
+          "@eslint/js": "^9.0.0",
+          "eslint": "^9.0.0",
+          "globals": "^15.0.0",
+          "jest": "^30.4.2",
+          "prettier": "^3.0.0"
+     },
+     "contributes": {
+          "configuration": {
+               "title": "Claude Local Bridge",
+               "properties": {
+                    "claudeLocalBridge.port": {
+                         "type": "number",
+                         "default": 11437,
+                         "description": "Port for the local HTTP API server"
+                    },
+                    "claudeLocalBridge.anthropicBaseUrl": {
+                         "type": "string",
+                         "default": "https://api.anthropic.com",
+                         "description": "Anthropic API base URL (override for staging or custom gateway)"
+                    },
+                    "claudeLocalBridge.defaultModel": {
+                         "type": "string",
+                         "default": "claude-sonnet-4-5",
+                         "description": "Default model to use when none is specified in the request"
+                    },
+                    "claudeLocalBridge.logRequests": {
+                         "type": "boolean",
+                         "default": false,
+                         "description": "Enable verbose request/response logging to the Output channel"
+                    },
+                    "claudeLocalBridge.traceLevel": {
+                         "type": "string",
+                         "enum": [
+                              "off",
+                              "summary",
+                              "redacted",
+                              "full"
+                         ],
+                         "default": "off",
+                         "description": "Write local bridge flight-recorder traces. full includes prompt and source-code payloads; auth-looking fields stay redacted."
+                    },
+                    "claudeLocalBridge.requireCallerAuth": {
+                         "type": "boolean",
+                         "default": false,
+                         "description": "Require Authorization: Bearer token on bridge endpoints (except explicit unauthenticated allowlist)"
+                    },
+                    "claudeLocalBridge.callerAuthToken": {
+                         "type": "string",
+                         "default": "",
+                         "description": "Static caller auth Bearer token for local clients when caller auth is enabled"
+                    }
+               }
+          },
+          "commands": [
+               {
+                    "command": "claudeLocalBridge.start",
+                    "title": "Claude Local Bridge: Start Server"
+               },
+               {
+                    "command": "claudeLocalBridge.stop",
+                    "title": "Claude Local Bridge: Stop Server"
+               },
+               {
+                    "command": "claudeLocalBridge.showStatus",
+                    "title": "Claude Local Bridge: Show Status"
+               },
+               {
+                    "command": "claudeLocalBridge.showCredentialSource",
+                    "title": "Claude Local Bridge: Show Credential Source"
+               }
+          ]
+     }
 }

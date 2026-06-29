@@ -1,0 +1,152 @@
+{
+  "mgxVersion": 1,
+  "projectName": "claude local bridge",
+  "projectDetail": "",
+  "createdAt": "2026-06-29T11:24:43.410Z",
+  "lastSavedAt": "2026-06-29T11:24:43.410Z",
+  "diagram": {
+    "nodes": [
+      {
+        "id": "claude-local-bridge-playground::/Users/alanman/Developer/claude-local-bridge-playground",
+        "type": "projectNode",
+        "position": {
+          "x": 80,
+          "y": 80
+        },
+        "style": {
+          "width": 260,
+          "height": 80
+        },
+        "data": {
+          "id": "claude-local-bridge-playground::/Users/alanman/Developer/claude-local-bridge-playground",
+          "name": "claude-local-bridge",
+          "type": "Node",
+          "workspaceFolder": "claude-local-bridge-playground",
+          "path": "/Users/alanman/Developer/claude-local-bridge-playground",
+          "color": "#3c873a",
+          "endpoints": []
+        },
+        "width": 260,
+        "height": 80,
+        "selected": false,
+        "dragging": false
+      },
+      {
+        "id": "claude-local-bridge-playground::/Users/alanman/Developer/claude-local-bridge-playground/awesome-claude-code-subagents",
+        "type": "projectNode",
+        "position": {
+          "x": 400,
+          "y": 80
+        },
+        "style": {
+          "width": 260,
+          "height": 80
+        },
+        "data": {
+          "id": "claude-local-bridge-playground::/Users/alanman/Developer/claude-local-bridge-playground/awesome-claude-code-subagents",
+          "name": "awesome-claude-code-subagents",
+          "type": "Documentation",
+          "workspaceFolder": "claude-local-bridge-playground",
+          "path": "/Users/alanman/Developer/claude-local-bridge-playground/awesome-claude-code-subagents",
+          "color": "#f59e0b",
+          "endpoints": []
+        },
+        "width": 260,
+        "height": 80
+      },
+      {
+        "id": "claude-local-bridge-playground::/Users/alanman/Developer/claude-local-bridge-playground/docs",
+        "type": "projectNode",
+        "position": {
+          "x": 720,
+          "y": 80
+        },
+        "style": {
+          "width": 260,
+          "height": 80
+        },
+        "data": {
+          "id": "claude-local-bridge-playground::/Users/alanman/Developer/claude-local-bridge-playground/docs",
+          "name": "docs",
+          "type": "Documentation",
+          "workspaceFolder": "claude-local-bridge-playground",
+          "path": "/Users/alanman/Developer/claude-local-bridge-playground/docs",
+          "color": "#f59e0b",
+          "endpoints": []
+        },
+        "width": 260,
+        "height": 80
+      },
+      {
+        "id": "claude-local-bridge::/Users/alanman/Developer/claude-local-bridge",
+        "type": "projectNode",
+        "position": {
+          "x": 80,
+          "y": 300
+        },
+        "style": {
+          "width": 260,
+          "height": 80
+        },
+        "data": {
+          "id": "claude-local-bridge::/Users/alanman/Developer/claude-local-bridge",
+          "name": "claude-local-bridge",
+          "type": "Node",
+          "workspaceFolder": "claude-local-bridge",
+          "path": "/Users/alanman/Developer/claude-local-bridge",
+          "color": "#3c873a",
+          "endpoints": []
+        },
+        "width": 260,
+        "height": 80
+      },
+      {
+        "id": "claude-local-bridge::/Users/alanman/Developer/claude-local-bridge/docs",
+        "type": "projectNode",
+        "position": {
+          "x": 400,
+          "y": 300
+        },
+        "style": {
+          "width": 260,
+          "height": 80
+        },
+        "data": {
+          "id": "claude-local-bridge::/Users/alanman/Developer/claude-local-bridge/docs",
+          "name": "docs",
+          "type": "Documentation",
+          "workspaceFolder": "claude-local-bridge",
+          "path": "/Users/alanman/Developer/claude-local-bridge/docs",
+          "color": "#f59e0b",
+          "endpoints": []
+        },
+        "width": 260,
+        "height": 80
+      },
+      {
+        "id": ".bridge-runner::/Users/alanman/.bridge-runner/logs",
+        "type": "projectNode",
+        "position": {
+          "x": 720,
+          "y": 300
+        },
+        "style": {
+          "width": 260,
+          "height": 80
+        },
+        "data": {
+          "id": ".bridge-runner::/Users/alanman/.bridge-runner/logs",
+          "name": "logs",
+          "type": "Documentation",
+          "workspaceFolder": ".bridge-runner",
+          "path": "/Users/alanman/.bridge-runner/logs",
+          "color": "#f59e0b",
+          "endpoints": []
+        },
+        "width": 260,
+        "height": 80
+      }
+    ],
+    "edges": []
+  }
+}
