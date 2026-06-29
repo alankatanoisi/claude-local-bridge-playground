@@ -933,6 +933,19 @@
                     </div>
                   </div>
                   <div class="field">
+                    <label for="toolProfile">Capability profile</label>
+                    <select id="toolProfile">
+                      <option value="">(none)</option>
+                      <option value="review-only">review-only</option>
+                      <option value="edit-source-no-shell">edit-source-no-shell</option>
+                      <option value="git-readonly-shell">git-readonly-shell (needs shell)</option>
+                    </select>
+                    <div class="small">
+                      <code>--profile</code> layers per-tool allow/deny over permission flags. Git shell profile still
+                      requires <code>--allow-shell</code>.
+                    </div>
+                  </div>
+                  <div class="field">
                     <label for="maxWallClockMs">Max wall clock (ms)</label>
                     <input type="text" id="maxWallClockMs" placeholder="600000" />
                   </div>
@@ -1181,6 +1194,7 @@
       const reviewMemory = document.getElementById('reviewMemory');
       const agentProfile = document.getElementById('agentProfile');
       const customAgent = document.getElementById('customAgent');
+      const toolProfile = document.getElementById('toolProfile');
       const maxWallClockMs = document.getElementById('maxWallClockMs');
       const maxCostUsd = document.getElementById('maxCostUsd');
       const budgetInputTokens = document.getElementById('budgetInputTokens');
@@ -1372,6 +1386,7 @@
         }
         const agentName = customAgent.value.trim() || agentProfile.value;
         if (agentName) parts.push('--agent ' + shellQuote(agentName));
+        if (toolProfile.value.trim()) parts.push('--profile ' + shellQuote(toolProfile.value.trim()));
         if (maxWallClockMs.value.trim()) parts.push('--max-wall-clock-ms ' + maxWallClockMs.value.trim());
         if (maxCostUsd.value.trim()) parts.push('--max-cost-usd ' + maxCostUsd.value.trim());
         if (budgetInputTokens.value.trim()) parts.push('--budget-input-tokens ' + budgetInputTokens.value.trim());
@@ -1678,6 +1693,7 @@
         reviewMemory,
         agentProfile,
         customAgent,
+        toolProfile,
         maxWallClockMs,
         maxCostUsd,
         budgetInputTokens,

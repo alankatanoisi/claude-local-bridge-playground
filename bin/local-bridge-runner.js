@@ -67,6 +67,8 @@ Options:\n\
   --max-cost-usd <n>    Stop after estimated cost exceeds N USD\n\
   --budget-input-tokens <n>  Hard stop when cumulative input tokens reach N (soft warn at 80%)\n\
   --budget-output-tokens <n> Hard stop when cumulative output tokens reach N (soft warn at 80%)\n\
+  --profile <name|path>  Layer a tool capability profile over permission flags\n\
+  --list-profiles        List built-in and file-based capability profiles and exit\n\
   --agent <name|path>   Runner personality: built-in id, file name, or path to agent .md\n\
   --list-agents         List built-in and file-based runner personalities and exit\n\
   --bare                Minimal context: no instruction docs, repo block, or skills\n\
@@ -163,6 +165,8 @@ async function main() {
         'max-cost-usd': { type: 'string' },
         'budget-input-tokens': { type: 'string' },
         'budget-output-tokens': { type: 'string' },
+        profile: { type: 'string' },
+        'list-profiles': { type: 'boolean' },
         update: { type: 'boolean' },
         agent: { type: 'string' },
         'list-agents': { type: 'boolean' },
@@ -246,6 +250,12 @@ async function main() {
   if (args.values['list-agents']) {
     const { formatAgentList } = require('../src/runner/agents/registry');
     console.log(formatAgentList(path.resolve(args.values.cwd || process.cwd())));
+    process.exit(0);
+  }
+
+  if (args.values['list-profiles']) {
+    const { formatProfileList } = require('../src/runner/tool-profiles');
+    console.log(formatProfileList(path.resolve(args.values.cwd || process.cwd())));
     process.exit(0);
   }
 
@@ -575,6 +585,7 @@ async function main() {
     budgetInputTokens: parseInt(args.values['budget-input-tokens'], 10) || undefined,
     budgetOutputTokens: parseInt(args.values['budget-output-tokens'], 10) || undefined,
     agentProfile: args.values.agent || undefined,
+    toolProfileName: args.values.profile || undefined,
     sessionExtract: !!args.values['session-extract'],
     skipTrustGate: process.env.BRIDGE_RUNNER_TEST === '1' && !args.values['trust-workspace'],
     noArchive: !!args.values['no-archive'],

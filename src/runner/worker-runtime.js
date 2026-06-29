@@ -66,6 +66,7 @@ class WorkerRuntime {
     if (typeof spec.budgetRemaining?.output_tokens === 'number') {
       args.push('--budget-output-tokens', String(spec.budgetRemaining.output_tokens));
     }
+    if (spec.toolProfile) args.push('--profile', spec.toolProfile);
 
     args.push(spec.prompt);
 

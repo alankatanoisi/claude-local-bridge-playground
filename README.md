@@ -389,6 +389,12 @@ stream) and an `expect` snapshot. Paths, timestamps, and secrets are normalized 
 change runner behavior on purpose, run with `--update` and commit the refreshed `expect` blocks together
 with the code change so reviewers can see the regression approval explicitly.
 
+### Tool capability profiles (`--profile`)
+
+Composable per-tool allow/deny profiles layer over permission flags. Built-ins: `review-only`,
+`edit-source-no-shell`, `git-readonly-shell`. Project files: `.bridge-runner/profiles/<name>.json`.
+List with `--list-profiles`.
+
 ### Runner perf parity (prompt cache, file cache, shell)
 
 - **Prompt cache:** Automatic on every model request (system + tools + stable message prefix breakpoints).

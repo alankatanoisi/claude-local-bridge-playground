@@ -30,6 +30,7 @@ const {
   RECOMMENDATIONS,
 } = require('./session-health');
 const { assertForkAllowed, applyProfileToRunOptions } = require('./agents/registry');
+const { applyToolProfileToRunOptions, computeAllowedTools } = require('./tool-profiles');
 const {
   JsonlTrace,
   bodySummary,
@@ -305,6 +306,9 @@ async function run(options) {
   if (options.agentProfile) {
     options = applyProfileToRunOptions(options.agentProfile, options);
   }
+  if (options.toolProfileName) {
+    options = applyToolProfileToRunOptions(options);
+  }
   const contextPolicy = resolveContextPolicy(options);
   options = { ...options, contextPolicy };
 
@@ -362,6 +366,7 @@ async function run(options) {
     appendSystemPromptFile,
     noSessionPersistence,
     testWatch,
+    toolProfile,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
@@ -379,7 +384,9 @@ async function run(options) {
     plan: !!plan,
     noNetwork: !!noNetwork,
     confirmTimeout: typeof confirmTimeout === 'number' && confirmTimeout > 0 ? confirmTimeout : null,
-    allowedTools: exposedToolsList ? new Set(exposedToolsList) : null,
+    _cliToolAllowlist: exposedToolsList ? new Set(exposedToolsList) : null,
+    allowedTools: null,
+    toolProfile: toolProfile || null,
     contextPolicy,
     undoLog: [],
     tasks: [],
@@ -388,6 +395,8 @@ async function run(options) {
     workspaceTrusted: false,
     autoMemory: isAutoMemoryEnabled({ autoMemory }),
   };
+
+  ctx.allowedTools = computeAllowedTools(ctx);
 
   if (!skipTrustGate && process.env.BRIDGE_RUNNER_TEST !== '1') {
     const boot = await runBootstrap({

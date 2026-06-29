@@ -159,6 +159,24 @@ guards. Child agents inherit the parent's **remaining** token budget via CLI fla
 Hard-cap termination stops the loop at the next boundary; it does **not** auto-revert in-flight edits — use recovery
 tools (`undo`, run manifests when available) if a partial run must be rolled back.
 
+## Composable tool capability profiles (`--profile`)
+
+Per-tool profiles layer **over** coarse permission flags (`--accept-edits`, `--allow-shell`). They cannot bypass the
+hard-deny matrix (`.env`, `.ssh/`, path escapes, shell scanner hits) or the `--chaos-ok` interlock.
+
+| Source | Path |
+| ------ | ---- |
+| Built-in | `review-only`, `edit-source-no-shell`, `git-readonly-shell` |
+| Project | `.bridge-runner/profiles/<name>.json` |
+| User | `~/.bridge-runner/profiles/<name>.json` |
+
+Profile JSON supports per-tool `allow`/`deny` and optional constraints (`bash.command_regex`, `write_file.max_bytes`).
+Denied tools are **removed** from the model tool list (not merely blocked at execution). List profiles with
+`--list-profiles`.
+
+**Composition:** `--profile` applies after `--agent` personality defaults; `--tools` intersects with the profile
+exposure set (narrower only).
+
 ## Known limitations
 
 ### 1. No hard outbound network restriction (mitigated)

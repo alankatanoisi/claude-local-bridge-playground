@@ -122,6 +122,7 @@ async function execute(args, ctx) {
       acceptEdits: !!ctx.acceptEdits,
       dontAsk: !!ctx.dontAsk,
       budgetRemaining,
+      toolProfile: ctx.toolProfile?.id || null,
     },
     { allowShell: !!ctx.allowShell },
   );

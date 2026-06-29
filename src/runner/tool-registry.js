@@ -51,6 +51,7 @@
  */
 
 const { TOOLS, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS } = require('./tool-catalog');
+const { isToolVisible } = require('./tool-profiles');
 const permissions = require('./permissions');
 const safety = require('./safety');
 const { normalizeToolResult, resolveToolName } = require('./tool-envelope');
@@ -63,13 +64,7 @@ const REDACTION_NOTICE =
 
 function getDefinitions(ctx) {
   return Object.entries(TOOLS)
-    .filter(([name]) => {
-      if (name === 'bash' && !(ctx && ctx.allowShell)) return false;
-      if (name === 'spawn_agent' && (ctx?.spawnDepth || 0) > 0) return false;
-      if (ctx && ctx.allowedTools) return ctx.allowedTools.has(name);
-      if (DEFAULT_HIDDEN_TOOLS.has(name)) return false;
-      return true;
-    })
+    .filter(([name]) => isToolVisible(name, ctx))
     .map(([, tool]) => tool.definition());
 }
 
