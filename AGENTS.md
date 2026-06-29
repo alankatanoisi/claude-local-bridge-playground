@@ -176,3 +176,29 @@ End every task with:
 - Risks or follow-up work.
 
 Do not claim something is pushed unless `git push` actually succeeded.
+
+## Cursor Cloud specific instructions
+
+This section is for Cloud Agents running in a headless Linux VM (not Alan's Mac). Dependencies
+(`npm install`) are already refreshed on startup, so do not repeat install steps here.
+
+- This is a pure Node.js project (Node 22 in the VM). Standard checks already documented above work
+  as-is: `npm run lint`, `npm run check:docs`, and `npm test`.
+- `npm run format:check` reports pre-existing Prettier style warnings on `package.json` and
+  `package-lock.json`. That failure is unrelated to your changes; do not reformat those files just to
+  make it pass unless the task is about formatting.
+- `npm test` has one environment-dependent failure on Linux: the bash-tool test
+  `reports signal when process is killed` (`test/runner/bash.test.js`). On this VM a `bash -c` wrapper
+  reports SIGABRT as exit code 134 instead of surfacing `killed by signal`, so the assertion fails.
+  All other 478 tests pass. Treat this single failure as a known platform difference, not a regression.
+- The **bridge** (`src/server.js`) is a VS Code extension (`require('vscode')`) and cannot be started
+  standalone outside VS Code. Live model calls also need real Claude Code OAuth credentials, which are
+  not present in the cloud VM, so a true end-to-end run against `api.anthropic.com` is not possible here.
+- To exercise the **runner** agent loop end-to-end without OAuth, point it at a local mock that speaks
+  the Anthropic Messages format via `--bridge-url http://127.0.0.1:<port>/v1/messages`. The runner
+  buffers full JSON responses by default (`modelClient.post`), expecting `content`, `stop_reason`, and
+  `usage`; return a `tool_use` block (e.g. `list_files`) on the first turn and a final `text` block on
+  the next. This runs the real loop and real local tool execution against `--cwd`.
+- In non-interactive/headless mode the runner requires `--trust-workspace` (otherwise it stops with
+  `workspace_not_trusted`). Add `--allow-shell` / `--accept-edits` / `--dont-ask` only when the task
+  needs them, consistent with the runner safety rules above.
