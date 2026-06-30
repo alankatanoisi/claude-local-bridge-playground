@@ -1039,9 +1039,11 @@
                   >
                 </h2>
                 <p style="font-size: 0.78rem; color: var(--muted); margin-bottom: 0.6rem">
-                  The runner defaults to read, write, and recovery tools. Shell is hidden until
-                  <code>--allow-shell</code>. <code>apply_patch</code> is advanced patch mode and is hidden unless you
-                  opt in here.
+                  These 16 boxes are the runner's default-visible tools (read, session, clarification, orchestration,
+                  worktree, skills, write, recovery) — leaving them as-is emits no <code>--tools</code> flag, so the
+                  runner exposes exactly this set. <code>bash</code> + <code>manage_shell_jobs</code> appear only with
+                  <code>--allow-shell</code>; <code>lsp_query</code> only with <code>--enable-lsp</code>;
+                  <code>apply_patch</code> is advanced patch mode, opt-in here.
                 </p>
                 <div class="checks" id="toolChoices">
                   <div class="capability-group">Read</div>
@@ -1074,25 +1076,29 @@
                     <input type="checkbox" value="manage_tasks" checked />
                     <span><strong>manage_tasks</strong><small>In-session task checklist</small></span>
                   </label>
+                  <label class="check-label tool-choice">
+                    <input type="checkbox" value="ask_user_question" checked />
+                    <span><strong>ask_user_question</strong><small>Structured multiple-choice questions (TTY-only)</small></span>
+                  </label>
                   <div class="capability-group">Orchestration</div>
                   <label class="check-label tool-choice">
                     <input type="checkbox" value="spawn_agent" checked />
                     <span><strong>spawn_agent</strong><small>Delegate to a child agent (top-level only)</small></span>
                   </label>
                   <label class="check-label tool-choice">
-                    <input type="checkbox" value="enter_worktree" />
+                    <input type="checkbox" value="enter_worktree" checked />
                     <span><strong>enter_worktree</strong><small>Isolate edits on a git worktree branch</small></span>
                   </label>
                   <label class="check-label tool-choice">
-                    <input type="checkbox" value="exit_worktree" />
+                    <input type="checkbox" value="exit_worktree" checked />
                     <span><strong>exit_worktree</strong><small>Leave worktree, optionally clean up</small></span>
                   </label>
                   <label class="check-label tool-choice">
-                    <input type="checkbox" value="list_worktrees" />
+                    <input type="checkbox" value="list_worktrees" checked />
                     <span><strong>list_worktrees</strong><small>List active slots and orphan worktree dirs</small></span>
                   </label>
                   <label class="check-label tool-choice">
-                    <input type="checkbox" value="run_skill" />
+                    <input type="checkbox" value="run_skill" checked />
                     <span><strong>run_skill</strong><small>Load a skill document body by name</small></span>
                   </label>
                   <div class="capability-group">Write</div>
@@ -1313,6 +1319,10 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
 
       const PLAYGROUND = '/Users/alanman/Developer/claude-local-bridge-playground';
       const READ_TOOL_NAMES = ['list_files', 'read_file', 'search_text', 'glob', 'git_status'];
+      // Must mirror the runner's default-visible set (no flags, no profile): the
+      // 16 tools that isToolVisible() exposes when --allow-shell / --enable-lsp
+      // are off. Keeping this exact is what makes "no --tools emitted" in the
+      // generated command match what the runner actually exposes.
       const DEFAULT_TOOL_NAMES = [
         'list_files',
         'read_file',
@@ -1320,7 +1330,10 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         'glob',
         'git_status',
         'manage_tasks',
+        'ask_user_question',
         'spawn_agent',
+        'enter_worktree',
+        'exit_worktree',
         'list_worktrees',
         'run_skill',
         'edit_file',

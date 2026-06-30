@@ -495,6 +495,14 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             </p>
           </div>
           <div class="tool-card">
+            <h4>ask_user_question</h4>
+            <p>
+              Ask a structured multiple-choice question before making an assumption. Interactive in a real terminal
+              only — in non-interactive shells, coordinator workers, or with <code>--dont-ask</code> it
+              <strong>fails closed</strong> (returns a safe no-op) so a headless run never hangs waiting for input.
+            </p>
+          </div>
+          <div class="tool-card">
             <h4>spawn_agent</h4>
             <p>
               Delegate a focused subtask to a child agent with its own context. Uses built-in or file agents via

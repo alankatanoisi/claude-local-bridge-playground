@@ -172,7 +172,10 @@ to `TaskCreate`/`TaskList`/`TaskUpdate`; a minimal checklist tool is enough for 
 
 **Risk:** Low — no new permission surface beyond allowing the tool.
 
-### 4.3 `ask_user_question` — structured clarification
+### 4.3 `ask_user_question` — structured clarification — shipped
+
+**Status:** Implemented in `src/runner/tools/ask-user-question.js` (read-only, default visible). TTY-only; fails closed in
+non-interactive shells, `--dont-ask`, and coordinator workers.
 
 **Why:** Reduces wrong assumptions before writes. Claude Code's `AskUserQuestion` is permission-free but interactive.
 
@@ -181,7 +184,10 @@ coordinator-worker contexts: return a safe no-op or auto-deny message (workers a
 
 **Risk:** Low if TTY-gated; medium if mis-wired in CI (must fail closed).
 
-### 4.4 `read_file` paging polish
+### 4.4 `read_file` paging polish — shipped
+
+**Status:** Implemented. `read_file` supports `offset`/`limit` line windows with clear PARTIAL-view footers and "read
+more" hints, plus a hard byte cap.
 
 **Why:** Large files need PARTIAL-view ergonomics like Claude Code Read (offset/limit, clear "read more" hints).
 
@@ -282,42 +288,50 @@ git worktree on a fresh `bridge-runner/` branch under `~/.bridge-runner/worktree
 all tools operate inside the worktree until exit. Permission category `worktree` (ask by default).
 `cleanup=false` by default to preserve work.
 
-**Not yet:** parallel worktree orchestration (multiple worktrees at once), automatic cleanup on session end.
+**Now shipped (slice 3+):** parallel worktree **slots** — multiple named worktrees per run via the `slot` parameter,
+plus `list_worktrees` to enumerate active slots and orphan dirs. Automatic cleanup on session end is still manual.
 
 **Why:** Real safety win — risky edits in an isolated worktree/branch without touching main checkout.
 
 **Effort:** Medium. Requires git presence, cleanup on session end, clear UX when worktree already active.
 
-### 5.4 Background bash + output polling
+### 5.4 Background bash + output polling — shipped
+
+**Status:** Implemented as `manage_shell_jobs` (`src/runner/tools/manage-shell-jobs.js`, category `shell`). Start/list/
+poll/kill background commands, capped at 8 jobs per run. Gated behind `--allow-shell`; same shell-policy scanner as
+`bash`. Builds on `subprocess-pool.js`.
 
 **Why:** Dev servers, watch builds, long tests. Claude Code uses `run_in_background` + task list.
 
-**Build on:** `persistent-shell.js`, `subprocess-pool.js`.
+### 5.5 `skill` execution tool — shipped
 
-**Gating:** Still `--allow-shell`. Add kill/list tools or extend `bash` schema.
-
-**Effort:** Medium.
-
-### 5.5 `skill` execution tool
+**Status:** Implemented as `run_skill` (`src/runner/tools/run-skill.js`, read-only). Resolves a skill Markdown body by
+name from `.bridge-runner/skills/` or `.cursor/skills/` and returns its text. Read-only by design: it does **not**
+execute shell or network instructions embedded in the skill.
 
 **Why:** Runner already lists skills (`--include-skills`); execution closes the loop.
 
-**Effort:** Medium — resolve skill paths, respect workspace trust, cap output size.
+### 5.6 `LSP` code intelligence — shipped
 
-### 5.6 `LSP` code intelligence
+**Status:** Implemented as `lsp_query` (`src/runner/tools/lsp-query.js`; lifecycle in `src/runner/lsp/`). Actions:
+definition, references, hover, diagnostics. Opt-in via `--enable-lsp` (hidden from the model tool list otherwise);
+spawns a local language server over stdio (`typescript-language-server`, `pyright-langserver`, …) when on PATH;
+sessions are cached per run and disposed at run end.
 
 **Why:** Jump-to-def, references, diagnostics after edits.
 
-**Effort:** High; needs language-server lifecycle management. Defer unless a concrete language need appears.
+### 5.7 Richer `Read` (images, PDF) — shipped
 
-### 5.7 Richer `Read` (images, PDF)
+**Status:** Implemented in `src/runner/media-read.js` + `read_file`. Auto-detects `.png/.jpg/.jpeg/.gif/.webp` and `.pdf`
+and returns multimodal `image`/`document` content blocks to the model. Logs, transcripts, and traces keep text
+summaries only (no base64). Caps: 7MB images, 10MB PDFs.
 
 **Why:** Multimodal debugging, screenshot review.
 
-**Effort:** Medium–high — depends on whether bridge `/v1/messages` accepts image/PDF content blocks with OAuth route.
-Investigate before building.
+### 5.8 Golden-transcript replay harness — shipped
 
-### 5.8 Golden-transcript replay harness
+**Status:** Implemented in `src/runner/golden-eval.js` with cases under `test/runner/golden/` and the
+`runner eval` CLI subcommand. Replays pinned model output through a fake client and diffs runner-side behavior.
 
 **Category:** Evals · **Effort:** Medium · **Source:** [extensions §1](./runner-expansion-roadmap-extensions.html#dir-1)
 
@@ -338,22 +352,14 @@ paths and need this safety net.
 **Decisions to make:** what counts as "behavior" (exit code vs full sequence vs trace bytes); path/timestamp portability;
 secret redaction in goldens.
 
-### 5.9 Budget telemetry and token caps
+### 5.9 Budget telemetry and token caps — shipped
 
 **Category:** Operations · **Effort:** Medium · **Source:** [extensions §3](./runner-expansion-roadmap-extensions.html#dir-3)
 
-**Already shipped:** `--max-wall-clock-ms` and `--max-cost-usd` are enforced in `src/runner/run.js` (hard stops at loop
-boundaries). Do not rebuild these.
-
-**Still missing:**
-
-- `--budget-input-tokens N` / `--budget-output-tokens N` — soft caps emit structured warnings; hard caps end cleanly
-- Live trace event: `{ type: "budget", input_tokens, output_tokens, wall_ms, spawns, depth }` at tool boundaries
-- Child agents from `spawn_agent` inherit parent's remaining budget by default; optional sub-budget carve-out later
-- Command-builder **budget** panel in Permissions section
-
-**Decisions to make:** authoritative token count (API vs local estimate); how to surface soft-cap warnings to the model;
-whether hard-cap termination unwinds in-flight edits.
+**Status:** Implemented in `src/runner/budget-tracker.js`. `--budget-input-tokens` / `--budget-output-tokens` enforce
+hard caps (soft warning at 80%); a `{ type: "budget", input_tokens, output_tokens, wall_ms, spawns, depth }` trace event
+is emitted at tool boundaries; `spawn_agent` children inherit the parent's remaining budget; the command-builder has a
+budget panel. (`--max-wall-clock-ms` / `--max-cost-usd` were already enforced in `run.js`.)
 
 ---
 
@@ -361,7 +367,14 @@ whether hard-cap termination unwinds in-flight edits.
 
 These need the eval harness (§5.8) in place first.
 
-### 6.1 Composable tool capability profiles
+### 6.1 Composable tool capability profiles — shipped
+
+**Status:** Implemented in `src/runner/tool-profiles.js`. `--profile <name|path>` layers per-tool allow/deny + arg
+constraints (e.g. `bash` command regex, `write_file` size cap) over the permission flags; `--list-profiles` enumerates
+built-ins (`review-only`, `edit-source-no-shell`, `git-readonly-shell`) and file profiles under `.bridge-runner/profiles/`.
+Profiles cannot bypass the shell/LSP gates (`isBaseEligible` runs first), the `--chaos-ok` interlock, or the hard-deny
+matrix. **Open follow-up:** the profile branch treats unlisted tools as allow-by-omission, so a user profile that omits
+`apply_patch` would expose it (built-ins explicitly deny it) — see the decision note below.
 
 **Category:** Safety · **Effort:** Large · **Source:** [extensions §4](./runner-expansion-roadmap-extensions.html#dir-4)
 
@@ -499,7 +512,7 @@ build, and what belongs to the hosted Claude Code product (not this OAuth lab).
 | Learning                    | Explanatory/Learning output styles               | **Docs/presets**                  | `--append-system-prompt`, custom templates                         |
 | CLAUDE.md & memory          | Team `CLAUDE.md`, auto-memory, notes dirs        | **Have** / Docs                   | `--include-instruction-docs`, `--auto-memory`                      |
 | Commands, skills, subagents | Skills, `.claude/agents/`, code-review agents    | **Partial** → **Phase 2**         | `--agent`, coordinator; skill _execution_ missing                  |
-| Hooks                       | PostToolUse format, Stop checks, PostCompact     | **Partial** → **Phase 2**         | Events exist; dispatcher is log-only today                         |
+| Hooks                       | PostToolUse format, Stop checks, PostCompact     | **Shipped** (exec hooks)          | `session_start`/`pre_tool`/`post_tool`/`session_end` exec on trusted workspaces |
 | Permissions & safety        | `Bash(npm run *)` allowlists, auto mode, sandbox | **Partial** → **Phase 2** / Defer | Category permissions; no OS sandbox                                |
 | Scheduled tasks             | `/loop`, `/schedule`                             | **Out of scope**                  | Cloud/local scheduling is Claude Code product                      |
 | Mobile & remote             | Teleport, remote control, iMessage               | **Out of scope**                  | claude.ai / mobile app                                             |
@@ -575,8 +588,10 @@ These patterns need **prompt templates and command-builder presets**, not new to
 
 ### Hooks — largest gap vs power-user guide
 
-Claude Code hooks run **shell commands** at lifecycle points (e.g. PostToolUse auto-format). The runner dispatches hook
-**events** but `hook-dispatcher.js` currently records matches with `action: 'log'` only — it does not execute commands.
+Claude Code hooks run **shell commands** at lifecycle points (e.g. PostToolUse auto-format). **Shipped:** the runner now
+supports executable hooks — `.bridge-runner/hooks.json` entries with `"action": "exec"` (or `"run"`) run a trusted shell
+command at `session_start` / `pre_tool` / `post_tool` / `session_end`, gated behind workspace trust + `"trusted": true`
+and scanned by the same shell policy as `bash`. Hooks without `exec` still record `action: 'log'` only.
 
 | Hook event (article)                          | Runner event                         | Adoption                                                 |
 | --------------------------------------------- | ------------------------------------ | -------------------------------------------------------- |
@@ -666,17 +681,21 @@ Before any non-read-only or non-self-hosted CI use:
 
 ## 13. Recommended next step
 
-**Sequencing** (from [extensions companion](./runner-expansion-roadmap-extensions.html#summary)):
+**Status:** Phases 1–3 of this roadmap are now implemented and merged to `main`. The remaining open items are the
+deferred network surface (§7) and a few follow-ups noted below.
 
-1. **Phase 1 next:** `read_file` paging (§4.4), then `ask_user_question` (§4.3) — `cc undo last-run` (§4.5) and the
-   prompt-template registry (§4.6) are shipped.
-2. **Phase 2 next:** golden-transcript replay harness (§5.8) **before** budget telemetry (§5.9) or capability profiles
-   (§6.1) — safety net for permission/runtime refactors.
-3. **Phase 2 follow-ups:** parallel worktree orchestration, background bash + polling, executable hooks, `skill` execution.
-4. **Keep network tools off the table** until egress policy is designed and documented (§7).
+**Remaining / follow-ups:**
 
-**Shipped:** file-based agent loader (slice 1); model-callable `spawn_agent` (slice 2); git worktree isolation (slice 3);
-read-only GitHub Actions POC (§12); `cc undo last-run` recovery workflow (§4.5); prompt-template registry (§4.6).
+1. **Capability-profile semantics (§6.1):** decide whether unlisted tools in a profile are allow-by-omission (current) or
+   deny-by-omission for default-hidden tools like `apply_patch`.
+2. **Worktree lifecycle:** automatic cleanup of worktree slots on session end (slots + `list_worktrees` are shipped).
+3. **Keep network tools off the table** until egress policy is designed and documented (§7).
+
+**Shipped:** file-based agent loader (§5.0); `spawn_agent` (§5.1); git worktree isolation + parallel slots (§5.3/§5.2);
+read-only GitHub Actions POC (§12); `cc undo last-run` recovery (§4.5); prompt-template registry (§4.6); `read_file`
+paging (§4.4); `ask_user_question` (§4.3); background shell jobs (§5.4); `run_skill` (§5.5); `lsp_query` (§5.6);
+multimodal `read_file` (§5.7); golden-transcript eval (§5.8); budget telemetry + token caps (§5.9); capability
+profiles (§6.1); executable hooks (§11).
 
 When implementation starts, update `README.md`, `docs/threat-model.md` (if safety surface changes), and
 `docs/command-builder.html` in the same change set as the runner code.
