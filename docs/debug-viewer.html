@@ -1,0 +1,674 @@
+<!doctype html>
+<!--
+  debug-viewer.html — JSON5-aware side-panel viewer for the local bridge
+  `/v1/debug` annotated file (`debug output`).
+
+  How to use:
+    1. Open this file in a browser (double-click, or `open docs/debug-viewer.html`).
+    2. Drag the `debug output` file from the repo onto the page (or click
+       "Choose file" in the drop zone).
+    3. The left pane shows the parsed JSON tree. Click a key/leaf to see
+       the matching `//` comment block on the right.
+
+  No network, no build step, no dependencies. Everything is one self-
+  contained HTML file so it works offline.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Local Bridge Debug — JSON5 Viewer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      /* --- design tokens (dark only) --------------------------------- */
+      :root {
+        --bg: #0f1115;          /* page background                          */
+        --panel: #161a22;       /* pane background                          */
+        --border: #232a36;      /* 1px dividers                             */
+        --text: #d6dde9;        /* default text                             */
+        --muted: #8b95a7;       /* secondary text                           */
+        --accent: #4ea1ff;      /* links, active row, focus                 */
+        --key: #f5a97f;         /* JSON keys (orange)                       */
+        --string: #9ad08f;      /* JSON string values (green)               */
+        --number: #d2a8ff;      /* JSON number values (purple)              */
+        --literal: #f08d49;     /* true / false / null (orange)             */
+        --comment: #6b7384;     /* `//` comment text                        */
+        --hl: #1f2a3a;          /* row highlight                            */
+        --warn: #ffb86b;        /* warnings (no comment found)              */
+        --err: #ff6b6b;         /* errors                                   */
+      }
+
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      /* --- top bar --------------------------------------------------- */
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+      }
+      header h1 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--muted);
+      }
+      header .hint {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      /* --- main two-pane layout ------------------------------------- */
+      main {
+        display: grid;
+        grid-template-columns: minmax(280px, 38%) 1fr;
+        height: calc(100vh - 43px); /* subtract header height */
+      }
+      @media (max-width: 720px) {
+        main { grid-template-columns: 1fr; height: auto; }
+        #tree-pane, #detail-pane { max-height: 50vh; }
+      }
+
+      .pane {
+        background: var(--panel);
+        overflow: auto;
+        padding: 12px 16px;
+      }
+      #tree-pane { border-right: 1px solid var(--border); }
+      #detail-pane { white-space: pre-wrap; word-break: break-word; }
+
+      /* --- drop zone (shown until a file is loaded) ----------------- */
+      #drop-zone {
+        margin: 24px;
+        border: 2px dashed var(--border);
+        border-radius: 8px;
+        padding: 40px 20px;
+        text-align: center;
+        color: var(--muted);
+      }
+      #drop-zone.drag-over {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: rgba(78, 161, 255, 0.05);
+      }
+      #drop-zone input[type=file] { display: none; }
+      #drop-zone label {
+        display: inline-block;
+        margin-top: 12px;
+        padding: 6px 12px;
+        background: var(--accent);
+        color: #001226;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      /* --- JSON tree ------------------------------------------------ */
+      ul.tree { list-style: none; padding-left: 16px; margin: 0; }
+      ul.tree, ul.tree ul { border-left: 1px dotted var(--border); }
+      li.node { padding: 1px 0; }
+      .row {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .row:hover { background: var(--hl); }
+      .row.active { background: var(--hl); outline: 1px solid var(--accent); }
+      .twisty {
+        display: inline-block;
+        width: 12px;
+        color: var(--muted);
+        text-align: center;
+      }
+      .key { color: var(--key); }
+      .col { color: var(--muted); }
+      .val-string { color: var(--string); }
+      .val-number { color: var(--number); }
+      .val-literal { color: var(--literal); font-style: italic; }
+      .val-missing { color: var(--err); }
+      .meta {
+        color: var(--muted);
+        font-size: 11px;
+        margin-left: 6px;
+      }
+
+      /* --- detail pane ---------------------------------------------- */
+      .detail-empty {
+        color: var(--muted);
+        font-style: italic;
+      }
+      .detail-key {
+        color: var(--key);
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .detail-path {
+        color: var(--muted);
+        font-size: 11px;
+        margin-bottom: 12px;
+      }
+      .detail-raw {
+        color: var(--muted);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 8px 10px;
+        margin: 8px 0 14px 0;
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .detail-comment {
+        color: var(--comment);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--accent);
+        border-radius: 4px;
+        padding: 10px 12px;
+        margin-top: 8px;
+      }
+      .detail-comment.empty {
+        color: var(--warn);
+        border-left-color: var(--warn);
+      }
+      .detail-comment .label {
+        color: var(--muted);
+        font-size: 11px;
+        margin-bottom: 6px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .err-banner {
+        margin: 12px 16px;
+        padding: 10px 12px;
+        background: rgba(255, 107, 107, 0.1);
+        border: 1px solid var(--err);
+        color: var(--err);
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>local bridge /v1/debug — JSON5 viewer</h1>
+      <span class="hint" id="status">drop the <code>debug output</code> file anywhere to begin</span>
+    </header>
+
+    <main>
+      <section id="tree-pane" class="pane" aria-label="JSON tree">
+        <div id="drop-zone">
+          <div><strong>Drop the annotated <code>debug output</code> file here</strong></div>
+          <div style="margin-top: 6px;">or</div>
+          <label for="file-input">Choose file…</label>
+          <input id="file-input" type="file" accept=".txt,application/json,text/plain" />
+        </div>
+        <ul id="tree" class="tree" hidden></ul>
+      </section>
+
+      <section id="detail-pane" class="pane" aria-label="Key detail">
+        <p class="detail-empty">Click a key in the left pane to see its `//` comment block here.</p>
+      </section>
+    </main>
+
+    <script>
+      // ============================================================
+      // 1. tiny JSON5 (// comments) parser
+      // ------------------------------------------------------------
+      // Strips out `// ...` line comments and `/* ... */` block
+      // comments, then hands the rest to the native JSON.parse. This
+      // is intentionally minimal — it covers exactly what the local
+      // bridge debug output uses (line comments above each key).
+      // ============================================================
+      function stripJson5(text) {
+        // Walk character by character, tracking whether we're inside a
+        // string. Strings preserve `//` and `/*` so values like
+        // "https://api.anthropic.com" don't get mangled.
+        let out = '';
+        let i = 0;
+        const n = text.length;
+        while (i < n) {
+          const c = text[i];
+          const n1 = text[i + 1];
+          // inside a string? copy until matching closing quote, with
+          // backslash-escape handling.
+          if (c === '"') {
+            out += c;
+            i++;
+            while (i < n) {
+              const cc = text[i];
+              out += cc;
+              if (cc === '\\' && i + 1 < n) {
+                out += text[i + 1];
+                i += 2;
+                continue;
+              }
+              if (cc === '"') { i++; break; }
+              i++;
+            }
+            continue;
+          }
+          // line comment outside a string: drop until newline
+          if (c === '/' && n1 === '/') {
+            while (i < n && text[i] !== '\n') i++;
+            continue;
+          }
+          // block comment outside a string: drop until */
+          if (c === '/' && n1 === '*') {
+            i += 2;
+            while (i < n && !(text[i] === '*' && text[i + 1] === '/')) i++;
+            i += 2;
+            continue;
+          }
+          out += c;
+          i++;
+        }
+        return out;
+      }
+
+      // ============================================================
+      // 2. comment harvesting
+      // ------------------------------------------------------------
+      // Walks the ORIGINAL text (not the stripped JSON) and records
+      // every run of `//` comments that immediately precedes a JSON
+      // key. The result is a map: JSON Pointer path → comment string.
+      //
+      // We use the stripped JSON to locate keys by character offset,
+      // because stripping preserves column positions.
+      // ============================================================
+      function indexComments(rawText) {
+        const stripped = stripJson5(rawText);
+        // For each line in the original, classify it as: comment,
+        // code, or blank. Adjacent comment lines form a block.
+        const lines = rawText.split('\n');
+        const lineClasses = lines.map((line) => {
+          const trimmed = line.trim();
+          if (trimmed === '') return 'blank';
+          if (trimmed.startsWith('//')) return 'comment';
+          return 'code';
+        });
+
+        // For each code line that contains a JSON key, find the
+        // largest run of contiguous comment lines immediately above
+        // it and record that as the comment for that key.
+        //
+        // A "JSON key" line looks like:
+        //   "key": value,
+        //   "key": { ... },
+        // We match `"<word>"` followed (after optional whitespace
+        // and a colon) by anything.
+        const keyLineRegex = /^\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*:/;
+        const commentsByPath = {};
+        const commentBlocksByLine = []; // lineIndex -> first comment line of block (or -1)
+        const blockStart = []; // for each comment line: the first line of its block (or -1)
+
+        // First pass: group adjacent comment lines into blocks
+        let currentBlockStart = -1;
+        for (let i = 0; i < lineClasses.length; i++) {
+          if (lineClasses[i] === 'comment') {
+            if (currentBlockStart === -1) currentBlockStart = i;
+            blockStart[i] = currentBlockStart;
+          } else {
+            if (lineClasses[i] === 'blank' && currentBlockStart !== -1) {
+              // blank line ends a block unless the next non-blank
+              // is also a comment; handle that lazily by leaving
+              // currentBlockStart set and re-checking.
+                // For simplicity, we end the block here and let a
+                // new block start if comments resume.
+                currentBlockStart = -1;
+            } else if (lineClasses[i] === 'code') {
+              currentBlockStart = -1;
+            }
+            blockStart[i] = -1;
+          }
+        }
+
+        // Second pass: for each code line with a key, the comment
+        // block is the run of comment lines immediately above it
+        // (with no blank line in between).
+        function commentBlockFor(lineIndex) {
+          const out = [];
+          let i = lineIndex - 1;
+          while (i >= 0 && lineClasses[i] === 'comment') {
+            out.push(lines[i]);
+            i--;
+          }
+          return out.reverse();
+        }
+
+        // Build a map from "key (with surrounding context)" -> path.
+        // We do this by walking the parsed JSON, tracking the
+        // current JSON Pointer path, and finding the matching line
+        // in the original text for each leaf/key line.
+        // For our purposes, a simpler approach works: the
+        // annotated file has exactly one `//` comment block per
+        // top-level key (and per `callerAuth` sub-key), and those
+        // blocks are aligned one-per-key. We record the comment
+        // for the key written on each code line.
+        for (let i = 0; i < lines.length; i++) {
+          if (lineClasses[i] !== 'code') continue;
+          const m = lines[i].match(keyLineRegex);
+          if (!m) continue;
+          const key = m[1];
+          const block = commentBlockFor(i);
+          if (block.length === 0) continue;
+          const text = block
+            .map((l) => l.replace(/^\s*\/\/\s?/, ''))
+            .join('\n')
+            .trim();
+          // Heuristic: if a block has already been recorded for
+          // this key at a shallower indent level, prefer the
+          // earlier one. Otherwise, keep the most recent.
+          if (text) {
+            commentsByPath[key] = commentsByPath[key] || text;
+            // Track per-line index so the detail pane can offer
+            // "view in source" later if we want it.
+            commentsByPath[key + '::line' + i] = text;
+          }
+        }
+
+        return { commentsByPath, lineClasses, lines };
+      }
+
+      // ============================================================
+      // 3. tree rendering
+      // ------------------------------------------------------------
+      // Walks the parsed JSON and emits a nested <ul>/<li> tree.
+      // Each .row element stores a data-key attribute so the click
+      // handler can look up the matching comment.
+      // ============================================================
+      function renderTree(node, container, path = []) {
+        const ul = document.createElement('ul');
+        ul.className = 'tree';
+        if (path.length === 0) {
+          // root: don't indent
+          ul.style.paddingLeft = '0';
+        }
+
+        if (Array.isArray(node)) {
+          node.forEach((v, i) => addNode(v, `[${i}]`, container, [...path, i]));
+        } else if (node && typeof node === 'object') {
+          Object.keys(node).forEach((k) => addNode(node[k], k, container, [...path, k]));
+        }
+
+        if (path.length === 0) {
+          container.appendChild(ul);
+        }
+      }
+
+      function addNode(value, key, container, path) {
+        const li = document.createElement('li');
+        li.className = 'node';
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.dataset.path = path.join('.');
+        row.dataset.key = key;
+
+        const isContainer = value !== null && typeof value === 'object';
+        const twisty = document.createElement('span');
+        twisty.className = 'twisty';
+        twisty.textContent = isContainer ? '▾' : '·';
+        row.appendChild(twisty);
+
+        const keySpan = document.createElement('span');
+        keySpan.className = 'key';
+        keySpan.textContent = `"${key}"`;
+        row.appendChild(keySpan);
+
+        const colon = document.createElement('span');
+        colon.className = 'col';
+        colon.textContent = ':';
+        row.appendChild(colon);
+
+        const valSpan = document.createElement('span');
+        if (isContainer) {
+          valSpan.className = 'col';
+          valSpan.textContent = Array.isArray(value) ? `Array(${value.length})` : 'Object';
+        } else {
+          valSpan.className = valueClass(value);
+          valSpan.textContent = formatValue(value);
+        }
+        row.appendChild(valSpan);
+
+        row.addEventListener('click', () => {
+          document
+            .querySelectorAll('.row.active')
+            .forEach((el) => el.classList.remove('active'));
+          row.classList.add('active');
+          showDetail(path, key, value);
+        });
+
+        li.appendChild(row);
+
+        if (isContainer) {
+          const childUl = document.createElement('ul');
+          childUl.className = 'tree';
+          if (Array.isArray(value)) {
+            value.forEach((v, i) => {
+              const childLi = document.createElement('li');
+              childLi.className = 'node';
+              const childRow = document.createElement('div');
+              childRow.className = 'row';
+              childRow.dataset.path = [...path, i].join('.');
+              childRow.dataset.key = String(i);
+              childRow.innerHTML = `<span class="twisty">·</span><span class="key">"[${i}]"</span><span class="col">:</span> <span class="${valueClass(v)}">${escapeHtml(formatValue(v))}</span>`;
+              childRow.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document
+                  .querySelectorAll('.row.active')
+                  .forEach((el) => el.classList.remove('active'));
+                childRow.classList.add('active');
+                showDetail([...path, i], `[${i}]`, v);
+              });
+              childLi.appendChild(childRow);
+              childUl.appendChild(childLi);
+            });
+          } else {
+            Object.keys(value).forEach((k) => {
+              const childLi = document.createElement('li');
+              childLi.className = 'node';
+              const childRow = document.createElement('div');
+              childRow.className = 'row';
+              childRow.dataset.path = [...path, k].join('.');
+              childRow.dataset.key = k;
+              const v = value[k];
+              const isC = v !== null && typeof v === 'object';
+              childRow.innerHTML = `<span class="twisty">${isC ? '▾' : '·'}</span><span class="key">"${escapeHtml(k)}"</span><span class="col">:</span> <span class="${valueClass(v)}">${escapeHtml(formatValue(v))}</span>`;
+              childRow.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document
+                  .querySelectorAll('.row.active')
+                  .forEach((el) => el.classList.remove('active'));
+                childRow.classList.add('active');
+                showDetail([...path, k], k, v);
+              });
+              childLi.appendChild(childRow);
+              childUl.appendChild(childLi);
+            });
+          }
+          li.appendChild(childUl);
+        }
+
+        document.getElementById('tree').appendChild(li);
+      }
+
+      function valueClass(v) {
+        if (v === null) return 'val-literal';
+        if (typeof v === 'string') return 'val-string';
+        if (typeof v === 'number') return 'val-number';
+        if (typeof v === 'boolean') return 'val-literal';
+        return 'col';
+      }
+      function formatValue(v) {
+        if (v === null) return 'null';
+        if (typeof v === 'string') {
+          const s = JSON.stringify(v);
+          return s.length > 60 ? s.slice(0, 57) + '…"' : s;
+        }
+        if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+        return String(v);
+      }
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      // ============================================================
+      // 4. detail pane
+      // ============================================================
+      function showDetail(path, key, value) {
+        const pane = document.getElementById('detail-pane');
+        const comments = window.__comments || {};
+        // Path-aware lookup: try full dotted path, then last segment.
+        const pathKey = path.join('.');
+        const text =
+          comments[pathKey] ||
+          comments[path[path.length - 1]] ||
+          '';
+        const isContainer = value !== null && typeof value === 'object';
+
+        pane.innerHTML = '';
+
+        const h = document.createElement('div');
+        h.className = 'detail-key';
+        h.textContent = key;
+        pane.appendChild(h);
+
+        const p = document.createElement('div');
+        p.className = 'detail-path';
+        p.textContent = path.length > 0 ? `path: ${path.join(' › ')}` : '(root)';
+        pane.appendChild(p);
+
+        const raw = document.createElement('div');
+        raw.className = 'detail-raw';
+        raw.textContent = isContainer
+          ? JSON.stringify(value, null, 2)
+          : `${JSON.stringify(value)}   (${typeof value})`;
+        pane.appendChild(raw);
+
+        const label = document.createElement('div');
+        label.className = 'label';
+        label.textContent = '// comment block';
+        pane.appendChild(label);
+
+        const block = document.createElement('div');
+        if (text) {
+          block.className = 'detail-comment';
+          block.textContent = text;
+        } else {
+          block.className = 'detail-comment empty';
+          block.textContent =
+            '(no `//` comment found directly above this key in the source file)';
+        }
+        pane.appendChild(block);
+      }
+
+      // ============================================================
+      // 5. file loading + drag-and-drop
+      // ============================================================
+      function loadText(text) {
+        let parsed;
+        try {
+          const strippedAll = stripJson5(text);
+          // If the file contains shell prompts or curl output, the
+          // JSON is wrapped. Find the first '{' and last '}' so we
+          // can ignore everything else. For pure JSON-with-comments
+          // files this is a no-op.
+          const firstBrace = strippedAll.indexOf('{');
+          const lastBrace = strippedAll.lastIndexOf('}');
+          if (firstBrace < 0 || lastBrace < 0 || lastBrace <= firstBrace) {
+            throw new Error('no JSON object braces found in file');
+          }
+          const stripped = strippedAll.slice(firstBrace, lastBrace + 1);
+          parsed = JSON.parse(stripped);
+        } catch (err) {
+          showError('Failed to parse JSON: ' + err.message);
+          return;
+        }
+        // indexComments needs the ORIGINAL text so it can find
+        // // comments and their matching JSON keys by line number.
+        // We pass the same text we received.
+        const { commentsByPath } = indexComments(text);
+        window.__comments = commentsByPath;
+        document.getElementById('tree').innerHTML = '';
+        document.getElementById('tree').hidden = false;
+        document.getElementById('drop-zone').style.display = 'none';
+        renderTree(parsed, document.getElementById('tree'));
+        const n = countKeys(parsed);
+        document.getElementById('status').textContent =
+          `loaded · ${n} top-level key${n === 1 ? '' : 's'} parsed · ${Object.keys(commentsByPath).length} comment block${Object.keys(commentsByPath).length === 1 ? '' : 's'} indexed`;
+        // auto-select the first top-level key
+        const first = document.querySelector('#tree .row');
+        if (first) first.click();
+      }
+
+      function countKeys(node) {
+        if (Array.isArray(node)) return node.length;
+        if (node && typeof node === 'object') return Object.keys(node).length;
+        return 0;
+      }
+
+      function showError(msg) {
+        const banner = document.createElement('div');
+        banner.className = 'err-banner';
+        banner.textContent = msg;
+        document.getElementById('tree-pane').prepend(banner);
+      }
+
+      // wire up the drop zone
+      const dz = document.getElementById('drop-zone');
+      const fi = document.getElementById('file-input');
+      ;['dragenter', 'dragover'].forEach((ev) =>
+        dz.addEventListener(ev, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dz.classList.add('drag-over');
+        })
+      );
+      ;['dragleave', 'drop'].forEach((ev) =>
+        dz.addEventListener(ev, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dz.classList.remove('drag-over');
+        })
+      );
+      dz.addEventListener('drop', (e) => {
+        const f = e.dataTransfer.files[0];
+        if (!f) return;
+        f.text().then(loadText);
+      });
+      // also accept drops on the whole tree pane once a file is loaded
+      document.getElementById('tree-pane').addEventListener('drop', (e) => {
+        const f = e.dataTransfer.files[0];
+        if (!f) return;
+        e.preventDefault();
+        f.text().then(loadText);
+      });
+      document.getElementById('tree-pane').addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+      fi.addEventListener('change', () => {
+        const f = fi.files[0];
+        if (!f) return;
+        f.text().then(loadText);
+      });
+    </script>
+  </body>
+</html>

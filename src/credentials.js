@@ -216,22 +216,27 @@ function getCredentialAuthMode(creds) {
   return 'none';
 }
 
-// Captured from a live Claude Code 2.1.119 request on 2026-04-27.
-// These mimic exactly what the CLI sends so Anthropic accepts an OAuth token.
+// Header values captured from a live Claude Code 2.1.203 request on 2026-07-07.
+// These mimic what the CLI sends so Anthropic accepts an OAuth token.
 // Tweak via VS Code settings if Anthropic rotates the expected values.
+//
+// The billing/system block fallback lower in this object is still from the
+// 2026-04-27 system-body capture. The fresh 2026-07-07 capture only showed
+// request headers, and the opaque cch value should not be guessed.
 const CLAUDE_CODE_FINGERPRINT = {
-  userAgent: 'claude-cli/2.1.119 (external, claude-vscode, agent-sdk/0.2.120)',
+  userAgent: 'claude-cli/2.1.203 (external, sdk-cli)',
   anthropicBeta:
-    'claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,advisor-tool-2026-03-01,effort-2025-11-24',
+    'claude-code-20250219,oauth-2025-04-20,context-1m-2025-08-07,interleaved-thinking-2025-05-14,mid-conversation-system-2026-04-07,effort-2025-11-24,fallback-credit-2026-06-01',
   // Stainless = the Anthropic SDK's self-identification headers.
   stainless: {
     'x-stainless-arch': 'arm64',
     'x-stainless-lang': 'js',
     'x-stainless-os': 'MacOS',
-    'x-stainless-package-version': '0.81.0',
+    'x-stainless-package-version': '0.94.0',
     'x-stainless-retry-count': '0',
     'x-stainless-runtime': 'node',
-    'x-stainless-runtime-version': process.version,
+    // Use Claude Code's captured runtime, not the Node version running this bridge.
+    'x-stainless-runtime-version': 'v26.3.0',
     'x-stainless-timeout': '600',
   },
   // First system block Claude Code sends — a billing/telemetry tag.

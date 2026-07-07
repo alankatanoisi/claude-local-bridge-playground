@@ -159,6 +159,21 @@ describe('credentials.buildAuthHeaders', () => {
     assert.ok(!headers['x-api-key']);
   });
 
+  it('uses the latest hardcoded Claude Code fallback fingerprint when no live capture exists', () => {
+    const { buildAuthHeaders } = require('../src/credentials');
+    const headers = buildAuthHeaders(
+      { liveFingerprint: null, sessionId: 'session-123' },
+      { accessToken: 'tok-123', source: 'keychain' },
+    );
+
+    assert.equal(headers['user-agent'], 'claude-cli/2.1.203 (external, sdk-cli)');
+    assert.equal(headers['x-stainless-package-version'], '0.94.0');
+    assert.equal(headers['x-stainless-runtime-version'], 'v26.3.0');
+    assert.equal(headers['x-claude-code-session-id'], 'session-123');
+    assert.match(headers['anthropic-beta'], /context-1m-2025-08-07/);
+    assert.match(headers['anthropic-beta'], /fallback-credit-2026-06-01/);
+  });
+
   it('uses live fingerprint headers when available', () => {
     const { buildAuthHeaders } = require('../src/credentials');
     const ctx = {
@@ -173,6 +188,57 @@ describe('credentials.buildAuthHeaders', () => {
     assert.equal(headers['user-agent'], 'claude-cli/2.2.0 (test)');
     assert.equal(headers['anthropic-beta'], 'test-beta-2026-01-01');
     assert.equal(headers['x-stainless-runtime'], 'node');
+  });
+});
+
+describe('credentials.prependClaudeCodeSystem', () => {
+  it('leaves the request body unchanged when no live system blocks were captured', () => {
+    const { prependClaudeCodeSystem } = require('../src/credentials');
+    const body = {
+      model: 'claude-fable-5',
+      messages: [{ role: 'user', content: 'hello' }],
+    };
+
+    const returned = prependClaudeCodeSystem({ liveFingerprint: null }, body, {
+      accessToken: 'tok-123',
+      source: 'keychain',
+    });
+
+    assert.equal(returned, body);
+    assert.deepEqual(body, {
+      model: 'claude-fable-5',
+      messages: [{ role: 'user', content: 'hello' }],
+    });
+  });
+
+  it('prepends live captured system blocks when they exist', () => {
+    const { prependClaudeCodeSystem } = require('../src/credentials');
+    const body = {
+      system: 'user system',
+      messages: [{ role: 'user', content: 'hello' }],
+    };
+    const ctx = {
+      liveFingerprint: {
+        'x-anthropic-billing-header': 'x-anthropic-billing-header: cc_version=live; cch=live;',
+        'agent-identity': 'Live agent identity.',
+      },
+    };
+
+    prependClaudeCodeSystem(ctx, body, { accessToken: 'tok-123', source: 'intercepted' });
+
+    assert.deepEqual(body.system, [
+      { type: 'text', text: 'x-anthropic-billing-header: cc_version=live; cch=live;' },
+      {
+        type: 'text',
+        text: 'Live agent identity.',
+        cache_control: { type: 'ephemeral', ttl: '1h' },
+      },
+      {
+        type: 'text',
+        text: 'user system',
+        cache_control: { type: 'ephemeral', ttl: '1h' },
+      },
+    ]);
   });
 });
 

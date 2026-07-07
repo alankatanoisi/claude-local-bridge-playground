@@ -1,0 +1,347 @@
+alanman@Alans-Laptop claude-local-bridge-playground % curl -s http://127.0.0.1:11437/v1/debug \
+  -H "x-claude-local-bridge-debug-token: 70577d60-c974-401f-b5b2-477110d8423f" \
+  | python3 -m json.tool
+{
+    // "status" tells you whether the bridge server is currently running.
+    // "running" means it's up and accepting requests.
+    // Alternative values:
+    //   "running" — the only value this debug handler ever returns; the handler
+    //                in src/handlers/debug.js hardcodes this string. If you see
+    //                it, the local HTTP server in src/server.js is up.
+    //   (no other values are emitted by the bridge itself; if the server has
+    //    crashed, this endpoint won't respond at all rather than saying
+    //    "stopped" or "starting".)
+    "status": "running",
+
+    // "port" is the network port the bridge is listening on. Ports are like
+    // apartment numbers for a server; 11437 is the door the bridge answers at.
+    // Alternative values:
+    //   11437 — the default base port (config key "claudeLocalBridge.port",
+    //           fallback 11437 in src/server.js).
+    //   11438, 11439, 11440, 11441, 11442 — sequential offsets tried if the
+    //           base port is already in use (EADDRINUSE). The bridge tries up
+    //           to 10 offsets, so 11437..11447 in theory, but practically
+    //           you'll see 11438, 11439, or 11440 most of the time.
+    "port": 11437,
+
+    // "httpBaseUrl" is the full web address clients (like the runner) use to
+    // talk to the bridge. It combines the protocol (http), host
+    // (127.0.0.1 = your own machine, also called "localhost"), and port.
+    // Alternative values:
+    //   "http://127.0.0.1:<port>" — built from whatever "port" resolved to.
+    //   The host is always 127.0.0.1 (loopback only, never LAN), and the
+    //   scheme is always http (no https) because traffic never leaves the
+    //   machine. The trailing port just mirrors the "port" field.
+    "httpBaseUrl": "http://127.0.0.1:11437",
+
+    // "sessionId" is a unique identifier for this particular run of the
+    // bridge. Every time the bridge starts fresh, it gets a new ID, so you
+    // can tell sessions apart in logs.
+    // Alternative values:
+    //   Any RFC-4122 UUID string (e.g. "4d137596-b6be-4916-8bb6-243d4d179a51")
+    //   — generated once per bridge start, lives on ctx.sessionId.
+    //   null — would only appear if the extension forgot to set ctx.sessionId
+    //          (i.e. a bug). In normal operation this is always a UUID.
+    "sessionId": "4d137596-b6be-4916-8bb6-243d4d179a51",
+
+    // "extensionVersion" is the version number of the bridge software
+    // (it's packaged as a VS Code extension). "1.0.0" follows the
+    // major.minor.patch convention.
+    // Alternative values:
+    //   Any semver string (e.g. "1.0.0", "1.2.3-beta.1") — comes straight
+    //   from the extension's package.json via ctx.extensionVersion. Bumping
+    //   the version in package.json is the only way to change it.
+    "extensionVersion": "1.0.0",
+
+    // "credentialPolicy" is the rule the bridge follows about which kinds of
+    // API credentials it will accept. "oauth-only" means it will only accept
+    // OAuth tokens (the kind Claude Code uses after you log in) and not raw
+    // API keys.
+    // Alternative values:
+    //   "oauth-only" — the only value this playground supports; hardcoded
+    //                  literal in src/handlers/debug.js. The repo's stated
+    //                  design goal is "no API-key fallback", so don't expect
+    //                  a "api-key" or "both" value to ever appear.
+    "credentialPolicy": "oauth-only",
+
+    // "credentialSource" tells you where the credential the bridge is
+    // currently using came from. "intercepted:bearer" means the bridge
+    // captured a "bearer token" (a long-lived access token sent in the HTTP
+    // Authorization header) from Claude Code's traffic.
+    // Alternative values (all come from discoverCredentials in
+    // src/credentials.js, in this priority order):
+    //   "intercepted:bearer"  — a live Bearer token captured from Claude
+    //                           Code's HTTPS traffic by the interceptor.
+    //                           Strongest signal that "I'm watching Claude
+    //                           Code right now."
+    //   "proxy:bearer"        — a Bearer token captured by the local capture
+    //                           proxy on localhost:11439. Same auth value,
+    //                           different capture path.
+    //   "env:CLAUDE_CODE_OAUTH_TOKEN" — token read from the
+    //                           CLAUDE_CODE_OAUTH_TOKEN environment variable.
+    //                           Useful for headless / scripted runs.
+    //   "keychain"            — token read from macOS Keychain
+    //                           (entry: "Claude Code-credentials"). Common
+    //                           fallback when interception isn't seeing
+    //                           traffic.
+    //   "credentials-file"    — token read from
+    //                           ~/.claude/.credentials.json. Lowest in the
+    //                           priority list; older Claude Code clients used
+    //                           this file.
+    //   "none"                — no token found anywhere. The bridge is
+    //                           unauthenticated and Anthropic calls will
+    //                           fail. Logs an error explaining "no Bearer
+    //                           token found".
+    "credentialSource": "intercepted:bearer",
+
+    // "upstreamAuthMode" is the style of credential the bridge will use when
+    // it talks to Anthropic's servers ("upstream" = the real API at
+    // api.anthropic.com). "bearer" means it sends the token as a Bearer
+    // token in the Authorization header.
+    // Alternative values (from getCredentialAuthMode in src/credentials.js):
+    //   "bearer"             — will send `authorization: Bearer <token>` to
+    //                          Anthropic. The normal, supported path.
+    //   "disabled-api-key"   — would send `x-api-key: <key>` instead, but
+    //                          this playground explicitly disables API-key
+    //                          support. You'll only see this if a stray
+    //                          apiKey value ever leaks into creds.
+    //   "none"               — no upstream auth header at all. Calls will
+    //                          fail with 401 from Anthropic.
+    "upstreamAuthMode": "bearer",
+
+    // "authenticated" is a quick true/false: is the bridge currently holding
+    // a working credential it can use? true = yes, ready to call Anthropic.
+    // Alternative values:
+    //   true  — creds.accessToken is a non-empty string. The bridge can
+    //           forward a request to Anthropic right now.
+    //   false — creds.accessToken is missing (e.g. credentialSource is
+    //           "none"). Every Anthropic call will fail until a token is
+    //           found.
+    "authenticated": true,
+
+    // "callerAuth" describes a separate, optional auth layer for *callers*
+    // (programs that want to call the bridge itself, not Anthropic). Think
+    // of it as a lock on the front door of the bridge in addition to the
+    // lock on Anthropic's door.
+    "callerAuth": {
+        // "enabled" — is the caller-auth lock turned on?
+        // Alternative values:
+        //   true  — config "claudeLocalBridge.requireCallerAuth" is true.
+        //           Every request to the bridge must include a valid
+        //           x-claude-local-bridge-caller-token header.
+        //   false — requireCallerAuth is false (the default in this
+        //           playground). The bridge accepts any local request.
+        "enabled": false,
+        // "tokenSource" — where a caller token would come from if enabled.
+        // Alternative values (from src/caller-auth.js):
+        //   "uninitialized"              — initializeCallerAuth() has not
+        //                                  run yet (very early in the
+        //                                  extension's lifecycle). Rarely
+        //                                  seen by the time you hit
+        //                                  /v1/debug.
+        //   "disabled"                   — requireCallerAuth is false; no
+        //                                  caller token is needed and none
+        //                                  is loaded. Current value.
+        //   "vscode-setting"             — token read from the VS Code
+        //                                  "claudeLocalBridge.callerAuthToken"
+        //                                  setting (a string the user typed
+        //                                  into settings.json).
+        //   "secret-storage"             — token read from VS Code
+        //                                  SecretStorage (a more secure
+        //                                  place than settings.json).
+        //   "secret-storage:auto-generated" — SecretStorage didn't have a
+        //                                  token, so the extension
+        //                                  generated a random one on first
+        //                                  run and stored it.
+        "tokenSource": "disabled",
+        // "tokenLoaded" — is a caller token currently in memory?
+        // Alternative values:
+        //   true  — ctx.callerAuthToken is a non-empty string. The bridge
+        //           can validate incoming caller-auth headers.
+        //   false — no caller token is loaded. Combined with "enabled":
+        //           true this would mean /v1/debug would reject the request
+        //           for being unauthenticated.
+        "tokenLoaded": false,
+        // "tokenRotatedAt" — when the caller token was last changed.
+        // Alternative values:
+        //   "2026-05-19T00:11:16.380Z" (or any ISO-8601 timestamp string)
+        //                            — set when the token was last replaced.
+        //   null                    — token has never been rotated (initial
+        //                            state, or feature disabled). Current
+        //                            value.
+        "tokenRotatedAt": null,
+        // "token" — the caller token itself, redacted in the response.
+        // Alternative values:
+        //   "[REDACTED]" — a token is loaded; the debug endpoint hides the
+        //                 secret but signals "yes, there is one."
+        //   null         — no token is loaded. Current value.
+        //   (The endpoint will *never* return the raw token, regardless of
+        //    state. "[REDACTED]" is the only non-null value you'll ever see.)
+        "token": null
+    },
+
+    // "interceptedToken" is the actual captured credential. The bridge has
+    // hidden the value and shown "[redacted]" so the secret isn't leaked
+    // into logs or screenshots. Redaction = deliberately blanked out for
+    // safety.
+    // Alternative values:
+    //   "[redacted]" — a token has been captured; the secret itself is
+    //                  hidden. Current value.
+    //   null         — no token has been intercepted yet (interceptor hasn't
+    //                  seen any Claude Code traffic). Most fields further
+    //                  down (fingerprint, type, source) will also be null
+    //                  in that case.
+    "interceptedToken": "[redacted]",
+
+    // "interceptedTokenFingerprint" is a short, safe hash of the token. A
+    // "hash" turns the secret into a short, unique-looking code you can
+    // compare across sessions without ever exposing the secret itself.
+    // sha256 is the hashing algorithm used. If the fingerprint changes, the
+    // underlying token changed too.
+    // Alternative values:
+    //   "sha256:02dcd0a036c054b7" — sha256 of the token, truncated to its
+    //                                first 16 hex characters. Current value.
+    //   "sha256:<other-16-hex>"    — any other 16-hex string means a
+    //                                different token. Same prefix is normal
+    //                                (sha256 is a family name).
+    //   null                        — no token has been intercepted, so
+    //                                nothing to hash.
+    "interceptedTokenFingerprint": "sha256:02dcd0a036c054b7",
+
+    // "interceptedCredentialType" is the technical flavor of the captured
+    // credential. "bearer" = a Bearer token, the standard OAuth access-
+    // token format.
+    // Alternative values (from ctx.interceptedHeaderType, set in
+    // src/interceptors/https.js and src/capture-proxy.js):
+    //   "bearer"    — the captured credential looked like
+    //                 `authorization: Bearer <token>`. This is the only
+    //                 type the bridge will *use*; everything else gets
+    //                 ignored. Current value.
+    //   "x-api-key" — the captured header was `x-api-key: <key>`. The
+    //                 bridge records that it saw an API key but refuses to
+    //                 use it (oauth-only policy). In that case
+    //                 credentialSource would fall back to env/keychain/file.
+    //   null        — no credential has been intercepted yet.
+    "interceptedCredentialType": "bearer",
+
+    // "interceptedCredentialSource" repeats where the captured credential
+    // came from. "intercepted:bearer" = captured from network traffic as a
+    // Bearer token (matches "credentialSource" above).
+    // Alternative values (from ctx.interceptedSource):
+    //   "intercepted:bearer" — captured by the HTTPS interceptor watching
+    //                          native Node.js https requests. Current
+    //                          value.
+    //   "proxy:bearer"       — captured by the standalone capture proxy on
+    //                          localhost:11439. Same auth value, different
+    //                          path.
+    //   null                 — nothing captured yet.
+    "interceptedCredentialSource": "intercepted:bearer",
+
+    // "interceptedCredentialRejected" is a flag for the bridge's safety
+    // net. false means the bridge accepted the captured credential and is
+    // using it. If it were true, the bridge would have refused it (e.g. it
+    // looked suspicious or was the wrong type) and you'd see why in the
+    // next field.
+    // Alternative values (this is the field you asked about!):
+    //   false — current intercepted token is NOT the same as the most
+    //           recently rejected one. The bridge will keep using it.
+    //           Current value.
+    //   true  — the currently-captured token matches
+    //           ctx.rejectedInterceptedToken, i.e. Anthropic already
+    //           returned 401 for this exact token at some point. The
+    //           bridge will *skip* it (see isRejectedInterceptedToken in
+    //           src/credentials.js) and look for a fresh token. This is
+    //           the "quarantine" pattern: one bad token doesn't get
+    //           retried forever.
+    "interceptedCredentialRejected": false,
+
+    // "rejectedInterceptedAt" is the timestamp of the last rejection.
+    // null here because nothing has been rejected.
+    // Alternative values:
+    //   "2026-05-19T00:11:16.380Z" (or any ISO-8601 timestamp) — the
+    //                                moment markCredentialsRejected() ran
+    //                                (i.e. when Anthropic returned 401 for
+    //                                the token now in "rejectedIntercepted-
+    //                                Token"). Set via
+    //                                ctx.rejectedInterceptedAt =
+    //                                Date.now() in src/credentials.js.
+    //   null                       — no rejection has been recorded. A
+    //                                newly-rotated token also clears it
+    //                                back to null (see
+    //                                src/interceptors/https.js). Current
+    //                                value.
+    "rejectedInterceptedAt": null,
+
+    // "interceptedHost" is the destination hostname the bridge is watching
+    // for traffic to/from. "api.anthropic.com" is Anthropic's official API
+    // server, which is exactly where Claude Code sends its requests.
+    // Alternative values:
+    //   "api.anthropic.com" — the canonical Anthropic API host. Current
+    //                         value.
+    //   "<any hostname>"    — whatever host Claude Code sent a request to.
+    //                         If you pointed anthropicBaseUrl at a staging
+    //                         or self-hosted gateway, this would reflect
+    //                         that host instead.
+    //   null                — no request has been intercepted yet, so the
+    //                         bridge doesn't know which host Claude Code
+    //                         is targeting.
+    "interceptedHost": "api.anthropic.com",
+
+    // "interceptedPort" is the destination port on that host. Port 443 is
+    // the standard port for HTTPS (encrypted web traffic).
+    // Alternative values:
+    //   443   — standard HTTPS port for api.anthropic.com. Current value.
+    //   80    — would only appear if someone is intercepting plaintext
+    //           HTTP (unusual; the bridge mainly watches TLS).
+    //   <any> — any port the intercepted request happened to use.
+    //   null  — no request has been intercepted yet.
+    "interceptedPort": 443,
+
+    // "liveFingerprint" would show the fingerprint of the credential
+    // currently being used on a live request. null right now simply means
+    // no in-flight request is being recorded at the moment of the
+    // snapshot.
+    // Alternative values:
+    //   null — no request is in flight, OR no fingerprint has been
+    //          captured for the most recent request. Current value.
+    //   { "capturedAt": "2026-05-19T00:11:16.380Z",
+    //     "headers":    ["authorization", "x-api-key", ...] }
+    //        — populated when a request has just been intercepted. The
+    //          "capturedAt" is the moment of capture; "headers" lists the
+    //          header names that carried a credential, useful for
+    //          debugging "which header did you read the token from?"
+    "liveFingerprint": null,
+
+    // "captureProxy" is the address of the local proxy server the bridge
+    // spins up to sit between Claude Code and Anthropic, so it can peek at
+    // the traffic and grab the bearer token. Port 11439 in this setup.
+    // Alternative values:
+    //   "http://localhost:11439" — the capture proxy is running. The host
+    //                              is always "localhost" and the port
+    //                              always 11439 (hardcoded in
+    //                              src/handlers/debug.js). Current value.
+    //   null                     — the capture proxy is not running
+    //                              (ctx.captureProxy is falsy). The
+    //                              bridge is relying on the HTTPS
+    //                              interceptor path instead of the proxy
+    //                              path, or the extension hasn't started
+    //                              the proxy yet.
+    "captureProxy": "http://localhost:11439",
+
+    // "anthropicBaseUrl" is the real Anthropic API endpoint the bridge
+    // forwards requests to once it has attached the captured credential.
+    // This is the "real" server, not a local one.
+    // Alternative values:
+    //   "https://api.anthropic.com" — the default and the value in your
+    //                                  snapshot. Comes from config
+    //                                  "claudeLocalBridge.anthropicBaseUrl"
+    //                                  with a fallback to
+    //                                  "https://api.anthropic.com".
+    //   "<other URL>"               — if you've set anthropicBaseUrl to a
+    //                                  staging endpoint, a corporate
+    //                                  gateway, or a local mock, that URL
+    //                                  appears here. The bridge will
+    //                                  forward to wherever you point it.
+    "anthropicBaseUrl": "https://api.anthropic.com"
+}
+alanman@Alans-Laptop claude-local-bridge-playground %

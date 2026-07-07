@@ -136,21 +136,23 @@ function buildAdaptiveAuthHeaders(ctx, creds) {
         }
       }
     } else {
-      // Fall back to hardcoded fingerprint
+      // Fall back to the latest known Claude Code header fingerprint.
+      // Captured from Claude Code 2.1.203 on 2026-07-07.
       headers['accept'] = 'application/json';
       headers['anthropic-beta'] =
-        'claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,context-management-2025-06-27,prompt-caching-scope-2026-01-05,advisor-tool-2026-03-01,effort-2025-11-24';
+        'claude-code-20250219,oauth-2025-04-20,context-1m-2025-08-07,interleaved-thinking-2025-05-14,mid-conversation-system-2026-04-07,effort-2025-11-24,fallback-credit-2026-06-01';
       headers['anthropic-dangerous-direct-browser-access'] = 'true';
-      headers['user-agent'] = 'claude-cli/2.1.119 (external, claude-vscode, agent-sdk/0.2.120)';
+      headers['user-agent'] = 'claude-cli/2.1.203 (external, sdk-cli)';
       headers['x-app'] = 'cli';
       headers['x-claude-code-session-id'] = ctx.sessionId;
       headers['x-stainless-arch'] = 'arm64';
       headers['x-stainless-lang'] = 'js';
       headers['x-stainless-os'] = 'MacOS';
-      headers['x-stainless-package-version'] = '0.81.0';
+      headers['x-stainless-package-version'] = '0.94.0';
       headers['x-stainless-retry-count'] = '0';
       headers['x-stainless-runtime'] = 'node';
-      headers['x-stainless-runtime-version'] = process.version;
+      // This is Claude Code's captured runtime, not this bridge process's runtime.
+      headers['x-stainless-runtime-version'] = 'v26.3.0';
       headers['x-stainless-timeout'] = '600';
     }
   }
