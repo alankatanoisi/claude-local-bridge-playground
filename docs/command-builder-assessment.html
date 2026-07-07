@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Command Builder — Critical Assessment</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --surface: #161b22;
+        --border: #30363d;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --blue: #58a6ff;
+        --green: #3fb950;
+        --orange: #d2991d;
+        --red: #f85149;
+        --purple: #bc8cff;
+        --code-bg: #1c2128;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.65;
+      }
+      .container {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 1.5rem 1.5rem 4rem;
+      }
+      header {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+      header h1 {
+        font-size: 1.4rem;
+        background: linear-gradient(135deg, var(--blue), var(--purple));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      header p {
+        color: var(--muted);
+        font-size: 0.88rem;
+        margin-top: 0.3rem;
+      }
+      header nav {
+        margin-top: 0.5rem;
+        font-size: 0.85rem;
+      }
+      header nav a {
+        color: var(--blue);
+        text-decoration: none;
+        margin-right: 1rem;
+      }
+      h2 {
+        font-size: 1.1rem;
+        margin: 2rem 0 0.75rem;
+        padding-bottom: 0.3rem;
+        border-bottom: 1px solid var(--border);
+      }
+      h3 {
+        font-size: 0.95rem;
+        margin: 1.2rem 0 0.4rem;
+      }
+      p,
+      ul,
+      ol {
+        margin-bottom: 0.8rem;
+        font-size: 0.9rem;
+      }
+      ul,
+      ol {
+        padding-left: 1.4rem;
+      }
+      li {
+        margin-bottom: 0.35rem;
+      }
+      code {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.08em 0.35em;
+        font-size: 0.82em;
+        color: var(--purple);
+      }
+      pre {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.8rem 1rem;
+        overflow-x: auto;
+        font-size: 0.8rem;
+        margin-bottom: 0.9rem;
+      }
+      pre code {
+        background: none;
+        border: none;
+        padding: 0;
+        color: var(--green);
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1rem 1.2rem;
+        margin-bottom: 1rem;
+      }
+      .badge {
+        display: inline-block;
+        padding: 0.1em 0.55em;
+        border-radius: 8px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        vertical-align: middle;
+        margin-right: 0.4rem;
+      }
+      .badge-bug {
+        background: rgba(248, 81, 73, 0.15);
+        color: var(--red);
+      }
+      .badge-ux {
+        background: rgba(210, 153, 29, 0.15);
+        color: var(--orange);
+      }
+      .badge-drift {
+        background: rgba(188, 140, 255, 0.15);
+        color: var(--purple);
+      }
+      .badge-good {
+        background: rgba(63, 185, 80, 0.15);
+        color: var(--green);
+      }
+      .badge-idea {
+        background: rgba(88, 166, 255, 0.15);
+        color: var(--blue);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+        margin-bottom: 1rem;
+      }
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 0.45rem 0.6rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .verdict {
+        border-left: 3px solid var(--blue);
+        background: rgba(88, 166, 255, 0.06);
+        padding: 0.7rem 1rem;
+        border-radius: 0 8px 8px 0;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+      }
+      .improvement {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.9rem 1.1rem;
+        margin-bottom: 0.8rem;
+      }
+      .improvement h3 {
+        margin: 0 0 0.35rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .improvement .num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.6rem;
+        height: 1.6rem;
+        border-radius: 50%;
+        background: rgba(88, 166, 255, 0.12);
+        color: var(--blue);
+        font-size: 0.8rem;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .improvement p {
+        margin-bottom: 0.4rem;
+      }
+      .improvement p:last-child {
+        margin-bottom: 0;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+      dfn {
+        font-style: normal;
+        border-bottom: 1px dotted var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Command Builder — Critical Assessment</h1>
+        <p>
+          A review of <code>docs/command-builder.html</code> against the current runner runtime
+          (<code>bin/local-bridge-runner.js</code> and <code>src/runner/**</code>), focused on one question:
+          <strong>is this page actually optimized for a beginner programmer?</strong>
+        </p>
+        <nav aria-label="Related docs">
+          <a href="command-builder.html">Command Builder</a>
+          <a href="runner-quickstart.html">Runner Quick Start</a>
+        </nav>
+      </header>
+
+      <h2>Overall verdict</h2>
+      <div class="verdict">
+        The command builder is <strong>feature-complete but beginner-hostile in its current shape</strong>. It
+        faithfully mirrors nearly the entire runner flag surface (roughly 60 CLI flags), which makes it a great
+        <em>reference</em> tool — but completeness is the enemy of a first-time user. The page front-loads safety
+        (presets, permission styles, warning panels, the chaos gate), which is genuinely good design. But once the
+        Advanced panel opens, a beginner faces ~70 controls with raw flag names as labels, jargon with no definitions
+        (ledger, worktree, compaction, fork, trace, session extract), and no narrative explanation of what the
+        generated command will actually <em>do</em>. It also contains at least three real bugs, including a broken CSS
+        selector that silently disables the intended two-column layout.
+      </div>
+
+      <h2>What it gets right <span class="badge badge-good">strengths</span></h2>
+      <ul>
+        <li>
+          <strong>Safety-first ordering.</strong> Prompt → presets → permission style is the correct funnel. The
+          five-option "What may the runner do?" dropdown is the single best beginner element on the page — it converts
+          four raw flags (<code>--plan</code>, <code>--accept-edits</code>, <code>--dont-ask</code>,
+          <code>--allow-shell</code>) into one plain-language decision.
+        </li>
+        <li>
+          <strong>The chaos gate works.</strong> Shell + auto-edits + no-prompts is blocked in the UI (copy button
+          disabled) exactly like the runner blocks it without <code>--chaos-ok</code>. UI policy matches runtime
+          policy.
+        </li>
+        <li>
+          <strong>Live caution panels.</strong> The dynamic warnings (accept-edits skips confirmations, dont-ask does
+          not enable bash, trace-level full writes prompts to disk, ack-resume-risk overrides the health gate) mirror
+          the real safety model in <code>src/runner/safety.js</code> and the CLI help text.
+        </li>
+        <li>
+          <strong>Flag coverage is accurate.</strong> Spot-checking every emitted flag against
+          <code>parseArgs</code> in <code>bin/local-bridge-runner.js</code>: all builder flags exist in the runner,
+          defaults match (<code>claude-sonnet-4-6</code>, max-tokens 2000, max-steps 16, shell-timeout 30000), and
+          default-suppression (only emit non-default values) keeps commands short.
+        </li>
+        <li>
+          <strong>The recovery card is excellent beginner material.</strong> Showing
+          <code>local-bridge-undo.js</code> with a dry-run-first sequence teaches the right habit: preview, then act.
+        </li>
+        <li><strong>Presets seed a real prompt</strong>, not just flags — a beginner sees a complete working example.</li>
+      </ul>
+
+      <h2>Bugs found during review <span class="badge badge-bug">defects</span></h2>
+      <p class="muted">
+        These are concrete defects in the current file, independent of any beginner-experience opinion. Line numbers
+        refer to <code>docs/command-builder.html</code> as of this review.
+      </p>
+
+      <div class="card">
+        <h3><span class="badge badge-bug">bug 1</span>The <code>.layout</code> CSS selector is missing — the two-column layout never applies</h3>
+        <p>
+          Around lines 68–73 the stylesheet contains orphaned declarations
+          (<code>display: grid; grid-template-columns: 1fr 1fr; …</code>) with <strong>no selector in front of
+          them</strong> — the <code>.layout {</code> line was lost in an earlier edit. Browsers silently drop the
+          invalid block, so the page renders as one long single column and the "sticky command panel" on the right
+          never behaves as designed. The <code>@media (max-width: 700px)</code> fallback right below it still
+          references <code>.layout</code>, confirming the selector was intended to exist.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3><span class="badge badge-bug">bug 2</span>The "Verify after edits" preset silently drops <code>--allow-shell</code> and <code>--test-watch</code></h3>
+        <p>
+          The <code>verify</code> preset declares <code>allowShell: true, testWatch: true</code>, but
+          <code>applyPreset()</code> only applies the full boolean key list when the preset has
+          <em>no</em> <code>permissionStyle</code>. Because <code>verify</code> sets
+          <code>permissionStyle: 'edit-auto'</code>, only the whitelist
+          (<code>stream, verbose, bareContext, taskScope, newSession, resumeSession</code>) is applied — so
+          <code>allowShell</code> and <code>testWatch</code> are ignored. The preset's own prompt says "let
+          --test-watch surface test results", but the generated command contains neither flag, and
+          <code>--test-watch</code> requires <code>--allow-shell</code> at runtime anyway. A beginner clicking this
+          preset gets a command that cannot do what its prompt promises.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3><span class="badge badge-bug">bug 3</span><code>--session-id</code> / <code>--session-path</code> are emitted twice in replay/repair mode</h3>
+        <p>
+          <code>buildCommandParts()</code> pushes <code>--session-id</code> and <code>--session-path</code>
+          unconditionally near the top, then pushes them <em>again</em> inside the
+          <code>replayMode</code> / <code>repairMode</code> branches before returning early. With a session id set and
+          replay checked, the copied command contains the flag twice. Node's <code>parseArgs</code> takes the last
+          value so it happens to work, but a duplicated flag in a teaching tool erodes trust ("did I do something
+          wrong?").
+        </p>
+      </div>
+
+      <div class="card">
+        <h3><span class="badge badge-bug">minor</span>Smaller correctness nits</h3>
+        <ul>
+          <li>
+            <strong>HTML checkbox defaults disagree with <code>DEFAULT_TOOL_NAMES</code>.</strong>
+            <code>list_worktrees</code> and <code>run_skill</code> are in the JS default list but unchecked in the
+            HTML. It is papered over because <code>applyPermissionStyle('edit-ask')</code> runs on load and resets the
+            boxes, but any future refactor of that init call resurfaces a spurious <code>--tools</code> flag on the
+            default command.
+          </li>
+          <li>
+            <strong><code>shellQuote()</code> is unsafe for mixed quoting.</strong> A prompt containing a single quote
+            is switched to double-quote wrapping, but <code>$</code>, backticks, and <code>\</code> are not escaped —
+            a prompt like <code>don't touch $HOME</code> produces a command where the shell expands
+            <code>$HOME</code> before the runner ever sees it. For a beginner pasting free-text prompts, silent shell
+            expansion is exactly the kind of confusing failure the builder exists to prevent.
+          </li>
+          <li>
+            <strong>An empty prompt still produces a copyable command.</strong> Nothing warns that the runner will be
+            invoked with no positional prompt.
+          </li>
+          <li>
+            <strong>Hard-coded model list is a drift magnet.</strong> The dropdown ships six model ids as static HTML
+            with no pointer to how to check what the bridge actually accepts. Same drift risk applies to
+            <code>PROMPT_REGISTRY</code> (a hand-copied snapshot of template frontmatter) and the agent/profile
+            dropdowns.
+          </li>
+        </ul>
+      </div>
+
+      <h2>Beginner-experience assessment <span class="badge badge-ux">critique</span></h2>
+
+      <h3>1. The Advanced panel is a cliff, not a ramp</h3>
+      <p>
+        The default view (prompt, presets, permission style, two folders) is well-scoped. But "Advanced options" is a
+        single <code>&lt;details&gt;</code> hiding <strong>six dense cards and ~70 controls</strong> — attachments,
+        model tuning, prompt templates, logging, session health, ledger repair, budgets, trust flags, and the full
+        tool catalog — with no internal hierarchy of "you might want this soon" versus "you will likely never need
+        this." A beginner who opens it once has no way to tell that <code>--stream</code> (harmless, useful) and
+        <code>--repair</code> (mutates the session ledger) live at the same level of the interface.
+      </p>
+
+      <h3>2. Labels are flag names, not questions</h3>
+      <p>
+        Most checkboxes are labeled with the literal flag (<code>--compact-each-turn</code>,
+        <code>--exclude-dynamic-system-prompt-sections</code>, <code>--ack-resume-risk</code>) and nothing else. The
+        permission-style dropdown proves the page knows how to do better ("Look only — read files, no writes"). That
+        pattern should be everywhere: plain-language label first, flag name second as a hint.
+      </p>
+
+      <h3>3. Jargon is used without definitions</h3>
+      <p>
+        The repo's own novice-first rules say "define jargon once when you use it." The builder uses
+        <dfn>worktree</dfn>, <dfn>ledger</dfn>, <dfn>compaction</dfn>, <dfn>fork</dfn>, <dfn>transcript</dfn>,
+        <dfn>trace</dfn>, <dfn>session extraction</dfn>, <dfn>fingerprint</dfn>, and <dfn>LSP</dfn> with zero
+        definitions. A beginner cannot evaluate "Isolate edits on a git worktree branch" without knowing what a
+        worktree is.
+      </p>
+
+      <h3>4. The output is a command, not an explanation</h3>
+      <p>
+        The right panel shows the assembled command string — which is the artifact, not the understanding. There is no
+        "here is what will happen when you press Enter" narrative (which tools are exposed, whether you will be asked
+        before edits, when the run stops, where the transcript lands). The runner's <code>--help</code> has a
+        "Beginner notes" section; the builder, ironically, has less hand-holding than the raw CLI.
+      </p>
+
+      <h3>5. No preflight, no persistence, no recovery from mistakes in the form itself</h3>
+      <p>
+        The page assumes the bridge is already running and the folders are right, with only a buried tip about
+        <code>Unauthorized: Missing Bearer token</code>. There is no "before you run" checklist, no way to save or
+        share a configuration (a page refresh wipes everything), and no reset-to-defaults button after experimenting.
+      </p>
+
+      <h3>6. Guidance that exists is easy to miss</h3>
+      <p>
+        The best beginner advice on the page ("New here? Try a read-only preset first") is the fifth bullet of a
+        muted-gray list under the prompt box. The riskiest control (<code>--chaos-ok</code>) is a plain checkbox in
+        the Session &amp; context card, physically distant from the permission card whose warnings reference it.
+      </p>
+
+      <h2>Runtime-alignment check <span class="badge badge-drift">drift</span></h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Area</th>
+            <th>Builder vs runtime</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Flag names &amp; defaults</td>
+            <td>✅ Aligned</td>
+            <td>All emitted flags exist in <code>parseArgs</code>; defaults match the CLI constants.</td>
+          </tr>
+          <tr>
+            <td>Safety gates (shell, chaos, dont-ask)</td>
+            <td>✅ Aligned</td>
+            <td>UI blocking mirrors runner policy; <code>--dont-ask</code> messaging matches help text.</td>
+          </tr>
+          <tr>
+            <td>Tool catalog</td>
+            <td>⚠️ Mostly aligned</td>
+            <td>
+              Tool names match the registry, but HTML checkbox defaults disagree with
+              <code>DEFAULT_TOOL_NAMES</code> (see minor bugs). <code>ask_user_question</code>-style newer tools and
+              future additions require manual HTML edits.
+            </td>
+          </tr>
+          <tr>
+            <td>Presets</td>
+            <td>❌ One broken</td>
+            <td>"Verify after edits" drops its shell/test-watch flags (bug 2).</td>
+          </tr>
+          <tr>
+            <td>Models, templates, agents, profiles</td>
+            <td>⚠️ Hand-copied snapshots</td>
+            <td>
+              <code>PROMPT_REGISTRY</code>, the model dropdown, and the agent/profile lists are static copies with a
+              "keep in sync" comment — a promise, not a mechanism.
+            </td>
+          </tr>
+          <tr>
+            <td>Unrepresented flags</td>
+            <td>ℹ️ Acceptable</td>
+            <td>
+              <code>--list-agents</code>, <code>--list-profiles</code>, <code>--update</code>,
+              <code>--template</code> (alias), <code>--allowed-tools</code> (alias) are absent — reasonable omissions,
+              but the list-flags would actually help beginners discover agents/profiles.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>10 suggested improvements <span class="badge badge-idea">roadmap</span></h2>
+      <p class="muted">
+        Ordered roughly by impact-for-effort. Items 1–3 are bug fixes; 4–8 are beginner-experience redesigns; 9–10
+        are anti-drift and learning aids.
+      </p>
+
+      <div class="improvement">
+        <h3><span class="num">1</span>Fix the missing <code>.layout</code> selector</h3>
+        <p>
+          Restore <code>.layout {</code> before the orphaned grid declarations so the intended two-column layout (form
+          left, sticky command panel right) actually renders. This is a one-line fix with a large payoff: the command
+          preview stays visible while a beginner changes options, which is the entire point of a live builder.
+        </p>
+      </div>
+
+      <div class="improvement">
+        <h3><span class="num">2</span>Fix the "Verify after edits" preset so its flags actually apply</h3>
+        <p>
+          Either allow presets to layer extra booleans on top of a permission style (add <code>allowShell</code> and
+          <code>testWatch</code> to the post-style whitelist in <code>applyPreset()</code>), or change the preset to
+          use the <code>edit-shell</code> style. Also re-run <code>updateUiState()</code> ordering so the
+          shell-dependent checkboxes don't immediately un-check <code>testWatch</code>. A preset that silently
+          produces a command that can't do what its own prompt describes is worse than no preset.
+        </p>
+      </div>
+
+      <div class="improvement">
+        <h3><span class="num">3</span>De-duplicate <code>--session-id</code>/<code>--session-path</code> and harden <code>shellQuote()</code></h3>
+        <p>
+          Remove the duplicate pushes in the replay/repair branches, and make <code>shellQuote()</code> use proper
+          POSIX single-quote escaping (<code>'…'"'"'…'</code> style) so prompts containing <code>'</code>,
+          <code>$</code>, or backticks can never be expanded by the shell. Beginners paste free text; the quoting must
+          be bulletproof.
+        </p>
+      </div>
+
+      <div class="improvement">
+        <h3><span class="num">4</span>Split "Advanced" into three tiers of progressive disclosure</h3>
+        <p>
+          Replace the single Advanced panel with: <strong>"Common extras"</strong> (attach files, stream, verbose,
+          output format, human log), <strong>"Tuning"</strong> (model, tokens, steps, templates, budgets), and
+          <strong>"Expert / recovery"</strong> (sessions, ledger replay/repair, trust flags, trace levels, custom
+          system prompts). Add a one-line "who needs this" sentence under each tier heading. The mental model shifts
+          from "one scary drawer" to "three labeled shelves."
+        </p>
+      </div>
+
+      <div class="improvement">
+        <h3><span class="num">5</span>Add a plain-language "What will happen" summary next to the command</h3>
+        <p>
+          Render a live narrative under the terminal box, derived from the same state that builds the command:
+          <em>"The runner will work in ⟨folder⟩, may read and edit files but will ask you in Terminal before each
+          change, cannot run shell commands, will stop after 16 steps, and will save a transcript to
+          ~/.bridge-runner/logs/."</em> This turns the builder from a flag assembler into a teaching tool, and it
+          catches misconfigurations ("wait, why does it say shell is on?") before they reach Terminal.
+        </p>
+      </div>
+
+      <div class="improvement">
+        <h3><span class="num">6</span>Rewrite every control label as plain language first, flag second</h3>
+        <p>
+          Follow the permission-style dropdown's own pattern everywhere:
+          "<strong>Auto-run tests after edits</strong> <code class="muted">--test-watch</code>" instead of
+          "<code>--test-watch (auto-run tests after writes)</code>". Add a small glossary
+          (<code>&lt;details&gt;</code> or hover definitions) for worktree, ledger, compaction, session, transcript,
+          and trace — the repo's novice-first rules require defining jargon once, and this page currently never does.
+        </p>
+      </div>
+
+      <div class="improvement">
+        <h3><span class="num">7</span>Add a "Before you run" preflight checklist with a copyable health check</h3>
+        <p>
+          A small card above the command: (1) bridge running in VS Code — copy
+          <code>curl -s http://127.0.0.1:11437/health</code> to verify, (2) you are in the runner folder, (3) the
+          target project folder is the one you mean, (4) for first runs in a new folder, expect the
+          <code>--trust-workspace</code> consent step. Each item says <em>where</em> to do it (Terminal vs VS Code),
+          matching the house rule that every command names its location and success criteria.
+        </p>
+      </div>
+
+      <div class="improvement">
+        <h3><span class="num">8</span>Validate inputs and block obviously broken commands</h3>
+        <p>
+          Warn (and soften the copy button) when: the prompt is empty; the target folder is not an absolute path;
+          <code>--test-watch</code> is set without shell; replay/repair is checked without a session id/path (the note
+          exists but nothing enforces it); or <code>--include-claude-md</code> is set without
+          <code>--include-repo-context</code> (a real runtime dependency documented in <code>--help</code> that the
+          builder currently ignores). The chaos gate proves the pattern works — extend it.
+        </p>
+      </div>
+
+      <div class="improvement">
+        <h3><span class="num">9</span>Generate the drift-prone lists instead of hand-copying them</h3>
+        <p>
+          Add a tiny build script (e.g., <code>node scripts/export-builder-manifest.js</code>) that dumps models,
+          default tool names, prompt-template frontmatter, agents, and profiles to a JSON block embedded in the HTML —
+          and a doc check that fails when the embedded snapshot is stale. Today three separate hand-maintained copies
+          (<code>PROMPT_REGISTRY</code>, <code>DEFAULT_TOOL_NAMES</code>, the model/agent dropdowns) each carry a
+          "keep in sync" comment; comments are promises, checks are mechanisms.
+        </p>
+      </div>
+
+      <div class="improvement">
+        <h3><span class="num">10</span>Add "explain this command" + save/restore of configurations</h3>
+        <p>
+          Two learning aids: (a) an expandable per-flag breakdown under the terminal — each emitted flag as a row with
+          a one-line meaning and a risk badge (read / write / shell / recovery), so the command becomes a vocabulary
+          lesson; and (b) persist the current form to <code>localStorage</code> (plus a "Reset to defaults" button and
+          optional URL-hash sharing), so a page refresh doesn't destroy ten minutes of careful configuration — the
+          most demoralizing possible beginner experience.
+        </p>
+      </div>
+
+      <h2>Suggested sequencing</h2>
+      <ol>
+        <li><strong>Now (bug fixes, low risk):</strong> items 1–3.</li>
+        <li><strong>Next (highest beginner payoff):</strong> items 5, 6, 8.</li>
+        <li><strong>Then (structure and durability):</strong> items 4, 7, 9, 10.</li>
+      </ol>
+      <p class="muted">
+        Everything above is scoped to <code>docs/command-builder.html</code> (plus one optional script for item 9). No
+        runner or bridge behavior changes are required, so none of the transport/auth invariants are touched.
+      </p>
+    </div>
+  </body>
+</html>

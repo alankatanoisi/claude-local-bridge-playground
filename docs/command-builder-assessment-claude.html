@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Command Builder — Critical Assessment (Claude's version)</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --surface: #161b22;
+        --surface2: #1c2128;
+        --border: #30363d;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --blue: #58a6ff;
+        --green: #3fb950;
+        --orange: #d2991d;
+        --red: #f85149;
+        --purple: #bc8cff;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.65;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+      header.page {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 1.2rem;
+        margin-bottom: 1.8rem;
+      }
+      header.page h1 {
+        font-size: 1.6rem;
+        background: linear-gradient(135deg, var(--blue), var(--purple));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      header.page p.sub {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-top: 0.4rem;
+      }
+      header.page .meta {
+        margin-top: 0.9rem;
+        font-size: 0.78rem;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem 1.2rem;
+      }
+      header.page .meta code {
+        color: var(--blue);
+      }
+      h2 {
+        font-size: 1.15rem;
+        margin: 2.2rem 0 0.9rem;
+        padding-top: 0.6rem;
+      }
+      h3 {
+        font-size: 0.98rem;
+        margin: 1.3rem 0 0.5rem;
+      }
+      p {
+        margin: 0.6rem 0;
+      }
+      code {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 0.1em 0.4em;
+        font-size: 0.82em;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      pre {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        overflow-x: auto;
+        font-size: 0.8rem;
+        line-height: 1.6;
+        margin: 0.7rem 0;
+      }
+      pre code {
+        background: none;
+        border: none;
+        padding: 0;
+      }
+      ul,
+      ol {
+        margin: 0.5rem 0 0.5rem 1.3rem;
+      }
+      li {
+        margin: 0.3rem 0;
+      }
+      .verdict {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--orange);
+        border-radius: 8px;
+        padding: 1.1rem 1.3rem;
+        margin: 1.2rem 0;
+      }
+      .verdict strong {
+        color: var(--orange);
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.1rem 1.3rem;
+        margin: 1rem 0;
+      }
+      .finding {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.2rem;
+        margin: 0.9rem 0;
+      }
+      .finding.sev-high {
+        border-left: 4px solid var(--red);
+      }
+      .finding.sev-med {
+        border-left: 4px solid var(--orange);
+      }
+      .finding.sev-low {
+        border-left: 4px solid var(--blue);
+      }
+      .finding h3 {
+        margin-top: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .sev {
+        font-size: 0.66rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 0.12em 0.55em;
+        border-radius: 10px;
+      }
+      .sev-high .sev {
+        background: rgba(248, 81, 73, 0.15);
+        color: var(--red);
+      }
+      .sev-med .sev {
+        background: rgba(210, 153, 29, 0.15);
+        color: var(--orange);
+      }
+      .sev-low .sev {
+        background: rgba(88, 166, 255, 0.15);
+        color: var(--blue);
+      }
+      .label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin-top: 0.7rem;
+      }
+      .good {
+        color: var(--green);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0.8rem 0;
+        font-size: 0.85rem;
+      }
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 0.5rem 0.7rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: var(--surface2);
+        color: var(--muted);
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .imp {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.2rem;
+        margin: 0.9rem 0;
+      }
+      .imp h3 {
+        margin-top: 0;
+      }
+      .imp .num {
+        display: inline-block;
+        min-width: 1.7rem;
+        height: 1.7rem;
+        line-height: 1.7rem;
+        text-align: center;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--blue), var(--purple));
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.85rem;
+        margin-right: 0.5rem;
+      }
+      .pill {
+        font-size: 0.66rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 0.12em 0.55em;
+        border-radius: 10px;
+        margin-left: 0.4rem;
+      }
+      .pill-quick {
+        background: rgba(63, 185, 80, 0.15);
+        color: var(--green);
+      }
+      .pill-med {
+        background: rgba(210, 153, 29, 0.15);
+        color: var(--orange);
+      }
+      .pill-big {
+        background: rgba(188, 140, 255, 0.15);
+        color: var(--purple);
+      }
+      .note {
+        font-size: 0.82rem;
+        color: var(--muted);
+        font-style: italic;
+      }
+      a {
+        color: var(--blue);
+      }
+      .toc {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.3rem;
+        margin: 1.2rem 0;
+        font-size: 0.88rem;
+      }
+      .toc ol {
+        margin-left: 1.1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="page">
+        <h1>Command Builder — Critical Assessment</h1>
+        <p class="sub">
+          Claude's independent review of <code>docs/command-builder.html</code> against the runner's actual runtime,
+          judged specifically through a beginner-programmer lens.
+        </p>
+        <div class="meta">
+          <span>Reviewed file: <code>docs/command-builder.html</code> (2,165 lines)</span>
+          <span>Checked against: <code>bin/local-bridge-runner.js</code>, <code>src/runner/tool-*.js</code></span>
+          <span>Date: 2026-07-07</span>
+        </div>
+      </header>
+
+      <div class="verdict">
+        <p>
+          <strong>Verdict:</strong> The command builder is genuinely thoughtful and, in its <em>presets</em>, is one of
+          the most beginner-friendly parts of this project. But it is <strong>not yet optimized for a true novice</strong>.
+          Two problems dominate: (1) it hand-copies facts from the runtime and has already <strong>drifted out of
+          sync</strong> — most importantly it never exposes the <code>ask_user_question</code> tool that the runner
+          turns on by default, and silently drops it (plus the worktree tools) the moment you customize the tool list;
+          and (2) it presents an <strong>expert-sized wall of ~40 advanced options</strong> with heavy jargon
+          (&ldquo;ledger&rdquo;, &ldquo;flight recorder&rdquo;, &ldquo;fork from session&rdquo;, &ldquo;chaos-ok&rdquo;)
+          and little plain-language teaching. There is also a real, shipping <strong>CSS bug</strong> that breaks the
+          two-column layout. None of this makes it unusable — but a beginner is more likely to feel lost than guided.
+        </p>
+      </div>
+
+      <div class="toc">
+        <strong>What's in here</strong>
+        <ol>
+          <li>How I reviewed it</li>
+          <li>What already works well for a beginner</li>
+          <li>Critical findings (bugs &amp; drift, most severe first)</li>
+          <li>Beginner-experience critique</li>
+          <li>10 suggested improvements (prioritized)</li>
+          <li>Handoff</li>
+        </ol>
+      </div>
+
+      <h2>1. How I reviewed it</h2>
+      <p>
+        I read the whole builder page, then read the runner's real entry point (<code>bin/local-bridge-runner.js</code>)
+        and the tool system (<code>tool-catalog.js</code>, <code>tool-profiles.js</code>, <code>tool-registry.js</code>)
+        so I could compare the <em>command the builder generates</em> against the <em>flags and tools the runner
+        actually accepts and exposes</em>. In other words: does the builder tell you the truth about what the runner
+        will do? I did not open the pre-existing assessment file — this is a fresh, independent read.
+      </p>
+
+      <h2>2. What already works well for a beginner</h2>
+      <div class="card">
+        <ul>
+          <li>
+            <span class="good">Presets are excellent.</span> Nine one-click starting points, each with a plain-English
+            name (&ldquo;Read-only exploration&rdquo;, &ldquo;Edit with confirmation&rdquo;) and a ready-written prompt.
+            This is the single most novice-friendly feature and should be pushed even harder.
+          </li>
+          <li>
+            <span class="good">The permission &ldquo;style&rdquo; dropdown hides raw flags.</span> A beginner picks
+            &ldquo;Look only&rdquo; or &ldquo;Edit — ask before each change&rdquo; instead of reasoning about
+            <code>--plan</code> vs <code>--accept-edits</code> vs <code>--dont-ask</code>. Each choice shows a one-line
+            hint. Good abstraction.
+          </li>
+          <li>
+            <span class="good">Advanced options are collapsed by default.</span> The scary stuff is behind a
+            <code>&lt;details&gt;</code> panel, so the first screen stays calm.
+          </li>
+          <li>
+            <span class="good">The generated command tells you where to run it.</span> It prefixes
+            <code>cd /path &amp;&amp; &hellip;</code>, which directly answers a beginner's #1 question: &ldquo;which
+            folder am I supposed to be in?&rdquo;
+          </li>
+          <li>
+            <span class="good">Live safety guardrails.</span> The &ldquo;chaos combo&rdquo; conflict actually
+            <em>disables the copy button</em> until you resolve it, and shell-on shows a warning banner. Real
+            protective behavior, not just text.
+          </li>
+          <li>
+            <span class="good">Honest about risk.</span> It repeatedly reminds you that traces can contain secrets and
+            that shell lets the model run terminal commands. That matches this repo's safety-first tone.
+          </li>
+        </ul>
+      </div>
+
+      <h2>3. Critical findings</h2>
+      <p class="note">Ordered most-severe first. Findings 1–3 are factual mismatches with the runtime; finding 4 is a real rendering bug.</p>
+
+      <div class="finding sev-high">
+        <h3><span class="sev">High</span> The builder never exposes <code>ask_user_question</code>, and silently deletes it when you customize tools</h3>
+        <p>
+          The runtime's <code>isToolVisible()</code> (in <code>src/runner/tool-profiles.js</code>) exposes
+          <strong>every</strong> tool by default except four: <code>apply_patch</code>, <code>bash</code>,
+          <code>manage_shell_jobs</code>, and <code>lsp_query</code>. That means the real default tool set is
+          <strong>16 tools</strong> and includes <code>ask_user_question</code> (the model's way to stop and ask
+          <em>you</em> a multiple-choice question) and the worktree tools <code>enter_worktree</code> /
+          <code>exit_worktree</code>.
+        </p>
+        <p>The builder's capability catalog lists only <strong>13</strong> tools and omits <code>ask_user_question</code> entirely:</p>
+        <pre><code>// docs/command-builder.html — DEFAULT_TOOL_NAMES
+list_files, read_file, search_text, glob, git_status,
+manage_tasks, spawn_agent, list_worktrees, run_skill,
+edit_file, write_file, undo, undo_edit
+// missing vs runtime default: ask_user_question, enter_worktree, exit_worktree</code></pre>
+        <p class="label">Why this matters for a beginner</p>
+        <p>
+          As long as you leave the tool checkboxes alone, no <code>--tools</code> flag is emitted and the runner quietly
+          uses its full 16-tool default — so it works by luck. But the instant you tick or untick <em>any</em> tool box,
+          the builder writes an explicit <code>--tools a,b,c&hellip;</code> list built only from its checkboxes. That
+          list has no way to include <code>ask_user_question</code>, so you <strong>silently lose the model's ability to
+          ask you clarifying questions</strong> — exactly the safety net a novice most wants — without any indication it
+          happened.
+        </p>
+        <p class="label">Fix</p>
+        <p>
+          Add <code>ask_user_question</code>, <code>enter_worktree</code>, and <code>exit_worktree</code> to the catalog
+          and to <code>DEFAULT_TOOL_NAMES</code> so the builder's idea of &ldquo;default&rdquo; matches the runtime's.
+        </p>
+      </div>
+
+      <div class="finding sev-high">
+        <h3><span class="sev">High</span> &ldquo;Default&rdquo; tool state misrepresents what the runner actually exposes</h3>
+        <p>
+          In the form, <code>enter_worktree</code> and <code>exit_worktree</code> render <em>unchecked</em>, implying
+          they're off. At runtime they are <strong>on by default</strong>. So the checkbox panel — the one place a
+          beginner looks to answer &ldquo;what can this agent do to my files?&rdquo; — is inaccurate in both directions:
+          it shows some default-on tools as off, and hides one default-on tool (<code>ask_user_question</code>)
+          completely. Trust in the tool panel is misplaced.
+        </p>
+        <p class="label">Fix</p>
+        <p>
+          Drive the checkbox defaults from the same rule the runtime uses (&ldquo;everything except
+          <code>apply_patch</code>, <code>bash</code>, <code>manage_shell_jobs</code>, <code>lsp_query</code>&rdquo;)
+          rather than a separate hand-written list.
+        </p>
+      </div>
+
+      <div class="finding sev-med">
+        <h3><span class="sev">Medium</span> Hand-mirrored data will keep drifting (models, templates, tools)</h3>
+        <p>
+          Three separate places in the builder duplicate runtime facts: the <code>model</code> dropdown, the
+          <code>PROMPT_REGISTRY</code> object (a copy of each template's recommended permissions/tools), and
+          <code>DEFAULT_TOOL_NAMES</code>. The tool list has <em>already</em> drifted (findings 1–2). The model list is
+          the next to rot — it is a static <code>&lt;select&gt;</code> with no tie to what the bridge will accept, so a
+          beginner can pick a model that silently 400s. A code comment in the file even admits the registry must be
+          &ldquo;kept in sync&rdquo; by hand.
+        </p>
+        <p class="label">Fix</p>
+        <p>
+          Either generate these three data structures from the runtime at build/commit time, or add a tiny test that
+          fails when they diverge (see improvement #2). For a solo learner, the <em>test</em> is the cheaper win.
+        </p>
+      </div>
+
+      <div class="finding sev-med">
+        <h3><span class="sev">Medium</span> Real CSS bug: the two-column layout selector is missing</h3>
+        <p>
+          Around line 68 the <code>.layout { }</code> selector line was dropped, leaving an orphaned CSS block with no
+          selector:
+        </p>
+        <pre><code>.header-links {
+  &hellip;
+}
+                    &larr; the ".layout {" line is missing here
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}</code></pre>
+        <p>
+          Because the rule has no selector, the browser discards the entire block. The form and the generated-command
+          panel were designed to sit <strong>side by side</strong>; with the rule gone they stack in one column and the
+          &ldquo;sticky&rdquo; command panel loses its purpose. It still functions, but it does not look as intended —
+          and a beginner would have no idea why.
+        </p>
+        <p class="label">Fix</p>
+        <p>One line: restore <code>.layout {</code> before <code>display: grid;</code>.</p>
+      </div>
+
+      <div class="finding sev-low">
+        <h3><span class="sev">Low</span> Flags exist in the runner that the builder can't produce</h3>
+        <p>
+          The runner accepts a few flags the builder has no control for, e.g. <code>--list-agents</code>,
+          <code>--list-profiles</code>, and the <code>runner eval</code> / <code>runner worktrees list</code>
+          subcommands. These are discovery/utility commands rather than run options, so their absence is defensible —
+          but a short &ldquo;Handy commands&rdquo; box would help a beginner discover them instead of reading
+          <code>--help</code>.
+        </p>
+      </div>
+
+      <h2>4. Beginner-experience critique</h2>
+      <div class="card">
+        <p>
+          Setting correctness aside, is this <em>optimized for a novice</em>? Partly. The top of the page is, the bottom
+          is not.
+        </p>
+        <table>
+          <tr>
+            <th>Aspect</th>
+            <th>Beginner impact</th>
+          </tr>
+          <tr>
+            <td>Advanced panel is one giant list of ~40 controls</td>
+            <td>
+              Once opened, there's no sub-grouping a novice can navigate by goal. &ldquo;Session &amp; context&rdquo;
+              alone mixes session health, startup context, task hygiene, ledger utilities, budgets, agents, and traces.
+              It reads like a reference, not a guide.
+            </td>
+          </tr>
+          <tr>
+            <td>Undefined jargon</td>
+            <td>
+              <code>ledger</code>, <code>flight recorder trace level</code>, <code>fork from session id</code>,
+              <code>chaos-ok</code>, <code>workspace fingerprint</code>, <code>compaction</code>, <code>ghostAfter</code>
+              appear with little or no plain-language definition. This repo's own rules say &ldquo;define jargon once
+              when you use it.&rdquo;
+            </td>
+          </tr>
+          <tr>
+            <td>No &ldquo;what will this actually do?&rdquo; summary</td>
+            <td>
+              The builder outputs a command but never says, in one sentence, &ldquo;This will read your files and
+              suggest edits, asking before each change.&rdquo; A beginner has to mentally decode the flags to know the
+              blast radius.
+            </td>
+          </tr>
+          <tr>
+            <td>No pre-flight / &ldquo;is the bridge running?&rdquo; help</td>
+            <td>
+              The command assumes the bridge is already up on <code>127.0.0.1:11437</code>. If it isn't, the beginner
+              gets a raw connection error with no guidance from the page.
+            </td>
+          </tr>
+          <tr>
+            <td>Accessibility &amp; density</td>
+            <td>
+              Several labels/hints sit at <code>0.72rem</code> in <code>--muted</code> grey on dark — low contrast and
+              small. Status is often conveyed by color alone (red conflict, orange caution).
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <h2>5. Ten suggested improvements</h2>
+      <p class="note">
+        Prioritized. Pills mark rough effort:
+        <span class="pill pill-quick">Quick</span> (minutes),
+        <span class="pill pill-med">Medium</span> (an afternoon),
+        <span class="pill pill-big">Bigger</span> (a focused session).
+      </p>
+
+      <div class="imp">
+        <h3><span class="num">1</span>Fix the tool drift so the builder tells the truth <span class="pill pill-quick">Quick</span></h3>
+        <p>
+          Add <code>ask_user_question</code>, <code>enter_worktree</code>, and <code>exit_worktree</code> to the
+          capability catalog and to <code>DEFAULT_TOOL_NAMES</code>. This closes findings 1 and 2 — the highest-value
+          change on the list, because it stops the builder from silently removing the model's ability to ask you
+          questions.
+        </p>
+      </div>
+
+      <div class="imp">
+        <h3><span class="num">2</span>Add a &ldquo;builder matches runtime&rdquo; test <span class="pill pill-med">Medium</span></h3>
+        <p>
+          Write one <code>node:test</code> that imports the runtime's default-visible tool set and the model/template
+          facts, then asserts the builder's mirrored constants match. When the runtime changes, the test fails loudly
+          instead of the docs drifting silently. For a solo learner this is the durable fix behind improvement #1.
+        </p>
+      </div>
+
+      <div class="imp">
+        <h3><span class="num">3</span>Restore the <code>.layout</code> CSS selector <span class="pill pill-quick">Quick</span></h3>
+        <p>
+          Add the missing <code>.layout {</code> line so the form and command panel render side-by-side as designed.
+          One line, immediate visual correctness.
+        </p>
+      </div>
+
+      <div class="imp">
+        <h3><span class="num">4</span>Add a plain-English &ldquo;What this command will do&rdquo; summary <span class="pill pill-med">Medium</span></h3>
+        <p>
+          Above or below the generated command, render one sentence assembled from the current settings, e.g.
+          &ldquo;<em>Reads files in this folder and proposes edits, pausing to ask you before each file change. Shell is
+          off.</em>&rdquo; This translates flags into consequences — the thing a beginner actually needs.
+        </p>
+      </div>
+
+      <div class="imp">
+        <h3><span class="num">5</span>Add a one-time &ldquo;Before you run this&rdquo; checklist <span class="pill pill-quick">Quick</span></h3>
+        <p>
+          A small collapsible box near the copy button: &ldquo;1) Is the local bridge running? 2) Are you in the
+          playground folder? 3) New here — start with a Read-only preset.&rdquo; Include the exact command to start the
+          bridge. This removes the most common first-run failure (bridge not up) before it happens.
+        </p>
+      </div>
+
+      <div class="imp">
+        <h3><span class="num">6</span>Group Advanced options by goal, with short intros <span class="pill pill-med">Medium</span></h3>
+        <p>
+          Split the mega-panel into a few nested <code>&lt;details&gt;</code> sections titled by intent — &ldquo;Attach
+          files&rdquo;, &ldquo;Limit cost &amp; length&rdquo;, &ldquo;Resume earlier work&rdquo;, &ldquo;Debugging
+          &amp; logs&rdquo;. Each gets a one-line &ldquo;use this when&hellip;&rdquo; intro so a beginner scans by
+          question, not by flag.
+        </p>
+      </div>
+
+      <div class="imp">
+        <h3><span class="num">7</span>Add hover/inline glossary for jargon <span class="pill pill-med">Medium</span></h3>
+        <p>
+          Give the scary terms (<code>ledger</code>, <code>trace</code>, <code>fork</code>, <code>compaction</code>,
+          <code>chaos-ok</code>) a small &ldquo;?&rdquo; tooltip or a linked glossary at the bottom. Define each once, in
+          one sentence, in beginner terms. This is a direct application of this repo's &ldquo;define jargon once&rdquo;
+          rule.
+        </p>
+      </div>
+
+      <div class="imp">
+        <h3><span class="num">8</span>Add a &ldquo;Beginner mode&rdquo; toggle that hides everything non-essential <span class="pill pill-big">Bigger</span></h3>
+        <p>
+          A top-level switch that collapses the page to just: prompt, presets, permission style, folders, and the
+          command. Everything else stays one click away. Default it ON. The current design hides advanced options but
+          still shows a dense middle; a real beginner mode would show maybe eight controls total.
+        </p>
+      </div>
+
+      <div class="imp">
+        <h3><span class="num">9</span>Make the tool panel state-aware and explain the auto-changes <span class="pill pill-med">Medium</span></h3>
+        <p>
+          When enabling shell auto-checks <code>bash</code>, or when the model dropdown warns about Opus temperature,
+          surface a tiny inline note explaining <em>why</em> a box just changed. Right now the form mutates itself
+          silently, which is confusing when you're still learning cause and effect.
+        </p>
+      </div>
+
+      <div class="imp">
+        <h3><span class="num">10</span>Improve contrast and add non-color status cues <span class="pill pill-quick">Quick</span></h3>
+        <p>
+          Nudge the smallest hint text up from <code>0.72rem</code> and lighten <code>--muted</code> for body copy, and
+          pair color-coded warnings with an icon or word (&ldquo;Blocked&rdquo;, &ldquo;Caution&rdquo;) so meaning
+          survives for color-blind users and low-quality screens. Low effort, broad benefit.
+        </p>
+      </div>
+
+      <h2>6. Handoff</h2>
+      <div class="card">
+        <ul>
+          <li><strong>Folder / branch:</strong> <code>claude-local-bridge-playground</code>, branch <code>main</code>.</li>
+          <li>
+            <strong>File created:</strong>
+            <code>docs/command-builder-assessment-claude.html</code> (this document, new — separate from the existing
+            <code>docs/command-builder-assessment.html</code>, which I did not open).
+          </li>
+          <li><strong>Files changed:</strong> none in the runner or the builder — this is assessment only.</li>
+          <li><strong>Checks run:</strong> none needed (no code changed); findings were verified by reading the runtime source.</li>
+          <li>
+            <strong>Risks / next step:</strong> nothing risky here. If you want, the obvious first move is improvement
+            #1 + #3 together — both are one-to-a-few-line fixes that make the builder honest and render correctly.
+          </li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>
