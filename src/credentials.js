@@ -235,6 +235,11 @@ const CLAUDE_CODE_FINGERPRINT = {
     'x-stainless-runtime-version': 'v26.3.0',
     'x-stainless-timeout': '600',
   },
+  // These body-level blocks are older than the header fingerprint above, but
+  // the bridge still needs a fallback shape when live capture has not observed
+  // body system blocks yet. Prefer live blocks whenever they exist.
+  billingHeader: 'x-anthropic-billing-header: cc_version=2.1.119.401; cc_entrypoint=claude-vscode; cch=d0a6f;',
+  agentIdentity: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
 };
 
 /**
@@ -260,9 +265,8 @@ function buildAuthHeaders(ctx, creds) {
  * disabled in this playground so the evidence path stays clean.
  *
  * Uses live captured system blocks if available (self-adapting). If no live
- * system blocks were captured, leave the request body alone. The 2026-07-07
- * Claude Code capture did not include the older billing/identity system blocks,
- * so a stale fallback would be a guess.
+ * system blocks were captured, fall back to the last known body-level Claude
+ * Code shape so runner requests do not lose the identity/billing prelude.
  *
  * @param {object} ctx Bridge context
  * @param {object} body Parsed Anthropic request body (mutated in place)
@@ -278,6 +282,28 @@ function prependClaudeCodeSystem(ctx, body, creds) {
     const identityBlock = {
       type: 'text',
       text: liveBlocks.agentIdentity,
+      cache_control: { type: 'ephemeral', ttl: '1h' },
+    };
+
+    let userBlocks = [];
+    if (typeof body.system === 'string' && body.system.length > 0) {
+      userBlocks = [
+        {
+          type: 'text',
+          text: body.system,
+          cache_control: { type: 'ephemeral', ttl: '1h' },
+        },
+      ];
+    } else if (Array.isArray(body.system)) {
+      userBlocks = body.system;
+    }
+
+    body.system = [billingBlock, identityBlock, ...userBlocks];
+  } else {
+    const billingBlock = { type: 'text', text: CLAUDE_CODE_FINGERPRINT.billingHeader };
+    const identityBlock = {
+      type: 'text',
+      text: CLAUDE_CODE_FINGERPRINT.agentIdentity,
       cache_control: { type: 'ephemeral', ttl: '1h' },
     };
 

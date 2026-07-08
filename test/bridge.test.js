@@ -192,7 +192,7 @@ describe('credentials.buildAuthHeaders', () => {
 });
 
 describe('credentials.prependClaudeCodeSystem', () => {
-  it('leaves the request body unchanged when no live system blocks were captured', () => {
+  it('prepends fallback system blocks when no live system blocks were captured', () => {
     const { prependClaudeCodeSystem } = require('../src/credentials');
     const body = {
       model: 'claude-fable-5',
@@ -205,10 +205,18 @@ describe('credentials.prependClaudeCodeSystem', () => {
     });
 
     assert.equal(returned, body);
-    assert.deepEqual(body, {
-      model: 'claude-fable-5',
-      messages: [{ role: 'user', content: 'hello' }],
-    });
+    assert.deepEqual(body.system, [
+      {
+        type: 'text',
+        text: 'x-anthropic-billing-header: cc_version=2.1.119.401; cc_entrypoint=claude-vscode; cch=d0a6f;',
+      },
+      {
+        type: 'text',
+        text: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+        cache_control: { type: 'ephemeral', ttl: '1h' },
+      },
+    ]);
+    assert.deepEqual(body.messages, [{ role: 'user', content: 'hello' }]);
   });
 
   it('prepends live captured system blocks when they exist', () => {
