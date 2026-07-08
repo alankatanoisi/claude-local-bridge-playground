@@ -36,6 +36,8 @@ To explore which Claude Code harness capabilities are prudent to add next, see
 [docs/runner-expansion-roadmap.md](./docs/runner-expansion-roadmap.md).
 For the manual self-hosted GitHub Actions proof of concept, see
 [docs/bridge-runner-actions-poc.md](./docs/bridge-runner-actions-poc.md).
+For the feasibility assessment and phased plan for a possible OpenAI Codex variant of the runner, see
+[docs/codex-bridge-runner-roadmap.html](./docs/codex-bridge-runner-roadmap.html) (proposal only; no Codex code exists yet).
 
 The runner can inspect this repo or any other local project by passing that project as `--cwd`.
 

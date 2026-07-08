@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Codex Bridge Runner — Feasibility Assessment &amp; Build Roadmap</title>
+    <style>
+      :root {
+        --bg: #fafafa;
+        --fg: #1a1a1a;
+        --muted: #666;
+        --accent: #2563eb;
+        --accent-light: #dbeafe;
+        --code-bg: #f3f4f6;
+        --border: #e5e7eb;
+        --success: #059669;
+        --warn: #d97706;
+        --danger: #dc2626;
+        --info: #6366f1;
+        --radius: 8px;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.65;
+        color: var(--fg);
+        background: var(--bg);
+        margin: 0;
+        padding: 0;
+      }
+
+      header {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        color: #fff;
+        padding: 3rem 1.5rem 2.5rem;
+        text-align: center;
+      }
+      header h1 {
+        margin: 0 0 0.5rem;
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      header p {
+        margin: 0 auto;
+        opacity: 0.9;
+        font-size: 1.05rem;
+        max-width: 760px;
+      }
+      header .meta {
+        margin-top: 1rem;
+        font-size: 0.85rem;
+        opacity: 0.7;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+
+      section { margin-bottom: 2.75rem; }
+
+      h2 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin: 0 0 0.75rem;
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 0.4rem;
+      }
+      h3 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 1.25rem 0 0.5rem;
+      }
+      h4 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 1rem 0 0.4rem;
+      }
+
+      p { margin: 0 0 0.9rem; }
+      ul, ol { margin: 0 0 1rem; padding-left: 1.5rem; }
+      li { margin-bottom: 0.35rem; }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.88em;
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 0.1em 0.35em;
+      }
+      pre {
+        background: #1e293b;
+        color: #e2e8f0;
+        border-radius: var(--radius);
+        padding: 1rem 1.25rem;
+        overflow-x: auto;
+        font-size: 0.85rem;
+        line-height: 1.55;
+      }
+      pre code {
+        background: none;
+        border: none;
+        padding: 0;
+        color: inherit;
+        font-size: inherit;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0 0 1.25rem;
+        font-size: 0.9rem;
+        background: #fff;
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+      th, td {
+        text-align: left;
+        padding: 0.55rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+      th {
+        background: #f1f5f9;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      tr:last-child td { border-bottom: none; }
+      .table-scroll { overflow-x: auto; margin-bottom: 1.25rem; }
+      .table-scroll table { margin-bottom: 0; min-width: 640px; }
+
+      .callout {
+        border-left: 4px solid var(--accent);
+        background: var(--accent-light);
+        border-radius: 0 var(--radius) var(--radius) 0;
+        padding: 0.85rem 1.1rem;
+        margin: 0 0 1.25rem;
+      }
+      .callout.success { border-color: var(--success); background: #ecfdf5; }
+      .callout.warn { border-color: var(--warn); background: #fffbeb; }
+      .callout.danger { border-color: var(--danger); background: #fef2f2; }
+      .callout p:last-child { margin-bottom: 0; }
+      .callout strong:first-child { display: inline-block; margin-bottom: 0.15rem; }
+
+      .jargon {
+        border: 1px dashed var(--info);
+        background: #eef2ff;
+        border-radius: var(--radius);
+        padding: 0.75rem 1rem;
+        margin: 0 0 1.25rem;
+        font-size: 0.9rem;
+      }
+      .jargon dt { font-weight: 700; margin-top: 0.5rem; }
+      .jargon dt:first-child { margin-top: 0; }
+      .jargon dd { margin: 0 0 0.25rem 0; }
+
+      .phase {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      .phase h3 { margin-top: 0; }
+      .phase .phase-meta {
+        font-size: 0.82rem;
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        margin-bottom: 0.75rem;
+      }
+
+      .badge {
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        border-radius: 999px;
+        padding: 0.15rem 0.6rem;
+        margin-right: 0.35rem;
+        vertical-align: middle;
+      }
+      .badge.green { background: #d1fae5; color: #065f46; }
+      .badge.amber { background: #fef3c7; color: #92400e; }
+      .badge.red { background: #fee2e2; color: #991b1b; }
+      .badge.blue { background: var(--accent-light); color: #1e40af; }
+
+      .verdict {
+        background: #ecfdf5;
+        border: 2px solid var(--success);
+        border-radius: var(--radius);
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      .verdict h3 { margin-top: 0; color: var(--success); }
+
+      footer {
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.8rem;
+        padding: 1.5rem;
+        border-top: 1px solid var(--border);
+      }
+
+      nav.toc {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 1rem 1.5rem;
+        margin-bottom: 2.5rem;
+        font-size: 0.92rem;
+      }
+      nav.toc ol { margin: 0.5rem 0 0; }
+      nav.toc a { color: var(--accent); text-decoration: none; }
+      nav.toc a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Codex Bridge Runner — Feasibility &amp; Roadmap</h1>
+      <p>
+        Can the cc bridge runner architecture be reused to build a <strong>Codex local bridge runner</strong> that
+        drives OpenAI's Codex models through the same local agent loop? Short answer: yes — this document reviews the
+        current runtime capabilities, measures the provider coupling, and lays out a phased build plan.
+      </p>
+      <div class="meta">docs/codex-bridge-runner-roadmap.html · 2026-07-08 · playground repo · status: proposal (nothing built yet)</div>
+    </header>
+
+    <main>
+      <nav class="toc">
+        <strong>Contents</strong>
+        <ol>
+          <li><a href="#verdict">TL;DR verdict</a></li>
+          <li><a href="#capabilities">Part 1 — What the runner can do today</a></li>
+          <li><a href="#coupling">Part 2 — Where the Anthropic-specific code lives</a></li>
+          <li><a href="#codex-side">Part 3 — What Codex looks like on the wire</a></li>
+          <li><a href="#architecture">Part 4 — Architecture decision: three ways to build it</a></li>
+          <li><a href="#roadmap">Part 5 — Phased build roadmap</a></li>
+          <li><a href="#carryover">Part 6 — What carries over unchanged</a></li>
+          <li><a href="#risks">Part 7 — Risks, policy, and invariants</a></li>
+          <li><a href="#next">Next steps checklist</a></li>
+        </ol>
+      </nav>
+
+      <!-- ============================================================ -->
+      <section id="verdict">
+        <h2>TL;DR verdict</h2>
+        <div class="verdict">
+          <h3>✅ Feasible — roughly 85% of the runner carries over as-is</h3>
+          <p>
+            The runner was built with a clean seam between <strong>“talk to the model”</strong> and
+            <strong>“everything else”</strong> (tools, safety, permissions, sessions, archives, prompts, profiles,
+            hooks, undo, coordinator). The “everything else” layer never looks at Anthropic-specific data shapes — it
+            consumes a neutral <code>{ name, input, id }</code> tool call and produces plain text results. Only four
+            core modules speak the Anthropic Messages dialect natively, and each has a well-understood OpenAI
+            Responses-API equivalent.
+          </p>
+          <p style="margin-bottom: 0;">
+            The recommended build is a <strong>provider adapter inside the runner</strong> plus a
+            <strong>small standalone Codex credential bridge</strong> (a separate local daemon on its own port — the
+            existing Claude bridge is not touched, preserving its transport invariants). Estimated effort:
+            <strong>6 phases</strong>, with a usable read-only Codex runner at the end of Phase 4.
+          </p>
+        </div>
+        <div class="callout warn">
+          <strong>⚠️ Two caveats before anything is built.</strong>
+          <p>
+            <strong>1. Policy risk (same class as the Claude bridge).</strong> A Codex bridge would reuse ChatGPT
+            OAuth credentials created by the official Codex CLI outside that official client. Like the Claude bridge,
+            this is personal research in a gray zone — it is not proof of OpenAI approval, it may break at any time,
+            and it carries some account risk. This must be documented plainly wherever the Codex transport is described.
+          </p>
+          <p>
+            <strong>2. Wire-format facts need re-verification.</strong> The Codex CLI and its backend endpoints evolve
+            quickly. Every protocol detail in Part 3 is best current knowledge and is re-verified as the very first
+            roadmap task (Phase 0) against the open-source Codex CLI code before any adapter code is written.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="capabilities">
+        <h2>Part 1 — What the runner can do today</h2>
+        <p>
+          This inventory is the “parameter set” a Codex variant should aim to inherit. It was compiled by reading the
+          current code on <code>main</code> (see file references in each row).
+        </p>
+
+        <h3>1.1 Transport layer (the existing Claude bridge)</h3>
+        <div class="table-scroll">
+        <table>
+          <tr><th>Capability</th><th>Where</th><th>Notes</th></tr>
+          <tr>
+            <td>Local Anthropic-native endpoint <code>POST /v1/messages</code> on <code>localhost:11437</code></td>
+            <td><code>src/server.js</code>, <code>src/proxy.js</code></td>
+            <td>Verbatim passthrough to <code>api.anthropic.com</code> with OAuth Bearer injection</td>
+          </tr>
+          <tr>
+            <td>OAuth-only credential discovery (intercepted token → env var → keychain → credentials file)</td>
+            <td><code>src/credentials.js</code>, <code>src/interceptors/**</code></td>
+            <td>No API-key fallback by design; expired tokens get one auto-retry after cache clear</td>
+          </tr>
+          <tr>
+            <td>Optional local caller auth, locked debug endpoint, redacted trace correlation</td>
+            <td><code>src/server.js</code>, trace utils</td>
+            <td>Runner sends correlation headers automatically</td>
+          </tr>
+        </table>
+        </div>
+
+        <h3>1.2 Agent loop &amp; kernel</h3>
+        <div class="table-scroll">
+        <table>
+          <tr><th>Capability</th><th>Where</th><th>Notes</th></tr>
+          <tr>
+            <td>Deterministic turn engine with a stable stop-reason taxonomy (~20 reasons)</td>
+            <td><code>src/runner/run.js</code>, <code>src/runner/kernel/contract.js</code></td>
+            <td>Kernel contract is already provider-neutral (usage fields are the only Anthropic-flavored names)</td>
+          </tr>
+          <tr>
+            <td>Budgets: max steps, wall clock, cost (USD), input/output token caps, predictive variants, retry budget</td>
+            <td><code>budget-tracker.js</code>, <code>model-pricing.js</code></td>
+            <td>Soft warnings at 80%; child agents inherit remaining budget</td>
+          </tr>
+          <tr>
+            <td>Context management: token budgeting, compaction ladder, reactive compaction</td>
+            <td><code>context-budget.js</code>, <code>context-compactor.js</code></td>
+            <td>Compactor operates on Anthropic message shapes (see Part 2)</td>
+          </tr>
+          <tr>
+            <td>Loop health: repeat-tool detection, semantic cycle detection, consecutive-failure escalation, loop autopsy</td>
+            <td><code>repeat-tool-detector.js</code>, <code>loop-autopsy.js</code>, <code>session-health.js</code></td>
+            <td>All provider-neutral</td>
+          </tr>
+        </table>
+        </div>
+
+        <h3>1.3 Tool surface (capability groups)</h3>
+        <div class="table-scroll">
+        <table>
+          <tr><th>Group</th><th>Tools</th><th>Gating</th></tr>
+          <tr><td>Read</td><td><code>list_files</code>, <code>read_file</code> (text + images/PDF), <code>search_text</code>, <code>glob</code>, <code>git_status</code>, <code>lsp_query</code></td><td><code>lsp_query</code> behind <code>--enable-lsp</code></td></tr>
+          <tr><td>Session</td><td><code>manage_tasks</code></td><td>always on</td></tr>
+          <tr><td>Clarification</td><td><code>ask_user_question</code></td><td>TTY required; fails closed in workers / <code>--dont-ask</code></td></tr>
+          <tr><td>Orchestration</td><td><code>spawn_agent</code></td><td>top-level only; asks by default</td></tr>
+          <tr><td>Worktree</td><td><code>enter_worktree</code>, <code>exit_worktree</code>, <code>list_worktrees</code></td><td>requires git repo; parallel slots</td></tr>
+          <tr><td>Skills</td><td><code>run_skill</code></td><td>read-only document loader</td></tr>
+          <tr><td>Write</td><td><code>edit_file</code>, <code>write_file</code> (<code>apply_patch</code> hidden)</td><td>confirmation unless <code>--accept-edits</code></td></tr>
+          <tr><td>Recovery</td><td><code>undo</code>, <code>undo_edit</code> + per-run manifests + <code>local-bridge-undo</code> CLI</td><td>always on</td></tr>
+          <tr><td>Shell</td><td><code>bash</code>, <code>manage_shell_jobs</code>, opt-in persistent shell</td><td>hidden unless <code>--allow-shell</code>; shell-policy scanner</td></tr>
+        </table>
+        </div>
+
+        <h3>1.4 Safety &amp; permissions</h3>
+        <ul>
+          <li>Path confinement to <code>--cwd</code>, deny matrix for <code>.env</code>, private keys, credential JSON, <code>.ssh</code>, <code>.aws</code>, <code>.claude</code> (<code>safety.js</code>).</li>
+          <li>Secret redaction on every tool result, including a streaming sliding-window scrubber (<code>tool-registry.js</code> → <code>runAndScrub</code>).</li>
+          <li>Permission modes (<code>default</code>, <code>plan</code>, <code>accept-edits</code>, <code>dont-ask</code>, <code>auto</code>), allow/ask/deny policy, decision cache, tool visibility profiles (<code>permissions.js</code>, <code>tool-profiles.js</code>).</li>
+          <li>Workspace trust gate and environment scrubbing for subprocesses.</li>
+        </ul>
+
+        <h3>1.5 Customization, sessions, observability</h3>
+        <ul>
+          <li><code>.bridge-runner/</code> primitives: <code>SYSTEM.md</code>, <code>APPEND_SYSTEM.md</code>, prompt templates with injection-hardened parameters, file agents, profiles, hooks, skills.</li>
+          <li>JSONL transcripts, session store/ledger with resume, per-turn archive with catalog and archive CLI, human log, flight-recorder traces (summary/redacted/full).</li>
+          <li>Usage &amp; cost summary from a local price table; golden-transcript eval harness (replays canned model scripts through a fake client — no live credentials needed); Harbor / Terminal-Bench adapter.</li>
+          <li>Performance: prompt-cache breakpoints, in-memory file/search caches, keep-alive HTTP agent, parallel read batches and disjoint parallel writes, tool prefetch, subprocess pool.</li>
+        </ul>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="coupling">
+        <h2>Part 2 — Where the Anthropic-specific code lives</h2>
+        <p>
+          A grep for Anthropic message-shape vocabulary (<code>tool_use</code>, <code>tool_result</code>,
+          <code>content_block</code>, <code>input_schema</code>, <code>cache_control</code>, <code>thinking</code>)
+          finds 121 hits across 39 runner files — but the distribution is very lopsided. Most files have exactly one
+          hit: the <code>input_schema</code> key in their tool definition, which is a mechanical one-line concern.
+          The real coupling is concentrated in four modules:
+        </p>
+        <div class="table-scroll">
+        <table>
+          <tr><th>Module</th><th>Anthropic-specific behavior</th><th>Codex-side equivalent</th><th>Port difficulty</th></tr>
+          <tr>
+            <td><code>src/runner/model-client.js</code> (262 lines)</td>
+            <td>Messages API request/response; SSE event grammar (<code>message_start</code>, <code>content_block_delta</code>, <code>thinking_delta</code>/<code>signature_delta</code>, <code>input_json_delta</code>)</td>
+            <td>Responses API request/response; SSE grammar (<code>response.output_text.delta</code>, <code>response.function_call_arguments.delta</code>, <code>response.completed</code>)</td>
+            <td><span class="badge amber">Medium</span> — write a sibling client, same size</td>
+          </tr>
+          <tr>
+            <td><code>src/runner/run.js</code> (1,370 lines)</td>
+            <td>Content-block extraction; <code>cache_control</code> breakpoint budgeting (4-marker budget with bridge reserve); thinking-block + signature preservation across turns; usage field names</td>
+            <td>No manual cache markers (OpenAI caching is automatic); reasoning items with <code>encrypted_content</code> must be replayed — structurally the same “preserve opaque block” problem the runner already solves for thinking signatures</td>
+            <td><span class="badge amber">Medium</span> — mostly <em>skipping</em> logic per provider, not adding it</td>
+          </tr>
+          <tr>
+            <td><code>src/runner/tool-pipeline.js</code> (532 lines)</td>
+            <td>Assembles <code>tool_use</code> / <code>tool_result</code> message pairs and ids</td>
+            <td>Assembles <code>function_call</code> / <code>function_call_output</code> items keyed by <code>call_id</code></td>
+            <td><span class="badge green">Low</span> — if the adapter translates at the client boundary, this file does not change at all</td>
+          </tr>
+          <tr>
+            <td><code>src/runner/context-compactor.js</code> (337 lines)</td>
+            <td>Compaction ladder walks Anthropic message/content-block shapes</td>
+            <td>Same, if translation happens at the boundary</td>
+            <td><span class="badge green">Low</span> — unchanged under the boundary-adapter design</td>
+          </tr>
+          <tr>
+            <td>Tool definitions (24 files under <code>src/runner/tools/</code>)</td>
+            <td><code>input_schema</code> key (Anthropic name for the JSON Schema)</td>
+            <td><code>parameters</code> key (OpenAI name for the same JSON Schema), optional <code>strict: true</code></td>
+            <td><span class="badge green">Low</span> — one shared mapping function in the adapter; tool files untouched</td>
+          </tr>
+        </table>
+        </div>
+        <div class="callout success">
+          <strong>Key architectural insight.</strong>
+          <p>
+            Because <code>tool-pipeline.js</code>, <code>context-compactor.js</code>, transcripts, the archive, and
+            the golden-eval harness all speak the <em>internal</em> Anthropic-block dialect, the cheapest correct
+            design is to keep that dialect as the runner's internal lingua franca and translate
+            <strong>only at the model-client boundary</strong>: Codex <code>function_call</code> items become internal
+            <code>tool_use</code> blocks on the way in, and internal <code>tool_result</code> blocks become
+            <code>function_call_output</code> items on the way out. One adapter file, everything downstream unchanged.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="codex-side">
+        <h2>Part 3 — What Codex looks like on the wire</h2>
+        <div class="jargon">
+          <dl>
+            <dt>Codex CLI</dt>
+            <dd>OpenAI's open-source local coding agent (<code>github.com/openai/codex</code>, Apache-2.0, written in Rust). It is the OpenAI counterpart of Claude Code.</dd>
+            <dt>Responses API</dt>
+            <dd>OpenAI's current model API. Where Anthropic sends a <code>messages</code> array plus a <code>system</code> prompt, OpenAI sends an <code>input</code> item list plus an <code>instructions</code> string.</dd>
+            <dt>ChatGPT OAuth</dt>
+            <dd>Signing in to Codex CLI with a ChatGPT Plus/Pro account instead of an API key. Tokens are stored locally in <code>~/.codex/auth.json</code> (access token, refresh token, account id) — the direct analog of Claude Code's keychain entry / <code>~/.claude/.credentials.json</code>.</dd>
+            <dt>SSE (server-sent events)</dt>
+            <dd>The streaming format both providers use: a long-lived HTTP response that emits small JSON frames as the model generates.</dd>
+          </dl>
+        </div>
+        <div class="callout warn">
+          <strong>⚠️ Verify before building.</strong>
+          <p>
+            Everything in the table below is knowledge as of early 2026 and drifts with Codex releases. Phase 0 pins
+            each row against the actual open-source Codex CLI source and a captured live request before any code
+            depends on it.
+          </p>
+        </div>
+        <div class="table-scroll">
+        <table>
+          <tr><th>Concern</th><th>Claude (today's runner)</th><th>Codex (target)</th></tr>
+          <tr><td>Endpoint</td><td><code>POST /v1/messages</code> → <code>api.anthropic.com</code></td><td><code>POST …/responses</code> — ChatGPT-plan traffic goes to the ChatGPT backend Codex endpoint; API-key traffic goes to <code>api.openai.com/v1/responses</code></td></tr>
+          <tr><td>Auth</td><td>Claude Code OAuth Bearer (keychain / credentials.json)</td><td>ChatGPT OAuth Bearer from <code>~/.codex/auth.json</code> + account-id header; refresh-token flow when the access token expires</td></tr>
+          <tr><td>System prompt</td><td><code>system</code> (string or block array)</td><td><code>instructions</code> (string)</td></tr>
+          <tr><td>Conversation</td><td><code>messages</code> array of role + content blocks</td><td><code>input</code> array of typed items (<code>message</code>, <code>function_call</code>, <code>function_call_output</code>, <code>reasoning</code>)</td></tr>
+          <tr><td>Tool definitions</td><td><code>{ name, description, input_schema }</code></td><td><code>{ type: "function", name, description, parameters, strict }</code></td></tr>
+          <tr><td>Model calls a tool</td><td><code>tool_use</code> content block (<code>id</code>, <code>name</code>, <code>input</code>)</td><td><code>function_call</code> item (<code>call_id</code>, <code>name</code>, <code>arguments</code> as a JSON <em>string</em>)</td></tr>
+          <tr><td>Tool result reply</td><td><code>tool_result</code> block with <code>tool_use_id</code></td><td><code>function_call_output</code> item with <code>call_id</code> and <code>output</code> string</td></tr>
+          <tr><td>Extended reasoning</td><td><code>thinking</code> blocks + <code>signature</code>, must be replayed in multi-turn tool loops</td><td><code>reasoning</code> items with <code>encrypted_content</code>; with <code>store: false</code> you request them via <code>include</code> and replay them — same “opaque block round-trip” pattern</td></tr>
+          <tr><td>Prompt caching</td><td>Manual <code>cache_control</code> breakpoints (runner budgets 3 + 1 bridge reserve)</td><td>Automatic prefix caching — <em>no request-side markers at all</em>; hits reported as <code>usage.input_tokens_details.cached_tokens</code></td></tr>
+          <tr><td>Usage fields</td><td><code>input_tokens</code>, <code>output_tokens</code>, <code>cache_read_input_tokens</code>, <code>cache_creation_input_tokens</code></td><td><code>input_tokens</code>, <code>output_tokens</code>, <code>input_tokens_details.cached_tokens</code> (no separate cache-write counter)</td></tr>
+          <tr><td>Streaming events</td><td><code>message_start</code>, <code>content_block_start/delta/stop</code>, <code>message_delta</code></td><td><code>response.created</code>, <code>response.output_item.added</code>, <code>response.output_text.delta</code>, <code>response.function_call_arguments.delta/.done</code>, <code>response.completed</code></td></tr>
+          <tr><td>Effort knob</td><td><code>--effort low|medium|high|max</code> passthrough</td><td><code>reasoning: { effort: … }</code> — direct mapping</td></tr>
+          <tr><td>Multimodal reads</td><td>Anthropic <code>image</code>/<code>document</code> content blocks</td><td><code>input_image</code> items (images); PDF support differs — treat as a Phase 5 gap to verify</td></tr>
+        </table>
+        </div>
+        <p>
+          The structural takeaway: <strong>every Anthropic concept the runner relies on has a direct Codex
+          counterpart</strong>, and the two hardest problems the runner already solved — streamed partial tool-call
+          JSON assembly and opaque reasoning-block round-tripping — are the same problems in slightly different
+          clothes. Nothing on the Codex side requires a capability the runner lacks; one thing (manual cache
+          budgeting) simply disappears.
+        </p>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="architecture">
+        <h2>Part 4 — Architecture decision: three ways to build it</h2>
+        <p>
+          The playground has a hard transport invariant: the Claude bridge stays Anthropic-native (no
+          <code>/v1/chat/completions</code>, no OpenAI routes, no API-key fallback). So “add OpenAI support to the
+          existing bridge” is off the table by design. That leaves three shapes:
+        </p>
+
+        <h3>Option A — Standalone Codex credential daemon + runner provider adapter <span class="badge green">Recommended</span></h3>
+        <p>
+          A new, small, separate local daemon (a plain Node script — <em>no VS Code extension needed</em>, since Codex
+          credentials live in a readable file rather than behind editor interception) listens on its own port (e.g.
+          <code>localhost:11438</code>), discovers ChatGPT OAuth from <code>~/.codex/auth.json</code> / env var,
+          handles token refresh, and forwards native Responses-API requests. The runner gains a
+          <code>--provider codex</code> flag that swaps in a Codex model client whose adapter translates to the
+          internal Anthropic-block dialect at the boundary.
+        </p>
+        <ul>
+          <li><strong>Pros:</strong> preserves the bridge/runner separation the whole repo is built on; credentials stay out of the runner process; keeps the trace-correlation, caller-auth, and redaction patterns; Claude bridge invariants untouched; the daemon is reusable by other local clients later.</li>
+          <li><strong>Cons:</strong> one more process to start; small new codebase to maintain (~300–500 lines).</li>
+        </ul>
+
+        <h3>Option B — Provider adapter only, runner talks to OpenAI directly</h3>
+        <ul>
+          <li><strong>Pros:</strong> no new daemon; fastest to a demo.</li>
+          <li><strong>Cons:</strong> moves credential discovery, refresh, and redaction <em>into</em> the runner, breaking the “bridge owns auth, runner owns the loop” boundary; loses trace correlation and caller auth; makes the runner itself hold live account tokens, which the threat model currently avoids.</li>
+        </ul>
+
+        <h3>Option C — Fork the repo into a separate codex-local-bridge project</h3>
+        <ul>
+          <li><strong>Pros:</strong> zero risk to the Claude runner; total freedom.</li>
+          <li><strong>Cons:</strong> permanent double maintenance of ~10,000 lines of runner code; every safety fix must be applied twice; directly contradicts the “one runner, small extension points” direction of this lab.</li>
+        </ul>
+
+        <div class="callout">
+          <strong>Recommendation: Option A.</strong>
+          <p>
+            It is the only shape where the Codex work strengthens rather than dilutes the existing architecture: the
+            provider seam it introduces (Phase 1) is a refactor the runner benefits from even if the Codex daemon is
+            never finished, and the daemon reuses the redaction/caller-auth/trace patterns already proven in the
+            Claude bridge.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="roadmap">
+        <h2>Part 5 — Phased build roadmap</h2>
+        <p>
+          Phases are ordered so that each one lands independently, keeps <code>npm test</code> green for the Claude
+          path, and produces something reviewable. “Session” means one focused agent working session. Exit criteria
+          are deliberately test-shaped because the golden-eval harness lets most of this be verified with
+          <strong>no live credentials at all</strong>.
+        </p>
+
+        <div class="phase">
+          <h3>Phase 0 — Protocol spike &amp; policy write-up <span class="badge blue">1–2 sessions</span></h3>
+          <div class="phase-meta">new: docs/lab-notes/codex-protocol-notes.md · touches: nothing in src/</div>
+          <ul>
+            <li>Read the open-source Codex CLI source and pin: exact endpoint URLs per auth mode, <code>auth.json</code> schema, refresh flow, required headers, request/response JSON, SSE event list.</li>
+            <li>Capture one real Codex CLI request/response pair locally (Codex CLI has debug logging) and store a <em>redacted</em> transcript as the reference fixture.</li>
+            <li>Write the policy-risk section: ChatGPT OAuth reuse outside official clients is a ToS gray zone; personal research framing; account-risk statement mirroring the Claude bridge's.</li>
+            <li>Decide the model list and pricing rows to add to <code>model-pricing.js</code>.</li>
+          </ul>
+          <p><strong>Exit criteria:</strong> every row of the Part 3 table above is confirmed or corrected, with a citation into Codex CLI source; go/no-go checkpoint with Alan.</p>
+        </div>
+
+        <div class="phase">
+          <h3>Phase 1 — Provider seam in the runner (no behavior change) <span class="badge blue">2–3 sessions</span></h3>
+          <div class="phase-meta">touches: src/runner/model-client.js, run.js · new: src/runner/providers/ (interface + anthropic provider) · tests: golden evals must pass unchanged</div>
+          <ul>
+            <li>Define a small provider interface: <code>buildRequest(system, tools, messages, opts)</code>, <code>send / sendStream</code>, <code>normalizeResponse → internal content blocks</code>, <code>normalizeUsage</code>, <code>cacheStrategy</code>.</li>
+            <li>Move today's Anthropic logic (including <code>applyCacheControlBudget</code> and thinking/signature handling) behind that interface as the default provider. <code>run.js</code>, <code>tool-pipeline.js</code>, and the compactor keep consuming internal blocks and notice nothing.</li>
+            <li>Record a <code>provider</code> field in transcripts, archive turns, and traces (schema-additive only).</li>
+          </ul>
+          <p><strong>Exit criteria:</strong> full test suite and all golden evals pass with zero expect-block changes; this proves the seam is behavior-neutral.</p>
+        </div>
+
+        <div class="phase">
+          <h3>Phase 2 — Codex credential daemon (<code>codex-local-bridge</code>) <span class="badge blue">2–3 sessions</span></h3>
+          <div class="phase-meta">new: bin/codex-local-bridge.js (or a sibling folder), test/codex-bridge/*.test.js · touches: nothing in src/runner or the Claude bridge</div>
+          <ul>
+            <li>Plain Node HTTP daemon on <code>localhost:11438</code>: discovers credentials (env var → <code>~/.codex/auth.json</code>), injects Bearer + account-id, forwards native Responses requests, streams SSE back.</li>
+            <li>Token refresh on 401 (mirror the Claude bridge's “clear cache, retry once” pattern), never logging token bodies; extend secret redaction patterns to OpenAI/ChatGPT token shapes.</li>
+            <li>Port over: optional caller auth, locked debug endpoint, redacted request logging, trace correlation headers.</li>
+            <li>Invariants, mirrored from the Claude side: OAuth-only (no <code>OPENAI_API_KEY</code> upstream fallback in this lab), placeholder client keys never forwarded, debug surfaces redacted.</li>
+          </ul>
+          <p><strong>Exit criteria:</strong> <code>curl</code> through the daemon completes a one-shot Responses call and a streamed call; unit tests cover credential priority, refresh, and redaction with fixture tokens.</p>
+        </div>
+
+        <div class="phase">
+          <h3>Phase 3 — Codex provider adapter <span class="badge blue">3–4 sessions</span></h3>
+          <div class="phase-meta">new: src/runner/providers/codex.js, test/runner/codex-provider.test.js · touches: model-pricing.js</div>
+          <ul>
+            <li>Request builder: internal system prompt → <code>instructions</code>; tool definitions → <code>{ type: "function", …, parameters }</code>; internal messages/blocks → <code>input</code> items; <code>--effort</code> → <code>reasoning.effort</code>; <code>store: false</code> + reasoning include for stateless multi-turn.</li>
+            <li>Response normalizer: <code>function_call</code> items (JSON-string <code>arguments</code>) → internal <code>tool_use</code> blocks; <code>reasoning</code> items preserved as opaque replayable blocks (reusing the thinking-signature pattern); output text → text blocks.</li>
+            <li>SSE mapper: Responses event grammar → the internal streamed-block assembly <code>postStream</code> already implements (partial tool-arg buffering carries over almost verbatim).</li>
+            <li>Usage normalizer: <code>cached_tokens</code> → <code>cache_read_input_tokens</code>, cache-write counter fixed at 0; add Codex model rows to the pricing table; <code>cacheStrategy: none</code> (skip all <code>cache_control</code> markers).</li>
+          </ul>
+          <p><strong>Exit criteria:</strong> unit tests translate the Phase 0 captured fixtures both directions byte-for-byte; a golden-eval case runs the full loop against a scripted fake Codex client.</p>
+        </div>
+
+        <div class="phase">
+          <h3>Phase 4 — Runner integration &amp; first live runs <span class="badge blue">2–3 sessions</span></h3>
+          <div class="phase-meta">touches: bin/local-bridge-runner.js, src/runner/run.js (flag plumbing only) · docs: runner-quickstart.html, command-builder.html</div>
+          <ul>
+            <li>Add <code>--provider anthropic|codex</code> (default <code>anthropic</code>), defaulting <code>--bridge-url</code> to the matching daemon port; env var <code>BRIDGE_RUNNER_PROVIDER</code>.</li>
+            <li>Verify every capability group live in a throwaway lab, in this order: read-only run → <code>--plan</code> → write tools with confirmation → <code>--accept-edits</code> → <code>--allow-shell</code> → <code>spawn_agent</code> → worktrees → <code>--stream</code>.</li>
+            <li>Confirm budgets, cost summary, transcripts, archive, human log, undo manifests, and traces all render correctly with the <code>provider</code> field.</li>
+            <li>Update the command builder with a provider selector and a Codex preset.</li>
+          </ul>
+          <p><strong>Exit criteria:</strong> the README throwaway-lab smoke task (“fix the calculator bug, run npm test, summarize”) passes end-to-end on <code>--provider codex</code>.</p>
+        </div>
+
+        <div class="phase">
+          <h3>Phase 5 — Parity hardening &amp; docs <span class="badge blue">2–3 sessions</span></h3>
+          <div class="phase-meta">touches: docs/threat-model.md, README.md, golden cases, safety.js patterns</div>
+          <ul>
+            <li>Golden-eval grammar extension so canned scripts can be authored in either provider dialect; add Codex cases for permission denials, budget stops, repeat-tool detection, and compaction.</li>
+            <li>Close the known gaps found in Phase 4: multimodal (<code>input_image</code>; PDF handling if unsupported, degrade to text extraction with a clear tool note), token-count preflight differences, retry/backoff tuning for the ChatGPT backend.</li>
+            <li>Threat-model update: new credential class (ChatGPT OAuth), new daemon surface, redaction coverage, and the policy-risk statement from Phase 0.</li>
+            <li>Bench: rerun turn-latency and cache-reuse benches; document that Codex cache reuse is automatic and how the usage line reports it.</li>
+          </ul>
+          <p><strong>Exit criteria:</strong> <code>npm test</code>, <code>npm run lint</code>, <code>npm run check:docs</code>, golden evals all green; docs updated; a written parity table of anything still Claude-only.</p>
+        </div>
+
+        <div class="phase">
+          <h3>Phase 6 — Optional: dual-provider experiments <span class="badge amber">exploratory</span></h3>
+          <ul>
+            <li>Coordinator phases pinned to different providers (e.g. Claude plans, Codex implements, Claude reviews — or the reverse).</li>
+            <li>Cross-provider A/B on the Harbor smoke tasks with the same prompts, comparing cost, steps, and stop reasons from the archive.</li>
+            <li><code>spawn_agent</code> with a per-child provider override.</li>
+          </ul>
+          <p><strong>Exit criteria:</strong> none — this is the payoff playground once Phases 0–5 are stable.</p>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="carryover">
+        <h2>Part 6 — What carries over unchanged</h2>
+        <p>
+          These parameters and subsystems need <strong>zero Codex-specific work</strong> beyond the Phase 1 seam —
+          they are the payoff for the boundary-adapter design:
+        </p>
+        <div class="table-scroll">
+        <table>
+          <tr><th>Area</th><th>Carries over as-is</th></tr>
+          <tr><td>CLI surface</td><td><code>--cwd</code>, <code>--bare</code>, all <code>--include-*</code> flags, <code>--agent</code>, <code>--permission-mode</code>, <code>--tools</code>/<code>--allowed-tools</code>, <code>--profile</code>, <code>--prompt-template</code>/<code>--prompt-arg</code>, <code>--plan</code>, <code>--accept-edits</code>, <code>--allow-shell</code>, <code>--dont-ask</code>, <code>--continue</code>, <code>--max-steps</code>, budget flags, <code>--human-log</code>, <code>--trace-level</code>, output formats</td></tr>
+          <tr><td>Safety</td><td>Path confinement, deny matrix, shell policy, env scrubbing, secret redaction (extended with OpenAI token patterns, not replaced), workspace trust</td></tr>
+          <tr><td>Permissions</td><td>Allow/ask/deny policy, modes, decision cache, tool profiles, confirmation flow</td></tr>
+          <tr><td>All 24 tools</td><td>Every tool module untouched — the adapter renames <code>input_schema</code> → <code>parameters</code> in one shared function</td></tr>
+          <tr><td>Sessions &amp; observability</td><td>Transcripts, session store/ledger, resume, archive + CLI, human log, run manifests + undo CLI, loop autopsy, session health (all gain a <code>provider</code> field, schema-additive)</td></tr>
+          <tr><td>Customization</td><td><code>.bridge-runner/</code> prompts, templates, agents, profiles, hooks, skills — all text-level, provider-agnostic</td></tr>
+          <tr><td>Eval &amp; bench</td><td>Golden-eval harness (fake client is exactly a provider), Harbor adapter (gains a provider knob), bench scripts</td></tr>
+        </table>
+        </div>
+        <p>
+          The honest deltas: prompt-cache budgeting becomes provider-conditional (Codex: none), the pricing table
+          grows OpenAI rows with a cache-write column of zero, multimodal PDF support needs a Phase 5 decision, and
+          the default system prompt may want light Codex-model tuning (models respond differently to the same
+          instructions — treat prompt tuning as data-driven follow-up, not a blocker).
+        </p>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="risks">
+        <h2>Part 7 — Risks, policy, and invariants</h2>
+        <div class="table-scroll">
+        <table>
+          <tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr>
+          <tr>
+            <td><strong>Policy / ToS gray zone.</strong> Reusing ChatGPT OAuth outside the official Codex CLI is not an approved integration; OpenAI could block it or action the account.</td>
+            <td><span class="badge red">High</span></td>
+            <td>Same posture as the Claude bridge: personal research only, documented plainly in README/threat model, OAuth-only with no credential capture-and-replay side channels, easy to stop using. Go/no-go checkpoint at end of Phase 0.</td>
+          </tr>
+          <tr>
+            <td><strong>Protocol drift.</strong> The ChatGPT backend Codex endpoint is not a stable public contract; Codex CLI releases change it.</td>
+            <td><span class="badge amber">Medium</span></td>
+            <td>Phase 0 fixtures pin the contract; adapter unit tests fail loudly on shape changes; keep the daemon thin so updates are small.</td>
+          </tr>
+          <tr>
+            <td><strong>Token handling.</strong> A second live credential class (ChatGPT access + refresh tokens) enters local tooling.</td>
+            <td><span class="badge amber">Medium</span></td>
+            <td>Tokens live only in the daemon; redaction patterns extended before first live run; traces/logs/transcripts stay redacted by default; deny matrix already blocks <code>~/.codex</code>-style credential files from tool reads (verify and extend in Phase 2).</td>
+          </tr>
+          <tr>
+            <td><strong>Scope creep into the Claude bridge.</strong></td>
+            <td><span class="badge amber">Medium</span></td>
+            <td>Hard rule carried from CLAUDE.md: no OpenAI routes, models, or keys touch <code>src/server.js</code>/<code>src/proxy.js</code>/<code>src/credentials.js</code>. The Codex daemon is a separate entrypoint on a separate port.</td>
+          </tr>
+          <tr>
+            <td><strong>Refactor regression risk in Phase 1.</strong> run.js is 1,370 lines and load-bearing.</td>
+            <td><span class="badge amber">Medium</span></td>
+            <td>Phase 1 ships with zero golden-eval expect changes as its acceptance test; the seam is extraction, not rewrite.</td>
+          </tr>
+          <tr>
+            <td><strong>Behavioral differences.</strong> Codex models may call tools more/less aggressively, changing loop dynamics (repeat detection thresholds, failure escalation).</td>
+            <td><span class="badge green">Low</span></td>
+            <td>All loop-health knobs are already configurable; archive + autopsy give the data to tune them; Phase 6 A/B makes it measurable.</td>
+          </tr>
+        </table>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="next">
+        <h2>Next steps checklist</h2>
+        <ol>
+          <li><strong>Alan decision:</strong> approve Option A (separate daemon + provider seam) or pick another shape from Part 4.</li>
+          <li><strong>Alan decision:</strong> confirm comfort with the Part 7 policy-risk framing before any live credential is touched.</li>
+          <li>Run Phase 0 (protocol spike) — it requires only reading Codex CLI source plus one local capture, and it de-risks everything else.</li>
+          <li>Land Phase 1 (provider seam) — valuable to the Claude runner on its own, even if Codex work pauses afterward.</li>
+          <li>Then Phases 2–5 in order; re-check this document's Part 3 table against reality at each phase boundary.</li>
+        </ol>
+        <div class="callout">
+          <strong>Where this document lives.</strong>
+          <p>
+            <code>docs/codex-bridge-runner-roadmap.html</code> in the playground repo. Open it by double-clicking the
+            file in Finder or with “Open with browser” from VS Code. Update it as phases land, the same way the runner
+            expansion roadmap is maintained.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      Claude Local Bridge Playground · Codex bridge runner feasibility &amp; roadmap · proposal only — no Codex code exists in this repo yet
+    </footer>
+  </body>
+</html>
