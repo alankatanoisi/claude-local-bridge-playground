@@ -233,7 +233,7 @@
         drives OpenAI's Codex models through the same local agent loop? Short answer: yes — this document reviews the
         current runtime capabilities, measures the provider coupling, and lays out a phased build plan.
       </p>
-      <div class="meta">docs/codex-bridge-runner-roadmap.html · 2026-07-08 · playground repo · status: proposal (nothing built yet)</div>
+      <div class="meta">docs/codex-bridge-runner-roadmap.html · updated 2026-07-08 · playground repo · status: decided — Option C fork into codex-local-bridge-playground</div>
     </header>
 
     <main>
@@ -266,19 +266,23 @@
             Responses-API equivalent.
           </p>
           <p style="margin-bottom: 0;">
-            The recommended build is a <strong>provider adapter inside the runner</strong> plus a
-            <strong>small standalone Codex credential bridge</strong> (a separate local daemon on its own port — the
-            existing Claude bridge is not touched, preserving its transport invariants). Estimated effort:
-            <strong>6 phases</strong>, with a usable read-only Codex runner at the end of Phase 4.
+            <strong>Decision (2026-07-08): Alan chose Option C</strong> — fork the playground into a separate
+            <code>codex-local-bridge-playground</code> repository and rewrite the model-facing modules in place there.
+            Auth uses an official ChatGPT Business <strong>programmatic access token</strong> (<code>at-…</code>,
+            scoped to Codex / Workspace Agents) supplied via an environment variable, which removes both the OAuth
+            phone-verification blocker and the token-refresh machinery. The roadmap in Part 5 is written for this
+            fork-and-prune path: <strong>6 phases</strong>, with a usable proof-of-concept Codex runner at the end of
+            Phase 4.
           </p>
         </div>
         <div class="callout warn">
           <strong>⚠️ Two caveats before anything is built.</strong>
           <p>
-            <strong>1. Policy risk (same class as the Claude bridge).</strong> A Codex bridge would reuse ChatGPT
-            OAuth credentials created by the official Codex CLI outside that official client. Like the Claude bridge,
-            this is personal research in a gray zone — it is not proof of OpenAI approval, it may break at any time,
-            and it carries some account risk. This must be documented plainly wherever the Codex transport is described.
+            <strong>1. Policy risk (now much smaller than first assessed).</strong> The original concern was reusing
+            ChatGPT OAuth credentials outside the official Codex CLI. The chosen credential is instead an official
+            ChatGPT Business <em>access token</em>, created in the dashboard for “ChatGPT and Codex programmatic use
+            cases” — a sanctioned programmatic path. Residual risk is narrower: confirm in Phase 0 what the token is
+            documented to permit, and keep the personal-research framing until that is pinned down.
           </p>
           <p>
             <strong>2. Wire-format facts need re-verification.</strong> The Codex CLI and its backend endpoints evolve
@@ -446,7 +450,9 @@
             <dt>Responses API</dt>
             <dd>OpenAI's current model API. Where Anthropic sends a <code>messages</code> array plus a <code>system</code> prompt, OpenAI sends an <code>input</code> item list plus an <code>instructions</code> string.</dd>
             <dt>ChatGPT OAuth</dt>
-            <dd>Signing in to Codex CLI with a ChatGPT Plus/Pro account instead of an API key. Tokens are stored locally in <code>~/.codex/auth.json</code> (access token, refresh token, account id) — the direct analog of Claude Code's keychain entry / <code>~/.claude/.credentials.json</code>.</dd>
+            <dd>Signing in to Codex CLI with a ChatGPT account instead of an API key. Tokens are stored locally in <code>~/.codex/auth.json</code> (access token, refresh token, account id) — the direct analog of Claude Code's keychain entry / <code>~/.claude/.credentials.json</code>. <em>Not usable here:</em> the OAuth login flow sends a phone OTP to a number no longer owned.</dd>
+            <dt>Programmatic access token (<code>at-…</code>)</dt>
+            <dd>A token created in the ChatGPT Business dashboard under “Access tokens — create and manage access tokens for ChatGPT and Codex programmatic use cases”, scoped (in this case) to Codex and Workspace Agents. Dashboard-managed: revoke and re-create there in seconds, no client-side refresh flow. <strong>This is the chosen credential for the fork.</strong></dd>
             <dt>SSE (server-sent events)</dt>
             <dd>The streaming format both providers use: a long-lived HTTP response that emits small JSON frames as the model generates.</dd>
           </dl>
@@ -463,7 +469,7 @@
         <table>
           <tr><th>Concern</th><th>Claude (today's runner)</th><th>Codex (target)</th></tr>
           <tr><td>Endpoint</td><td><code>POST /v1/messages</code> → <code>api.anthropic.com</code></td><td><code>POST …/responses</code> — ChatGPT-plan traffic goes to the ChatGPT backend Codex endpoint; API-key traffic goes to <code>api.openai.com/v1/responses</code></td></tr>
-          <tr><td>Auth</td><td>Claude Code OAuth Bearer (keychain / credentials.json)</td><td>ChatGPT OAuth Bearer from <code>~/.codex/auth.json</code> + account-id header; refresh-token flow when the access token expires</td></tr>
+          <tr><td>Auth</td><td>Claude Code OAuth Bearer (keychain / credentials.json)</td><td><strong>Chosen path:</strong> Business-plan programmatic access token (<code>at-…</code>) as a Bearer header, read from one env var — Phase 0 verifies which endpoint and extra headers it expects. (Alternative not used here: ChatGPT OAuth from <code>~/.codex/auth.json</code> with a refresh flow.)</td></tr>
           <tr><td>System prompt</td><td><code>system</code> (string or block array)</td><td><code>instructions</code> (string)</td></tr>
           <tr><td>Conversation</td><td><code>messages</code> array of role + content blocks</td><td><code>input</code> array of typed items (<code>message</code>, <code>function_call</code>, <code>function_call_output</code>, <code>reasoning</code>)</td></tr>
           <tr><td>Tool definitions</td><td><code>{ name, description, input_schema }</code></td><td><code>{ type: "function", name, description, parameters, strict }</code></td></tr>
@@ -495,7 +501,7 @@
           existing bridge” is off the table by design. That leaves three shapes:
         </p>
 
-        <h3>Option A — Standalone Codex credential daemon + runner provider adapter <span class="badge green">Recommended</span></h3>
+        <h3>Option A — Standalone Codex credential daemon + runner provider adapter <span class="badge blue">Not chosen</span></h3>
         <p>
           A new, small, separate local daemon (a plain Node script — <em>no VS Code extension needed</em>, since Codex
           credentials live in a readable file rather than behind editor interception) listens on its own port (e.g.
@@ -515,19 +521,22 @@
           <li><strong>Cons:</strong> moves credential discovery, refresh, and redaction <em>into</em> the runner, breaking the “bridge owns auth, runner owns the loop” boundary; loses trace correlation and caller auth; makes the runner itself hold live account tokens, which the threat model currently avoids.</li>
         </ul>
 
-        <h3>Option C — Fork the repo into a separate codex-local-bridge project</h3>
+        <h3>Option C — Fork the repo into a separate codex-local-bridge project <span class="badge green">Chosen</span></h3>
         <ul>
           <li><strong>Pros:</strong> zero risk to the Claude runner; total freedom.</li>
           <li><strong>Cons:</strong> permanent double maintenance of ~10,000 lines of runner code; every safety fix must be applied twice; directly contradicts the “one runner, small extension points” direction of this lab.</li>
         </ul>
 
-        <div class="callout">
-          <strong>Recommendation: Option A.</strong>
+        <div class="callout success">
+          <strong>Decision: Option C, recorded 2026-07-08.</strong>
           <p>
-            It is the only shape where the Codex work strengthens rather than dilutes the existing architecture: the
-            provider seam it introduces (Phase 1) is a refactor the runner benefits from even if the Codex daemon is
-            never finished, and the daemon reuses the redaction/caller-auth/trace patterns already proven in the
-            Claude bridge.
+            Alan chose the fork for proof-of-concept freedom: the new repo can delete Claude-specific transport code
+            outright instead of abstracting around it, and its agent instructions (CLAUDE.md / AGENTS.md) can be
+            written for OpenAI work without conflicting with this repo's Anthropic-only invariants. The known cost —
+            double maintenance of shared runner code — is accepted for the PoC stage; if the fork proves out and
+            porting fixes by hand becomes painful, restructuring into a shared-core monorepo is the natural upgrade
+            path. Target repo: <code>alankatanoisi/codex-local-bridge-playground</code> (a separate repository, not a
+            folder inside this one, so the two projects' agent rules, credentials, and histories never mix).
           </p>
         </div>
       </section>
@@ -536,89 +545,89 @@
       <section id="roadmap">
         <h2>Part 5 — Phased build roadmap</h2>
         <p>
-          Phases are ordered so that each one lands independently, keeps <code>npm test</code> green for the Claude
-          path, and produces something reviewable. “Session” means one focused agent working session. Exit criteria
-          are deliberately test-shaped because the golden-eval harness lets most of this be verified with
-          <strong>no live credentials at all</strong>.
+          Rewritten for the chosen Option C fork. All build phases from Phase 1 onward happen in the new
+          <code>codex-local-bridge-playground</code> repository; this playground repo is only the seed source and
+          keeps this document as the origin spec (a copy should travel with the fork and become its living roadmap).
+          “Session” means one focused agent working session. Exit criteria are deliberately test-shaped because the
+          golden-eval harness lets most of this be verified with <strong>no live credentials at all</strong>.
         </p>
 
         <div class="phase">
-          <h3>Phase 0 — Protocol spike &amp; policy write-up <span class="badge blue">1–2 sessions</span></h3>
-          <div class="phase-meta">new: docs/lab-notes/codex-protocol-notes.md · touches: nothing in src/</div>
+          <h3>Phase 0 — Protocol &amp; token spike <span class="badge blue">1–2 sessions</span></h3>
+          <div class="phase-meta">runs anywhere · new: lab-notes doc · touches: no src/ in either repo</div>
           <ul>
-            <li>Read the open-source Codex CLI source and pin: exact endpoint URLs per auth mode, <code>auth.json</code> schema, refresh flow, required headers, request/response JSON, SSE event list.</li>
-            <li>Capture one real Codex CLI request/response pair locally (Codex CLI has debug logging) and store a <em>redacted</em> transcript as the reference fixture.</li>
-            <li>Write the policy-risk section: ChatGPT OAuth reuse outside official clients is a ToS gray zone; personal research framing; account-risk statement mirroring the Claude bridge's.</li>
-            <li>Decide the model list and pricing rows to add to <code>model-pricing.js</code>.</li>
+            <li>Verify what the <code>at-…</code> Business access token can call: exact endpoint URL(s), required headers (Bearer plus any workspace/account id), and whether it speaks the standard Responses API shape. Pin this from OpenAI's access-token docs and the open-source Codex CLI source, then prove it with one <em>redacted</em> <code>curl</code> capture (one-shot and streamed) kept as the reference fixture.</li>
+            <li>Confirm the token's scopes (“Codex”, “Workspace Agents”) cover the calls the runner needs, and record its expiry/rotation story (dashboard-managed; expected: revoke and re-create, no client-side refresh flow).</li>
+            <li>Write down what OpenAI documents the token as permitted for, so remaining policy risk is recorded fact rather than guesswork.</li>
+            <li>Decide the Codex model list and pricing rows for <code>model-pricing.js</code>.</li>
           </ul>
-          <p><strong>Exit criteria:</strong> every row of the Part 3 table above is confirmed or corrected, with a citation into Codex CLI source; go/no-go checkpoint with Alan.</p>
+          <p><strong>Exit criteria:</strong> every row of the Part 3 table above is confirmed or corrected with citations; a scratch script completes a live streamed Responses call using the env-var token; go/no-go checkpoint with Alan.</p>
         </div>
 
         <div class="phase">
-          <h3>Phase 1 — Provider seam in the runner (no behavior change) <span class="badge blue">2–3 sessions</span></h3>
-          <div class="phase-meta">touches: src/runner/model-client.js, run.js · new: src/runner/providers/ (interface + anthropic provider) · tests: golden evals must pass unchanged</div>
+          <h3>Phase 1 — Create and seed the fork <span class="badge blue">1–2 sessions</span></h3>
+          <div class="phase-meta">new repo: alankatanoisi/codex-local-bridge-playground · this repo: untouched</div>
           <ul>
-            <li>Define a small provider interface: <code>buildRequest(system, tools, messages, opts)</code>, <code>send / sendStream</code>, <code>normalizeResponse → internal content blocks</code>, <code>normalizeUsage</code>, <code>cacheStrategy</code>.</li>
-            <li>Move today's Anthropic logic (including <code>applyCacheControlBudget</code> and thinking/signature handling) behind that interface as the default provider. <code>run.js</code>, <code>tool-pipeline.js</code>, and the compactor keep consuming internal blocks and notice nothing.</li>
-            <li>Record a <code>provider</code> field in transcripts, archive turns, and traces (schema-additive only).</li>
+            <li>Create the empty GitHub repo (private recommended for a PoC that handles credential-adjacent code), copy this playground's files in, and make one “seed” commit that records provenance (source repo + commit hash) so future diffs against the Claude runner stay possible.</li>
+            <li><strong>Prune (delete):</strong> the VS Code extension surface and Claude bridge internals (<code>src/server.js</code>, <code>src/proxy.js</code>, <code>src/credentials.js</code>, <code>src/interceptors/**</code>) and their tests, Claude-specific docs lanes and archived handoffs, and vendored Claude agent collections.</li>
+            <li><strong>Keep:</strong> <code>bin/</code>, <code>src/runner/**</code>, <code>test/runner/**</code>, <code>scripts/</code>, lint/format configs, docs skeleton.</li>
+            <li><strong>Rewrite:</strong> README, CLAUDE.md/AGENTS.md (a new lane table so agents never confuse the two repos, plus the fork's transport invariants: upstream auth is the <code>at-…</code> token from one env var only; never commit, print, or log it; redact <code>at-</code>/<code>sk-</code>/<code>eyJ</code> patterns everywhere; native Responses route only; no Anthropic credentials or routes in that repo), and <code>package.json</code> name/metadata.</li>
           </ul>
-          <p><strong>Exit criteria:</strong> full test suite and all golden evals pass with zero expect-block changes; this proves the seam is behavior-neutral.</p>
+          <p><strong>Exit criteria:</strong> fork pushed; after pruning, <code>npm test</code> and lint are green in the fork (runner tests only — the model client is still the Claude one at this point, which is fine because golden evals use a fake client).</p>
         </div>
 
         <div class="phase">
-          <h3>Phase 2 — Codex credential daemon (<code>codex-local-bridge</code>) <span class="badge blue">2–3 sessions</span></h3>
-          <div class="phase-meta">new: bin/codex-local-bridge.js (or a sibling folder), test/codex-bridge/*.test.js · touches: nothing in src/runner or the Claude bridge</div>
+          <h3>Phase 2 — Transport: direct token client (daemon optional later) <span class="badge blue">1–2 sessions</span></h3>
+          <div class="phase-meta">fork repo · new: transport module · touches: safety.js redaction patterns</div>
           <ul>
-            <li>Plain Node HTTP daemon on <code>localhost:11438</code>: discovers credentials (env var → <code>~/.codex/auth.json</code>), injects Bearer + account-id, forwards native Responses requests, streams SSE back.</li>
-            <li>Token refresh on 401 (mirror the Claude bridge's “clear cache, retry once” pattern), never logging token bodies; extend secret redaction patterns to OpenAI/ChatGPT token shapes.</li>
-            <li>Port over: optional caller auth, locked debug endpoint, redacted request logging, trace correlation headers.</li>
-            <li>Invariants, mirrored from the Claude side: OAuth-only (no <code>OPENAI_API_KEY</code> upstream fallback in this lab), placeholder client keys never forwarded, debug surfaces redacted.</li>
+            <li>With a dashboard-managed static token there is no keychain to read, no interception, and no refresh flow — a separate credential daemon adds little for a PoC. <strong>Start direct:</strong> the forked runner's model client calls the OpenAI endpoint itself, reading the token from one env var (e.g. <code>CODEX_ACCESS_TOKEN</code>). Keep “split transport into a small local daemon on its own port” as a later refinement if multi-client use or request interception ever matters.</li>
+            <li>Before the first live call from runner code: extend secret redaction to <code>at-…</code> token shapes, verify the deny matrix blocks any file the token could live in (<code>.env</code> is already covered), and confirm subprocess environment scrubbing strips the token from child shells.</li>
+            <li>Port the flight-recorder trace pattern so request boundaries stay auditable with header <em>names</em>, never header values.</li>
           </ul>
-          <p><strong>Exit criteria:</strong> <code>curl</code> through the daemon completes a one-shot Responses call and a streamed call; unit tests cover credential priority, refresh, and redaction with fixture tokens.</p>
+          <p><strong>Exit criteria:</strong> transport unit tests with fixture tokens prove redaction and env scrubbing; a live smoke script round-trips one-shot and streamed calls through the new transport module.</p>
         </div>
 
         <div class="phase">
-          <h3>Phase 3 — Codex provider adapter <span class="badge blue">3–4 sessions</span></h3>
-          <div class="phase-meta">new: src/runner/providers/codex.js, test/runner/codex-provider.test.js · touches: model-pricing.js</div>
+          <h3>Phase 3 — Rewrite the coupled modules in place <span class="badge blue">3–4 sessions</span></h3>
+          <div class="phase-meta">fork repo · touches: model-client.js, run.js, model-pricing.js · unchanged: tool-pipeline.js, context-compactor.js, all 24 tools</div>
           <ul>
-            <li>Request builder: internal system prompt → <code>instructions</code>; tool definitions → <code>{ type: "function", …, parameters }</code>; internal messages/blocks → <code>input</code> items; <code>--effort</code> → <code>reasoning.effort</code>; <code>store: false</code> + reasoning include for stateless multi-turn.</li>
-            <li>Response normalizer: <code>function_call</code> items (JSON-string <code>arguments</code>) → internal <code>tool_use</code> blocks; <code>reasoning</code> items preserved as opaque replayable blocks (reusing the thinking-signature pattern); output text → text blocks.</li>
-            <li>SSE mapper: Responses event grammar → the internal streamed-block assembly <code>postStream</code> already implements (partial tool-arg buffering carries over almost verbatim).</li>
-            <li>Usage normalizer: <code>cached_tokens</code> → <code>cache_read_input_tokens</code>, cache-write counter fixed at 0; add Codex model rows to the pricing table; <code>cacheStrategy: none</code> (skip all <code>cache_control</code> markers).</li>
+            <li><code>model-client.js</code> becomes a Responses API client: system prompt → <code>instructions</code>; tool definitions → <code>{ type: "function", …, parameters }</code> via one shared <code>input_schema</code> → <code>parameters</code> mapping (tool files untouched); internal messages → <code>input</code> items; <code>--effort</code> → <code>reasoning.effort</code>; <code>store: false</code> plus reasoning include for stateless multi-turn.</li>
+            <li>Keep the internal Anthropic-block dialect as the fork's internal representation — the Part 2 insight applies inside the fork too. <code>function_call</code> items translate to internal <code>tool_use</code> blocks at the client boundary, so the tool pipeline, compactor, transcripts, archive, and golden evals stay byte-compatible.</li>
+            <li>SSE mapper: Responses event grammar → the existing streamed-block assembly (the partial tool-argument buffering in <code>postStream</code> carries over almost verbatim); <code>reasoning</code> items ride the opaque-preserved-block path built for thinking signatures.</li>
+            <li><code>run.js</code>: delete <code>cache_control</code> budgeting entirely (OpenAI caching is automatic); usage normalizer maps <code>cached_tokens</code> → <code>cache_read_input_tokens</code> with cache-write fixed at 0; add Codex rows to the pricing table.</li>
           </ul>
-          <p><strong>Exit criteria:</strong> unit tests translate the Phase 0 captured fixtures both directions byte-for-byte; a golden-eval case runs the full loop against a scripted fake Codex client.</p>
+          <p><strong>Exit criteria:</strong> unit tests translate the Phase 0 captured fixtures in both directions; at least one golden-eval case drives the full loop against a scripted fake Codex client.</p>
         </div>
 
         <div class="phase">
-          <h3>Phase 4 — Runner integration &amp; first live runs <span class="badge blue">2–3 sessions</span></h3>
-          <div class="phase-meta">touches: bin/local-bridge-runner.js, src/runner/run.js (flag plumbing only) · docs: runner-quickstart.html, command-builder.html</div>
+          <h3>Phase 4 — Live proof-of-concept runs <span class="badge blue">1–2 sessions</span></h3>
+          <div class="phase-meta">fork repo · throwaway labs only · docs: fork quickstart + command builder</div>
           <ul>
-            <li>Add <code>--provider anthropic|codex</code> (default <code>anthropic</code>), defaulting <code>--bridge-url</code> to the matching daemon port; env var <code>BRIDGE_RUNNER_PROVIDER</code>.</li>
-            <li>Verify every capability group live in a throwaway lab, in this order: read-only run → <code>--plan</code> → write tools with confirmation → <code>--accept-edits</code> → <code>--allow-shell</code> → <code>spawn_agent</code> → worktrees → <code>--stream</code>.</li>
-            <li>Confirm budgets, cost summary, transcripts, archive, human log, undo manifests, and traces all render correctly with the <code>provider</code> field.</li>
-            <li>Update the command builder with a provider selector and a Codex preset.</li>
+            <li>Climb the capability ladder in a throwaway lab, in this order: read-only run → <code>--plan</code> → write tools with confirmation → <code>--accept-edits</code> → <code>--allow-shell</code> → <code>spawn_agent</code> → worktrees → <code>--stream</code>.</li>
+            <li>Confirm budgets, the cost summary line, transcripts, archive, human log, undo manifests, and traces all behave with Codex usage numbers.</li>
+            <li>Tune the default system prompt if Codex models respond differently to it — data-driven, using the archive to compare runs.</li>
           </ul>
-          <p><strong>Exit criteria:</strong> the README throwaway-lab smoke task (“fix the calculator bug, run npm test, summarize”) passes end-to-end on <code>--provider codex</code>.</p>
+          <p><strong>Exit criteria:</strong> the throwaway-lab smoke task (“fix the calculator bug, run npm test, summarize”) passes end-to-end on a Codex model.</p>
         </div>
 
         <div class="phase">
-          <h3>Phase 5 — Parity hardening &amp; docs <span class="badge blue">2–3 sessions</span></h3>
-          <div class="phase-meta">touches: docs/threat-model.md, README.md, golden cases, safety.js patterns</div>
+          <h3>Phase 5 — PoC hardening &amp; docs <span class="badge blue">1–2 sessions</span></h3>
+          <div class="phase-meta">fork repo · touches: threat model, README, golden cases</div>
           <ul>
-            <li>Golden-eval grammar extension so canned scripts can be authored in either provider dialect; add Codex cases for permission denials, budget stops, repeat-tool detection, and compaction.</li>
-            <li>Close the known gaps found in Phase 4: multimodal (<code>input_image</code>; PDF handling if unsupported, degrade to text extraction with a clear tool note), token-count preflight differences, retry/backoff tuning for the ChatGPT backend.</li>
-            <li>Threat-model update: new credential class (ChatGPT OAuth), new daemon surface, redaction coverage, and the policy-risk statement from Phase 0.</li>
-            <li>Bench: rerun turn-latency and cache-reuse benches; document that Codex cache reuse is automatic and how the usage line reports it.</li>
+            <li>Golden-eval cases for permission denials, budget stops, repeat-tool detection, and compaction under the Codex client.</li>
+            <li>Close the gaps found live in Phase 4: multimodal (<code>input_image</code>; if PDF is unsupported, degrade to text extraction with a clear tool note), retry/backoff tuning, token-count preflight differences.</li>
+            <li>Fork threat-model doc: the <code>at-…</code> token class, env-var handling, redaction coverage, and the Phase 0 policy findings.</li>
+            <li>Start a <code>PORTING.md</code> log in the fork: every safety or runner fix cherry-picked from the Claude playground gets one line, so divergence stays visible instead of silent.</li>
           </ul>
-          <p><strong>Exit criteria:</strong> <code>npm test</code>, <code>npm run lint</code>, <code>npm run check:docs</code>, golden evals all green; docs updated; a written parity table of anything still Claude-only.</p>
+          <p><strong>Exit criteria:</strong> the fork's <code>npm test</code>, lint, and doc checks are green; a written “known gaps vs the Claude runner” list exists.</p>
         </div>
 
         <div class="phase">
-          <h3>Phase 6 — Optional: dual-provider experiments <span class="badge amber">exploratory</span></h3>
+          <h3>Phase 6 — Optional: cross-runner experiments <span class="badge amber">exploratory</span></h3>
           <ul>
-            <li>Coordinator phases pinned to different providers (e.g. Claude plans, Codex implements, Claude reviews — or the reverse).</li>
-            <li>Cross-provider A/B on the Harbor smoke tasks with the same prompts, comparing cost, steps, and stop reasons from the archive.</li>
-            <li><code>spawn_agent</code> with a per-child provider override.</li>
+            <li>Run the same task on both runners and compare archives: cost, steps, stop reasons, tool-call patterns.</li>
+            <li>Cross-runner A/B on the Harbor smoke tasks with identical prompts.</li>
+            <li>Longer term: if the two-repo split proves annoying, this is where a shared-core monorepo restructure (Part 4's Option A shape) gets reconsidered with real evidence in hand.</li>
           </ul>
           <p><strong>Exit criteria:</strong> none — this is the payoff playground once Phases 0–5 are stable.</p>
         </div>
@@ -628,8 +637,9 @@
       <section id="carryover">
         <h2>Part 6 — What carries over unchanged</h2>
         <p>
-          These parameters and subsystems need <strong>zero Codex-specific work</strong> beyond the Phase 1 seam —
-          they are the payoff for the boundary-adapter design:
+          These parameters and subsystems travel into the fork and need <strong>zero Codex-specific rework</strong> —
+          they are the payoff for translating at the model-client boundary and keeping everything downstream on the
+          internal block dialect:
         </p>
         <div class="table-scroll">
         <table>
@@ -638,13 +648,13 @@
           <tr><td>Safety</td><td>Path confinement, deny matrix, shell policy, env scrubbing, secret redaction (extended with OpenAI token patterns, not replaced), workspace trust</td></tr>
           <tr><td>Permissions</td><td>Allow/ask/deny policy, modes, decision cache, tool profiles, confirmation flow</td></tr>
           <tr><td>All 24 tools</td><td>Every tool module untouched — the adapter renames <code>input_schema</code> → <code>parameters</code> in one shared function</td></tr>
-          <tr><td>Sessions &amp; observability</td><td>Transcripts, session store/ledger, resume, archive + CLI, human log, run manifests + undo CLI, loop autopsy, session health (all gain a <code>provider</code> field, schema-additive)</td></tr>
+          <tr><td>Sessions &amp; observability</td><td>Transcripts, session store/ledger, resume, archive + CLI, human log, run manifests + undo CLI, loop autopsy, session health</td></tr>
           <tr><td>Customization</td><td><code>.bridge-runner/</code> prompts, templates, agents, profiles, hooks, skills — all text-level, provider-agnostic</td></tr>
-          <tr><td>Eval &amp; bench</td><td>Golden-eval harness (fake client is exactly a provider), Harbor adapter (gains a provider knob), bench scripts</td></tr>
+          <tr><td>Eval &amp; bench</td><td>Golden-eval harness (the fake client swaps in for the Codex client the same way), Harbor adapter, bench scripts</td></tr>
         </table>
         </div>
         <p>
-          The honest deltas: prompt-cache budgeting becomes provider-conditional (Codex: none), the pricing table
+          The honest deltas: prompt-cache budgeting is simply deleted in the fork (Codex caching is automatic), the pricing table
           grows OpenAI rows with a cache-write column of zero, multimodal PDF support needs a Phase 5 decision, and
           the default system prompt may want light Codex-model tuning (models respond differently to the same
           instructions — treat prompt tuning as data-driven follow-up, not a blocker).
@@ -658,29 +668,29 @@
         <table>
           <tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr>
           <tr>
-            <td><strong>Policy / ToS gray zone.</strong> Reusing ChatGPT OAuth outside the official Codex CLI is not an approved integration; OpenAI could block it or action the account.</td>
-            <td><span class="badge red">High</span></td>
-            <td>Same posture as the Claude bridge: personal research only, documented plainly in README/threat model, OAuth-only with no credential capture-and-replay side channels, easy to stop using. Go/no-go checkpoint at end of Phase 0.</td>
+            <td><strong>Policy / ToS.</strong> Originally rated High for ChatGPT OAuth reuse. The chosen credential is an official Business-plan programmatic access token — a sanctioned path — so residual risk narrows to whether its documented permitted uses cover a third-party runner.</td>
+            <td><span class="badge amber">Medium</span></td>
+            <td>Phase 0 records what OpenAI's docs permit; personal-research framing stays in the fork's README and threat model until then; the token is dashboard-revocable in seconds.</td>
           </tr>
           <tr>
             <td><strong>Protocol drift.</strong> The ChatGPT backend Codex endpoint is not a stable public contract; Codex CLI releases change it.</td>
             <td><span class="badge amber">Medium</span></td>
-            <td>Phase 0 fixtures pin the contract; adapter unit tests fail loudly on shape changes; keep the daemon thin so updates are small.</td>
+            <td>Phase 0 fixtures pin the contract; client unit tests fail loudly on shape changes; the transport module stays thin so updates are small. The access-token path may ride a more stable public surface than scraped OAuth — verify in Phase 0.</td>
           </tr>
           <tr>
-            <td><strong>Token handling.</strong> A second live credential class (ChatGPT access + refresh tokens) enters local tooling.</td>
+            <td><strong>Token handling.</strong> A live <code>at-…</code> access token enters local tooling via an environment variable.</td>
             <td><span class="badge amber">Medium</span></td>
-            <td>Tokens live only in the daemon; redaction patterns extended before first live run; traces/logs/transcripts stay redacted by default; deny matrix already blocks <code>~/.codex</code>-style credential files from tool reads (verify and extend in Phase 2).</td>
+            <td>Env var only — never committed, printed, or logged; redaction extended to <code>at-…</code> shapes before the first live run (Phase 2); subprocess env scrubbing keeps it out of child shells; dashboard revocation is the rotation story. Housekeeping: revoke older unused tokens in the dashboard.</td>
           </tr>
           <tr>
-            <td><strong>Scope creep into the Claude bridge.</strong></td>
+            <td><strong>Fork divergence (the accepted cost of Option C).</strong> Safety and runner fixes made in either repo do not flow to the other automatically.</td>
             <td><span class="badge amber">Medium</span></td>
-            <td>Hard rule carried from CLAUDE.md: no OpenAI routes, models, or keys touch <code>src/server.js</code>/<code>src/proxy.js</code>/<code>src/credentials.js</code>. The Codex daemon is a separate entrypoint on a separate port.</td>
+            <td>The seed commit records the source hash so diffs stay possible; <code>PORTING.md</code> in the fork logs every cherry-picked fix; if porting becomes painful, revisit the shared-core monorepo shape with real evidence (Phase 6).</td>
           </tr>
           <tr>
-            <td><strong>Refactor regression risk in Phase 1.</strong> run.js is 1,370 lines and load-bearing.</td>
+            <td><strong>Rewrite regression risk in the fork.</strong> run.js is 1,370 lines and load-bearing, and Phase 3 edits it directly.</td>
             <td><span class="badge amber">Medium</span></td>
-            <td>Phase 1 ships with zero golden-eval expect changes as its acceptance test; the seam is extraction, not rewrite.</td>
+            <td>The golden-eval harness travels with the fork: expect-block diffs make every behavior change explicit and reviewable, and the internal block dialect confines the edit surface to the client boundary plus the cache/reasoning paths.</td>
           </tr>
           <tr>
             <td><strong>Behavioral differences.</strong> Codex models may call tools more/less aggressively, changing loop dynamics (repeat detection thresholds, failure escalation).</td>
@@ -695,11 +705,11 @@
       <section id="next">
         <h2>Next steps checklist</h2>
         <ol>
-          <li><strong>Alan decision:</strong> approve Option A (separate daemon + provider seam) or pick another shape from Part 4.</li>
-          <li><strong>Alan decision:</strong> confirm comfort with the Part 7 policy-risk framing before any live credential is touched.</li>
-          <li>Run Phase 0 (protocol spike) — it requires only reading Codex CLI source plus one local capture, and it de-risks everything else.</li>
-          <li>Land Phase 1 (provider seam) — valuable to the Claude runner on its own, even if Codex work pauses afterward.</li>
-          <li>Then Phases 2–5 in order; re-check this document's Part 3 table against reality at each phase boundary.</li>
+          <li><strong>Done:</strong> shape chosen (Option C fork), repo name fixed (<code>codex-local-bridge-playground</code>), credential chosen (Business-plan <code>at-…</code> access token via env var).</li>
+          <li><strong>Alan, in a browser:</strong> create the empty repo — github.com → “+” (top right) → New repository → owner <code>alankatanoisi</code> → name <code>codex-local-bridge-playground</code> → Private → skip “Add a README” → Create.</li>
+          <li><strong>Alan, in a Claude Code session:</strong> say “add alankatanoisi/codex-local-bridge-playground to this session” so an agent with access to both repos can seed the fork from this playground (Phase 1).</li>
+          <li>Run Phase 0 (protocol &amp; token spike) — one redacted curl capture de-risks everything else.</li>
+          <li>Then Phases 1–5 in order; re-check this document's Part 3 table against reality at each phase boundary, and treat the fork's copy of this roadmap as the living version from Phase 1 onward.</li>
         </ol>
         <div class="callout">
           <strong>Where this document lives.</strong>
@@ -713,7 +723,7 @@
     </main>
 
     <footer>
-      Claude Local Bridge Playground · Codex bridge runner feasibility &amp; roadmap · proposal only — no Codex code exists in this repo yet
+      Claude Local Bridge Playground · Codex bridge runner feasibility &amp; roadmap · decision recorded: Option C — the build happens in codex-local-bridge-playground; no Codex code lives in this repo
     </footer>
   </body>
 </html>
