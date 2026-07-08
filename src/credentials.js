@@ -219,10 +219,6 @@ function getCredentialAuthMode(creds) {
 // Header values captured from a live Claude Code 2.1.203 request on 2026-07-07.
 // These mimic what the CLI sends so Anthropic accepts an OAuth token.
 // Tweak via VS Code settings if Anthropic rotates the expected values.
-//
-// The billing/system block fallback lower in this object is still from the
-// 2026-04-27 system-body capture. The fresh 2026-07-07 capture only showed
-// request headers, and the opaque cch value should not be guessed.
 const CLAUDE_CODE_FINGERPRINT = {
   userAgent: 'claude-cli/2.1.203 (external, sdk-cli)',
   anthropicBeta:
@@ -239,11 +235,6 @@ const CLAUDE_CODE_FINGERPRINT = {
     'x-stainless-runtime-version': 'v26.3.0',
     'x-stainless-timeout': '600',
   },
-  // First system block Claude Code sends — a billing/telemetry tag.
-  // The cch=... value is opaque (likely a server-validated hash); it may rot.
-  billingHeader: 'x-anthropic-billing-header: cc_version=2.1.119.401; cc_entrypoint=claude-vscode; cch=d0a6f;',
-  // Second system block — the SDK identity statement.
-  agentIdentity: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
 };
 
 /**
@@ -268,7 +259,10 @@ function buildAuthHeaders(ctx, creds) {
  * when the credential is an OAuth/Bearer token. API-key mode is intentionally
  * disabled in this playground so the evidence path stays clean.
  *
- * Uses the live captured billing header if available (self-adapting).
+ * Uses live captured system blocks if available (self-adapting). If no live
+ * system blocks were captured, leave the request body alone. The 2026-07-07
+ * Claude Code capture did not include the older billing/identity system blocks,
+ * so a stale fallback would be a guess.
  *
  * @param {object} ctx Bridge context
  * @param {object} body Parsed Anthropic request body (mutated in place)
@@ -284,29 +278,6 @@ function prependClaudeCodeSystem(ctx, body, creds) {
     const identityBlock = {
       type: 'text',
       text: liveBlocks.agentIdentity,
-      cache_control: { type: 'ephemeral', ttl: '1h' },
-    };
-
-    let userBlocks = [];
-    if (typeof body.system === 'string' && body.system.length > 0) {
-      userBlocks = [
-        {
-          type: 'text',
-          text: body.system,
-          cache_control: { type: 'ephemeral', ttl: '1h' },
-        },
-      ];
-    } else if (Array.isArray(body.system)) {
-      userBlocks = body.system;
-    }
-
-    body.system = [billingBlock, identityBlock, ...userBlocks];
-  } else {
-    // Fallback to hardcoded fingerprint
-    const billingBlock = { type: 'text', text: CLAUDE_CODE_FINGERPRINT.billingHeader };
-    const identityBlock = {
-      type: 'text',
-      text: CLAUDE_CODE_FINGERPRINT.agentIdentity,
       cache_control: { type: 'ephemeral', ttl: '1h' },
     };
 
