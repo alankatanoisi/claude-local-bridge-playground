@@ -24,6 +24,13 @@ const DEFAULT_POLICY = Object.freeze({
   ghostAfterMessages: 40,
   /** Preserve last N user/assistant turns verbatim. */
   preserveRecentTurns: 6,
+  /**
+   * Message-count compaction is intentionally opt-in. A long task can have many
+   * small turns while still being far below the token budget; snipping those
+   * turns too early makes the model re-read files it already inspected.
+   */
+  snipOnMessageCount: false,
+  ghostOnMessageCount: false,
 });
 
 const _blockCharCache = new WeakMap();
@@ -190,7 +197,7 @@ function buildGhostBlock(messages, generation) {
       generation +
       '] Older turns were compressed. Preserved tool_use ids (sample): ' +
       (unique.length ? unique.join(', ') : 'none') +
-      '. Treat prior summaries as snapshots; re-fetch live state before mutating files.',
+      '. Treat prior summaries as snapshots; re-fetch only the specific current bytes needed before mutating files.',
   };
 }
 
@@ -253,6 +260,10 @@ function applyCompactionLadder(messages, system, policy = {}) {
 
   let current = messages;
   let sys = system;
+  const overWarnTokens = tokens >= p.warnTokens;
+  const overHaltTokens = tokens >= p.haltTokens;
+  const overSnipMessageCount = messages.length > p.snipAfterMessages;
+  const overGhostMessageCount = messages.length >= p.ghostAfterMessages;
 
   const clip = clipToolResults(current, p.maxToolResultChars);
   if (clip.changed) {
@@ -261,25 +272,32 @@ function applyCompactionLadder(messages, system, policy = {}) {
     result.changed = true;
   }
 
-  const snip = snipOldToolResults(current, p.snipAfterMessages, p.preserveRecentTurns);
-  if (snip.changed) {
-    current = snip.messages;
-    result.stagesApplied.push('snip');
-    result.changed = true;
+  const shouldSnip = overWarnTokens || (p.snipOnMessageCount && overSnipMessageCount);
+  if (shouldSnip) {
+    const snip = snipOldToolResults(current, p.snipAfterMessages, p.preserveRecentTurns);
+    if (snip.changed) {
+      current = snip.messages;
+      result.stagesApplied.push('snip');
+      result.changed = true;
+    }
   }
 
   // Ext-12: cost-aware drop runs after the cheap stages. Targets stale
   // tool_results superseded by later writes — cheapest possible bytes to drop
   // because the model can't usefully reference their content anyway.
-  const cost = dropStaleToolResults(current, p.preserveRecentTurns);
-  if (cost.changed) {
-    current = cost.messages;
-    result.stagesApplied.push('cost');
-    result.costDropped = cost.dropped;
-    result.changed = true;
+  if (shouldSnip) {
+    const cost = dropStaleToolResults(current, p.preserveRecentTurns);
+    if (cost.changed) {
+      current = cost.messages;
+      result.stagesApplied.push('cost');
+      result.costDropped = cost.dropped;
+      result.changed = true;
+    }
   }
 
-  if (messages.length >= p.ghostAfterMessages || tokens >= p.warnTokens) {
+  const lossyStageApplied = result.stagesApplied.some((stage) => stage === 'snip' || stage === 'cost');
+  const shouldGhost = overWarnTokens || lossyStageApplied || (p.ghostOnMessageCount && overGhostMessageCount);
+  if (shouldGhost) {
     const ghost = buildGhostBlock(current, result.generation + 1);
     sys = injectGhostSystemBlock(sys, ghost);
     result.stagesApplied.push('ghost');
@@ -287,7 +305,7 @@ function applyCompactionLadder(messages, system, policy = {}) {
     result.generation += 1;
   }
 
-  if (tokens >= p.haltTokens || (tokens >= p.warnTokens && messages.length >= p.ghostAfterMessages + 4)) {
+  if (overHaltTokens || (overWarnTokens && messages.length >= p.ghostAfterMessages + 4)) {
     const sum = summarizeOldTurns(current, p.preserveRecentTurns);
     if (sum.changed) {
       current = sum.messages;

@@ -218,6 +218,14 @@
         background: rgba(139, 148, 158, 0.18);
         color: var(--muted);
       }
+      .pill-done {
+        background: rgba(63, 185, 80, 0.15);
+        color: var(--green);
+      }
+      .pill-partial {
+        background: rgba(210, 153, 29, 0.15);
+        color: var(--orange);
+      }
       .src {
         font-size: 0.68rem;
         color: var(--muted);
@@ -423,7 +431,7 @@
           <h4>
             <span class="num">1.1</span> Restore the missing <code>.layout</code> CSS selector
             <span class="pill pill-bug">Bug</span><span class="pill pill-quick">Quick</span>
-            <span class="pill pill-status">Done</span><span class="src">A + B</span>
+            <span class="pill pill-done">Done</span><span class="src">A + B</span>
           </h4>
           <p>
             Around lines 68–73 of the stylesheet, the <code>.layout {</code> line was lost, leaving orphaned grid
@@ -442,7 +450,7 @@
           <h4>
             <span class="num">1.2</span> Fix the "Verify after edits" preset so its flags actually apply
             <span class="pill pill-bug">Bug</span><span class="pill pill-quick">Quick</span>
-            <span class="pill pill-status">Planned</span><span class="src">A</span>
+            <span class="pill pill-done">Done</span><span class="src">A</span>
           </h4>
           <p>
             The <code>verify</code> preset declares <code>allowShell: true, testWatch: true</code>, but
@@ -463,7 +471,7 @@
           <h4>
             <span class="num">1.3</span> De-duplicate <code>--session-id</code> / <code>--session-path</code>
             <span class="pill pill-bug">Bug</span><span class="pill pill-quick">Quick</span>
-            <span class="pill pill-status">Planned</span><span class="src">A</span>
+            <span class="pill pill-done">Done</span><span class="src">A</span>
           </h4>
           <p>
             <code>buildCommandParts()</code> pushes the session flags once near the top and again inside the
@@ -478,7 +486,7 @@
           <h4>
             <span class="num">1.4</span> Harden <code>shellQuote()</code> against shell expansion
             <span class="pill pill-bug">Bug</span><span class="pill pill-quick">Quick</span>
-            <span class="pill pill-status">Planned</span><span class="src">A</span>
+            <span class="pill pill-done">Done</span><span class="src">A</span>
           </h4>
           <p>
             When a prompt contains a single quote, the builder switches to double-quote wrapping without escaping
@@ -506,7 +514,7 @@
           <h4>
             <span class="num">2.1</span> Align the tool catalog with the runtime's real defaults
             <span class="pill pill-drift">Drift</span><span class="pill pill-quick">Quick</span>
-            <span class="pill pill-status">Planned</span><span class="src">B (+ A minor)</span>
+            <span class="pill pill-done">Done</span><span class="src">B (+ A minor)</span>
           </h4>
           <p>
             The runtime's <code>isToolVisible()</code> (<code>src/runner/tool-profiles.js</code>) exposes
@@ -535,7 +543,7 @@
           <h4>
             <span class="num">2.2</span> Replace "keep in sync" comments with a mechanism
             <span class="pill pill-drift">Drift</span><span class="pill pill-med">Medium</span>
-            <span class="pill pill-status">Planned</span><span class="src">A + B</span>
+            <span class="pill pill-partial">Partial</span><span class="src">A + B</span>
           </h4>
           <p>
             Both assessments converge on the same principle: comments are promises, checks are mechanisms. Two
@@ -570,7 +578,7 @@
           <h4>
             <span class="num">3.1</span> Live plain-language "What this command will do" summary
             <span class="pill pill-ux">UX</span><span class="pill pill-med">Medium</span>
-            <span class="pill pill-status">Planned</span><span class="src">A + B</span>
+            <span class="pill pill-done">Done</span><span class="src">A + B</span>
           </h4>
           <p>
             Render a one-to-three-sentence narrative next to the generated command, derived from the same state that
@@ -593,7 +601,7 @@
           <h4>
             <span class="num">3.2</span> Plain-language labels first, flags second — plus a glossary
             <span class="pill pill-ux">UX</span><span class="pill pill-med">Medium</span>
-            <span class="pill pill-status">Planned</span><span class="src">A + B</span>
+            <span class="pill pill-partial">Partial</span><span class="src">A + B</span>
           </h4>
           <p>
             The permission-style dropdown already proves the right pattern ("Look only — read files, no writes"). Apply
@@ -614,7 +622,7 @@
           <h4>
             <span class="num">3.3</span> Validate inputs and block obviously broken commands
             <span class="pill pill-ux">UX</span><span class="pill pill-med">Medium</span>
-            <span class="pill pill-status">Planned</span><span class="src">A</span>
+            <span class="pill pill-done">Done</span><span class="src">A</span>
           </h4>
           <p>
             The chaos gate proves the pattern works — extend it. Warn (and soften the copy button) when: the prompt is
@@ -632,7 +640,7 @@
           <h4>
             <span class="num">3.4</span> "Before you run" preflight checklist with a copyable health check
             <span class="pill pill-ux">UX</span><span class="pill pill-quick">Quick</span>
-            <span class="pill pill-status">Planned</span><span class="src">A + B</span>
+            <span class="pill pill-done">Done</span><span class="src">A + B</span>
           </h4>
           <p>
             A small card near the copy button: (1) bridge running in VS Code — copy
@@ -651,7 +659,7 @@
         <div class="item">
           <h4>
             <span class="num">3.5</span> Contrast and non-color status cues <span class="pill pill-ux">UX</span
-            ><span class="pill pill-quick">Quick</span> <span class="pill pill-status">Planned</span
+            ><span class="pill pill-quick">Quick</span> <span class="pill pill-partial">Partial</span
             ><span class="src">B</span>
           </h4>
           <p>
@@ -673,7 +681,7 @@
         <div class="item">
           <h4>
             <span class="num">4.1</span> Split "Advanced" into goal-oriented tiers <span class="pill pill-ux">UX</span
-            ><span class="pill pill-med">Medium</span> <span class="pill pill-status">Planned</span
+            ><span class="pill pill-med">Medium</span> <span class="pill pill-partial">Partial</span
             ><span class="src">A + B</span>
           </h4>
           <p>
@@ -711,7 +719,7 @@
           <h4>
             <span class="num">4.3</span> "Explain this command" breakdown + save/restore/reset
             <span class="pill pill-ux">UX</span><span class="pill pill-big">Bigger</span>
-            <span class="pill pill-status">Planned</span><span class="src">A</span>
+            <span class="pill pill-partial">Partial</span><span class="src">A</span>
           </h4>
           <p>
             Two learning aids: (a) an expandable per-flag breakdown under the terminal box — each emitted flag as a row
@@ -719,6 +727,10 @@
             vocabulary lesson; and (b) persist the form to <code>localStorage</code> with a "Reset to defaults" button
             (and optional URL-hash sharing), so a page refresh doesn't destroy ten minutes of careful configuration —
             the most demoralizing possible beginner experience.
+          </p>
+          <p>
+            <strong>Status:</strong> Part (b) — <code>localStorage</code> persistence and "Reset to defaults" — is
+            done. Part (a) — per-flag breakdown with risk badges — is still planned.
           </p>
           <p>
             <strong>Done when:</strong> refreshing the page restores the previous configuration, and every flag in the

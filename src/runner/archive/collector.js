@@ -68,6 +68,7 @@ class RunArchiveCollector {
 
   recordTool(step, toolName, toolUseId, args, result) {
     const seq = this.nextSeq();
+    const text = result?.text || '';
     this.turns.push({
       seq,
       kind: 'tool',
@@ -77,8 +78,18 @@ class RunArchiveCollector {
       input: { args: args || {} },
       output: {
         ok: !!result?.ok,
-        text: result?.text || '',
+        text,
+        // `bytes` is the tool's native size signal. For read_file that is the
+        // source file size, while `resultBytes` is what actually went back to
+        // the model. Keeping both prevents sliced reads from looking like full
+        // file reads during archive forensics.
         bytes: result?.bytes,
+        resultBytes: Buffer.byteLength(text, 'utf8'),
+        partial: !!result?.partial,
+        truncated: !!result?.truncated,
+        offset: result?.offset,
+        summarized: !!result?.summarized,
+        droppedBytes: result?.droppedBytes,
         needsConfirmation: !!result?.needsConfirmation,
         permission: result?.permission || null,
       },

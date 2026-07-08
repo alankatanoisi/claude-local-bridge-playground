@@ -112,6 +112,30 @@ describe('archive export', () => {
     assert.ok(!allWrittenText.includes(stableId));
   });
 
+  it('records actual tool result bytes separately from source bytes', () => {
+    const runId = 'result-bytes-' + Date.now();
+    const collector = new RunArchiveCollector({
+      runId,
+      cwd: '/tmp/project',
+      model: 'claude-test',
+      prompt: 'read a slice',
+    });
+
+    collector.recordTool(
+      1,
+      'read_file',
+      'toolu_slice_123456789',
+      { path: 'big.txt', offset: 100, limit: 10 },
+      { ok: true, text: '100|slice\n[PARTIAL]', bytes: 90000, partial: true, truncated: true, offset: 110 },
+    );
+
+    assert.equal(collector.turns[0].output.bytes, 90000);
+    assert.equal(collector.turns[0].output.resultBytes, Buffer.byteLength('100|slice\n[PARTIAL]', 'utf8'));
+    assert.equal(collector.turns[0].output.partial, true);
+    assert.equal(collector.turns[0].output.truncated, true);
+    assert.equal(collector.turns[0].output.offset, 110);
+  });
+
   it('ingestLegacyFile imports jsonl transcript', () => {
     const logDir = legacyLogsDir();
     fs.mkdirSync(logDir, { recursive: true });

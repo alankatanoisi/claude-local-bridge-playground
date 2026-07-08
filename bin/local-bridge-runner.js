@@ -465,6 +465,8 @@ async function main() {
       snipAfterMessages: 12,
       ghostAfterMessages: 20,
       maxToolResultChars: 8_000,
+      snipOnMessageCount: true,
+      ghostOnMessageCount: true,
     };
   }
   if (compactEachTurn) {
@@ -475,6 +477,8 @@ async function main() {
       snipAfterMessages: 6,
       ghostAfterMessages: 10,
       maxToolResultChars: 4_000,
+      snipOnMessageCount: true,
+      ghostOnMessageCount: true,
     };
   }
 

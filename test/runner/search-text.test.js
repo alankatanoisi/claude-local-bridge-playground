@@ -19,6 +19,25 @@ describe('search_text tool', () => {
     assert.ok(result.text.includes('findme'));
   });
 
+  it('searches inside one requested file path', () => {
+    fs.mkdirSync(path.join(tmpDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, 'src', 'one.js'), 'const targetNeedle = true;\n');
+    fs.writeFileSync(path.join(tmpDir, 'src', 'two.js'), 'const targetNeedle = false;\n');
+
+    // The model often narrows search to one file after a broad search result.
+    // This should search src/one.js itself, not try to use that file as cwd.
+    const result = execute({ pattern: 'targetNeedle', path: 'src/one.js' }, ctx);
+
+    assert.equal(result.ok, true);
+    assert.ok(result.text.includes('one.js') || result.text.includes('1:const targetNeedle'));
+    assert.ok(!result.text.includes('two.js'));
+
+    const second = execute({ pattern: 'targetNeedle', path: 'src/two.js' }, ctx);
+    assert.equal(second.ok, true);
+    assert.ok(second.text.includes('two.js') || second.text.includes('1:const targetNeedle'));
+    assert.ok(!second.text.includes('one.js'));
+  });
+
   it('returns no matches for missing pattern', () => {
     fs.writeFileSync(path.join(tmpDir, 'nomatch.txt'), 'nothing relevant here\n');
     const result = execute({ pattern: 'zzz_absolutely_nonexistent_xyz_98765' }, ctx);
