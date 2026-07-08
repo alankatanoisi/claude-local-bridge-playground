@@ -126,7 +126,15 @@ describe('archive export', () => {
       'read_file',
       'toolu_slice_123456789',
       { path: 'big.txt', offset: 100, limit: 10 },
-      { ok: true, text: '100|slice\n[PARTIAL]', bytes: 90000, partial: true, truncated: true, offset: 110 },
+      {
+        ok: true,
+        text: '100|slice\n[PARTIAL]',
+        bytes: 90000,
+        partial: true,
+        truncated: true,
+        offset: 110,
+        loopWarning: { kind: 'repeat_read_file_range', count: 3 },
+      },
     );
 
     assert.equal(collector.turns[0].output.bytes, 90000);
@@ -134,6 +142,7 @@ describe('archive export', () => {
     assert.equal(collector.turns[0].output.partial, true);
     assert.equal(collector.turns[0].output.truncated, true);
     assert.equal(collector.turns[0].output.offset, 110);
+    assert.equal(collector.turns[0].output.loopWarning.kind, 'repeat_read_file_range');
   });
 
   it('ingestLegacyFile imports jsonl transcript', () => {

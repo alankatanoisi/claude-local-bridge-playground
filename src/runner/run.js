@@ -515,6 +515,8 @@ async function run(options) {
   const resolvedSessionPath = resolveSessionPath({ sessionPath, sessionId });
   const sessionStore = resolvedSessionPath ? new SessionStore(resolvedSessionPath) : null;
   const ledger = resolvedSessionPath ? new SessionLedger(resolvedSessionPath) : null;
+  let compactionGeneration = sessionStore ? sessionStore.data().runner.compactionGeneration || 0 : 0;
+  ctx.compactionGeneration = compactionGeneration;
   const hooks = new HookDispatcher(ctx.cwdRealpath, {
     trustedWorkspace: !!options.trustedWorkspace,
     workspaceTrusted: ctx.workspaceTrusted,
@@ -890,10 +892,14 @@ async function run(options) {
     const compaction = applyCompactionLadder(messages, system, {
       ...DEFAULT_POLICY,
       ...(compactionPolicy || {}),
-      compactionGeneration: sessionStore ? sessionStore.data().runner.compactionGeneration : 0,
+      compactionGeneration,
     });
-    if (compaction.changed && sessionStore) {
-      sessionStore.updateRunner({ compactionGeneration: compaction.generation });
+    if (compaction.changed) {
+      compactionGeneration = compaction.generation;
+      ctx.compactionGeneration = compactionGeneration;
+      if (sessionStore) sessionStore.updateRunner({ compactionGeneration });
+    } else {
+      ctx.compactionGeneration = compaction.generation;
     }
     if (compaction.stagesApplied.length) {
       output.emit('compaction', {

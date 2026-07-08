@@ -90,6 +90,7 @@ class RunArchiveCollector {
         offset: result?.offset,
         summarized: !!result?.summarized,
         droppedBytes: result?.droppedBytes,
+        loopWarning: result?.loopWarning || null,
         needsConfirmation: !!result?.needsConfirmation,
         permission: result?.permission || null,
       },

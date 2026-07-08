@@ -62,6 +62,7 @@ const { makeEffectId } = require('./session-ledger');
 const { bytes } = require('../trace-utils');
 const { runIfEnabled, formatVerificationAppendix } = require('./test-watcher');
 const { buildToolResultContent } = require('./tool-result-content');
+const { createRepeatToolDetector, formatRepeatWarningNote } = require('./repeat-tool-detector');
 
 // B3: path-disjoint detection over canonicalized paths. Two paths are
 // disjoint iff neither is identical to the other and neither is a
@@ -136,6 +137,26 @@ function traceToolResult(runId, turn, toolUse, result, trace) {
   };
 }
 
+function traceRepeatWarning(runId, warning) {
+  return {
+    run_id: runId,
+    turn: warning.step,
+    tool_use_id: warning.tool_use_id,
+    tool: warning.tool,
+    kind: warning.kind,
+    count: warning.count,
+    threshold: warning.threshold,
+    window: warning.window,
+    path: warning.path,
+    offset: warning.offset,
+    limit: warning.limit,
+    max_bytes: warning.max_bytes,
+    compaction_generation: warning.compactionGeneration,
+    after_compaction: warning.afterCompaction,
+    message: warning.message,
+  };
+}
+
 function createToolPipeline(deps = {}) {
   const { ctx, runId, confirm, sinks = {}, verbosity = {}, failureLimit = 2, initialFailureStreak = 0 } = deps;
   if (!ctx) throw new Error('createToolPipeline: ctx is required');
@@ -145,6 +166,7 @@ function createToolPipeline(deps = {}) {
   const { ledger, hooks, output, trace, transcript, humanLog, archive } = sinks;
   const verbose = !!verbosity.verbose;
   const quiet = !!verbosity.quiet;
+  const repeatDetector = deps.repeatDetector || createRepeatToolDetector(deps.repeatDetectorPolicy || {});
   let failureStreak = initialFailureStreak > 0 ? initialFailureStreak : 0;
 
   // Non-ledger sinks are best-effort: a broken transcript or log must not
@@ -184,8 +206,27 @@ function createToolPipeline(deps = {}) {
     );
   }
 
+  function attachRepeatWarning(step, tu, result) {
+    const warning = repeatDetector.noteToolResult(step, tu, result, ctx);
+    if (!warning) return null;
+
+    const note = formatRepeatWarningNote(warning);
+    result.text = result.text ? result.text + '\n\n' + note : note;
+    result.loopWarning = warning;
+
+    if (result.envelope) {
+      result.envelope.text = result.text;
+      result.envelope.summary = result.text.length > 200 ? result.text.slice(0, 200) + '...' : result.text;
+      result.envelope.safetyTags = [...new Set([...(result.envelope.safetyTags || []), 'repeat_tool_warning'])];
+    }
+
+    return warning;
+  }
+
   // Post-execution fan-out, shared by both phases.
   function recordCompleted(step, tu, result, effectId) {
+    const repeatWarning = attachRepeatWarning(step, tu, result);
+
     bestEffort(
       'transcript',
       () =>
@@ -204,6 +245,12 @@ function createToolPipeline(deps = {}) {
     bestEffort('trace', () => trace && trace.append('tool_finished', traceToolResult(runId, step, tu, result, trace)));
     bestEffort('archive', () => archive && archive.recordTool(step, tu.name, tu.id, tu.input, result));
     appendLedger('tool_effect_result', { runId, step, tool: tu.name, toolUseId: tu.id, effectId, ok: result.ok });
+    if (repeatWarning) {
+      appendLedger('repeat_tool_warning', { runId, ...repeatWarning });
+      bestEffort('trace', () => trace && trace.append('repeat_tool_warning', traceRepeatWarning(runId, repeatWarning)));
+      bestEffort('output', () => output && output.emit('repeat_tool_warning', repeatWarning));
+      if (!quiet) console.error('[runner warning] ' + repeatWarning.message);
+    }
     bestEffort('hooks', () => hooks && hooks.dispatch('post_tool', { step, tool: tu.name, ok: result.ok }));
     bestEffort(
       'output',

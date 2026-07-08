@@ -218,6 +218,26 @@ describe('tool pipeline — read phase', () => {
     assert.ok(ok.content.includes('some reads in this batch failed'));
   });
 
+  it('warns when the model repeats the same read_file range after compaction', async () => {
+    const tmpDir = freshDir('pipeline-repeat-');
+    const { pipeline, calls } = makePipeline({ cwd: tmpDir, compactionGeneration: 1 });
+    const input = { path: 'src/app.js', offset: 1, limit: 10 };
+
+    await pipeline.executeTurn(1, [{ id: 'r1', name: 'read_file', input }]);
+    await pipeline.executeTurn(2, [{ id: 'r2', name: 'read_file', input }]);
+    const third = await pipeline.executeTurn(3, [{ id: 'r3', name: 'read_file', input }]);
+
+    const warning = calls.find((c) => c.sink === 'output' && c.type === 'repeat_tool_warning');
+    assert.ok(warning, 'structured warning emitted');
+    assert.equal(warning.payload.kind, 'repeat_read_file_range');
+    assert.equal(warning.payload.count, 3);
+    assert.equal(warning.payload.afterCompaction, true);
+    assert.equal(warning.payload.compactionGeneration, 1);
+    assert.ok(third.toolResults[0].content.includes('repeated read_file range'));
+    assert.ok(calls.some((c) => c.sink === 'ledger' && c.type === 'repeat_tool_warning'));
+    assert.ok(calls.some((c) => c.sink === 'trace' && c.type === 'repeat_tool_warning'));
+  });
+
   it('keeps hard denies and unknown tools as is_error results', async () => {
     const tmpDir = freshDir('pipeline-deny-');
     fs.writeFileSync(path.join(tmpDir, '.env'), 'SECRET=1\n');

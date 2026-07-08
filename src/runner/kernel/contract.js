@@ -43,6 +43,7 @@ const KERNEL_EVENT_TYPES = Object.freeze([
   'result',
   'compaction',
   'budget',
+  'repeat_tool_warning',
 ]);
 
 /**
