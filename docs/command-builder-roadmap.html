@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Command Builder — UX/UI Fix Roadmap</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --surface: #161b22;
+        --surface2: #1c2128;
+        --border: #30363d;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --blue: #58a6ff;
+        --green: #3fb950;
+        --orange: #d2991d;
+        --red: #f85149;
+        --purple: #bc8cff;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.65;
+      }
+      .container {
+        max-width: 940px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+      }
+      header.page {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 1.2rem;
+        margin-bottom: 1.6rem;
+      }
+      header.page h1 {
+        font-size: 1.6rem;
+        background: linear-gradient(135deg, var(--blue), var(--purple));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      header.page p.sub {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-top: 0.4rem;
+      }
+      header.page .meta {
+        margin-top: 0.9rem;
+        font-size: 0.78rem;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem 1.2rem;
+      }
+      header.page .meta code {
+        color: var(--blue);
+      }
+      header.page nav {
+        margin-top: 0.6rem;
+        font-size: 0.85rem;
+      }
+      header.page nav a {
+        color: var(--blue);
+        text-decoration: none;
+        margin-right: 1rem;
+      }
+      h2 {
+        font-size: 1.15rem;
+        margin: 2.2rem 0 0.9rem;
+        padding-top: 0.6rem;
+      }
+      h3 {
+        font-size: 0.98rem;
+        margin: 1.2rem 0 0.5rem;
+      }
+      p {
+        margin: 0.6rem 0;
+        font-size: 0.92rem;
+      }
+      code {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        padding: 0.1em 0.4em;
+        font-size: 0.82em;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      pre {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        overflow-x: auto;
+        font-size: 0.8rem;
+        line-height: 1.6;
+        margin: 0.7rem 0;
+      }
+      pre code {
+        background: none;
+        border: none;
+        padding: 0;
+      }
+      ul,
+      ol {
+        margin: 0.5rem 0 0.5rem 1.3rem;
+        font-size: 0.92rem;
+      }
+      li {
+        margin: 0.35rem 0;
+      }
+      .verdict {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--blue);
+        border-radius: 8px;
+        padding: 1.1rem 1.3rem;
+        margin: 1.2rem 0;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem 1.3rem;
+        margin: 1rem 0;
+      }
+      .phase {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1.1rem 1.3rem;
+        margin: 1.3rem 0;
+      }
+      .phase > h3 {
+        margin-top: 0;
+        font-size: 1.05rem;
+      }
+      .phase p.intro {
+        color: var(--muted);
+        font-size: 0.85rem;
+        margin-top: 0.2rem;
+      }
+      .item {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.85rem 1.05rem;
+        margin: 0.8rem 0;
+      }
+      .item h4 {
+        font-size: 0.92rem;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin-bottom: 0.35rem;
+      }
+      .item p {
+        margin: 0.35rem 0;
+        font-size: 0.87rem;
+      }
+      .item p:last-child {
+        margin-bottom: 0;
+      }
+      .num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.7rem;
+        height: 1.7rem;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--blue), var(--purple));
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.82rem;
+        flex-shrink: 0;
+      }
+      .pill {
+        font-size: 0.64rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        padding: 0.14em 0.6em;
+        border-radius: 10px;
+        white-space: nowrap;
+      }
+      .pill-quick {
+        background: rgba(63, 185, 80, 0.15);
+        color: var(--green);
+      }
+      .pill-med {
+        background: rgba(210, 153, 29, 0.15);
+        color: var(--orange);
+      }
+      .pill-big {
+        background: rgba(188, 140, 255, 0.15);
+        color: var(--purple);
+      }
+      .pill-bug {
+        background: rgba(248, 81, 73, 0.15);
+        color: var(--red);
+      }
+      .pill-drift {
+        background: rgba(188, 140, 255, 0.15);
+        color: var(--purple);
+      }
+      .pill-ux {
+        background: rgba(88, 166, 255, 0.15);
+        color: var(--blue);
+      }
+      .pill-status {
+        background: rgba(139, 148, 158, 0.18);
+        color: var(--muted);
+      }
+      .src {
+        font-size: 0.68rem;
+        color: var(--muted);
+        margin-left: auto;
+        white-space: nowrap;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0.8rem 0;
+        font-size: 0.83rem;
+      }
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 0.5rem 0.7rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: var(--surface2);
+        color: var(--muted);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .note {
+        font-size: 0.82rem;
+        color: var(--muted);
+        font-style: italic;
+      }
+      a {
+        color: var(--blue);
+      }
+      dfn {
+        font-style: normal;
+        border-bottom: 1px dotted var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="page">
+        <h1>Command Builder — UX/UI Fix Roadmap</h1>
+        <p class="sub">
+          A single combined plan for improving <code>docs/command-builder.html</code>, merged and de-duplicated from two
+          independent Claude Code assessments. This is the working roadmap; the two source documents stay as reference.
+        </p>
+        <div class="meta">
+          <span>Target file: <code>docs/command-builder.html</code></span>
+          <span>Source A: <code>docs/command-builder-assessment.html</code></span>
+          <span>Source B: <code>docs/command-builder-assessment-claude.html</code></span>
+          <span>Created: 2026-07-08</span>
+        </div>
+        <nav aria-label="Related docs">
+          <a href="command-builder.html">Command Builder</a>
+          <a href="command-builder-assessment.html">Assessment A</a>
+          <a href="command-builder-assessment-claude.html">Assessment B</a>
+          <a href="runner-quickstart.html">Runner Quick Start</a>
+        </nav>
+      </header>
+
+      <h2>How to read this roadmap</h2>
+      <div class="verdict">
+        <p>
+          Both assessments reached the same core verdict: the builder's
+          <strong>top half is genuinely beginner-friendly</strong> (presets, the permission-style dropdown, the chaos
+          gate), but it has <strong>real shipping bugs</strong>, its hand-copied data has
+          <strong>drifted out of sync with the runner</strong>, and its Advanced panel is an
+          <strong>expert-sized wall of undefined jargon</strong>. The plan below fixes correctness first, honesty
+          second, and beginner experience third — so that every later UX improvement is built on a page that tells the
+          truth.
+        </p>
+        <p>
+          Each item carries pills: <span class="pill pill-bug">Bug</span> / <span class="pill pill-drift">Drift</span> /
+          <span class="pill pill-ux">UX</span> for the kind of problem, <span class="pill pill-quick">Quick</span> /
+          <span class="pill pill-med">Medium</span> / <span class="pill pill-big">Bigger</span> for rough effort, and a
+          status pill we will flip as work lands. "A" and "B" mark which assessment(s) proposed it (A =
+          <code>command-builder-assessment.html</code>, B = <code>command-builder-assessment-claude.html</code>).
+        </p>
+      </div>
+
+      <h2>Where the two assessments agree and differ</h2>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Finding</th>
+              <th>A</th>
+              <th>B</th>
+              <th>Roadmap item</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Missing <code>.layout</code> CSS selector breaks the two-column layout</td>
+              <td>✅</td>
+              <td>✅</td>
+              <td>1.1</td>
+            </tr>
+            <tr>
+              <td>"Verify after edits" preset silently drops <code>--allow-shell</code> / <code>--test-watch</code></td>
+              <td>✅</td>
+              <td>—</td>
+              <td>1.2</td>
+            </tr>
+            <tr>
+              <td>Duplicate <code>--session-id</code>/<code>--session-path</code> in replay/repair mode</td>
+              <td>✅</td>
+              <td>—</td>
+              <td>1.3</td>
+            </tr>
+            <tr>
+              <td><code>shellQuote()</code> lets <code>$</code>, backticks, <code>\</code> escape into the shell</td>
+              <td>✅</td>
+              <td>—</td>
+              <td>1.4</td>
+            </tr>
+            <tr>
+              <td>Builder omits <code>ask_user_question</code> and mislabels worktree tool defaults</td>
+              <td>partial</td>
+              <td>✅</td>
+              <td>2.1</td>
+            </tr>
+            <tr>
+              <td>Hand-copied data (models, templates, tools) keeps drifting</td>
+              <td>✅</td>
+              <td>✅</td>
+              <td>2.2</td>
+            </tr>
+            <tr>
+              <td>No plain-language "what will this command do" summary</td>
+              <td>✅</td>
+              <td>✅</td>
+              <td>3.1</td>
+            </tr>
+            <tr>
+              <td>Labels are raw flag names; jargon never defined</td>
+              <td>✅</td>
+              <td>✅</td>
+              <td>3.2</td>
+            </tr>
+            <tr>
+              <td>No input validation beyond the chaos gate</td>
+              <td>✅</td>
+              <td>—</td>
+              <td>3.3</td>
+            </tr>
+            <tr>
+              <td>No "before you run" preflight / bridge-health help</td>
+              <td>✅</td>
+              <td>✅</td>
+              <td>3.4</td>
+            </tr>
+            <tr>
+              <td>Low contrast, color-only status cues</td>
+              <td>—</td>
+              <td>✅</td>
+              <td>3.5</td>
+            </tr>
+            <tr>
+              <td>Advanced panel is one undifferentiated ~70-control wall</td>
+              <td>✅</td>
+              <td>✅</td>
+              <td>4.1</td>
+            </tr>
+            <tr>
+              <td>No true beginner mode</td>
+              <td>—</td>
+              <td>✅</td>
+              <td>4.2</td>
+            </tr>
+            <tr>
+              <td>No per-flag "explain this command", no save/restore/reset</td>
+              <td>✅</td>
+              <td>—</td>
+              <td>4.3</td>
+            </tr>
+            <tr>
+              <td>Form mutates itself silently (auto-checked boxes with no explanation)</td>
+              <td>—</td>
+              <td>✅</td>
+              <td>4.4</td>
+            </tr>
+            <tr>
+              <td>Discovery flags (<code>--list-agents</code>, <code>--list-profiles</code>) unrepresented</td>
+              <td>✅</td>
+              <td>✅</td>
+              <td>Backlog</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Phase 1 — Correctness bugs (do these first)</h2>
+      <div class="phase">
+        <p class="intro">
+          Small, low-risk fixes to defects that ship today. Each is independently testable by reloading the page and
+          comparing the generated command. Nothing here touches the runner or bridge.
+        </p>
+
+        <div class="item">
+          <h4>
+            <span class="num">1.1</span> Restore the missing <code>.layout</code> CSS selector
+            <span class="pill pill-bug">Bug</span><span class="pill pill-quick">Quick</span>
+            <span class="pill pill-status">Done</span><span class="src">A + B</span>
+          </h4>
+          <p>
+            Around lines 68–73 of the stylesheet, the <code>.layout {</code> line was lost, leaving orphaned grid
+            declarations (<code>display: grid; grid-template-columns: 1fr 1fr; …</code>) that the browser silently
+            discards. The form and the sticky command panel were designed to sit side by side; today the page stacks in
+            one column and the live-preview value of the builder is lost. One-line fix; the
+            <code>@media (max-width: 700px)</code> block below it already expects the selector to exist.
+          </p>
+          <p>
+            <strong>Done when:</strong> desktop view shows form left, sticky command panel right; narrow view still
+            stacks.
+          </p>
+        </div>
+
+        <div class="item">
+          <h4>
+            <span class="num">1.2</span> Fix the "Verify after edits" preset so its flags actually apply
+            <span class="pill pill-bug">Bug</span><span class="pill pill-quick">Quick</span>
+            <span class="pill pill-status">Planned</span><span class="src">A</span>
+          </h4>
+          <p>
+            The <code>verify</code> preset declares <code>allowShell: true, testWatch: true</code>, but
+            <code>applyPreset()</code> ignores those keys whenever a preset also sets a <code>permissionStyle</code>.
+            The preset's own prompt promises <code>--test-watch</code> results, yet the generated command contains
+            neither flag (and <code>--test-watch</code> requires <code>--allow-shell</code> at runtime anyway). Either
+            add <code>allowShell</code>/<code>testWatch</code> to the post-style whitelist, or switch the preset to the
+            <code>edit-shell</code> style — and check the <code>updateUiState()</code> ordering so shell-dependent boxes
+            don't immediately un-check <code>testWatch</code>.
+          </p>
+          <p>
+            <strong>Done when:</strong> clicking the preset yields a command containing both
+            <code>--allow-shell</code> and <code>--test-watch</code>.
+          </p>
+        </div>
+
+        <div class="item">
+          <h4>
+            <span class="num">1.3</span> De-duplicate <code>--session-id</code> / <code>--session-path</code>
+            <span class="pill pill-bug">Bug</span><span class="pill pill-quick">Quick</span>
+            <span class="pill pill-status">Planned</span><span class="src">A</span>
+          </h4>
+          <p>
+            <code>buildCommandParts()</code> pushes the session flags once near the top and again inside the
+            <code>replayMode</code>/<code>repairMode</code> branches, so replay/repair commands contain the flag twice.
+            It happens to work (Node's <code>parseArgs</code> takes the last value), but a duplicated flag in a teaching
+            tool erodes a beginner's trust. Remove the duplicate pushes in the replay/repair branches.
+          </p>
+          <p><strong>Done when:</strong> a replay command with a session id contains each session flag exactly once.</p>
+        </div>
+
+        <div class="item">
+          <h4>
+            <span class="num">1.4</span> Harden <code>shellQuote()</code> against shell expansion
+            <span class="pill pill-bug">Bug</span><span class="pill pill-quick">Quick</span>
+            <span class="pill pill-status">Planned</span><span class="src">A</span>
+          </h4>
+          <p>
+            When a prompt contains a single quote, the builder switches to double-quote wrapping without escaping
+            <code>$</code>, backticks, or <code>\</code> — so a prompt like <code>don't touch $HOME</code> gets
+            <code>$HOME</code> expanded by the shell before the runner ever sees it. Use proper POSIX single-quote
+            escaping (the <code>'…'"'"'…'</code> pattern) so pasted free text can never be interpreted by the shell.
+            Beginners paste free text; the quoting must be bulletproof.
+          </p>
+          <p>
+            <strong>Done when:</strong> prompts containing <code>'</code>, <code>$</code>, and backticks round-trip to
+            the runner byte-for-byte.
+          </p>
+        </div>
+      </div>
+
+      <h2>Phase 2 — Make the builder tell the truth (anti-drift)</h2>
+      <div class="phase">
+        <p class="intro">
+          The builder hand-copies runtime facts in three places (<code>DEFAULT_TOOL_NAMES</code>,
+          <code>PROMPT_REGISTRY</code>, the model/agent/profile dropdowns), and the tool list has already drifted. Fix
+          the drift, then install a mechanism so it cannot silently drift again.
+        </p>
+
+        <div class="item">
+          <h4>
+            <span class="num">2.1</span> Align the tool catalog with the runtime's real defaults
+            <span class="pill pill-drift">Drift</span><span class="pill pill-quick">Quick</span>
+            <span class="pill pill-status">Planned</span><span class="src">B (+ A minor)</span>
+          </h4>
+          <p>
+            The runtime's <code>isToolVisible()</code> (<code>src/runner/tool-profiles.js</code>) exposes
+            <strong>16 tools by default</strong> — everything except <code>apply_patch</code>, <code>bash</code>,
+            <code>manage_shell_jobs</code>, and <code>lsp_query</code>. The builder's catalog lists only 13, omits
+            <code>ask_user_question</code> entirely, and renders <code>enter_worktree</code>/<code>exit_worktree</code>
+            as unchecked even though they are on by default. Consequence: the moment a user touches any tool checkbox,
+            the builder emits an explicit <code>--tools</code> list that
+            <strong>silently removes the model's ability to ask clarifying questions</strong> — exactly the safety net a
+            novice most needs.
+          </p>
+          <p>
+            Fix: add <code>ask_user_question</code>, <code>enter_worktree</code>, and <code>exit_worktree</code> to the
+            catalog and <code>DEFAULT_TOOL_NAMES</code>, drive checkbox defaults from the same
+            "everything-except-these-four" rule the runtime uses, and reconcile the HTML <code>checked</code> attributes
+            with the JS list (A's minor finding: <code>list_worktrees</code> and <code>run_skill</code> currently
+            disagree and are only papered over by the on-load style reset).
+          </p>
+          <p>
+            <strong>Done when:</strong> leaving the checkboxes untouched and customizing-then-restoring them both
+            produce the runtime's real 16-tool default.
+          </p>
+        </div>
+
+        <div class="item">
+          <h4>
+            <span class="num">2.2</span> Replace "keep in sync" comments with a mechanism
+            <span class="pill pill-drift">Drift</span><span class="pill pill-med">Medium</span>
+            <span class="pill pill-status">Planned</span><span class="src">A + B</span>
+          </h4>
+          <p>
+            Both assessments converge on the same principle: comments are promises, checks are mechanisms. Two
+            complementary options, cheapest first:
+          </p>
+          <p>
+            <strong>(a) Drift test (start here):</strong> one <code>node:test</code> file that imports the runtime's
+            default-visible tool set, model default, and template facts, then parses the builder's mirrored constants
+            out of the HTML and asserts they match. Runs with the normal
+            <code>node --require ./test/setup.js --test test/runner/*.test.js</code> flow and fails loudly when the
+            runtime changes.
+          </p>
+          <p>
+            <strong>(b) Generated manifest (later, if drift keeps hurting):</strong> a small
+            <code>scripts/export-builder-manifest.js</code> that dumps models, default tools, template frontmatter,
+            agents, and profiles into a JSON block embedded in the HTML, plus a doc check that fails when the snapshot
+            is stale.
+          </p>
+          <p><strong>Done when:</strong> changing a runtime default without updating the builder makes a check fail.</p>
+        </div>
+      </div>
+
+      <h2>Phase 3 — Highest beginner payoff</h2>
+      <div class="phase">
+        <p class="intro">
+          With the page correct and honest, teach. These items turn the builder from a flag assembler into a guide, in
+          line with this repo's novice-first rules ("define jargon once", "every command says where to run it and what
+          success looks like").
+        </p>
+
+        <div class="item">
+          <h4>
+            <span class="num">3.1</span> Live plain-language "What this command will do" summary
+            <span class="pill pill-ux">UX</span><span class="pill pill-med">Medium</span>
+            <span class="pill pill-status">Planned</span><span class="src">A + B</span>
+          </h4>
+          <p>
+            Render a one-to-three-sentence narrative next to the generated command, derived from the same state that
+            builds it:
+            <em
+              >"The runner will work in ⟨folder⟩, may read and edit files but will ask you in Terminal before each
+              change, cannot run shell commands, will stop after 16 steps, and will save a transcript to
+              <code>~/.bridge-runner/logs/</code>."</em
+            >
+            This translates flags into consequences — the blast radius a beginner actually needs — and catches
+            misconfigurations ("wait, why does it say shell is on?") before they reach Terminal.
+          </p>
+          <p>
+            <strong>Done when:</strong> every permission style, shell state, and step/budget limit is reflected in the
+            sentence as options change.
+          </p>
+        </div>
+
+        <div class="item">
+          <h4>
+            <span class="num">3.2</span> Plain-language labels first, flags second — plus a glossary
+            <span class="pill pill-ux">UX</span><span class="pill pill-med">Medium</span>
+            <span class="pill pill-status">Planned</span><span class="src">A + B</span>
+          </h4>
+          <p>
+            The permission-style dropdown already proves the right pattern ("Look only — read files, no writes"). Apply
+            it everywhere: "<strong>Auto-run tests after edits</strong> <code>--test-watch</code>" instead of "<code
+              >--test-watch (auto-run tests after writes)</code
+            >". Add a small glossary (inline <code>&lt;details&gt;</code> or "?" tooltips) defining each scary term
+            once, in one sentence: <dfn>worktree</dfn>, <dfn>ledger</dfn>, <dfn>compaction</dfn>, <dfn>fork</dfn>,
+            <dfn>transcript</dfn>, <dfn>trace</dfn>, <dfn>session</dfn>, <dfn>fingerprint</dfn>, <dfn>chaos-ok</dfn>,
+            <dfn>LSP</dfn>.
+          </p>
+          <p>
+            <strong>Done when:</strong> no control is labeled with a bare flag, and every jargon term links to or shows
+            a one-line definition.
+          </p>
+        </div>
+
+        <div class="item">
+          <h4>
+            <span class="num">3.3</span> Validate inputs and block obviously broken commands
+            <span class="pill pill-ux">UX</span><span class="pill pill-med">Medium</span>
+            <span class="pill pill-status">Planned</span><span class="src">A</span>
+          </h4>
+          <p>
+            The chaos gate proves the pattern works — extend it. Warn (and soften the copy button) when: the prompt is
+            empty; the target folder is not an absolute path; <code>--test-watch</code> is set without shell;
+            replay/repair is checked without a session id/path; or <code>--include-claude-md</code> is set without
+            <code>--include-repo-context</code> (a real runtime dependency the builder currently ignores).
+          </p>
+          <p>
+            <strong>Done when:</strong> each broken combination shows an inline explanation instead of producing a
+            command that fails in Terminal.
+          </p>
+        </div>
+
+        <div class="item">
+          <h4>
+            <span class="num">3.4</span> "Before you run" preflight checklist with a copyable health check
+            <span class="pill pill-ux">UX</span><span class="pill pill-quick">Quick</span>
+            <span class="pill pill-status">Planned</span><span class="src">A + B</span>
+          </h4>
+          <p>
+            A small card near the copy button: (1) bridge running in VS Code — copy
+            <code>curl -s http://127.0.0.1:11437/health</code> to verify in Terminal; (2) you are in the runner folder;
+            (3) the target project folder is the one you mean; (4) first runs in a new folder will show the
+            <code>--trust-workspace</code> consent step; (5) new here — start with a read-only preset. Each item says
+            <em>where</em> to do it (Terminal vs VS Code) and what success looks like, removing the most common
+            first-run failure (bridge not up) before it happens.
+          </p>
+          <p>
+            <strong>Done when:</strong> a first-time user can go from a fresh page to a successful run without opening
+            <code>--help</code>.
+          </p>
+        </div>
+
+        <div class="item">
+          <h4>
+            <span class="num">3.5</span> Contrast and non-color status cues <span class="pill pill-ux">UX</span
+            ><span class="pill pill-quick">Quick</span> <span class="pill pill-status">Planned</span
+            ><span class="src">B</span>
+          </h4>
+          <p>
+            Nudge the smallest hint text up from <code>0.72rem</code>, lighten <code>--muted</code> where it carries
+            real guidance, and pair every color-coded warning with an icon or word ("Blocked", "Caution") so meaning
+            survives for color-blind users and low-quality screens. Low effort, broad benefit.
+          </p>
+          <p><strong>Done when:</strong> every warning state is identifiable with color removed.</p>
+        </div>
+      </div>
+
+      <h2>Phase 4 — Structure and durability</h2>
+      <div class="phase">
+        <p class="intro">
+          Larger reshaping of the page once the fundamentals are solid. These change layout and interaction patterns, so
+          they benefit from the drift test (2.2) already being in place.
+        </p>
+
+        <div class="item">
+          <h4>
+            <span class="num">4.1</span> Split "Advanced" into goal-oriented tiers <span class="pill pill-ux">UX</span
+            ><span class="pill pill-med">Medium</span> <span class="pill pill-status">Planned</span
+            ><span class="src">A + B</span>
+          </h4>
+          <p>
+            Replace the single ~70-control Advanced drawer with progressive disclosure. Merging both proposals:
+            <strong>"Common extras"</strong> (attach files, stream, verbose, output format, human log),
+            <strong>"Tuning"</strong> (model, tokens, steps, templates, budgets), and
+            <strong>"Expert / recovery"</strong> (sessions, ledger replay/repair, trust flags, trace levels, custom
+            system prompts). Each tier gets a one-line "use this when…" intro so a beginner scans by question, not by
+            flag — three labeled shelves instead of one scary drawer.
+          </p>
+          <p>
+            <strong>Done when:</strong> a beginner can tell at a glance that <code>--stream</code> and
+            <code>--repair</code> are not the same class of control.
+          </p>
+        </div>
+
+        <div class="item">
+          <h4>
+            <span class="num">4.2</span> Beginner mode toggle, defaulted ON <span class="pill pill-ux">UX</span
+            ><span class="pill pill-big">Bigger</span> <span class="pill pill-status">Planned</span
+            ><span class="src">B</span>
+          </h4>
+          <p>
+            A top-level switch that collapses the page to roughly eight controls: prompt, presets, permission style, the
+            two folders, and the command/summary panel. Everything else stays one click away. Best done
+            <em>after</em> 4.1 so the tiers give the toggle something clean to hide.
+          </p>
+          <p>
+            <strong>Done when:</strong> the default first-visit view fits comfortably on one screen with no jargon
+            visible.
+          </p>
+        </div>
+
+        <div class="item">
+          <h4>
+            <span class="num">4.3</span> "Explain this command" breakdown + save/restore/reset
+            <span class="pill pill-ux">UX</span><span class="pill pill-big">Bigger</span>
+            <span class="pill pill-status">Planned</span><span class="src">A</span>
+          </h4>
+          <p>
+            Two learning aids: (a) an expandable per-flag breakdown under the terminal box — each emitted flag as a row
+            with a one-line meaning and a risk badge (read / write / shell / recovery), turning the command into a
+            vocabulary lesson; and (b) persist the form to <code>localStorage</code> with a "Reset to defaults" button
+            (and optional URL-hash sharing), so a page refresh doesn't destroy ten minutes of careful configuration —
+            the most demoralizing possible beginner experience.
+          </p>
+          <p>
+            <strong>Done when:</strong> refreshing the page restores the previous configuration, and every flag in the
+            output has a visible one-line meaning.
+          </p>
+        </div>
+
+        <div class="item">
+          <h4>
+            <span class="num">4.4</span> Explain the form's automatic changes <span class="pill pill-ux">UX</span
+            ><span class="pill pill-med">Medium</span> <span class="pill pill-status">Planned</span
+            ><span class="src">B</span>
+          </h4>
+          <p>
+            When enabling shell auto-checks <code>bash</code>, or a model choice triggers a temperature warning, show a
+            tiny inline note explaining <em>why</em> a box just changed. Today the form mutates itself silently, which
+            is confusing when you're still learning cause and effect.
+          </p>
+          <p><strong>Done when:</strong> every automatic state change is accompanied by a short visible explanation.</p>
+        </div>
+      </div>
+
+      <h2>Backlog / nice-to-have</h2>
+      <div class="card">
+        <ul>
+          <li>
+            <strong>"Handy commands" discovery box</strong> (A + B, low severity): a short card listing
+            <code>--list-agents</code>, <code>--list-profiles</code>, and the <code>runner eval</code> /
+            <code>runner worktrees list</code> subcommands the builder intentionally doesn't generate, so beginners can
+            discover them without reading <code>--help</code>.
+          </li>
+          <li>
+            <strong>Model list freshness pointer:</strong> until 2.2(b) exists, add a note next to the model dropdown
+            explaining how to check which models the bridge actually accepts, so a silent 400 has a visible cause.
+          </li>
+        </ul>
+      </div>
+
+      <h2>Suggested sequencing at a glance</h2>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Batch</th>
+              <th>Items</th>
+              <th>Why this order</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Now</strong></td>
+              <td>1.1, 1.2, 1.3, 1.4, 2.1</td>
+              <td>
+                All quick, all correctness. After this batch the page renders as designed, every preset works as
+                promised, quoting is safe, and the tool panel stops lying about defaults.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Next</strong></td>
+              <td>2.2(a), 3.1, 3.4</td>
+              <td>
+                Install the drift test before touching more mirrored data, then land the two highest-payoff teaching
+                features: the "what will happen" summary and the preflight checklist.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Then</strong></td>
+              <td>3.2, 3.3, 3.5</td>
+              <td>Labels, glossary, validation, and accessibility — steady beginner-experience improvements.</td>
+            </tr>
+            <tr>
+              <td><strong>Later</strong></td>
+              <td>4.1, 4.2, 4.3, 4.4, 2.2(b), backlog</td>
+              <td>Structural redesign and durability, done on a page that is already correct and honest.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note">
+          Everything in this roadmap is scoped to <code>docs/command-builder.html</code>, one optional test file, and
+          one optional script. No runner or bridge behavior changes are required, so none of the transport/auth
+          invariants are touched.
+        </p>
+      </div>
+
+      <h2>Checks to run when items land</h2>
+      <div class="card">
+        <ul>
+          <li><code>npm run check:docs</code> — validates the docs after HTML edits.</li>
+          <li><code>npm run lint</code> and <code>npm run format:check</code> — before handoff.</li>
+          <li>
+            Once 2.2(a) exists: <code>node --require ./test/setup.js --test test/runner/*.test.js</code> to confirm the
+            builder still matches the runtime.
+          </li>
+          <li>
+            Manual: open the builder in a browser, click each preset, and read the generated command aloud against the
+            "done when" line of the item you just fixed.
+          </li>
+        </ul>
+      </div>
+    </div>
+  </body>
+</html>

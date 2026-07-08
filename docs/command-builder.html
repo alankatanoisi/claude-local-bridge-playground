@@ -66,6 +66,7 @@
         justify-content: flex-end;
       }
 
+      .layout {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 1.5rem;
@@ -419,7 +420,7 @@
       .warn-panel {
         border-radius: 6px;
         padding: 0.5rem 0.7rem;
-        font-size: 0.75rem;
+        font-size: 0.78rem;
         margin-top: 0.5rem;
         display: none;
         line-height: 1.45;
@@ -622,6 +623,12 @@
           <details class="advanced-panel" id="advancedPanel">
             <summary>Advanced options</summary>
             <div class="advanced-body">
+              <!-- 4.1: tier navigation hint -->
+              <p style="font-size: 0.78rem; color: var(--muted); margin-bottom: 0.5rem; border-left: 3px solid var(--border); padding-left: 0.7rem;">
+                <strong style="color: var(--green);">Common extras:</strong> Attach files, Output &amp; logging &nbsp;|&nbsp;
+                <strong style="color: var(--blue);">Tuning:</strong> Model &amp; limits, Prompt templates &nbsp;|&nbsp;
+                <strong style="color: var(--purple);">Expert:</strong> Session &amp; context, Tool catalog
+              </p>
               <!-- Attachments -->
               <div class="card">
                 <h2>Attach files</h2>
@@ -1074,25 +1081,29 @@
                     <input type="checkbox" value="manage_tasks" checked />
                     <span><strong>manage_tasks</strong><small>In-session task checklist</small></span>
                   </label>
+                  <label class="check-label tool-choice">
+                    <input type="checkbox" value="ask_user_question" checked />
+                    <span><strong>ask_user_question</strong><small>Ask a clarifying question</small></span>
+                  </label>
                   <div class="capability-group">Orchestration</div>
                   <label class="check-label tool-choice">
                     <input type="checkbox" value="spawn_agent" checked />
                     <span><strong>spawn_agent</strong><small>Delegate to a child agent (top-level only)</small></span>
                   </label>
                   <label class="check-label tool-choice">
-                    <input type="checkbox" value="enter_worktree" />
+                    <input type="checkbox" value="enter_worktree" checked />
                     <span><strong>enter_worktree</strong><small>Isolate edits on a git worktree branch</small></span>
                   </label>
                   <label class="check-label tool-choice">
-                    <input type="checkbox" value="exit_worktree" />
+                    <input type="checkbox" value="exit_worktree" checked />
                     <span><strong>exit_worktree</strong><small>Leave worktree, optionally clean up</small></span>
                   </label>
                   <label class="check-label tool-choice">
-                    <input type="checkbox" value="list_worktrees" />
+                    <input type="checkbox" value="list_worktrees" checked />
                     <span><strong>list_worktrees</strong><small>List active slots and orphan worktree dirs</small></span>
                   </label>
                   <label class="check-label tool-choice">
-                    <input type="checkbox" value="run_skill" />
+                    <input type="checkbox" value="run_skill" checked />
                     <span><strong>run_skill</strong><small>Load a skill document body by name</small></span>
                   </label>
                   <div class="capability-group">Write</div>
@@ -1145,12 +1156,30 @@
               <pre id="cmdOutput"><code></code></pre>
             </div>
             <button class="copy-btn" id="copyBtn" onclick="copyCommand()">Copy to clipboard</button>
+            <button class="copy-btn" id="resetBtn" onclick="resetToDefaults()" style="margin-top: 0.4rem; border-color: var(--border); background: transparent; color: var(--muted);">Reset to defaults</button>
             <p
               id="copyFeedback"
               style="text-align: center; font-size: 0.75rem; color: var(--muted); margin-top: 0.35rem"
             >
               &nbsp;
             </p>
+
+            <!-- 3.1: plain-language summary -->
+            <div id="commandSummary" class="command-summary" style="font-size: 0.82rem; color: var(--text); line-height: 1.55; margin-top: 0.8rem; padding: 0.65rem 0.8rem; background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;">
+              <strong style="color: var(--blue); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;">What this command will do</strong>
+              <span id="summaryText" style="display: block; margin-top: 0.3rem;"></span>
+            </div>
+          </div>
+
+          <!-- 3.4: preflight checklist -->
+          <div class="card" id="preflightCard" style="font-size: 0.82rem;">
+            <h2>Before you run</h2>
+            <ol style="padding-left: 1.2rem; margin: 0.3rem 0 0; color: var(--muted); line-height: 1.7;">
+              <li><strong style="color: var(--text);">Bridge running?</strong> Paste in Terminal: <code style="font-size: 0.75rem;">curl -s http://127.0.0.1:11437/health</code> — expect <code>{"status":"ok"}</code>.</li>
+              <li><strong style="color: var(--text);">In the right folder?</strong> Run the command from the runner repo folder shown above. The target project is separate; set it via <code>--cwd</code> or the Target folder field.</li>
+              <li><strong style="color: var(--text);">First time in this folder?</strong> The runner will ask for <code>--trust-workspace</code> consent the first time you target a new project.</li>
+              <li><strong style="color: var(--text);">New to this?</strong> Start with a <em>read-only</em> preset — it inspects files without changing anything.</li>
+            </ol>
           </div>
           <div class="card" style="font-size: 0.8rem; color: var(--muted)">
             <strong>Tip:</strong> Paste into <strong>Terminal</strong> and press Enter. Bridge:
@@ -1162,6 +1191,28 @@
             event (including <code>compaction</code> and <code>stopReason</code>). Set a human-readable log path when
             you want a plain text record of the prompt, tool calls, and final answer.
           </div>
+          <!-- 3.2: glossary -->
+          <details class="card" id="glossaryCard" style="font-size: 0.82rem; margin-bottom: 0;">
+            <summary style="cursor: pointer; font-weight: 600; color: var(--text); padding: 0.2rem 0;">Glossary — what do these terms mean?</summary>
+            <dl style="margin: 0.5rem 0 0; line-height: 1.6; color: var(--muted);">
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">worktree</dt>
+              <dd>A separate checkout of your repo in a different folder, letting you experiment without disturbing your main branch.</dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">ledger</dt>
+              <dd>A journal of every event in a run (tool calls, results, model messages). Used by replay/repair to reconstruct or fix runs.</dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">compaction</dt>
+              <dd>When the conversation gets too long for the model, the runner summarizes older turns to keep the context window manageable.</dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">fork</dt>
+              <dd>Start a new session that shares a parent's history up to a point, then diverges — like a git branch but for agent sessions.</dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">transcript</dt>
+              <dd>A JSON-lines file recording every model message and tool call in a run. Useful for debugging or resuming.</dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">trace</dt>
+              <dd>A lower-level log of what the runner sent to the bridge, what came back, and internal decisions. Like a flight recorder.</dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">chaos-ok</dt>
+              <dd>Acknowledges a risky flag combination (shell + auto-edits + no prompts) you would otherwise be blocked from using.</dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">LSP</dt>
+              <dd>Language Server Protocol — the technology behind go-to-definition, find-references, and diagnostics in your editor. The <code>lsp_query</code> tool lets the model use it.</dd>
+            </dl>
+          </details>
           <div class="card" id="recoveryCard">
             <h2>
               Recovery
@@ -1312,7 +1363,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const permissionStyleHint = document.getElementById('permissionStyleHint');
 
       const PLAYGROUND = '/Users/alanman/Developer/claude-local-bridge-playground';
-      const READ_TOOL_NAMES = ['list_files', 'read_file', 'search_text', 'glob', 'git_status'];
+      const READ_TOOL_NAMES = ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'ask_user_question'];
       const DEFAULT_TOOL_NAMES = [
         'list_files',
         'read_file',
@@ -1320,8 +1371,11 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         'glob',
         'git_status',
         'manage_tasks',
+        'ask_user_question',
         'spawn_agent',
+        'enter_worktree',
         'list_worktrees',
+        'exit_worktree',
         'run_skill',
         'edit_file',
         'write_file',
@@ -1456,14 +1510,10 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           return parts;
         }
         if (replayMode.checked) {
-          if (sessionId.value.trim()) parts.push('--session-id ' + shellQuote(sessionId.value.trim()));
-          if (sessionPath.value.trim()) parts.push('--session-path ' + shellQuote(sessionPath.value.trim()));
           parts.push('--replay');
           return parts;
         }
         if (repairMode.checked) {
-          if (sessionId.value.trim()) parts.push('--session-id ' + shellQuote(sessionId.value.trim()));
-          if (sessionPath.value.trim()) parts.push('--session-path ' + shellQuote(sessionPath.value.trim()));
           parts.push('--repair');
           return parts;
         }
@@ -1753,6 +1803,54 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
 
         copyBtn.disabled = chaosBlocked;
         copyBtn.title = chaosBlocked ? 'Fix chaos combo before copying' : '';
+
+        // ── 3.3: Input validation ──
+        const promptText = buildPromptText();
+        const targetFolder = cwd.value.trim();
+        const validationWarnings = [];
+
+        if (!promptText && !reviewMemory.checked && !replayMode.checked && !repairMode.checked)
+          validationWarnings.push('No prompt entered — the runner will start but won\'t know what to do.');
+
+        if (targetFolder && !targetFolder.startsWith('/') && !targetFolder.startsWith('~'))
+          validationWarnings.push('Target folder should be an absolute path (start with / or ~).');
+
+        if (testWatch.checked && !allowShell.checked)
+          validationWarnings.push('--test-watch needs --allow-shell (shell runs the test watcher).');
+
+        if ((replayMode.checked || repairMode.checked) && !sessionId.value.trim() && !sessionPath.value.trim())
+          validationWarnings.push('Replay / repair needs --session-id or --session-path to find the ledger.');
+
+        const validationEl = document.getElementById('validationWarnings');
+        if (!validationEl) {
+          // Create the validation panel if it doesn't exist yet
+          const copyBtnEl = document.getElementById('copyBtn');
+          const existing = document.getElementById('validationWarnings');
+          if (!existing && copyBtnEl && validationWarnings.length) {
+            const panel = document.createElement('div');
+            panel.id = 'validationWarnings';
+            panel.className = 'warn-panel caution show';
+            panel.style.marginBottom = '0.5rem';
+            copyBtnEl.parentNode.insertBefore(panel, copyBtnEl);
+          }
+        }
+        if (validationEl) {
+          if (validationWarnings.length) {
+            validationEl.innerHTML = '⚠️ ' + validationWarnings.map((w) => esc(w)).join('<br>⚠️ ');
+            validationEl.classList.add('show');
+          } else {
+            validationEl.classList.remove('show');
+            validationEl.innerHTML = '';
+          }
+        }
+
+        // 3.3: soften the copy button when there are warnings
+        if (validationWarnings.length > 0 && !chaosBlocked) {
+          copyBtn.disabled = false; // still copyable, just warn
+          copyBtn.style.opacity = '0.7';
+        } else if (!chaosBlocked) {
+          copyBtn.style.opacity = '';
+        }
       }
 
       // ── Render command ──
@@ -1763,6 +1861,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         cmdOutput.innerHTML = '<span class="dim">$</span> ' + esc(raw);
 
         updateAttachmentNote();
+        buildSummary();
 
         copyBtn.textContent = 'Copy to clipboard';
         copyBtn.classList.remove('copied');
@@ -1773,9 +1872,43 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       }
 
+      // ── 3.1: Plain-language summary ──
+      function buildSummary() {
+        const summaryEl = document.getElementById('summaryText');
+        if (!summaryEl) return;
+
+        const cwdText = cwd.value.trim() || 'the current folder';
+        const steps = +maxSteps.value || DEFAULTS.maxSteps;
+        const shellOn = allowShell.checked;
+        const planOn = plan.checked;
+        const editAuto = acceptEdits.checked && !dontAsk.checked;
+        const editAsk = !acceptEdits.checked && !planOn;
+        const fullAuto = acceptEdits.checked && dontAsk.checked;
+
+        let permissionText;
+        if (planOn) permissionText = 'will <strong>describe</strong> what it would change without writing files or running commands';
+        else if (shellOn && fullAuto) permissionText = 'may <strong>read, write files, and run shell commands</strong> without asking';
+        else if (shellOn && editAuto) permissionText = 'may <strong>read, write files, and run shell commands</strong> (writes are auto-approved)';
+        else if (shellOn && editAsk) permissionText = 'may <strong>read and write files, and run shell commands</strong> — asks before each write';
+        else if (editAuto) permissionText = 'may <strong>read and edit files</strong> without asking (shell is off)';
+        else if (editAsk) permissionText = 'may <strong>read and edit files</strong> — asks in Terminal before each change';
+        else permissionText = 'may <strong>only read files</strong> — no writes, no shell';
+
+        const transcriptText = transcript.value.trim()
+          ? 'saves a transcript to <code>' + esc(transcript.value.trim()) + '</code>'
+          : 'saves a transcript to <code>~/.bridge-runner/logs/</code>';
+
+        summaryEl.innerHTML =
+          'The runner will work in <code>' + esc(cwdText) + '</code>, ' +
+          permissionText + ', ' +
+          'will stop after ' + steps + ' steps, and ' +
+          transcriptText + '.';
+      }
+
       function shellQuote(s) {
-        if (s.includes("'")) return '"' + s.replace(/"/g, '\\"') + '"';
-        return "'" + s + "'";
+        // POSIX-safe single quoting: nothing inside single quotes is expanded
+        // by the shell. Embedded single quotes become the '"'"' pattern.
+        return "'" + s.replace(/'/g, "'\"'\"'") + "'";
       }
 
       function shellQuoteOrEnv(s) {
@@ -1899,6 +2032,188 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           });
       }
 
+      // ── 4.3b: localStorage persistence ──
+
+      const STORAGE_KEY = 'command-builder-state';
+
+      /** Collect all mutable form values into a plain object for storage. */
+      function collectFormState() {
+        return {
+          prompt: prompt.value,
+          promptTemplate: promptTemplate.value,
+          customPromptTemplate: customPromptTemplate.value,
+          promptArgs: promptArgs.value,
+          attachmentMode: attachmentMode.value,
+          attachedPaths: attachedPaths.value,
+          model: model.value,
+          maxSteps: maxSteps.value,
+          maxTokens: maxTokens.value,
+          temperature: temperature.value,
+          maxContextTokens: maxContextTokens.value,
+          maxToolCalls: maxToolCalls.value,
+          cwd: cwd.value,
+          runnerPath: runnerPath.value,
+          permissionStyle: permissionStyle.value,
+          stream: stream.checked,
+          verbose: verbose.checked,
+          outputFormat: outputFormat.value,
+          shellTimeout: shellTimeout.value,
+          confirmTimeout: confirmTimeout.value,
+          logLevel: logLevel.value,
+          resumePath: resumePath.value,
+          transcript: transcript.value,
+          humanLog: humanLog.value,
+          traceLevel: traceLevel.value,
+          tracePath: tracePath.value,
+          bridgeUrl: bridgeUrl.value,
+          callerToken: callerToken.value,
+          systemPrompt: systemPrompt.value,
+          systemPromptFile: systemPromptFile.value,
+          appendSystemPrompt: appendSystemPrompt.value,
+          appendSystemPromptFile: appendSystemPromptFile.value,
+          continueFromLatest: continueFromLatest.checked,
+          sessionId: sessionId.value,
+          sessionPath: sessionPath.value,
+          forkFrom: forkFrom.value,
+          agentProfile: agentProfile.value,
+          customAgent: customAgent.value,
+          toolProfile: toolProfile.value,
+          maxWallClockMs: maxWallClockMs.value,
+          maxCostUsd: maxCostUsd.value,
+          budgetInputTokens: budgetInputTokens.value,
+          budgetOutputTokens: budgetOutputTokens.value,
+          newSession: newSession.checked,
+          resumeSession: resumeSession.checked,
+          ackResumeRisk: ackResumeRisk.checked,
+          taskScope: taskScope.checked,
+          compactEachTurn: compactEachTurn.checked,
+          effort: effort.value,
+          autoMemory: autoMemory.checked,
+          noArchive: noArchive.checked,
+          replayMode: replayMode.checked,
+          repairMode: repairMode.checked,
+          bareContext: bareContext.checked,
+          includeInstructionDocs: includeInstructionDocs.checked,
+          includeRepoContext: includeRepoContext.checked,
+          includeClaudeMd: includeClaudeMd.checked,
+          includeRepoMap: includeRepoMap.checked,
+          includeSkills: includeSkills.checked,
+          excludeDynamicSystem: excludeDynamicSystem.checked,
+          noSessionPersistence: noSessionPersistence.checked,
+          permissionMode: permissionMode.value,
+          trustedWorkspace: trustedWorkspace.checked,
+          trustWorkspace: trustWorkspace.checked,
+          chaosOk: chaosOk.checked,
+          sessionExtract: sessionExtract.checked,
+          reviewMemory: reviewMemory.checked,
+          allowShell: allowShell.checked,
+          enableLsp: enableLsp.checked,
+          plan: plan.checked,
+          noNetwork: noNetwork.checked,
+          testWatch: testWatch.checked,
+          acceptEdits: acceptEdits.checked,
+          dontAsk: dontAsk.checked,
+          toolChoices: toolChoices.reduce((map, c) => { map[c.value] = c.checked; return map; }, {}),
+        };
+      }
+
+      /** Apply a saved state object back to the form. */
+      function applyFormState(state) {
+        // Text/select fields
+        const textKeys = [
+          'prompt', 'promptTemplate', 'customPromptTemplate', 'promptArgs',
+          'attachmentMode', 'attachedPaths', 'model', 'maxSteps', 'maxTokens',
+          'temperature', 'maxContextTokens', 'maxToolCalls', 'cwd', 'runnerPath',
+          'permissionStyle', 'outputFormat', 'shellTimeout', 'confirmTimeout',
+          'logLevel', 'resumePath', 'transcript', 'humanLog', 'traceLevel',
+          'tracePath', 'bridgeUrl', 'callerToken', 'systemPrompt', 'systemPromptFile',
+          'appendSystemPrompt', 'appendSystemPromptFile', 'sessionId', 'sessionPath',
+          'forkFrom', 'agentProfile', 'customAgent', 'toolProfile', 'maxWallClockMs',
+          'maxCostUsd', 'budgetInputTokens', 'budgetOutputTokens', 'effort',
+          'permissionMode',
+        ];
+        const elMap = {
+          prompt, promptTemplate, customPromptTemplate, promptArgs,
+          attachmentMode, attachedPaths, model, maxSteps, maxTokens,
+          temperature, maxContextTokens, maxToolCalls, cwd, runnerPath,
+          permissionStyle, outputFormat, shellTimeout, confirmTimeout,
+          logLevel, resumePath, transcript, humanLog, traceLevel,
+          tracePath, bridgeUrl, callerToken, systemPrompt, systemPromptFile,
+          appendSystemPrompt, appendSystemPromptFile, sessionId, sessionPath,
+          forkFrom, agentProfile, customAgent, toolProfile, maxWallClockMs,
+          maxCostUsd, budgetInputTokens, budgetOutputTokens, effort,
+          permissionMode,
+        };
+        for (const key of textKeys) {
+          if (state[key] !== undefined && elMap[key]) elMap[key].value = state[key];
+        }
+        // Bool keys
+        const boolMap = {
+          stream, verbose, continueFromLatest, newSession, resumeSession,
+          ackResumeRisk, taskScope, compactEachTurn, autoMemory, noArchive,
+          replayMode, repairMode, bareContext, includeInstructionDocs,
+          includeRepoContext, includeClaudeMd, includeRepoMap, includeSkills,
+          excludeDynamicSystem, noSessionPersistence, trustedWorkspace,
+          trustWorkspace, chaosOk, sessionExtract, reviewMemory,
+          allowShell, enableLsp, plan, noNetwork, testWatch, acceptEdits, dontAsk,
+        };
+        for (const [key, el] of Object.entries(boolMap)) {
+          if (state[key] !== undefined) el.checked = !!state[key];
+        }
+        // Tool choices
+        if (state.toolChoices) {
+          toolChoices.forEach((c) => {
+            if (state.toolChoices[c.value] !== undefined) c.checked = !!state.toolChoices[c.value];
+          });
+        }
+      }
+
+      function saveFormState() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(collectFormState()));
+        } catch (_) {
+          // localStorage may be full or unavailable — silently ignore.
+        }
+      }
+
+      function restoreFormState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return false;
+          const state = JSON.parse(raw);
+          if (!state || typeof state !== 'object') return false;
+          applyFormState(state);
+          return true;
+        } catch (_) {
+          return false;
+        }
+      }
+
+      function resetToDefaults() {
+        localStorage.removeItem(STORAGE_KEY);
+        window.location.reload();
+      }
+
+      // Auto-save on every render (debounced writes aren't needed; render is
+      // already on user action).
+      const _origRender = render;
+      render = function () {
+        _origRender();
+        saveFormState();
+      };
+        const raw = buildRawCommand();
+        navigator.clipboard
+          .writeText(raw)
+          .then(() => {
+            copyBtn.textContent = 'Copied!';
+            copyBtn.classList.add('copied');
+            copyFeedback.textContent = 'Ready to paste in your terminal.';
+          })
+          .catch(() => {
+            copyFeedback.textContent = 'Could not copy — select and copy manually.';
+          });
+      }
+
       // ── Presets ──
       const PRESETS = {
         minimal: {
@@ -1982,6 +2297,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
             'glob',
             'git_status',
             'manage_tasks',
+            'ask_user_question',
             'spawn_agent',
             'enter_worktree',
             'exit_worktree',
@@ -2132,7 +2448,11 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
             if (Object.prototype.hasOwnProperty.call(p, key)) boolMap[key].checked = !!p[key];
           });
         } else {
-          ['stream', 'verbose', 'bareContext', 'taskScope', 'newSession', 'resumeSession'].forEach((key) => {
+          // Post-style overrides — a preset can set a permissionStyle *and*
+          // toggle shell/test-watch/LSP on top. This is the whitelist of flags
+          // the style is allowed to override (1.2 fix).
+          ['stream', 'verbose', 'bareContext', 'taskScope', 'newSession', 'resumeSession',
+           'allowShell', 'testWatch', 'enableLsp'].forEach((key) => {
             if (Object.prototype.hasOwnProperty.call(p, key)) boolMap[key].checked = !!p[key];
           });
         }
@@ -2158,6 +2478,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       runnerPath.value = PLAYGROUND;
       cwd.value = PLAYGROUND;
       applyPermissionStyle('edit-ask');
+      // ── 4.3b: Restore saved form state on load ──
+      restoreFormState();
       render();
     </script>
   </body>
