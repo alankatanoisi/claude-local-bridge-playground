@@ -90,11 +90,7 @@ function readPdfResult(absPath, relPath, stats) {
     multimodal: true,
     bytes: stats.size,
     text:
-      '[read_file multimodal] Loaded PDF ' +
-      relPath +
-      ' (' +
-      stats.size +
-      ' bytes). Document attached for the model.',
+      '[read_file multimodal] Loaded PDF ' + relPath + ' (' + stats.size + ' bytes). Document attached for the model.',
     contentBlocks: [
       {
         type: 'document',

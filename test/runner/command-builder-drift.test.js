@@ -38,10 +38,7 @@ function builderPath() {
 
 function extractJsConstant(html, constName) {
   // Match e.g. "const DEFAULT_TOOL_NAMES = ['a', 'b'];"
-  const re = new RegExp(
-    'const\\s+' + constName + '\\s*=\\s*\\[([^\\]]*)\\]',
-    's',
-  );
+  const re = new RegExp('const\\s+' + constName + '\\s*=\\s*\\[([^\\]]*)\\]', 's');
   const m = html.match(re);
   if (!m) return null;
   const inner = m[1];
@@ -62,7 +59,8 @@ function extractPromptRegistry(html) {
   const body = m[1];
   const entries = {};
   // Each entry: name: { permissions: '...', tools: '...', params: '...' }
-  const entryRe = /(\w+):\s*\{\s*permissions:\s*'([^']+)'\s*,\s*tools:\s*'([^']+)'\s*(?:,\s*params:\s*'([^']*)')?\s*\}/g;
+  const entryRe =
+    /(\w+):\s*\{\s*permissions:\s*'([^']+)'\s*,\s*tools:\s*'([^']+)'\s*(?:,\s*params:\s*'([^']*)')?\s*\}/g;
   let e;
   while ((e = entryRe.exec(body)) !== null) {
     entries[e[1]] = {
@@ -106,7 +104,10 @@ describe('command-builder drift', () => {
     // Every entry must reference real tools and a known permission style.
     const validStyles = new Set(['look-only', 'plan-first', 'edit-ask', 'edit-auto', 'edit-shell']);
     for (const [name, entry] of Object.entries(registry)) {
-      const toolNames = entry.tools.split(',').map((s) => s.trim()).filter(Boolean);
+      const toolNames = entry.tools
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       for (const t of toolNames) {
         assert.ok(TOOLS[t], 'PROMPT_REGISTRY.' + name + ' references unknown tool: ' + t);
       }

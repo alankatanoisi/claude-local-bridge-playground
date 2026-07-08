@@ -26,7 +26,10 @@ describe('lsp client (mock transport)', () => {
     const stdout = new PassThrough();
     const client = new LspClient({ child: { stdin, stdout, kill: () => {} } });
 
-    const promise = client.request('textDocument/hover', { textDocument: { uri: 'file:///x.ts' }, position: { line: 0, character: 0 } });
+    const promise = client.request('textDocument/hover', {
+      textDocument: { uri: 'file:///x.ts' },
+      position: { line: 0, character: 0 },
+    });
     stdout.write(
       encodeMessage({
         jsonrpc: '2.0',

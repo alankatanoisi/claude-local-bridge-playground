@@ -24,6 +24,26 @@ async function captureStdout(fn) {
   return output;
 }
 
+async function captureStderr(fn) {
+  let output = '';
+  // Save the real stderr writer so this test can put it back afterward.
+  // "stderr" means the terminal's error/output lane; the runner prints hints there.
+  const originalWrite = process.stderr.write;
+  // Temporarily catch anything the runner tries to print to stderr.
+  // This lets the test inspect the human-facing hint without showing it as real noise.
+  process.stderr.write = (chunk) => {
+    output += String(chunk);
+    return true;
+  };
+  try {
+    await fn();
+  } finally {
+    // Always restore stderr, even if the test fails, so later tests behave normally.
+    process.stderr.write = originalWrite;
+  }
+  return output;
+}
+
 describe('runner output formats', () => {
   it('prints one parseable JSON object for outputFormat=json', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-json-'));
@@ -161,6 +181,35 @@ describe('runner output formats', () => {
       assert.equal(parsed.stopReason, 'bridge_error');
       assert.match(parsed.finalText, /simulated bridge outage/);
       assert.equal(parsed.usage.input_tokens, 0);
+    } finally {
+      modelClient.post = originalPost;
+      process.exitCode = oldExitCode;
+    }
+  });
+
+  it('prints the rate-limit hint for bridge 429 failures', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-rate-limit-hint-'));
+    const originalPost = modelClient.post;
+    modelClient.post = async () => {
+      throw new Error(
+        'Bridge returned HTTP 429: {"type":"error","error":{"type":"rate_limit_error","message":"Error"}}',
+      );
+    };
+    const oldExitCode = process.exitCode;
+
+    try {
+      const stderr = await captureStderr(() =>
+        run({
+          prompt: 'attempt realistic task',
+          cwd: tmpDir,
+          model: 'test',
+          maxTokens: 10,
+          maxSteps: 1,
+          outputFormat: 'text',
+        }),
+      );
+      assert.match(stderr, /API rate-limited this request/);
+      assert.doesNotMatch(stderr, /Something went wrong talking to the bridge/);
     } finally {
       modelClient.post = originalPost;
       process.exitCode = oldExitCode;

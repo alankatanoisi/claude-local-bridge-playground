@@ -99,7 +99,8 @@ function startJob(ctx, command) {
   jobs.set(id, { child, job });
   return {
     ok: true,
-    text: 'Started background shell job ' + id + '.\ncommand: ' + command + '\nPoll with manage_shell_jobs action=poll.',
+    text:
+      'Started background shell job ' + id + '.\ncommand: ' + command + '\nPoll with manage_shell_jobs action=poll.',
     job_id: id,
   };
 }

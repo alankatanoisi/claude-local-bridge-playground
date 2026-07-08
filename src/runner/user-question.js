@@ -75,7 +75,9 @@ function askUserQuestion(payload, ctx = {}) {
   }
 
   const question = String(payload.question || '').trim();
-  const options = Array.isArray(payload.options) ? payload.options.filter((opt) => opt && (opt.label || opt.value)) : [];
+  const options = Array.isArray(payload.options)
+    ? payload.options.filter((opt) => opt && (opt.label || opt.value))
+    : [];
   const allowMultiple = !!payload.allow_multiple;
 
   if (!question) {

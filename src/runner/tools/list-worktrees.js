@@ -4,17 +4,12 @@
  * list_worktrees — show active run slots and on-disk orphan worktree directories.
  */
 
-const {
-  listRegisteredWorktrees,
-  scanOrphanWorktreeDirs,
-  worktreeRoot,
-} = require('../worktree-utils');
+const { listRegisteredWorktrees, scanOrphanWorktreeDirs, worktreeRoot } = require('../worktree-utils');
 
 function definition() {
   return {
     name: 'list_worktrees',
-    description:
-      'List worktree slots registered in this run and orphan directories under ~/.bridge-runner/worktrees/.',
+    description: 'List worktree slots registered in this run and orphan directories under ~/.bridge-runner/worktrees/.',
     input_schema: {
       type: 'object',
       properties: {},
@@ -35,13 +30,7 @@ function execute(_args, ctx) {
   } else {
     for (const row of registered) {
       lines.push(
-        '  - slot=' +
-          row.slot +
-          (row.active ? ' [active]' : '') +
-          ' branch=' +
-          row.branch +
-          ' path=' +
-          row.path,
+        '  - slot=' + row.slot + (row.active ? ' [active]' : '') + ' branch=' + row.branch + ' path=' + row.path,
       );
     }
   }

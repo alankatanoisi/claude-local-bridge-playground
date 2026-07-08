@@ -983,7 +983,7 @@ async function run(options) {
     } catch (err) {
       const msg = 'Bridge error on step ' + step + ': ' + err.message;
       if (archiveCollector) archiveCollector.recordError(step, msg);
-      const hint = emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.BRIDGE_ERROR });
+      const hint = emitHint(msg, { quiet, verbose });
       if (transcript) transcript.append({ type: 'error', step, message: msg });
       if (humanLog) humanLog.writeError(msg, { stopReason: STOP_REASONS.BRIDGE_ERROR });
       if (trace) trace.append('runner_bridge_error', { run_id: runId, turn: step, message: msg });

@@ -10,7 +10,12 @@ const safety = require('../safety');
 const { LspClient } = require('./lsp-client');
 
 const SERVER_CANDIDATES = [
-  { id: 'typescript', command: 'typescript-language-server', languageId: 'typescript', extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'] },
+  {
+    id: 'typescript',
+    command: 'typescript-language-server',
+    languageId: 'typescript',
+    extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'],
+  },
   { id: 'python', command: 'pyright-langserver', args: ['--stdio'], languageId: 'python', extensions: ['.py'] },
 ];
 

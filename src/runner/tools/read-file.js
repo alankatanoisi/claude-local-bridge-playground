@@ -124,13 +124,12 @@ function readLineWindow(target, offset, limit) {
   if (offset > totalLines && totalLines > 0) {
     return {
       ok: true,
-      text:
-        buildPartialFooter({
-          startLine: offset,
-          endLine: offset - 1,
-          totalLines,
-          reason: `offset ${offset} is past end of file (${totalLines} lines).`,
-        }),
+      text: buildPartialFooter({
+        startLine: offset,
+        endLine: offset - 1,
+        totalLines,
+        reason: `offset ${offset} is past end of file (${totalLines} lines).`,
+      }),
       bytes: fs.statSync(target).size,
       partial: true,
     };
@@ -229,7 +228,7 @@ function execute(args, ctx) {
     const maxLines = getLimit(args.max_lines, MAX_LINES_DEFAULT, MAX_LINES_HARD_CAP);
     const lineLimit = getLimit(args.limit, maxLines, MAX_LINES_HARD_CAP);
     const startLine = getLineNumber(args.offset, 1);
-    const explicitPaging = startLine > 1 || args.limit !== undefined && args.limit !== null;
+    const explicitPaging = startLine > 1 || (args.limit !== undefined && args.limit !== null);
 
     if (explicitPaging) {
       return readLineWindow(target, startLine, lineLimit);

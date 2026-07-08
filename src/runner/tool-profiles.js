@@ -161,7 +161,10 @@ function listToolProfiles(cwd) {
       const id = entry.replace(/\.json$/, '');
       if (seen.has(id)) continue;
       try {
-        const profile = normalizeProfile(JSON.parse(fs.readFileSync(path.join(dir, entry), 'utf8')), path.join(dir, entry));
+        const profile = normalizeProfile(
+          JSON.parse(fs.readFileSync(path.join(dir, entry), 'utf8')),
+          path.join(dir, entry),
+        );
         seen.set(id, { id: profile.id, title: profile.title, source: profile.source });
       } catch {
         seen.set(id, { id, title: id, source: path.join(dir, entry), invalid: true });

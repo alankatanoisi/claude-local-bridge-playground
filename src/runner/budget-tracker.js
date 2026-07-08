@@ -44,11 +44,11 @@ function createBudgetTracker(options = {}) {
   const effectiveHardInput =
     hardInput !== null && parentInputRemaining !== null
       ? Math.min(hardInput, parentInputRemaining)
-      : hardInput ?? parentInputRemaining;
+      : (hardInput ?? parentInputRemaining);
   const effectiveHardOutput =
     hardOutput !== null && parentOutputRemaining !== null
       ? Math.min(hardOutput, parentOutputRemaining)
-      : hardOutput ?? parentOutputRemaining;
+      : (hardOutput ?? parentOutputRemaining);
 
   const effectiveSoftInput =
     softInput !== null && effectiveHardInput !== null ? Math.min(softInput, effectiveHardInput) : softInput;

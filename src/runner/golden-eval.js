@@ -16,11 +16,7 @@ const { run } = require('./run');
 
 const DEFAULT_GOLDEN_DIR = path.join(__dirname, '../../test/runner/golden');
 
-const SECRET_PATTERNS = [
-  /sk-ant-[a-zA-Z0-9_-]+/g,
-  /Bearer\s+[A-Za-z0-9._-]+/gi,
-  /\bghp_[A-Za-z0-9]{20,}\b/g,
-];
+const SECRET_PATTERNS = [/sk-ant-[a-zA-Z0-9_-]+/g, /Bearer\s+[A-Za-z0-9._-]+/gi, /\bghp_[A-Za-z0-9]{20,}\b/g];
 
 function listGoldenCases(dir = DEFAULT_GOLDEN_DIR) {
   if (!fs.existsSync(dir)) return [];
@@ -256,7 +252,14 @@ function diffObjects(expected, actual, label = '') {
       }
       continue;
     }
-    if (exp !== null && exp !== undefined && typeof exp === 'object' && act !== null && act !== undefined && typeof act === 'object') {
+    if (
+      exp !== null &&
+      exp !== undefined &&
+      typeof exp === 'object' &&
+      act !== null &&
+      act !== undefined &&
+      typeof act === 'object'
+    ) {
       diffs.push(...diffObjects(exp, act, pathLabel));
       continue;
     }

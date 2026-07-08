@@ -417,7 +417,7 @@ Useful runner options:
 | `--stream`                                               | Stream assistant text live while still preserving streamed tool inputs             |
 | `--accept-edits`                                         | Auto-approve edit/write tools                                                      |
 | `--allow-shell`                                          | Expose the bash tool; hidden by default                                            |
-| `--enable-lsp`                                           | Expose `lsp_query` (requires a language server on PATH)                          |
+| `--enable-lsp`                                           | Expose `lsp_query` (requires a language server on PATH)                            |
 | `--test-watch`                                           | After successful writes, auto-run detected tests (requires `--allow-shell`)        |
 | `--no-archive`                                           | Skip per-turn archive export to `~/.bridge-runner/archive/`                        |
 

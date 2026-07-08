@@ -100,10 +100,7 @@ describe('read_file tool', () => {
   it('reports offset past EOF', () => {
     const filePath = path.join(tmpDir, 'short.txt');
     fs.writeFileSync(filePath, 'one\ntwo\n');
-    const result = execute(
-      { path: 'short.txt', offset: 99 },
-      { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) },
-    );
+    const result = execute({ path: 'short.txt', offset: 99 }, { cwd: tmpDir, cwdRealpath: fs.realpathSync(tmpDir) });
     assert.equal(result.ok, true);
     assert.ok(result.text.includes('past end of file'));
   });
