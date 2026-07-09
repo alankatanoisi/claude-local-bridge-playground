@@ -15,6 +15,7 @@ const config = {
   anthropicBaseUrl: 'https://api.anthropic.com',
   defaultModel: 'claude-sonnet-4-5',
   logRequests: false,
+  logTimeZone: 'local',
   requireCallerAuth: false,
   callerAuthToken: '',
 };

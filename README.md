@@ -78,6 +78,7 @@ Defaults below are sourced from `package.json` (`contributes.configuration.prope
 | `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-5`         | Used when requests omit `model`                  |
 | `claudeLocalBridge.anthropicBaseUrl`  | `https://api.anthropic.com` | Upstream Anthropic endpoint                      |
 | `claudeLocalBridge.logRequests`       | `false`                     | Verbose request/response logging                 |
+| `claudeLocalBridge.logTimeZone`       | `local`                     | Output timestamps use the system timezone        |
 | `claudeLocalBridge.requireCallerAuth` | `false`                     | Optional local Bearer-token gate for API routes  |
 | `claudeLocalBridge.callerAuthToken`   | `""`                        | Optional static caller token                     |
 
@@ -139,6 +140,7 @@ Open **VS Code Settings** and search for `Claude Local Bridge`:
 | `claudeLocalBridge.anthropicBaseUrl`  | `https://api.anthropic.com` | Override for staging                      |
 | `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-5`         | Default model when none is specified      |
 | `claudeLocalBridge.logRequests`       | `false`                     | Verbose request logging to Output channel |
+| `claudeLocalBridge.logTimeZone`       | `local`                     | `local`, `utc`, or an IANA timezone name  |
 | `claudeLocalBridge.requireCallerAuth` | `false`                     | Enforce Bearer token for incoming callers |
 | `claudeLocalBridge.callerAuthToken`   | `""`                        | Static Bearer token override              |
 

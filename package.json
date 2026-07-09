@@ -70,6 +70,11 @@
           "default": false,
           "description": "Enable verbose request/response logging to the Output channel"
         },
+        "claudeLocalBridge.logTimeZone": {
+          "type": "string",
+          "default": "local",
+          "description": "Timezone for Output-channel timestamps. Use local to match the system timezone, utc for UTC, or an IANA timezone such as America/Los_Angeles."
+        },
         "claudeLocalBridge.traceLevel": {
           "type": "string",
           "enum": [
