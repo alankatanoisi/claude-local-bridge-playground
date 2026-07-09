@@ -6,6 +6,9 @@
 		{
 			"name": ".bridge-runner",
 			"path": "../../.bridge-runner"
+		},
+		{
+			"path": "../codex-local-bridge-playground"
 		}
 	],
 	"settings": {
