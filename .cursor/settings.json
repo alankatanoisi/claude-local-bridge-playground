@@ -5,6 +5,9 @@
     },
     "compound-engineering": {
       "enabled": true
+    },
+    "mintlify-cursor-plugin": {
+      "enabled": true
     }
   }
 }
