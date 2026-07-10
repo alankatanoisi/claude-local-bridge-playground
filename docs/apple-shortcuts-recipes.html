@@ -1,600 +1,504 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Apple Shortcuts Recipes — Local Bridge Runner</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="10 advanced macOS Shortcuts recipes wired to the Claude Local Bridge Runner — multimodal review, voice planning, worktree experiments, nightly sentinels, and parallel swarm reviews.">
+<title>10 Advanced Apple Shortcuts for the Claude Local Bridge Runner</title>
 <style>
-  /* ------------------------------------------------------------------
-     Styling loosely mimics the macOS Shortcuts editor: dark rounded
-     "action blocks" connected by a vertical spine. Works in light and
-     dark system themes.
-     ------------------------------------------------------------------ */
   :root {
-    --bg: #f4f4f6;
-    --ink: #1c1c1e;
-    --muted: #5b5b60;
-    --card: #ffffff;
-    --card-border: #e2e2e6;
-    --block: #2c2c2e;          /* action blocks stay dark, like Shortcuts */
-    --block-ink: #f2f2f7;
-    --block-muted: #9a9aa2;
-    --chip: #0a84ff2b;
-    --chip-ink: #0a63c9;
-    --pill: #3a3a3c;
-    --pill-ink: #7cb8ff;
-    --code-bg: #1e1e20;
-    --code-ink: #e8e8ec;
-    --accent: #0a84ff;
-    --warn-bg: #fff4e5;
-    --warn-border: #f0b429;
-    --warn-ink: #7a4d00;
-    --ok-bg: #e7f6ec;
-    --ok-border: #34a853;
-    --ok-ink: #1e6b38;
-    --spine: #c9c9cf;
+    --bg: #0d0d10;
+    --card: #1a1a20;
+    --card-inner: #101014;
+    --border: #2c2c35;
+    --text: #e8e8ee;
+    --muted: #9a9aa8;
+    --accent: #4f8ff7;
+    --accent2: #8b6ff7;
+    --green: #3ecf8e;
+    --amber: #f7b955;
+    --red: #f76f6f;
+    --code-bg: #0a0a0e;
+    --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #101012;
-      --ink: #f2f2f7;
-      --muted: #a3a3ab;
-      --card: #1b1b1e;
-      --card-border: #2c2c30;
-      --chip: #0a84ff33;
-      --chip-ink: #7cb8ff;
-      --warn-bg: #2e2413;
-      --warn-border: #b3872a;
-      --warn-ink: #f2cf87;
-      --ok-bg: #14291c;
-      --ok-border: #2e7d4a;
-      --ok-ink: #9fd8b4;
-      --spine: #3a3a3f;
-    }
-  }
-  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    margin: 0;
     background: var(--bg);
-    color: var(--ink);
-    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    line-height: 1.55;
+    padding: 40px 20px 80px;
   }
-  .wrap { max-width: 880px; margin: 0 auto; padding: 40px 20px 80px; }
-  header.hero { margin-bottom: 36px; }
-  .hero h1 { font-size: 2rem; margin: 0 0 8px; letter-spacing: -0.02em; }
-  .hero p.sub { color: var(--muted); margin: 0; font-size: 1.05rem; }
-  .hero .badge {
-    display: inline-block; background: var(--chip); color: var(--chip-ink);
-    border-radius: 999px; padding: 3px 12px; font-size: 0.8rem; font-weight: 600;
-    margin-bottom: 14px; letter-spacing: 0.02em;
+  .wrap { max-width: 980px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 48px; }
+  header h1 {
+    font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin-bottom: 12px;
   }
-  h2 { font-size: 1.4rem; margin: 48px 0 12px; letter-spacing: -0.01em; }
-  h3 { font-size: 1.1rem; margin: 24px 0 8px; }
-  p { margin: 0 0 12px; }
-  a { color: var(--accent); }
-  .card {
-    background: var(--card); border: 1px solid var(--card-border);
-    border-radius: 16px; padding: 22px 24px; margin: 18px 0;
-  }
-  .muted { color: var(--muted); }
-  code {
-    font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.86em; background: color-mix(in srgb, var(--ink) 8%, transparent);
-    border-radius: 5px; padding: 1px 5px;
-  }
-  pre {
-    background: var(--code-bg); color: var(--code-ink);
-    border-radius: 12px; padding: 16px 18px; overflow-x: auto;
-    font-size: 0.84rem; line-height: 1.55; margin: 10px 0;
-  }
-  pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
-  /* --- Shortcuts-style action blocks --- */
-  .flow { position: relative; margin: 18px 0; }
-  .flow::before {
-    content: ""; position: absolute; left: 50%; top: 0; bottom: 0;
-    width: 2px; background: var(--spine); transform: translateX(-1px);
-  }
-  .block {
-    position: relative; background: var(--block); color: var(--block-ink);
-    border-radius: 16px; padding: 16px 18px; margin: 14px 0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-  }
-  .block .bhead { display: flex; align-items: center; gap: 10px; font-weight: 600; }
-  .block .icon {
-    width: 28px; height: 28px; border-radius: 7px; flex: 0 0 28px;
-    display: flex; align-items: center; justify-content: center; font-size: 15px;
-  }
-  .icon.receive { background: #5e5ce6; }
-  .icon.ask     { background: #32ade6; }
-  .icon.shell   { background: #1c1c1e; border: 1px solid #48484a; }
-  .icon.out     { background: #0a84ff; }
-  .icon.notify  { background: #ff9f0a; }
-  .icon.dict    { background: #30d158; }
-  .icon.clip    { background: #ff375f; }
+  header p.sub { color: var(--muted); font-size: 1.05rem; max-width: 720px; margin: 0 auto; }
+  .pillrow { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 18px; }
   .pill {
-    background: var(--pill); color: var(--pill-ink); border-radius: 7px;
-    padding: 1px 8px; font-size: 0.86em; font-weight: 600; white-space: nowrap;
+    font-size: 0.75rem; padding: 4px 12px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--card); color: var(--muted);
+    font-family: var(--mono);
   }
-  .block .bsub { color: var(--block-muted); font-size: 0.86rem; margin: 8px 0 0 38px; }
-  .block .settings { margin: 12px 0 0 38px; font-size: 0.86rem; color: var(--block-muted); }
-  .block .settings div { margin: 3px 0; }
-  .block .settings b { color: var(--block-ink); font-weight: 600; }
-  .block pre { margin: 12px 0 0 38px; background: var(--code-bg); }
-  /* --- callouts --- */
-  .warn, .ok {
-    border-radius: 12px; padding: 12px 16px; margin: 14px 0; font-size: 0.93rem;
+  section.caps {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 24px 28px; margin-bottom: 44px;
   }
-  .warn { background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-ink); }
-  .ok { background: var(--ok-bg); border: 1px solid var(--ok-border); color: var(--ok-ink); }
-  .warn b, .ok b { display: block; margin-bottom: 2px; }
-  /* --- tables --- */
-  .tablewrap { overflow-x: auto; }
-  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
-  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--card-border); vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; }
-  td code { white-space: nowrap; }
-  /* --- recipe header row --- */
-  .rhead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  .rhead .num {
-    background: var(--accent); color: #fff; border-radius: 999px;
-    width: 30px; height: 30px; display: inline-flex; align-items: center;
-    justify-content: center; font-weight: 700; flex: 0 0 30px; align-self: center;
+  section.caps h2 { font-size: 1.15rem; margin-bottom: 12px; color: var(--accent); }
+  section.caps ul { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px 24px; }
+  section.caps li { color: var(--muted); font-size: 0.9rem; padding-left: 18px; position: relative; }
+  section.caps li::before { content: "▸"; position: absolute; left: 0; color: var(--accent2); }
+  section.caps li strong { color: var(--text); }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 28px; margin-bottom: 32px; position: relative; overflow: hidden;
   }
-  .tagrow { margin: 4px 0 0; }
-  .tag {
-    display: inline-block; background: var(--chip); color: var(--chip-ink);
-    border-radius: 6px; padding: 2px 9px; font-size: 0.78rem; font-weight: 600;
-    margin: 0 6px 6px 0;
+  .card::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
   }
-  ol li, ul li { margin: 6px 0; }
-  footer { margin-top: 56px; color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--card-border); padding-top: 18px; }
+  .card .num {
+    position: absolute; top: 18px; right: 24px; font-size: 2.6rem; font-weight: 900;
+    color: rgba(255,255,255,0.06); font-family: var(--mono);
+  }
+  .card h3 { font-size: 1.35rem; font-weight: 700; margin-bottom: 4px; }
+  .card .tagline { color: var(--accent); font-size: 0.92rem; margin-bottom: 14px; font-weight: 500; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .badge {
+    font-size: 0.7rem; font-family: var(--mono); padding: 3px 10px; border-radius: 6px;
+    border: 1px solid var(--border); color: var(--muted); background: var(--card-inner);
+  }
+  .badge.trigger { color: var(--accent); border-color: rgba(79,143,247,0.4); }
+  .badge.safe { color: var(--green); border-color: rgba(62,207,142,0.4); }
+  .badge.caution { color: var(--amber); border-color: rgba(247,185,85,0.4); }
+  .badge.power { color: var(--red); border-color: rgba(247,111,111,0.4); }
+  .card p.desc { color: var(--muted); font-size: 0.95rem; margin-bottom: 16px; }
+  .card p.desc strong, .flow strong { color: var(--text); }
+  .flow {
+    background: var(--card-inner); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 18px; margin-bottom: 16px; font-size: 0.88rem; color: var(--muted);
+  }
+  .flow .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent2); display: block; margin-bottom: 6px; font-weight: 700; }
+  .flow ol { margin-left: 20px; }
+  .flow li { margin-bottom: 3px; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 18px; overflow-x: auto; margin-bottom: 14px;
+  }
+  pre code { font-family: var(--mono); font-size: 0.8rem; color: #c9d4e3; line-height: 1.6; white-space: pre; }
+  .cm { color: #5c6a80; }
+  .kw { color: #7fb5ff; }
+  .st { color: #a8e0a2; }
+  .fl { color: #d3a8f0; }
+  .why {
+    border-left: 3px solid var(--accent2); padding: 8px 14px; background: rgba(139,111,247,0.06);
+    border-radius: 0 8px 8px 0; font-size: 0.85rem; color: var(--muted);
+  }
+  .why strong { color: var(--accent2); }
+  /* ── Table of Contents ── */
+  nav.toc {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 20px 24px; margin-bottom: 44px;
+  }
+  nav.toc h2 { font-size: 1rem; font-weight: 700; color: var(--accent); margin-bottom: 12px; }
+  nav.toc ol { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 6px 24px; }
+  nav.toc li { font-size: 0.88rem; }
+  nav.toc a {
+    color: var(--muted); text-decoration: none; padding-left: 18px; position: relative;
+    display: block; transition: color 0.15s;
+  }
+  nav.toc a::before { content: "→"; position: absolute; left: 0; color: var(--accent2); font-size: 0.8rem; }
+  nav.toc a:hover, nav.toc a:focus { color: var(--text); outline: none; }
+  /* ── Skip-to-main accessibility link ── */
+  .skip-link {
+    position: absolute; top: -999px; left: 8px; background: var(--accent); color: #fff;
+    padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; z-index: 9999;
+  }
+  .skip-link:focus { top: 8px; }
+  /* ── Print styles ── */
+  @media print {
+    body { background: #fff; color: #111; padding: 20px; }
+    .card, section.caps, nav.toc, footer { background: #fff; border-color: #ccc; }
+    .card::before { background: #4f8ff7; }
+    pre { background: #f4f4f4; border-color: #ccc; }
+    pre code { color: #111; }
+    .skip-link, .pillrow { display: none; }
+    a { color: #4f8ff7; }
+  }
+  footer {
+    margin-top: 56px; padding: 28px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; color: var(--muted); font-size: 0.88rem;
+  }
+  footer h2 { color: var(--text); font-size: 1.1rem; margin-bottom: 12px; }
+  footer ul { margin-left: 20px; }
+  footer li { margin-bottom: 6px; }
+  footer code { font-family: var(--mono); font-size: 0.8rem; background: var(--code-bg); padding: 2px 6px; border-radius: 4px; color: #a8e0a2; }
 </style>
 </head>
 <body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
 <div class="wrap">
 
-<header class="hero">
-  <span class="badge">claude-local-bridge-playground · docs</span>
-  <h1>🍎 Apple Shortcuts Recipes for the Bridge Runner</h1>
-  <p class="sub">
-    Five ready-to-build macOS Shortcuts that turn <code>bin/local-bridge-runner.js</code> into
-    one-tap tools: project tours, Siri Q&amp;A, code review from the share sheet, dry-run change
-    plans, and a scheduled morning repo digest.
-  </p>
+<header>
+  <h1>⚡ 10 Advanced Apple Shortcuts for the Bridge Runner</h1>
+  <p class="sub">Creative macOS Shortcuts recipes built around <code style="font-family:var(--mono)">bin/local-bridge-runner.js</code> — a local coding-agent loop that speaks to Claude through the OAuth bridge on <strong>localhost:11437</strong>. Every recipe follows the pattern from the example shortcut: <em>Receive input → Run Shell Script (zsh) → Stop and output</em>.</p>
+  <div class="pillrow">
+    <span class="pill">multimodal read_file (PNG/PDF)</span>
+    <span class="pill">--plan mode</span>
+    <span class="pill">git worktrees</span>
+    <span class="pill">spawn_agent</span>
+    <span class="pill">prompt templates</span>
+    <span class="pill">--max-cost-usd budgets</span>
+    <span class="pill">run manifests + undo</span>
+    <span class="pill">file agents</span>
+  </div>
 </header>
 
-<div class="card">
-  <h3 style="margin-top:0">What is happening under the hood?</h3>
-  <p>
-    Every recipe below uses the same trick as the example shortcut you built: a
-    <b>Run Shell Script</b> action that changes into the playground folder and calls the runner.
-    The runner talks to the <b>local bridge</b> (the VS Code extension listening on
-    <code>localhost:11437</code>), which supplies your Claude Code credentials. Nothing here
-    needs an API key — but it does need the bridge running.
-  </p>
-  <p class="muted" style="margin-bottom:0">
-    Jargon check: a <b>Shortcut</b> is a small automation you build in the macOS
-    <b>Shortcuts app</b> (in your Applications folder). A <b>Quick Action</b> is a shortcut that
-    appears when you right-click a file or folder in Finder. The <b>share sheet</b> is the
-    share menu (the square-with-arrow icon) in most Mac apps.
-  </p>
-</div>
+<main id="main-content">
 
-<h2>Read this first — five things that make or break Shortcuts</h2>
-<div class="card">
+<nav class="toc" aria-label="Recipes table of contents">
+  <h2>📑 Jump to a Recipe</h2>
   <ol>
-    <li>
-      <b>The bridge must be running.</b> Open VS Code with the Claude Local Bridge extension
-      active before running any shortcut. If the bridge is down, the runner prints a connection
-      error instead of an answer — annoying, but harmless.
-    </li>
-    <li>
-      <b>Shortcuts cannot answer yes/no questions.</b> When you run the runner in Terminal, it
-      pauses and asks before editing files or running shell commands. A shortcut has no keyboard
-      attached to that prompt, so it would just hang. That is why every recipe below sticks to
-      <b>read-only profiles</b>, <b>plan mode</b> (a dry run), or a tightly constrained
-      git-only shell. None of these shortcuts can modify your files.
-    </li>
-    <li>
-      <b>Shortcuts does not know where <code>node</code> lives.</b> The Run Shell Script action
-      starts a minimal shell without your Terminal setup. Every script below begins with an
-      <code>export PATH=...</code> line covering Homebrew on Apple Silicon
-      (<code>/opt/homebrew/bin</code>) and Intel (<code>/usr/local/bin</code>). If node still
-      is not found, run <code>which node</code> in Terminal and add that folder to the line.
-    </li>
-    <li>
-      <b>Keep the output clean.</b> The runner prints tips and progress on <i>stderr</i> (the
-      error channel) and the answer on <i>stdout</i> (the normal channel). Shortcuts can mix the
-      two together, so the scripts use <code>--log-level quiet</code> and
-      <code>2&gt;/dev/null</code> (which discards the error channel) so only the answer reaches
-      the next action.
-    </li>
-    <li>
-      <b>Every recipe has a spending cap.</b> <code>--max-cost-usd</code> stops the run if the
-      estimated cost passes the limit, and <code>--max-wall-clock-ms</code> stops runs that go
-      too long. Shortcuts fire fast and sometimes accidentally (hello, Siri), so caps are
-      non-negotiable here.
-    </li>
+    <li><a href="#recipe-01">01 · Screenshot → Instant Code Review</a></li>
+    <li><a href="#recipe-02">02 · Siri "Plan This Feature"</a></li>
+    <li><a href="#recipe-03">03 · Clipboard Refactor Surgeon</a></li>
+    <li><a href="#recipe-04">04 · Finder Quick Action: "Grill This Folder"</a></li>
+    <li><a href="#recipe-05">05 · PDF Interrogator</a></li>
+    <li><a href="#recipe-06">06 · Worktree Experiment Launcher</a></li>
+    <li><a href="#recipe-07">07 · Nightly Test Sentinel</a></li>
+    <li><a href="#recipe-08">08 · Throwaway-Lab Chaos Bench</a></li>
+    <li><a href="#recipe-09">09 · "What Did the Agent Do?" Archive Historian</a></li>
+    <li><a href="#recipe-10">10 · Parallel Swarm Review — spawn_agent Fan-Out</a></li>
   </ol>
-</div>
+</nav>
 
-<h2>The five shortcuts at a glance</h2>
-<div class="card tablewrap">
-  <table>
-    <thead>
-      <tr><th>#</th><th>Shortcut</th><th>Trigger</th><th>Runner capability it uses</th><th>Can it change files?</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>1</td><td>📖 Explain Any Project</td><td>Right-click a folder in Finder</td><td><code>--cwd</code> + <code>--profile review-only</code></td><td>No — read-only profile</td></tr>
-      <tr><td>2</td><td>🙋 Ask My Repo</td><td>Siri, Spotlight, or menu bar</td><td>Prompt passed as a shell argument</td><td>No — read-only profile</td></tr>
-      <tr><td>3</td><td>🔍 Review Shared Code</td><td>Share sheet / clipboard</td><td>stdin pasting + <code>--prompt-template review</code></td><td>No — read-only profile</td></tr>
-      <tr><td>4</td><td>🗺️ Dry-Run Change Plan</td><td>Ask-for-text popup</td><td><code>--plan</code> mode (describe, never execute)</td><td>No — plan mode is a dry run</td></tr>
-      <tr><td>5</td><td>🌅 Morning Repo Digest</td><td>Scheduled automation</td><td><code>--profile git-readonly-shell</code> + <code>--output-format json</code></td><td>No — bash pinned to read-only git</td></tr>
-    </tbody>
-  </table>
-</div>
-
-<!-- ================================================================ -->
-<h2 id="r1"><span class="rhead"><span class="num">1</span> 📖 Explain Any Project</span></h2>
-<div class="card">
-  <p class="tagrow">
-    <span class="tag">Finder Quick Action</span><span class="tag">read-only</span><span class="tag">great first build</span>
-  </p>
-  <p>
-    An upgrade of your example shortcut. Instead of always explaining the playground, this one
-    explains <b>whichever folder you right-click in Finder</b>. The folder path arrives as the
-    shortcut input, and the script hands it to the runner with <code>--cwd</code> — the flag
-    that tells the runner which project folder its tools may look inside.
-  </p>
-  <p>
-    The <code>--profile review-only</code> flag loads a built-in capability profile that allows
-    reading, listing, and searching files while hard-denying edit, write, patch, and shell tools.
-    Even if the model asked to edit something, the profile says no.
-  </p>
-
-  <h3>Build it in the Shortcuts app</h3>
-  <div class="flow">
-    <div class="block">
-      <div class="bhead"><span class="icon receive">📥</span> Receive <span class="pill">Files and Folders</span> from <span class="pill">Quick Actions, Share Sheet</span></div>
-      <div class="bsub">If there's no input: Ask For <span class="pill">Files</span>. In shortcut settings, enable “Use as Quick Action” → “Finder”.</div>
-    </div>
-    <div class="block">
-      <div class="bhead"><span class="icon shell">›_</span> Run Shell Script</div>
-      <pre><code>export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-cd "/Users/alanman/Developer/claude-local-bridge-playground"
-node bin/local-bridge-runner.js \
-  --cwd "$1" \
-  --profile review-only \
-  --log-level quiet \
-  --max-cost-usd 0.50 \
-  "Give me a beginner-friendly tour of this project: what it is, \
-what the main folders do, and where a newcomer should start reading." \
-  2>/dev/null</code></pre>
-      <div class="settings">
-        <div>Shell: <b>zsh</b></div>
-        <div>Input: <b>Shortcut Input</b></div>
-        <div>Pass Input: <b>as arguments</b> &nbsp;<span class="muted">(the folder path becomes <code>$1</code>)</span></div>
-      </div>
-    </div>
-    <div class="block">
-      <div class="bhead"><span class="icon out">⏹</span> Stop and output <span class="pill">Shell Script Result</span></div>
-      <div class="bsub">If there's nowhere to output: Respond <span class="pill">Shell Script Result</span></div>
-    </div>
-  </div>
-
-  <div class="ok">
-    <b>Why this is safe</b>
-    The review-only profile denies every write and shell tool at the permission layer, and the
-    runner’s path confinement keeps reads inside the <code>--cwd</code> folder. Sensitive files
-    like <code>.env</code>, keys, and <code>.ssh</code> are blocked by the deny matrix on top of that.
-  </div>
-  <div class="warn">
-    <b>One gotcha</b>
-    Right-click a real project folder, not your home folder or Downloads — the runner validates
-    <code>--cwd</code> at startup and refuses system-level directories, and pointing it at a huge
-    non-project folder just wastes tokens.
-  </div>
-</div>
-
-<!-- ================================================================ -->
-<h2 id="r2"><span class="rhead"><span class="num">2</span> 🙋 Ask My Repo (Siri-friendly)</span></h2>
-<div class="card">
-  <p class="tagrow">
-    <span class="tag">Siri / Spotlight</span><span class="tag">read-only</span><span class="tag">Q&amp;A</span>
-  </p>
-  <p>
-    A question box for your own codebase. Run it from the menu bar, Spotlight, or by saying
-    <i>“Hey Siri, Ask My Repo.”</i> An <b>Ask for Text</b> action collects your question, and the
-    script passes it to the runner as <code>$1</code>. Because the question is quoted as
-    <code>"$1"</code>, punctuation and apostrophes in your question cannot break the command.
-  </p>
-  <p>
-    Good questions to try: <i>“Where is the permission logic for the bash tool?”</i>,
-    <i>“What does --task-scope actually change?”</i>, <i>“Which tests cover safety.js?”</i>
-  </p>
-
-  <h3>Build it in the Shortcuts app</h3>
-  <div class="flow">
-    <div class="block">
-      <div class="bhead"><span class="icon ask">💬</span> Ask for <span class="pill">Text</span> with prompt <span class="pill">“What do you want to know about the repo?”</span></div>
-    </div>
-    <div class="block">
-      <div class="bhead"><span class="icon shell">›_</span> Run Shell Script</div>
-      <pre><code>export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-cd "/Users/alanman/Developer/claude-local-bridge-playground"
-node bin/local-bridge-runner.js \
-  --profile review-only \
-  --log-level quiet \
-  --max-cost-usd 0.50 \
-  "$1" \
-  2>/dev/null</code></pre>
-      <div class="settings">
-        <div>Shell: <b>zsh</b></div>
-        <div>Input: <b>Provided Input</b> &nbsp;<span class="muted">(the answer from Ask for Text)</span></div>
-        <div>Pass Input: <b>as arguments</b></div>
-      </div>
-    </div>
-    <div class="block">
-      <div class="bhead"><span class="icon out">⏹</span> Stop and output <span class="pill">Shell Script Result</span></div>
-      <div class="bsub">If there's nowhere to output: Respond <span class="pill">Shell Script Result</span> — this is what lets Siri read the answer back.</div>
-    </div>
-  </div>
-
-  <div class="ok">
-    <b>Variation worth trying</b>
-    Add <code>--prompt-template explore</code> before <code>"$1"</code> to prepend the built-in
-    “explore” template, which nudges the model to search the codebase before answering instead of
-    guessing from the question alone.
-  </div>
-</div>
-
-<!-- ================================================================ -->
-<h2 id="r3"><span class="rhead"><span class="num">3</span> 🔍 Review Shared Code</span></h2>
-<div class="card">
-  <p class="tagrow">
-    <span class="tag">Share sheet</span><span class="tag">stdin pasting</span><span class="tag">prompt template</span>
-  </p>
-  <p>
-    Select code anywhere — an editor, a web page, Mail — share it (or copy it), and get a code
-    review back. This recipe shows off a runner feature the other recipes don’t: when text is
-    piped to the runner’s <b>stdin</b> (the standard input stream a program can read from), the
-    runner automatically attaches it to your prompt as pasted context. In Shortcuts, setting
-    <b>Pass Input: to stdin</b> does exactly that piping for you.
-  </p>
-  <p>
-    It also uses <code>--prompt-template review</code>, the built-in “findings-first” review
-    template stored in <code>src/runner/prompts/review.md</code>, which frames the model to lead
-    with concrete findings on correctness, safety, maintainability, and missing tests.
-  </p>
-
-  <h3>Build it in the Shortcuts app</h3>
-  <div class="flow">
-    <div class="block">
-      <div class="bhead"><span class="icon receive">📥</span> Receive <span class="pill">Text</span> from <span class="pill">Share Sheet, Quick Actions</span></div>
-      <div class="bsub">If there's no input: Get Clipboard — so it also works on whatever you last copied.</div>
-    </div>
-    <div class="block">
-      <div class="bhead"><span class="icon shell">›_</span> Run Shell Script</div>
-      <pre><code>export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-cd "/Users/alanman/Developer/claude-local-bridge-playground"
-node bin/local-bridge-runner.js \
-  --profile review-only \
-  --prompt-template review \
-  --log-level quiet \
-  --max-cost-usd 0.50 \
-  "Review the code pasted below. Explain each finding in plain language \
-a beginner can follow, and say which findings matter most." \
-  2>/dev/null</code></pre>
-      <div class="settings">
-        <div>Shell: <b>zsh</b></div>
-        <div>Input: <b>Shortcut Input</b></div>
-        <div>Pass Input: <b>to stdin</b> &nbsp;<span class="muted">(the shared code is piped in and becomes pasted context)</span></div>
-      </div>
-    </div>
-    <div class="block">
-      <div class="bhead"><span class="icon out">⏹</span> Stop and output <span class="pill">Shell Script Result</span></div>
-      <div class="bsub">Tip: insert a <b>Quick Look</b> action before this one to read long reviews in a scrollable window.</div>
-    </div>
-  </div>
-
-  <div class="ok">
-    <b>Bonus: reviewing a file already in the repo</b>
-    Swap the stdin approach for <code>--include-file src/runner/safety.js</code> to attach a
-    bounded, secret-scrubbed copy of a repo file instead. <code>--include-file</code> refuses
-    files outside the project, blocked paths, and anything over 50&nbsp;KB.
-  </div>
-</div>
-
-<!-- ================================================================ -->
-<h2 id="r4"><span class="rhead"><span class="num">4</span> 🗺️ Dry-Run Change Plan</span></h2>
-<div class="card">
-  <p class="tagrow">
-    <span class="tag">Ask-for-text</span><span class="tag">plan mode</span><span class="tag">clipboard</span>
-  </p>
-  <p>
-    Describe a change you’re considering — <i>“add a --version flag to the runner CLI”</i> — and
-    get back a concrete step-by-step plan <b>without anything being executed</b>. That is what
-    <code>--plan</code> does: the runner inspects the code, and any action the model proposes is
-    answered with a dry-run result instead of being performed. It is the safest way to preview
-    what an agent session <i>would</i> do.
-  </p>
-  <p>
-    The plan lands on your clipboard, so you can paste it straight into a real Terminal session
-    (or a Cursor/Claude chat) when you’re ready to actually make the change.
-  </p>
-
-  <h3>Build it in the Shortcuts app</h3>
-  <div class="flow">
-    <div class="block">
-      <div class="bhead"><span class="icon ask">💬</span> Ask for <span class="pill">Text</span> with prompt <span class="pill">“What change are you considering?”</span></div>
-    </div>
-    <div class="block">
-      <div class="bhead"><span class="icon shell">›_</span> Run Shell Script</div>
-      <pre><code>export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-cd "/Users/alanman/Developer/claude-local-bridge-playground"
-node bin/local-bridge-runner.js \
-  --plan \
-  --log-level quiet \
-  --max-cost-usd 0.75 \
-  --max-wall-clock-ms 180000 \
-  "Plan this change without making it: $1. List the files you would touch, \
-the steps in order, the checks to run afterwards, and any risks." \
-  2>/dev/null</code></pre>
-      <div class="settings">
-        <div>Shell: <b>zsh</b></div>
-        <div>Input: <b>Provided Input</b></div>
-        <div>Pass Input: <b>as arguments</b></div>
-      </div>
-    </div>
-    <div class="block">
-      <div class="bhead"><span class="icon clip">📋</span> Copy to Clipboard <span class="pill">Shell Script Result</span></div>
-    </div>
-    <div class="block">
-      <div class="bhead"><span class="icon out">⏹</span> Stop and output <span class="pill">Shell Script Result</span></div>
-      <div class="bsub">If there's nowhere to output: Show Result <span class="pill">Shell Script Result</span></div>
-    </div>
-  </div>
-
-  <div class="warn">
-    <b>Plan mode is a preview, not a promise</b>
-    A plan is the model’s best guess before doing the work. When you later run the change for
-    real (in Terminal, where you can approve each edit), expect small differences — that’s normal.
-  </div>
-</div>
-
-<!-- ================================================================ -->
-<h2 id="r5"><span class="rhead"><span class="num">5</span> 🌅 Morning Repo Digest</span></h2>
-<div class="card">
-  <p class="tagrow">
-    <span class="tag">Scheduled automation</span><span class="tag">git-only shell</span><span class="tag">JSON output</span><span class="tag">notification</span>
-  </p>
-  <p>
-    The most advanced recipe: a Shortcuts <b>Personal Automation</b> (Automation tab → “Time of
-    Day”) that runs every morning, has the runner execute <i>read-only</i> git commands to see
-    what changed recently, and delivers a short digest as a notification.
-  </p>
-  <p>
-    This is the only recipe that enables the shell tool — and it shows how the runner’s layered
-    safety model makes that acceptable for an unattended run:
-  </p>
+<section class="caps">
+  <h2>Runtime capabilities these recipes exploit</h2>
   <ul>
-    <li><code>--allow-shell</code> turns the bash tool on (it is hidden by default).</li>
-    <li><code>--profile git-readonly-shell</code> then <b>pins bash to read-only git commands</b>
-        (<code>git status/log/diff/show/branch/rev-parse/describe</code>) via a command allowlist,
-        and denies every edit, write, and patch tool.</li>
-    <li><code>--dont-ask</code> skips confirmation prompts — required because nobody is at the
-        keyboard at 9 AM. It only applies to tools already enabled; it cannot enable anything new.</li>
-    <li>Cost and wall-clock caps bound the blast radius if a run goes sideways.</li>
+    <li><strong>Clean stdout</strong> — usage/cost goes to stderr, so Shortcuts gets pure answer text</li>
+    <li><strong>Multimodal reads</strong> — <code>read_file</code> attaches images (≤7MB) and PDFs (≤10MB) as model content</li>
+    <li><strong>Permission modes</strong> — <code>--plan</code>, <code>--accept-edits</code>, <code>--dont-ask</code>, profiles like <code>review-only</code></li>
+    <li><strong>Prompt templates</strong> — <code>--prompt-template review --prompt-arg focus=…</code> with typed parameters</li>
+    <li><strong>File agents</strong> — <code>code-reviewer</code>, <code>debugger</code>, <code>refactoring-specialist</code>, <code>test-automator</code></li>
+    <li><strong>Worktree isolation</strong> — risky edits land on fresh branches, never the main checkout</li>
+    <li><strong>Budgets</strong> — <code>--max-cost-usd</code>, <code>--budget-output-tokens</code> hard-stop runaway runs</li>
+    <li><strong>Whole-run rollback</strong> — <code>local-bridge-undo.js last-run --yes</code> reverts an entire run</li>
+    <li><strong>Session resume</strong> — <code>--continue</code> picks up the latest transcript</li>
+    <li><strong>Throwaway labs</strong> — <code>create-runner-throwaway-lab.js</code> mints disposable sandboxes</li>
   </ul>
-  <p>
-    It also demonstrates <code>--output-format json</code>: the runner emits a machine-readable
-    result object, and Shortcuts extracts the <code>finalText</code> field with a
-    <b>Get Dictionary Value</b> action — much more reliable than scraping terminal text.
-  </p>
+</section>
 
-  <h3>Build it in the Shortcuts app</h3>
-  <div class="flow">
-    <div class="block">
-      <div class="bhead"><span class="icon receive">⏰</span> Automation: <span class="pill">Time of Day → 9:00 AM, Daily</span> → Run Immediately</div>
-      <div class="bsub">Build the actions below as a normal shortcut first, then point the automation at it.</div>
-    </div>
-    <div class="block">
-      <div class="bhead"><span class="icon shell">›_</span> Run Shell Script</div>
-      <pre><code>export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-cd "/Users/alanman/Developer/claude-local-bridge-playground"
-node bin/local-bridge-runner.js \
-  --allow-shell \
-  --dont-ask \
-  --profile git-readonly-shell \
-  --output-format json \
-  --log-level quiet \
-  --max-cost-usd 0.50 \
-  --max-wall-clock-ms 180000 \
-  "Use read-only git commands (git log, git diff --stat) to see what \
-changed in this repo in the last 2 days. Give me a 5-sentence digest: \
-what changed, anything surprising, and what I might look at today." \
-  2>/dev/null</code></pre>
-      <div class="settings">
-        <div>Shell: <b>zsh</b></div>
-        <div>Input: <b>(none)</b> &nbsp;·&nbsp; Pass Input: <b>as arguments</b></div>
-      </div>
-    </div>
-    <div class="block">
-      <div class="bhead"><span class="icon dict">🔤</span> Get Dictionary from <span class="pill">Shell Script Result</span></div>
-    </div>
-    <div class="block">
-      <div class="bhead"><span class="icon dict">🔎</span> Get Dictionary Value <span class="pill">finalText</span></div>
-    </div>
-    <div class="block">
-      <div class="bhead"><span class="icon notify">🔔</span> Show Notification <span class="pill">Dictionary Value</span> with title <span class="pill">“Repo digest”</span></div>
-      <div class="bsub">Alternative endings: Append to a Note, or Send Message to yourself.</div>
-    </div>
+<!-- ═══════════════ 1 ═══════════════ -->
+<div class="card" id="recipe-01">
+  <span class="num">01</span>
+  <h3>📸 Screenshot → Instant Code Review</h3>
+  <p class="tagline">Share any screenshot of code, an error dialog, or a UI bug straight into a multimodal review.</p>
+  <div class="badges">
+    <span class="badge trigger">Share Sheet · Images</span>
+    <span class="badge safe">read-only</span>
+    <span class="badge">multimodal</span>
+    <span class="badge">--bare</span>
   </div>
-
-  <div class="warn">
-    <b>Handle these flags with care</b>
-    <code>--allow-shell --dont-ask</code> is only reasonable here because the
-    <code>git-readonly-shell</code> profile constrains what the shell can do. Never copy this
-    flag pair into a shortcut without a restrictive <code>--profile</code>, and never add
-    <code>--accept-edits</code> to it — the runner treats all three together as a “chaos combo”
-    and refuses unless you explicitly acknowledge the risk.
+  <p class="desc">macOS screenshots land in the Share Sheet; this shortcut saves the shared image into the repo's temp inbox, then lets the runner <strong>see</strong> it via multimodal <code style="font-family:var(--mono)">read_file</code> and diagnose what's on screen — stack traces, Xcode errors, broken layouts, whiteboard photos of architecture diagrams.</p>
+  <div class="flow"><span class="label">Shortcut actions</span>
+    <ol>
+      <li><strong>Receive</strong> Images from Share Sheet, Quick Actions</li>
+      <li><strong>Save File</strong> → <code>~/Developer/claude-local-bridge-playground/.bridge-runner/inbox/shot.png</code> (overwrite)</li>
+      <li><strong>Run Shell Script</strong> (zsh, pass input: as arguments)</li>
+      <li><strong>Stop and output</strong> Shell Script Result → fallback: Show Result</li>
+    </ol>
   </div>
-  <div class="ok">
-    <b>Prerequisite reminder</b>
-    Scheduled automations run whether or not you remembered to open VS Code. If the bridge is
-    down, the JSON parse step fails and the notification never fires — a quiet failure. If you
-    want a loud one, add an “If / Otherwise” action around the dictionary step.
-  </div>
+  <pre><code>cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+mkdir -p .bridge-runner/inbox
+node bin/local-bridge-runner.js <span class="fl">--bare --dont-ask --max-cost-usd</span> 0.25 \
+  <span class="st">"Read the image at .bridge-runner/inbox/shot.png. Identify what is on screen
+   (code, error, UI). Explain the likely root cause and give a concrete fix.
+   If it is code, review it for bugs."</span> 2>/dev/null</code></pre>
+  <div class="why"><strong>Why it's clever:</strong> zero typing — screenshot ⌘⇧4, hit Share, and the answer pops up as a Quick Look sheet. The <code>2&gt;/dev/null</code> keeps the stderr usage line out of the result.</div>
 </div>
 
-<!-- ================================================================ -->
-<h2>Flag glossary used across these recipes</h2>
-<div class="card tablewrap">
-  <table>
-    <thead><tr><th>Flag</th><th>What it does</th><th>Why the shortcuts need it</th></tr></thead>
-    <tbody>
-      <tr><td><code>--cwd &lt;path&gt;</code></td><td>Sets the target project folder the tools operate inside.</td><td>Lets recipe 1 work on any folder you right-click.</td></tr>
-      <tr><td><code>--profile review-only</code></td><td>Read/list/search tools only; edits, writes, patch, shell all denied.</td><td>Guarantees a shortcut can never change files.</td></tr>
-      <tr><td><code>--profile git-readonly-shell</code></td><td>Read tools plus bash restricted to read-only git commands.</td><td>Lets the digest run <code>git log</code> and nothing else.</td></tr>
-      <tr><td><code>--plan</code></td><td>Plan mode: proposed actions get dry-run results instead of executing.</td><td>Safe previews of changes in recipe 4.</td></tr>
-      <tr><td><code>--prompt-template &lt;name&gt;</code></td><td>Prepends a reusable prompt (built-ins include <code>review</code>, <code>cleanup</code>, <code>explore</code>).</td><td>Gives recipe 3 a consistent, well-structured review framing.</td></tr>
-      <tr><td><code>--include-file &lt;path&gt;</code></td><td>Attaches a bounded (≤50&nbsp;KB), secret-scrubbed repo file to the prompt.</td><td>Alternative input method for recipe 3.</td></tr>
-      <tr><td><code>--log-level quiet</code></td><td>Silences runner tips and progress on stderr.</td><td>Keeps shortcut output to just the answer.</td></tr>
-      <tr><td><code>--output-format json</code></td><td>Prints a machine-readable result object on stdout.</td><td>Lets Shortcuts parse <code>finalText</code> reliably in recipe 5.</td></tr>
-      <tr><td><code>--max-cost-usd &lt;n&gt;</code></td><td>Stops the run when estimated spend passes the cap.</td><td>Shortcuts can fire accidentally; caps limit surprises.</td></tr>
-      <tr><td><code>--max-wall-clock-ms &lt;n&gt;</code></td><td>Stops the run after N milliseconds.</td><td>Prevents a stuck run from hanging a shortcut forever.</td></tr>
-      <tr><td><code>--dont-ask</code></td><td>Skips confirmations for tools that are already enabled (it enables nothing new).</td><td>Unattended automations have nobody to press “y”.</td></tr>
-    </tbody>
-  </table>
+<!-- ═══════════════ 2 ═══════════════ -->
+<div class="card" id="recipe-02">
+  <span class="num">02</span>
+  <h3>🎙️ Siri "Plan This Feature" — Voice to Engineering Plan</h3>
+  <p class="tagline">Dictate a feature idea to Siri; get back a structured, repo-aware implementation plan in Notes.</p>
+  <div class="badges">
+    <span class="badge trigger">Siri · Voice</span>
+    <span class="badge safe">--plan mode</span>
+    <span class="badge">repo-context</span>
+  </div>
+  <p class="desc">Say <em>"Hey Siri, plan this feature."</em> Siri asks what you want, and the runner explores the repo in <strong>plan mode</strong> — it describes what it <em>would</em> do without executing a single write. The plan is appended to an Apple Note so ideas captured on a walk survive until you're back at the keyboard.</p>
+  <div class="flow"><span class="label">Shortcut actions</span>
+    <ol>
+      <li><strong>Ask for Input</strong> (Text): "What should I plan?" — dictation-friendly</li>
+      <li><strong>Run Shell Script</strong> with Provided Input as <code>$1</code> (pass: as arguments)</li>
+      <li><strong>Append to Note</strong> "Runner Plans" ← Shell Script Result</li>
+      <li><strong>Show Notification</strong> "Plan captured ✅"</li>
+    </ol>
+  </div>
+  <pre><code>cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+node bin/local-bridge-runner.js <span class="fl">--plan --include-repo-context --include-repo-map</span> \
+  <span class="fl">--dont-ask --max-cost-usd</span> 0.50 \
+  <span class="st">"Draft a step-by-step implementation plan for: $1.
+   List the files involved, risks, and a test strategy. Do not edit anything."</span> 2>/dev/null</code></pre>
+  <div class="why"><strong>Why it's clever:</strong> <code>--plan</code> makes voice-triggered agent runs fundamentally safe — the model gets read tools and repo maps but every mutation is described, not performed.</div>
 </div>
 
-<h2>Why none of these shortcuts edit files</h2>
-<div class="card">
-  <p>
-    You <i>could</i> build a shortcut with <code>--accept-edits</code> that lets the model change
-    files without confirmation. This guide deliberately doesn’t include one. A shortcut runs
-    without a visible terminal, so you would not see what was edited until after the fact — the
-    exact opposite of the “read the proposed change, then approve it” habit that keeps agent
-    runs safe. Do editing sessions in Terminal (or via the command builder at
-    <code>docs/command-builder.html</code>), where confirmations work and you can watch the diff.
-  </p>
-  <p class="muted" style="margin-bottom:0">
-    Also remember the standing policy note from the threat model: the bridge reuses your Claude
-    Code OAuth credentials for personal research. Keep these shortcuts personal, low-volume, and
-    on your own machine.
-  </p>
+<!-- ═══════════════ 3 ═══════════════ -->
+<div class="card" id="recipe-03">
+  <span class="num">03</span>
+  <h3>📋 Clipboard Refactor Surgeon</h3>
+  <p class="tagline">Copy ugly code anywhere → hotkey → refactored code lands back on your clipboard.</p>
+  <div class="badges">
+    <span class="badge trigger">Keyboard hotkey / Menu bar</span>
+    <span class="badge caution">writes to sandbox only</span>
+    <span class="badge">file agent</span>
+  </div>
+  <p class="desc">Uses the shipped <code style="font-family:var(--mono)">refactoring-specialist</code> agent from <code style="font-family:var(--mono)">.bridge-runner/agents/</code>. The clipboard is written into a scratch file inside a sandbox folder, the agent refactors it with <code style="font-family:var(--mono)">--accept-edits</code> scoped to that sandbox, and the improved file is read back onto the clipboard. Works from any app — Slack, browser, Mail.</p>
+  <div class="flow"><span class="label">Shortcut actions</span>
+    <ol>
+      <li><strong>Get Clipboard</strong></li>
+      <li><strong>Run Shell Script</strong> with Clipboard as stdin (pass input: to stdin)</li>
+      <li><strong>Copy to Clipboard</strong> ← Shell Script Result</li>
+      <li><strong>Show Notification</strong> "Refactored ✂️ → clipboard"</li>
+    </ol>
+  </div>
+  <pre><code>REPO=<span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+SANDBOX=<span class="st">"$HOME/Documents/runner-clipboard-sandbox"</span>
+mkdir -p <span class="st">"$SANDBOX"</span> && cat > <span class="st">"$SANDBOX/snippet.txt"</span>   <span class="cm"># clipboard → file</span>
+cd <span class="st">"$REPO"</span>
+node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"$SANDBOX"</span> <span class="fl">--agent</span> refactoring-specialist \
+  <span class="fl">--accept-edits --dont-ask --max-cost-usd</span> 0.40 \
+  <span class="st">"Refactor snippet.txt in place: improve naming, structure, and clarity while
+   preserving behavior. Keep the same language. Save the result to snippet.txt."</span> \
+  1>/dev/null 2>&1
+cat <span class="st">"$SANDBOX/snippet.txt"</span>   <span class="cm"># file → clipboard</span></code></pre>
+  <div class="why"><strong>Why it's clever:</strong> <code>--cwd</code> jails all writes to a scratch folder, so <code>--accept-edits</code> is safe even on a hotkey. The runner never touches a real repo.</div>
+</div>
+
+<!-- ═══════════════ 4 ═══════════════ -->
+<div class="card" id="recipe-04">
+  <span class="num">04</span>
+  <h3>📂 Finder Quick Action: "Grill This Folder"</h3>
+  <p class="tagline">Right-click any project folder → adversarial findings-first code review, no edits possible.</p>
+  <div class="badges">
+    <span class="badge trigger">Finder Quick Action · Folders</span>
+    <span class="badge safe">review-only profile</span>
+    <span class="badge">prompt template</span>
+  </div>
+  <p class="desc">Registers as a Finder <strong>Quick Action</strong> that receives folders. The selected folder path arrives as <code style="font-family:var(--mono)">$1</code> and becomes the runner's <code style="font-family:var(--mono)">--cwd</code>. The built-in <code style="font-family:var(--mono)">grill</code> prompt template plus the <code style="font-family:var(--mono)">review-only</code> capability profile means the run is aggressive in analysis and physically incapable of editing.</p>
+  <div class="flow"><span class="label">Shortcut actions</span>
+    <ol>
+      <li><strong>Receive</strong> Files/Folders from Quick Actions in Finder</li>
+      <li><strong>Run Shell Script</strong> (pass input: as arguments — folder path is <code>$1</code>)</li>
+      <li><strong>Save File</strong> Shell Script Result → <code>~/Desktop/review-report.txt</code>, then <strong>Open File</strong></li>
+    </ol>
+  </div>
+  <pre><code>cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"$1"</span> <span class="fl">--profile</span> review-only \
+  <span class="fl">--prompt-template</span> grill <span class="fl">--dont-ask --max-cost-usd</span> 1.00 \
+  <span class="fl">--human-log</span> <span class="st">"$HOME/Desktop/review-$(date +%H%M%S).log"</span> \
+  <span class="st">"Review this project. Lead with the 5 most severe concrete findings,
+   each with file:line references and a suggested fix."</span> 2>/dev/null</code></pre>
+  <div class="why"><strong>Why it's clever:</strong> profiles + templates compose — the same shortcut can review <em>any</em> repo on disk because the runner is repo-agnostic and takes <code>--cwd</code> from the Finder selection.</div>
+</div>
+
+<!-- ═══════════════ 5 ═══════════════ -->
+<div class="card" id="recipe-05">
+  <span class="num">05</span>
+  <h3>📄 PDF Interrogator — Ask Questions of Any Document</h3>
+  <p class="tagline">Share a PDF (spec, invoice, paper, contract) and interrogate it conversationally.</p>
+  <div class="badges">
+    <span class="badge trigger">Share Sheet · PDFs</span>
+    <span class="badge safe">read-only</span>
+    <span class="badge">multimodal PDF</span>
+    <span class="badge">--continue follow-ups</span>
+  </div>
+  <p class="desc">The runner's <code style="font-family:var(--mono)">read_file</code> attaches PDFs up to 10MB as native Anthropic content blocks. This shortcut drops the shared PDF into the inbox, asks you for a question via a dialog, and answers from the document. A companion one-action shortcut using <code style="font-family:var(--mono)">--continue</code> resumes the same transcript for follow-up questions.</p>
+  <div class="flow"><span class="label">Shortcut actions</span>
+    <ol>
+      <li><strong>Receive</strong> PDFs from Share Sheet</li>
+      <li><strong>Save File</strong> → <code>…/.bridge-runner/inbox/doc.pdf</code> (overwrite)</li>
+      <li><strong>Ask for Input</strong>: "What do you want to know?" → <code>$1</code></li>
+      <li><strong>Run Shell Script</strong> → <strong>Show Result</strong></li>
+    </ol>
+  </div>
+  <pre><code>cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+node bin/local-bridge-runner.js <span class="fl">--bare --dont-ask --max-cost-usd</span> 0.60 \
+  <span class="st">"Read .bridge-runner/inbox/doc.pdf and answer precisely,
+   citing page/section where possible: $1"</span> 2>/dev/null
+
+<span class="cm"># Follow-up shortcut ("Ask the PDF again"), one action:</span>
+node bin/local-bridge-runner.js <span class="fl">--continue --dont-ask</span> <span class="st">"$1"</span> 2>/dev/null</code></pre>
+  <div class="why"><strong>Why it's clever:</strong> <code>--continue</code> resumes the latest transcript from <code>~/.bridge-runner/logs/</code>, turning two stateless shortcuts into a stateful document-chat pair.</div>
+</div>
+
+<!-- ═══════════════ 6 ═══════════════ -->
+<div class="card" id="recipe-06">
+  <span class="num">06</span>
+  <h3>🌳 Worktree Experiment Launcher</h3>
+  <p class="tagline">Fire off a risky refactor idea onto an isolated git branch — your checkout is never touched.</p>
+  <div class="badges">
+    <span class="badge trigger">Menu bar / Ask for Input</span>
+    <span class="badge caution">edits on isolated branch</span>
+    <span class="badge">enter_worktree</span>
+  </div>
+  <p class="desc">The runner's <code style="font-family:var(--mono)">enter_worktree</code> tool creates a fresh branch under <code style="font-family:var(--mono)">~/.bridge-runner/worktrees/</code> and moves all subsequent tool calls into it. This shortcut asks for an experiment idea, tells the agent to do <em>all</em> work inside a worktree, and reports the branch name back — so you review with <code style="font-family:var(--mono)">git diff main...branch</code> at your leisure.</p>
+  <div class="flow"><span class="label">Shortcut actions</span>
+    <ol>
+      <li><strong>Ask for Input</strong>: "Describe the experiment" → <code>$1</code></li>
+      <li><strong>Run Shell Script</strong></li>
+      <li><strong>Show Result</strong> (branch name + summary of changes)</li>
+    </ol>
+  </div>
+  <pre><code>cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+node bin/local-bridge-runner.js <span class="fl">--accept-edits --dont-ask --max-cost-usd</span> 1.50 \
+  <span class="fl">--max-steps</span> 30 \
+  <span class="st">"First call enter_worktree with a branch suffix describing this task.
+   Then, entirely inside the worktree: $1.
+   Do NOT call exit_worktree with cleanup — preserve the work.
+   Finish by reporting the worktree branch name and a bullet summary of every
+   file you changed."</span> 2>/dev/null</code></pre>
+  <div class="why"><strong>Why it's clever:</strong> <code>--accept-edits</code> feels dangerous from a Shortcut, but worktree isolation means the blast radius is a disposable branch. Cleanup later with <code>node bin/local-bridge-runner.js runner worktrees list</code>.</div>
+</div>
+
+<!-- ═══════════════ 7 ═══════════════ -->
+<div class="card" id="recipe-07">
+  <span class="num">07</span>
+  <h3>🌙 Nightly Test Sentinel (Automation)</h3>
+  <p class="tagline">A scheduled 2 AM automation that runs the test suite, has the agent triage failures, and leaves a morning report.</p>
+  <div class="badges">
+    <span class="badge trigger">Automation · Time of day</span>
+    <span class="badge power">--allow-shell</span>
+    <span class="badge">test-automator agent</span>
+    <span class="badge">budget capped</span>
+  </div>
+  <p class="desc">Shortcuts personal automations can run on a schedule with "Run Immediately". This one lets the <code style="font-family:var(--mono)">test-automator</code> file agent run <code style="font-family:var(--mono)">npm test</code> via <code style="font-family:var(--mono)">--allow-shell</code>, triage any failures down to root cause, and write a dated report. A notification tells you PASS/FAIL before you've had coffee.</p>
+  <div class="flow"><span class="label">Shortcut actions</span>
+    <ol>
+      <li><strong>Automation</strong>: Time of Day 2:00 AM, Run Immediately</li>
+      <li><strong>Run Shell Script</strong></li>
+      <li><strong>Show Notification</strong> ← first line of Shell Script Result</li>
+    </ol>
+  </div>
+  <pre><code>cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+REPORT=<span class="st">"$HOME/Desktop/nightly-sentinel-$(date +%Y-%m-%d).md"</span>
+node bin/local-bridge-runner.js <span class="fl">--agent</span> test-automator <span class="fl">--allow-shell --dont-ask</span> \
+  <span class="fl">--max-cost-usd</span> 2.00 <span class="fl">--budget-output-tokens</span> 20000 <span class="fl">--max-steps</span> 40 \
+  <span class="fl">--human-log</span> <span class="st">"$REPORT"</span> \
+  <span class="st">"Run 'npm test'. If everything passes, output exactly 'PASS: all tests green'
+   plus a one-line stat. If anything fails, diagnose each failure to root cause
+   (read the code, don't guess), propose fixes, but DO NOT edit files.
+   Start your final answer with PASS: or FAIL:."</span> 2>/dev/null</code></pre>
+  <div class="why"><strong>Why it's clever:</strong> hard budgets (<code>--max-cost-usd</code>, token caps) make unattended runs safe from runaway loops, and <code>--human-log</code> gives you a full morning-readable transcript regardless of what the notification says.</div>
+</div>
+
+<!-- ═══════════════ 8 ═══════════════ -->
+<div class="card" id="recipe-08">
+  <span class="num">08</span>
+  <h3>🧪 Throwaway-Lab Chaos Bench</h3>
+  <p class="tagline">One tap mints a disposable sandbox repo and stress-tests the agent end-to-end — perfect demo &amp; regression ritual.</p>
+  <div class="badges">
+    <span class="badge trigger">Menu bar / Dock</span>
+    <span class="badge power">full autonomy, sandboxed</span>
+    <span class="badge">bench agent</span>
+  </div>
+  <p class="desc">Wraps the repo's own <code style="font-family:var(--mono)">create-runner-throwaway-lab.js</code> helper: it mints a timestamped lab under <code style="font-family:var(--mono)">~/Documents/…-throwaway-labs/</code>, then unleashes the <code style="font-family:var(--mono)">bench</code> agent with full permissions <em>inside that lab only</em>. Great as a "is my whole stack healthy?" smoke test — bridge, OAuth, tools, shell, edits — from a single Dock icon.</p>
+  <div class="flow"><span class="label">Shortcut actions</span>
+    <ol>
+      <li><strong>Run Shell Script</strong></li>
+      <li><strong>Show Result</strong> (final agent summary + lab path)</li>
+    </ol>
+  </div>
+  <pre><code>cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+LAB=<span class="st">"$(node scripts/create-runner-throwaway-lab.js)"</span>
+node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"$LAB"</span> <span class="fl">--agent</span> bench \
+  <span class="fl">--trust-workspace --allow-shell --accept-edits --dont-ask --chaos-ok</span> \
+  <span class="fl">--max-steps</span> 24 <span class="fl">--max-cost-usd</span> 1.00 \
+  <span class="st">"Fix the calculator bug, run npm test, and summarize the result."</span> 2>/dev/null
+echo <span class="st">"— lab: $LAB"</span></code></pre>
+  <div class="why"><strong>Why it's clever:</strong> maximum-autonomy flags are fine here because every run gets a <em>fresh</em> sandbox — no stale state, nothing real at risk. It's the repo's own recommended smoke ritual, one tap away.</div>
+</div>
+
+<!-- ═══════════════ 9 ═══════════════ -->
+<div class="card" id="recipe-9">
+  <span class="num">09</span>
+  <h3>🕰️ "What Did the Agent Do?" — Archive Historian</h3>
+  <p class="tagline">Summon a plain-English audit of recent agent runs, with a one-tap whole-run rollback option.</p>
+  <div class="badges">
+    <span class="badge trigger">Menu bar · Choose from Menu</span>
+    <span class="badge safe">read-only (audit)</span>
+    <span class="badge caution">optional rollback</span>
+  </div>
+  <p class="desc">Combines two runner CLIs. First, <code style="font-family:var(--mono)">local-bridge-archive.js list</code> and <code style="font-family:var(--mono)">local-bridge-undo.js list-runs</code> pull the raw history; then the runner itself summarizes it in plain English. A Shortcuts <strong>Choose from Menu</strong> adds a second branch: revert the most recent run using the per-run manifest, with <code style="font-family:var(--mono)">--dry-run</code> shown first.</p>
+  <div class="flow"><span class="label">Shortcut actions</span>
+    <ol>
+      <li><strong>Choose from Menu</strong>: "Audit recent runs" / "Preview rollback" / "Revert last run"</li>
+      <li>Each branch → <strong>Run Shell Script</strong> (below) → <strong>Show Result</strong></li>
+    </ol>
+  </div>
+  <pre><code><span class="cm"># Branch A — audit:</span>
+cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+HIST=<span class="st">"$(node bin/local-bridge-undo.js list-runs --cwd . 2>&1 | tail -40)"</span>
+node bin/local-bridge-runner.js <span class="fl">--bare --dont-ask --max-cost-usd</span> 0.20 \
+  <span class="st">"Here is my agent run history:
+$HIST
+Summarize in plain English: what ran recently, what was edited, anything unusual."</span> 2>/dev/null
+
+<span class="cm"># Branch B — preview rollback (changes nothing):</span>
+node bin/local-bridge-undo.js last-run <span class="fl">--cwd</span> . <span class="fl">--dry-run</span>
+
+<span class="cm"># Branch C — actually revert the whole last run:</span>
+node bin/local-bridge-undo.js last-run <span class="fl">--cwd</span> . <span class="fl">--yes</span></code></pre>
+  <div class="why"><strong>Why it's clever:</strong> the manifest system means an entire multi-file agent run is one reversible unit — diverged files are skipped automatically, so newer manual work is never clobbered from a Shortcut.</div>
+</div>
+
+<!-- ═══════════════ 10 ═══════════════ -->
+<div class="card" id="recipe-10">
+  <span class="num">10</span>
+  <h3>🐝 Parallel Swarm Review — spawn_agent Fan-Out</h3>
+  <p class="tagline">One shortcut, three specialist child agents in parallel: correctness, security, and test coverage.</p>
+  <div class="badges">
+    <span class="badge trigger">Finder Quick Action / Hotkey</span>
+    <span class="badge safe">read-only children</span>
+    <span class="badge">spawn_agent orchestration</span>
+  </div>
+  <p class="desc">The top-level runner acts as an <strong>orchestrator</strong>: it delegates three focused subtasks to child agents via <code style="font-family:var(--mono)">spawn_agent</code>, each with its own isolated context window, then merges their findings into a single ranked report. Point it at any repo from Finder. Because children can't spawn further children and everything is look-only, it's a safe heavyweight.</p>
+  <div class="flow"><span class="label">Shortcut actions</span>
+    <ol>
+      <li><strong>Receive</strong> Folders from Quick Actions in Finder (path = <code>$1</code>)</li>
+      <li><strong>Run Shell Script</strong></li>
+      <li><strong>Make Rich Text from Markdown</strong> ← result → <strong>Quick Look</strong></li>
+    </ol>
+  </div>
+  <pre><code>cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"${1:-.}"</span> <span class="fl">--profile</span> review-only \
+  <span class="fl">--dont-ask --max-cost-usd</span> 2.50 <span class="fl">--max-steps</span> 20 \
+  <span class="st">"You are an orchestrator. Spawn three child agents with spawn_agent, each
+   focused on this project:
+   1) agent 'code-reviewer' — correctness and logic bugs;
+   2) agent 'explore' — security smells, secret handling, unsafe shell use;
+   3) agent 'test-automator' — test coverage gaps (analysis only, no shell).
+   Merge their reports into one ranked list of findings in Markdown, deduplicated,
+   most severe first, with file references."</span> 2>/dev/null</code></pre>
+  <div class="why"><strong>Why it's clever:</strong> this is the runner's multi-agent capability made tangible from a right-click — three isolated context windows means each specialist reads deeply without exhausting one shared context, and <code>--dont-ask</code> lets spawns proceed unattended (children inherit the parent's remaining budget).</div>
 </div>
 
 <footer>
-  <p>
-    Related docs: <code>docs/runner-quickstart.html</code> (first runner session),
-    <code>docs/command-builder.html</code> (build runner commands interactively),
-    <code>docs/threat-model.md</code> (safety model behind the profiles used here).
-  </p>
-  <p>
-    Verify any default (model, token caps, flag names) against
-    <code>node bin/local-bridge-runner.js --help</code> — the CLI is the source of truth.
-  </p>
+  <h2>🛠️ Shared implementation notes</h2>
+  <ul>
+    <li>All recipes mirror your example shortcut: <strong>Receive → Run Shell Script (zsh) → Stop and output</strong>. Set "Pass Input" to <em>as arguments</em> when the recipe uses <code>$1</code>, or <em>to stdin</em> for the clipboard recipe.</li>
+    <li>Shortcuts' shell environment is minimal — if <code>node</code> isn't found, use an absolute path (e.g. <code>/opt/homebrew/bin/node</code>) or prepend <code>export PATH="/opt/homebrew/bin:$PATH"</code>.</li>
+    <li>The VS Code bridge must be running on <code>localhost:11437</code>; on a 401, run <code>claude /login</code> to refresh the OAuth token.</li>
+    <li><code>2&gt;/dev/null</code> hides the stderr usage/cost line from Shortcut output; drop it while debugging, or add <code>--trace-level summary</code> for a local audit trail.</li>
+    <li>Non-interactive runs should always pair <code>--dont-ask</code> with a budget: <code>--max-cost-usd</code>, <code>--max-steps</code>, and token caps. <code>ask_user_question</code> fails closed without a TTY, which is exactly what you want inside Shortcuts.</li>
+    <li>Run any of these from Terminal too: <code>shortcuts run "&lt;name&gt;" -i &lt;input-file&gt;</code>.</li>
+  </ul>
 </footer>
 
 </div>

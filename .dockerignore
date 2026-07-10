@@ -1,0 +1,52 @@
+node_modules
+.vscode-test
+*.vsix
+*.log
+.bridge-runner/
+actions-runner/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# IDE / tool configs
+.vscode/
+.cursor/
+.codegraphy/
+.claude/
+.github/
+.hintrc
+.prettierignore
+.prettierrc
+.vscodeignore
+eslint.config.*
+
+# Docs / plans / evals (not needed at runtime)
+docs/
+plans/
+evals/
+tasks/
+daily/
+weekly/
+projects/
+AGENTS.md
+CLAUDE.md
+CONTEXT.md
+README.md
+*.md
+*.html
+*.PNG
+*.mgx
+*.code-workspace
+
+# Test files
+test/
+lcov.info
+probe.js
+
+# Git
+.git/
+.gitignore
+
+# Debug output
+debug\ output

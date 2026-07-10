@@ -1,0 +1,45 @@
+services:
+  bridge-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: final
+    image: claude-local-bridge:latest
+    container_name: claude-local-bridge
+
+    # Pass your Anthropic credentials / bridge config via environment variables.
+    # Copy .env.example to .env and fill in the values — never bake secrets into
+    # the image or commit them to source control.
+    env_file:
+      - path: .env
+        required: false   # OK to start without a .env file
+    environment:
+      # Override the bridge endpoint the runner talks to
+      BRIDGE_RUNNER_BRIDGE_URL: ${BRIDGE_RUNNER_BRIDGE_URL:-}
+      # Static caller-auth token for bridge endpoints
+      BRIDGE_CALLER_TOKEN: ${BRIDGE_CALLER_TOKEN:-}
+
+    # Publish the bridge HTTP API
+    ports:
+      - "127.0.0.1:11437:11437"
+
+    # Persist transcripts, session state, and logs between restarts
+    volumes:
+      - bridge-data:/home/bridge/.bridge-runner
+
+    # Keep stdin open so interactive prompts work when needed
+    stdin_open: true
+    tty: false
+
+    # Restart policy for long-running daemon use cases
+    restart: unless-stopped
+
+    # Resource limits (tune to taste)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+volumes:
+  bridge-data:
+    driver: local
