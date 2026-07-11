@@ -853,6 +853,20 @@ edition's body sections. The agent's post-run handoff message is reproduced belo
 by the operator. Nothing has been corrected, normalized, or annotated.
 </p>
 
+<!-- A.0 was added in a final provenance edit (2026-07-11), after the paper and the rest of
+     this appendix were already committed. It is the last planned modification to this file. -->
+<h3>A.0 Source tree</h3>
+<p>
+All code citations and line references in this paper correspond to git commit
+<code>7bcd3ae717aa11860f334eb18107211a4686cc9c</code> (<code>7bcd3ae</code>, &ldquo;feat: add Docker
+support for bridge runner,&rdquo; committed 2026-07-10) of
+<code>github.com/alankatanoisi/claude-local-bridge-playground</code>, branch <code>main</code>.
+This was verified after the fact: <code>git diff 7bcd3ae..f5fe527 -- src/ bin/ package.json</code>
+is empty, where <code>f5fe527</code> is the commit that first archived this paper &mdash; i.e., the
+runner source was byte-identical when both this paper and its companion first edition were written.
+Only files under <code>docs/</code> changed in between.
+</p>
+
 <h3>A.1 The agent's post-run handoff message (verbatim)</h3>
 <pre><code>The white paper is written. The check:docs run is blocked by a temporary harness issue (the permission classifier for Bash is briefly unavailable), so I'm noting it as skipped rather than blocking the handoff on it — the change is a single standalone HTML document, so the risk is low.
 
