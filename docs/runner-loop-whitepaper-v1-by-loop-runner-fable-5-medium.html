@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<!-- saved from url=(0095)file:///Users/alanman/Developer/claude-local-bridge-playground/docs/runner-loop-whitepaper.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Claude Local Bridge Runner: An Architectural Analysis of a Local Agentic Execution Loop</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #555;
+    --rule: #ccc;
+    --accent: #23425f;
+    --code-bg: #f4f4f2;
+  }
+  html { font-size: 17px; }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--ink);
+    max-width: 52rem;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 6rem;
+    line-height: 1.55;
+  }
+  h1 { font-size: 1.9rem; line-height: 1.25; margin-bottom: .25rem; }
+  h2 { font-size: 1.35rem; margin-top: 2.5rem; border-bottom: 1px solid var(--rule); padding-bottom: .25rem; color: var(--accent); }
+  h3 { font-size: 1.1rem; margin-top: 1.8rem; color: var(--accent); }
+  .authors { font-style: italic; color: var(--muted); margin-bottom: .25rem; }
+  .affil { color: var(--muted); font-size: .9rem; margin-bottom: 2rem; }
+  .abstract {
+    margin: 2rem 2.5rem;
+    font-size: .95rem;
+  }
+  .abstract b { display: block; text-align: center; margin-bottom: .5rem; }
+  code, pre {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: .82em;
+    background: var(--code-bg);
+  }
+  code { padding: .1em .3em; border-radius: 3px; }
+  pre {
+    padding: 1rem;
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    line-height: 1.4;
+  }
+  pre code { background: none; padding: 0; }
+  figure { margin: 2rem 0; }
+  figcaption {
+    font-size: .85rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: .5rem;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: .88rem;
+    margin: 1.25rem 0;
+  }
+  th, td {
+    border: 1px solid var(--rule);
+    padding: .4rem .6rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); }
+  .theorem {
+    border-left: 3px solid var(--accent);
+    padding: .5rem 1rem;
+    margin: 1.25rem 0;
+    background: #fafaf8;
+    font-size: .95rem;
+  }
+  .theorem b { color: var(--accent); }
+  ol.refs { font-size: .9rem; }
+  ol.refs li { margin-bottom: .4rem; }
+  .toc { font-size: .9rem; column-count: 2; column-gap: 2rem; }
+  .toc ol { margin: 0; padding-left: 1.2rem; }
+  footer { margin-top: 4rem; border-top: 1px solid var(--rule); padding-top: 1rem; font-size: .85rem; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>The Claude Local Bridge Runner:<br>An Architectural Analysis of a Local Agentic Execution Loop</h1>
+  <p class="authors">Technical White Paper</p>
+  <p class="affil">Claude Local Bridge Playground — Runner Layer · Generated from source inspection of <code>src/runner/run.js</code>, <code>src/runner/tool-pipeline.js</code>, <code>src/runner/kernel/</code>, and <code>CONTEXT.md</code></p>
+</header>
+
+<section class="abstract">
+  <b>Abstract</b>
+  <p>
+  We present an architectural analysis of the <em>Claude Local Bridge Runner</em>, a local
+  coding-agent harness implemented in Node.js that drives an iterative
+  prompt&nbsp;→&nbsp;model&nbsp;→&nbsp;tool-use&nbsp;→&nbsp;tool-result loop against an
+  Anthropic-compatible <code>/v1/messages</code> endpoint exposed by a companion “bridge”
+  process. The system decomposes into three principal strata: (i) a thin transport layer (the bridge),
+  (ii) a bounded, budget-governed <em>agent loop</em> (<code>run.js</code>, ~1,370 lines), and (iii) a
+  deep <em>tool pipeline</em> module that owns the complete lifecycle of tool execution, from permission
+  evaluation through crash-recoverable effect journaling. We describe the loop's per-turn phase
+  structure — instruction-delta detection, a multi-stage context-compaction ladder, prompt-cache
+  budget placement, request construction, response accounting, and a two-phase (read-parallel,
+  write-serial) tool execution model with a mid-turn abort checkpoint — and formalize the safety
+  invariants the implementation maintains, notably <em>effect pairing</em> (intent/result journaling
+  around every side effect), plan-mode write fabrication, and the failure-streak escalation protocol.
+  We argue that the design's central contribution is the separation of <em>loop-level policy</em>
+  (budgets, cycle detection, stop reasons) from <em>effect-level mechanism</em> (execution, sinks,
+  recovery), joined at exactly one seam: the <code>midTurnCheck</code> callback.
+  </p>
+</section>
+
+<nav>
+  <h2>Contents</h2>
+  <div class="toc">
+    <ol>
+      <li><a href="file:///Users/alanman/Developer/claude-local-bridge-playground/docs/runner-loop-whitepaper.html#intro">Introduction</a></li>
+      <li><a href="file:///Users/alanman/Developer/claude-local-bridge-playground/docs/runner-loop-whitepaper.html#arch">System Architecture</a></li>
+      <li><a href="file:///Users/alanman/Developer/claude-local-bridge-playground/docs/runner-loop-whitepaper.html#lifecycle">Run Lifecycle: Initialization</a></li>
+      <li><a href="file:///Users/alanman/Developer/claude-local-bridge-playground/docs/runner-loop-whitepaper.html#loop">The Agent Loop in Detail</a></li>
+      <li><a href="file:///Users/alanman/Developer/claude-local-bridge-playground/docs/runner-loop-whitepaper.html#pipeline">The Tool Pipeline</a></li>
+      <li><a href="file:///Users/alanman/Developer/claude-local-bridge-playground/docs/runner-loop-whitepaper.html#invariants">Safety Invariants</a></li>
+      <li><a href="file:///Users/alanman/Developer/claude-local-bridge-playground/docs/runner-loop-whitepaper.html#termination">Termination &amp; Stop Reasons</a></li>
+      <li><a href="file:///Users/alanman/Developer/claude-local-bridge-playground/docs/runner-loop-whitepaper.html#observability">Observability &amp; Persistence</a></li>
+      <li><a href="file:///Users/alanman/Developer/claude-local-bridge-playground/docs/runner-loop-whitepaper.html#discussion">Discussion</a></li>
+      <li><a href="file:///Users/alanman/Developer/claude-local-bridge-playground/docs/runner-loop-whitepaper.html#refs">References</a></li>
+    </ol>
+  </div>
+</nav>
+
+<section id="intro">
+<h2>1. Introduction</h2>
+<p>
+Agentic coding systems iterate a simple contract: a language model receives a conversation and a
+tool catalog, emits either prose or <code>tool_use</code> blocks, and the harness executes tools and
+feeds results back until the model produces a final textual answer. While the contract is simple,
+production-grade harnesses must additionally solve <em>bounded execution</em> (token, cost,
+wall-clock, and step budgets), <em>crash recovery</em> (side effects must be journaled before they
+occur), <em>context management</em> (histories exceed model context windows), and
+<em>permissioned execution</em> (writes and shell access require policy and, at times, human
+confirmation).
+</p>
+<p>
+The Claude Local Bridge Runner addresses all four concerns in a single-process Node.js harness.
+Its domain language is codified in <code>CONTEXT.md</code>: the <strong>runner</strong> is the local
+coding-agent loop driven from <code>bin/local-bridge-runner.js</code>; the <strong>bridge</strong> is
+a transport-only VS&nbsp;Code extension exposing Claude Code credentials as a local HTTP endpoint;
+the <strong>agent loop</strong> is the per-turn cycle inside <code>src/runner/run.js</code>; and the
+<strong>tool pipeline</strong> is the deep module owning everything between “the model emitted
+<code>tool_use</code> blocks” and “completed, recorded tool results exist.”
+This paper documents these layers as implemented, with emphasis on the agent loop's control flow
+and its invariants.
+</p>
+</section>
+
+<section id="arch">
+<h2>2. System Architecture</h2>
+
+<h3>2.1 Strata</h3>
+<figure>
+<pre>┌─────────────────────────────────────────────────────────────┐
+│  CLI entry (bin/local-bridge-runner.js)                     │
+│  flag parsing · profile resolution · stdin capture          │
+└───────────────────────────┬─────────────────────────────────┘
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Agent loop (src/runner/run.js :: run(options))             │
+│  bootstrap · budgets · compaction · request build ·         │
+│  response accounting · stop-reason arbitration              │
+│        │                    ▲                               │
+│        │ toolUses           │ toolResults                   │
+│        ▼                    │                               │
+│  ┌───────────────────────────────────────────┐              │
+│  │ Tool pipeline (tool-pipeline.js)          │              │
+│  │ permission → confirm → execute → sinks    │              │
+│  └───────────────────────────────────────────┘              │
+│        │ fan-out                                            │
+│        ▼                                                    │
+│  Sinks: ledger · transcript · human log · trace ·           │
+│         archive · hooks · output events                     │
+└───────────────────────────┬─────────────────────────────────┘
+                            ▼  HTTP POST /v1/messages
+┌─────────────────────────────────────────────────────────────┐
+│  Bridge (VS Code extension) — credential injection,         │
+│  header fingerprinting, upstream Anthropic Messages API     │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+<figcaption>Fig. 1 — Layered architecture. The bridge is transport-only; all agent policy lives in the runner.</figcaption>
+</figure>
+
+<h3>2.2 Module inventory</h3>
+<p>The runner layer (<code>src/runner/</code>) comprises roughly sixty modules. The load-bearing ones for the loop are:</p>
+<table>
+  <tbody><tr><th>Module</th><th>Responsibility</th></tr>
+  <tr><td><code>run.js</code></td><td>The agent loop: orchestration, budgets, stop reasons, session resume, finalization.</td></tr>
+  <tr><td><code>kernel/agent-kernel.js</code></td><td>Compositional kernel contract shared with sub-agents and the coordinator.</td></tr>
+  <tr><td><code>tool-pipeline.js</code></td><td>Deep module for tool execution; owns effect pairing, failure streak, sink fan-out.</td></tr>
+  <tr><td><code>tool-registry.js</code> / <code>tool-catalog.js</code></td><td>Internal tool table, category metadata (<code>read-only</code> vs. write), dispatch primitives (<code>execute</code>, <code>executeForce</code>, <code>executeReadOnlyBatch</code>).</td></tr>
+  <tr><td><code>model-client.js</code></td><td>HTTP client to the bridge; blocking (<code>post</code>) and streaming (<code>postStream</code>) modes.</td></tr>
+  <tr><td><code>context-compactor.js</code></td><td>The compaction ladder (<code>applyCompactionLadder</code>) and generation counter.</td></tr>
+  <tr><td><code>context-budget.js</code></td><td>Prompt-cache <code>cache_control</code> placement (<code>applyCacheControlBudget</code>) and advisory token estimation.</td></tr>
+  <tr><td><code>budget-tracker.js</code></td><td>Token budgets, including budgets inherited from a parent agent via environment.</td></tr>
+  <tr><td><code>session-store.js</code> / <code>session-ledger.js</code></td><td>Resumable message checkpoints; append-only JSONL effect journal with cursor sidecar.</td></tr>
+  <tr><td><code>instruction-delta.js</code></td><td>Detects mid-run edits to instruction files (e.g. <code>CLAUDE.md</code>) and injects deltas.</td></tr>
+  <tr><td><code>loop-autopsy.js</code></td><td>Post-run behavioral summary (<code>buildAutopsy</code>) written beside the session.</td></tr>
+  <tr><td><code>safety.js</code> / <code>permissions.js</code> / <code>shell-policy.js</code></td><td>Path confinement, deny matrix, permission modes.</td></tr>
+  <tr><td><code>hooks/</code></td><td>User-facing <code>.bridge-runner/</code> hook dispatch (<code>session_start</code>, <code>pre_model_request</code>, …).</td></tr>
+</tbody></table>
+
+<h3>2.3 Design stance</h3>
+<p>
+The architecture follows a “deep module” philosophy: <code>run.js</code> is a long but
+shallow orchestrator whose complexity is sequential, not combinatorial, while
+<code>tool-pipeline.js</code> hides a large behavioral surface (permissions, confirmation,
+plan-mode fabrication, parallelization, journaling, nine-step sink ordering) behind a two-method
+interface: <code>toolDefinitions()</code> and <code>executeTurn(step, toolUses, { midTurnCheck })</code>.
+A notable corollary documented in the pipeline header: <em>the tool definitions shown to the model
+are derived from the same context object that gates execution, so the model can never see a tool
+the pipeline would refuse to run.</em>
+</p>
+</section>
+
+<section id="lifecycle">
+<h2>3. Run Lifecycle: Initialization</h2>
+<p>Before the loop begins, <code>run(options)</code> executes a strictly ordered bootstrap. Each stage can veto the run with a typed stop reason and exit code 1.</p>
+
+<ol>
+  <li><strong>Bootstrap &amp; workspace trust.</strong> When kernel bootstrapping is enabled, <code>boot</code> validates the working directory, resolves its realpath, evaluates workspace trust, and loads <em>instruction memory</em> (project instruction docs plus a content hash). A blocked boot short-circuits with <code>STOP_REASONS.CWD_INVALID</code>.</li>
+  <li><strong>Fork-depth guard.</strong> <code>assertForkAllowed(ctx.spawnDepth)</code> prevents unbounded recursive agent spawning.</li>
+  <li><strong>CWD confinement.</strong> <code>safety.validateCwd</code> re-validates and pins <code>ctx.cwdRealpath</code>; all subsequent path confinement anchors here.</li>
+  <li><strong>Identity &amp; persistence.</strong> A trace id (<code>runId</code>) is minted; the <code>SessionStore</code> (message checkpoints) and <code>SessionLedger</code> (effect journal) are opened if a session path resolves. The ledger immediately records <code>session_started</code> and surfaces any <em>pending intents</em> from a crashed prior run (“crash recovery” hint).</li>
+  <li><strong>Hooks.</strong> A <code>HookDispatcher</code> is constructed against <code>.bridge-runner/</code> and <code>session_start</code> is dispatched.</li>
+  <li><strong>Budget tracker.</strong> <code>createBudgetTracker</code> merges explicit token budgets with budgets <em>inherited from a parent agent</em> via <code>BRIDGE_RUNNER_BUDGET_INPUT_REMAINING</code> / <code>_OUTPUT_REMAINING</code> environment variables — child agents therefore cannot exceed the parent's remaining allowance.</li>
+  <li><strong>Flight recorder.</strong> A <code>JsonlTrace</code> (levels normalized by <code>normalizeTraceLevel</code>; <code>off</code> disables) records boundary-annotated events; <code>run_started</code> captures flags, artifact paths, and an explicit <em>visibility-notes</em> partition of what only the runner, only the bridge, or only the upstream can observe.</li>
+  <li><strong>Archive collector.</strong> When enabled, a <code>RunArchiveCollector</code> snapshots prompt, flags, and artifact paths for end-of-run export.</li>
+  <li><strong>Tool pipeline construction.</strong> <code>createToolPipeline({ ctx, runId, confirm, sinks, verbosity, failureLimit })</code> is built <em>once per run</em>; the sink bag (ledger, hooks, output, trace, transcript, humanLog, archive — each nullable) and the confirm port are fixed for the run's lifetime.</li>
+  <li><strong>Message hydration.</strong> Three mutually exclusive paths:
+    <ul>
+      <li><em>Session resume:</em> load the store, hydrate runner state, run <code>assertResumeAllowed</code> (a degraded-health session requires explicit risk acknowledgment), copy prior messages, append the new user message.</li>
+      <li><em>Transcript resume:</em> deprecated; refused with <code>RESUME_FAILED</code>.</li>
+      <li><em>Fresh:</em> a single user message built from prompt and stdin, optionally prefixed by a dynamic-environment block when the context policy excludes dynamic data from the system prompt (a prompt-cache-friendliness measure). <code>--new-session</code> resets health, compaction generation, and failure counters.</li>
+    </ul>
+  </li>
+  <li><strong>Prompt assembly.</strong> <code>resolveSystemPrompt</code> (progressive, policy-driven, override/append-capable) plus a separately cached repo-context block; tool definitions from the pipeline; <code>maxSteps</code> defaults applied; effort normalized.</li>
+</ol>
+</section>
+
+<section id="loop">
+<h2>4. The Agent Loop in Detail</h2>
+<p>
+The core is a bounded <code>for (let step = 1; step &lt;= steps; step++)</code> loop. One iteration
+(“step” or “turn”) performs up to eleven phases. We enumerate them in execution
+order; phases 1–5 are pre-flight, 6–8 concern the model exchange, and 9–11 concern
+tool execution and continuation.
+</p>
+
+<figure>
+<pre>     ┌──────────────────────────── one step ────────────────────────────┐
+     │ ① pre_model_request hook                                         │
+     │ ② instruction-delta detect ──(small→inject msg / large→rebuild)  │
+     │ ③ compaction ladder ──(mutates messages, bumps generation)       │
+     │ ④ cache_control placement + advisory token estimate              │
+     │ ⑤ request body build (model, tools, effort, temperature, stream) │
+     │ ⑥ POST → bridge  ──error──▶ streak++ &amp; retry ▏or BRIDGE_ERROR    │
+     │ ⑦ usage accounting → budget boundary ──stop?──▶ completeRun      │
+     │ ⑧ append assistant msg · persist session · emit events           │
+     │ ⑨ extract text + toolUses                                        │
+     │     └─ no toolUses ─▶ SUCCESS: autopsy, finish, completeRun      │
+     │ ⑩ pipeline.executeTurn(step, toolUses, { midTurnCheck })         │
+     │     └─ aborted ─▶ completeRun(stop reason)                       │
+     │ ⑪ append tool_result user msg · persist · next step              │
+     └───────────────────────────────────────────────────────────────────┘
+     loop exhausted ─▶ MAX_STEPS error path
+</pre>
+<figcaption>Fig. 2 — Phase structure of a single agent-loop step (run.js:869–1289).</figcaption>
+</figure>
+
+<h3>4.1 Phase 1 — Hook dispatch</h3>
+<p><code>hooks.dispatch('pre_model_request', { step, runId })</code> gives user hooks a synchronous observation point before any request work.</p>
+
+<h3>4.2 Phase 2 — Instruction-delta detection</h3>
+<p>
+Instruction files can change <em>while the agent runs</em> (e.g., the user edits
+<code>CLAUDE.md</code> mid-session). <code>instructionDelta.detectChange(cwd)</code> classifies the
+change:
+</p>
+<ul>
+  <li><strong><code>small_diff</code>:</strong> a compact delta block is injected as a user message — cheap, preserves the prompt cache for the (unchanged) system prompt.</li>
+  <li><strong><code>large_rewrite</code>:</strong> instruction memory is reloaded, its hash refreshed, and the <em>entire system prompt is rebuilt</em> via <code>resolveSystemPrompt</code> — correctness over cache economy.</li>
+</ul>
+<p>Both paths are recorded in the transcript as typed <code>instruction_delta</code> entries.</p>
+
+<h3>4.3 Phase 3 — The compaction ladder</h3>
+<p>
+<code>applyCompactionLadder(messages, system, policy)</code> applies progressively more aggressive,
+staged reductions to the conversation when it exceeds policy thresholds (the compaction markers
+visible in compacted transcripts — e.g. <code>[compaction:snip]</code> for removed tool output
+and ghost-generation summaries — are its artifacts). Key properties:
+</p>
+<ul>
+  <li>It returns a possibly new <code>messages</code> array and a possibly modified <code>system</code> (<code>systemForRequest</code>); the loop rebinds both.</li>
+  <li>A monotonically increasing <em>compaction generation</em> is persisted to the session store, so resumed sessions know how degraded their history is; the generation feeds session-health scoring.</li>
+  <li>Applied stages are fanned out to the output event stream, the ledger (<code>compaction_applied</code>), and a stderr hint — compaction is never silent.</li>
+</ul>
+
+<h3>4.4 Phase 4 — Cache placement and advisory estimation</h3>
+<p>
+<code>applyCacheControlBudget(systemForRequest, tools, messages, repoContextBlock)</code> allocates
+Anthropic's limited <code>cache_control</code> breakpoints across the system prompt, tool
+definitions, the repo-context block, and stable message prefixes, returning
+<code>{ cachedSystem, cachedTools, cachedMessages }</code>. Separately,
+<code>estimateTokensAdvisory(messages)</code> produces a local (non-authoritative) size estimate
+used only to emit a <em>predictive</em> warning when nearing <code>maxContextTokens</code> —
+the authoritative check happens post-response with real usage numbers (§4.7).
+</p>
+
+<h3>4.5 Phase 5 — Request construction</h3>
+<pre><code>const requestBody = {
+  model, max_tokens: maxTokens,
+  system: cachedSystem, messages: cachedMessages, tools: cachedTools,
+  ...(stream &amp;&amp; outputFormat === 'text' ? { stream: true } : {}),
+  ...(typeof temperature === 'number' ? { temperature } : {}),
+  ...(effortLevel ? { output_config: { effort: effortLevel } } : {}),
+};</code></pre>
+<p>
+Streaming is enabled only for plain-text output format (structured output formats need the whole
+response object). The built body is traced at the <code>runner_to_bridge</code> boundary with both a
+summary and a level-gated full payload capture.
+</p>
+
+<h3>4.6 Phase 6 — The model exchange and bridge-error policy</h3>
+<p>
+The request goes through <code>modelClient.postStream</code> (streaming) or
+<code>modelClient.post</code>, carrying per-step trace correlation headers and an optional caller
+token. On transport failure the loop implements a <em>shared-streak retry</em>:
+<code>pipeline.recordExternalFailure()</code> increments the same consecutive-failure streak used
+for tool failures, and the loop <code>continue</code>s to the next step (consuming a step as the
+retry budget) while the streak is below <code>MAX_CONSECUTIVE_FAILURES</code>. Once at the limit
+— or on the final step — the run terminates with <code>BRIDGE_ERROR</code>. Unifying
+bridge and tool failures in one streak is deliberate: it bounds <em>total</em> consecutive
+dysfunction, whatever its source.
+</p>
+
+<h3>4.7 Phase 7 — Accounting and budget boundaries</h3>
+<p>After <code>post_model_response</code> hooks and sink recording, usage is accumulated:</p>
+<pre><code>totalUsage = addUsage(totalUsage, response.usage);
+const budgetStopAfterModel = emitBudgetBoundary(step, totalUsage);</code></pre>
+<p>
+<code>emitBudgetBoundary</code> asks the budget tracker for a verdict, emits a <code>budget</code>
+event and trace record, syncs remaining-budget figures into <code>ctx</code> (so child agents
+spawned later inherit correct remainders), surfaces warnings, and returns a stop directive when a
+hard budget is exhausted. It is invoked at <em>three</em> boundaries per step: after the model
+response, inside the mid-turn check (before writes), and after the turn completes. A separate
+coarse guard stops the run outright if consumed context tokens exceed
+<code>2 × maxContextTokens</code> (<code>CONTEXT_BUDGET_EXCEEDED</code>), a backstop against
+runaway cost when compaction cannot keep up.
+</p>
+
+<h3>4.8 Phase 8 — History append and persistence</h3>
+<p>
+The assistant message is appended to <code>messages</code> and the session is checkpointed via
+<code>persistSession</code> (which also folds the current failure streak into persisted runner
+state). Persistence occurs after <em>every</em> history mutation — assistant append and
+tool-result append alike — so a crash at any point resumes at a message-granular boundary,
+with the ledger's intent/result pairing (§6.1) covering the sub-message effect window.
+</p>
+
+<h3>4.9 Phase 9 — Extraction and the success exit</h3>
+<p>
+<code>extractTextBlocks</code> and <code>extractToolUses</code> partition the response content. Two
+policy gates follow:
+</p>
+<ul>
+  <li><strong>Per-turn tool cap:</strong> if <code>toolUses.length &gt; maxToolCallsPerTurn</code>, the run stops with <code>MAX_TOOL_CALLS_PER_TURN</code> before executing anything — a runaway-fanout guard.</li>
+  <li><strong>Success:</strong> if <code>toolUses.length === 0</code>, the model has answered. The loop writes finals to transcript/human log, emits a <code>result</code> event, dispatches <code>session_end</code>, appends <code>run_stopped</code> to the ledger, builds a <em>loop autopsy</em> (a behavioral post-mortem over <code>toolHistory</code>: streaks, cycles, usage shape) written beside the session, optionally triggers session-extract, persists, archives, and returns through <code>completeRun</code> (§8.1).</li>
+</ul>
+
+<h3>4.10 Phase 10 — Delegation to the pipeline and the mid-turn check</h3>
+<p>The loop hands the turn to the pipeline with a single injected callback:</p>
+<pre><code>const turn = await pipeline.executeTurn(step, toolUses, {
+  midTurnCheck: (readOutcomes) =&gt; {
+    // record reads into toolHistory, then:
+    //   detectSemanticCycles(toolHistory) → SEMANTIC_CYCLE_DETECTED
+    //   wall-clock exceeded              → WALL_CLOCK_BUDGET_EXCEEDED
+    //   estimateCostUsd &gt; maxCostUsd     → COST_BUDGET_EXCEEDED
+    //   emitBudgetBoundary(step, usage)  → token-budget stop
+    return null; // or { stop, message }
+  },
+});</code></pre>
+<p>
+This is the architecture's key seam. The pipeline invokes the callback exactly once —
+<em>after the read-only batch has executed and been recorded, but before any write effect</em>.
+Loop-level state (tool history, budgets, clocks) never leaks into the pipeline; the pipeline
+exposes only the checkpoint moment. If the verdict stops the turn, <code>executeTurn</code> returns
+an <code>aborted</code> descriptor with the already-collected read results, and the loop finalizes
+with the given stop reason (semantic-cycle stops additionally produce an autopsy).
+</p>
+
+<h3>4.11 Phase 11 — Continuation</h3>
+<p>
+Tool results are appended as a single <code>role:&nbsp;'user'</code> message whose content is the
+array of <code>tool_result</code> blocks; the session is persisted; the loop proceeds. If the
+<code>for</code> loop exhausts <code>steps</code> without a text-only response, the run ends with
+<code>MAX_STEPS</code>.
+</p>
+</section>
+
+<section id="pipeline">
+<h2>5. The Tool Pipeline</h2>
+
+<h3>5.1 Two-phase execution model</h3>
+<p>
+<code>executeTurn</code> first validates shape (every tool use must have <code>id</code> and
+<code>name</code>; violation is one of the few conditions under which it <em>rejects</em>), then
+partitions tool uses by <code>CATEGORIES[name]</code>:
+</p>
+<ul>
+  <li><strong>Read phase (parallel):</strong> all read-only tools execute as one batch via <code>executeReadOnlyBatch</code>. Effect ids are minted and <code>tool_effect_intent</code> records appended <em>before</em> the batch runs; results are paired afterward. Sibling failures annotate surviving results rather than aborting the batch.</li>
+  <li><strong>Write phase (serial, model-emitted order):</strong> each write/shell tool runs one at a time, preserving the order the model emitted.</li>
+</ul>
+
+<h3>5.2 Opportunistic write parallelism (B3)</h3>
+<p>
+Under <code>--accept-edits</code> — and <em>never</em> in plan mode — consecutive writes
+whose canonicalized paths are pairwise disjoint may pre-execute in parallel. Disjointness
+(<code>_arePathsDisjoint</code>) requires that no path equals or prefix-contains another
+(with a separator boundary, catching parent/child conflicts); paths are canonicalized through
+<code>safety.confinePath</code>, whose realpath anchoring defuses symlink aliasing at the source.
+Groups execute via <code>Promise.all(executeForce(...))</code>, results are cached by
+<code>tool_use_id</code>, and the serial loop then <em>consumes cached results in model-emitted
+order</em> — so every sink observes a linear history indistinguishable from serial execution.
+A <code>tool_use_group</code> ledger record documents the parallel grant. The plan-mode exclusion is
+explicitly justified in the source: <code>executeForce</code> would bypass plan-mode fabrication and
+write for real.
+</p>
+
+<h3>5.3 Plan-mode fabrication</h3>
+<p>
+In plan mode, any tool result flagged <code>needsConfirmation</code> is replaced in exactly one
+place by <code>{ ok: true, text: 'Plan mode: would ' + proposedAction }</code>. The model receives a
+plausible success narrative; the filesystem receives nothing.
+</p>
+
+<h3>5.4 Failure streak</h3>
+<p>
+The streak counts consecutive failed <em>write/shell</em> executions (read failures historically do
+not escalate) plus bridge transport errors (<code>recordExternalFailure</code>). At
+<code>failureLimit</code>, an escalation notice is appended to the failing result's text
+<em>before</em> any sink records it — guaranteeing the transcript, human log, ledger, and the
+model itself all see the identical escalated text. Any successful write resets the streak. The loop
+reads <code>pipeline.failureStreak</code> back for session persistence, and resumed sessions re-seed
+it via <code>initialFailureStreak</code>.
+</p>
+
+<h3>5.5 Sink fan-out ordering</h3>
+<p>Per tool use, sinks are notified in a fixed nine-stage order:</p>
+<pre><code>ledger intent → pre_tool hook → tool_use event → tool_requested trace
+      → tool_call transcript → [execute] → tool_result transcript
+      → human log → tool_finished trace → archive → ledger result
+      → post_tool hook → tool_result event</code></pre>
+<p>
+The ledger is the sole <em>critical</em> sink: an append failure aborts the turn, because an effect
+that cannot be journaled would break crash recovery. Every other sink is best-effort —
+failures are reported to stderr and never alter tool results.
+</p>
+</section>
+
+<section id="invariants">
+<h2>6. Safety Invariants</h2>
+
+<div class="theorem"><b>Invariant 1 (Effect pairing).</b> Every tool use appends a ledger
+<code>tool_effect_intent</code> with a fresh <code>effectId</code> before execution, and exactly one
+<code>tool_effect_result</code> with the same <code>effectId</code> after — on success, throw,
+permission deny, user denial, and plan-mode fabrication alike. An intent without a result is
+therefore a machine-detectable crash signature, surfaced at next startup as
+“pending effects.”</div>
+
+<div class="theorem"><b>Invariant 2 (Plan-mode write safety).</b> In plan mode no write tool
+executes; the parallel pre-execution path is disabled outright, and confirmations are fabricated in
+a single code path.</div>
+
+<div class="theorem"><b>Invariant 3 (Observation linearity).</b> Regardless of physical execution
+order (parallel read batch, disjoint-write pre-execution), all sinks record events in the model's
+emitted order. Replay consumers may assume a linear history.</div>
+
+<div class="theorem"><b>Invariant 4 (Catalog/execution coherence).</b>
+<code>toolDefinitions()</code> derives from the same <code>ctx</code> that gates execution: the
+model is never shown a tool the pipeline would categorically refuse.</div>
+
+<div class="theorem"><b>Invariant 5 (Mid-turn write barrier).</b> Loop-level stops (semantic cycle,
+wall clock, cost, token budgets) are evaluated after reads are recorded and before any write
+executes; a stopped turn performs no side effects beyond its reads.</div>
+
+<div class="theorem"><b>Invariant 6 (Budget inheritance).</b> Child agents receive the parent's
+<em>remaining</em> token budget via environment, and the parent re-syncs remainders after every
+boundary; the family's aggregate consumption is bounded by the root budget.</div>
+</section>
+
+<section id="termination">
+<h2>7. Termination and Stop Reasons</h2>
+<p>Every exit path funnels through <code>completeRun(result)</code> with a typed stop reason:</p>
+<table>
+  <tbody><tr><th>Stop reason</th><th>Trigger</th><th>Phase</th></tr>
+  <tr><td><code>SUCCESS</code></td><td>Response contains no <code>tool_use</code> blocks</td><td>9</td></tr>
+  <tr><td><code>MAX_STEPS</code></td><td>Loop bound exhausted without a final answer</td><td>post-loop</td></tr>
+  <tr><td><code>BRIDGE_ERROR</code></td><td>Transport failure with streak/steps exhausted</td><td>6</td></tr>
+  <tr><td><code>MAX_TOOL_CALLS_PER_TURN</code></td><td>Per-turn tool fanout cap exceeded</td><td>9</td></tr>
+  <tr><td><code>CONTEXT_BUDGET_EXCEEDED</code></td><td>Consumed tokens &gt; 2× context budget</td><td>7</td></tr>
+  <tr><td>token-budget stops</td><td>Budget tracker hard verdict</td><td>7 / 10</td></tr>
+  <tr><td><code>SEMANTIC_CYCLE_DETECTED</code></td><td>Repeated tool signature in <code>toolHistory</code></td><td>10 (mid-turn)</td></tr>
+  <tr><td><code>WALL_CLOCK_BUDGET_EXCEEDED</code></td><td><code>Date.now() − startedAt &gt; maxWallClockMs</code></td><td>10 (mid-turn)</td></tr>
+  <tr><td><code>COST_BUDGET_EXCEEDED</code></td><td><code>estimateCostUsd(model, usage) &gt; maxCostUsd</code></td><td>10 (mid-turn)</td></tr>
+  <tr><td><code>CWD_INVALID</code>, <code>RESUME_FAILED</code>, fork-depth</td><td>Bootstrap vetoes</td><td>init</td></tr>
+</tbody></table>
+</section>
+
+<section id="observability">
+<h2>8. Observability and Persistence</h2>
+
+<h3>8.1 Finalization (<code>completeRun</code>)</h3>
+<p>
+A single closure owns end-of-run bookkeeping for <em>every</em> terminal path: the usage/cost
+summary (stderr-only, keeping stdout clean and pipeable), transcript and human-log usage records, a
+session <em>health</em> verdict (from stop reason, autopsy, compaction generation, and failure
+streak — possibly recommending a fresh session), synchronous session flush, ledger close, and
+archive export. Centralizing this in one site is an explicit design note in the source: one owner,
+all paths covered.
+</p>
+
+<h3>8.2 The record family</h3>
+<table>
+  <tbody><tr><th>Record</th><th>Format</th><th>Audience</th><th>Guarantee</th></tr>
+  <tr><td>Session ledger</td><td>append-only JSONL + cursor sidecar</td><td>crash recovery, <code>undo run</code></td><td>critical sink; effect pairing</td></tr>
+  <tr><td>Session store</td><td>JSON checkpoint</td><td>resume (<code>--session-id</code>)</td><td>message-granular; health + compaction generation</td></tr>
+  <tr><td>Transcript</td><td>scrubbed JSONL</td><td>machine replay</td><td>best-effort</td></tr>
+  <tr><td>Human log</td><td>Markdown</td><td>humans</td><td>best-effort</td></tr>
+  <tr><td>Flight-recorder trace</td><td>JSONL, boundary-tagged</td><td>debugging across runner/bridge boundary</td><td>level-gated payload capture</td></tr>
+  <tr><td>Run archive</td><td>structured export</td><td>audit/sharing</td><td>finalized in <code>completeRun</code></td></tr>
+  <tr><td>Loop autopsy</td><td>JSON beside session</td><td>behavior analysis, session health</td><td>on success and cycle stops</td></tr>
+</tbody></table>
+
+<h3>8.3 Boundary-aware tracing</h3>
+<p>
+Trace records are tagged with explicit boundaries (<code>runner_to_bridge</code>,
+<code>bridge_to_runner</code>), and <code>run_started</code> documents a visibility partition:
+the runner alone sees cwd validation, permission decisions, and local effects; the bridge alone
+sees credential sourcing and header injection; only the upstream-bound payload contains the
+transformed Messages body. Per-step correlation headers (<code>bridgeTraceHeaders</code>) let the
+two layers' traces be joined offline by <code>runId</code> and turn.
+</p>
+</section>
+
+<section id="discussion">
+<h2>9. Discussion</h2>
+<p>
+Three design decisions merit emphasis. First, the <strong>single-seam decomposition</strong>: the
+only channel through which loop policy influences in-flight tool execution is
+<code>midTurnCheck</code>, invoked at a precisely specified moment. This keeps the pipeline testable
+in isolation (scripted confirm ports, deny-all adapters for coordinator workers) while giving the
+loop a genuine write barrier for its budget and cycle guards. Second, the <strong>asymmetric sink
+contract</strong> — one critical journal, many best-effort mirrors — buys rich
+observability without letting a logging failure corrupt agent behavior, while effect pairing turns
+the journal into a crash-recovery oracle. Third, <strong>economics as a first-class loop
+concern</strong>: prompt-cache breakpoint budgeting, a staged compaction ladder with a persisted
+generation counter, predictive-versus-authoritative token checks, inheritable child budgets, and
+dollar-denominated cost stops are all evaluated <em>inside</em> the per-step control flow rather
+than bolted on as middleware.
+</p>
+<p>
+The principal cost of the design is the length of <code>run.js</code>: eleven phases and roughly a
+dozen exit paths in one function, each duplicating result-shape construction. The codebase
+acknowledges the trade — sequential orchestration reads top-to-bottom, and the deep modules it
+calls into absorb the combinatorial complexity. Future simplification would most plausibly extract
+a terminal-result builder to collapse the duplicated exit blocks without disturbing the phase
+ordering that the invariants depend on.
+</p>
+</section>
+
+<section id="refs">
+<h2>10. References</h2>
+<ol class="refs">
+  <li><code>src/runner/run.js</code> — the agent loop (bootstrap, phases 1–11, <code>completeRun</code>).</li>
+  <li><code>src/runner/tool-pipeline.js</code> — tool pipeline module header (interface, invariants, error modes) and <code>executeTurn</code>.</li>
+  <li><code>CONTEXT.md</code> — domain language: runner, bridge, agent loop, tool pipeline, sink, confirm port, mid-turn check, failure streak, effect pairing.</li>
+  <li><code>src/runner/kernel/agent-kernel.js</code>, <code>kernel/contract.js</code> — compositional kernel contract.</li>
+  <li><code>src/runner/context-compactor.js</code>, <code>context-budget.js</code> — compaction ladder and cache-control budgeting.</li>
+  <li><code>src/runner/session-ledger.js</code>, <code>session-store.js</code>, <code>loop-autopsy.js</code>, <code>session-health.js</code> — persistence and post-run analysis.</li>
+  <li><code>bin/local-bridge-runner.js</code> — CLI entry point.</li>
+</ol>
+</section>
+
+<!--
+  Appendix A was added after the original run completed. It was not authored by the
+  agent that wrote this paper; it is a verbatim provenance record inserted by a
+  separate session for archival purposes. No other part of this document was modified.
+-->
+<section id="appendix-a">
+<h2>Appendix A. Run Provenance (Verbatim Record)</h2>
+<p>
+This appendix records the exact experimental conditions under which this white paper was produced.
+The paper above was written by the bridge runner's own local agent loop (the system this paper
+describes), running model <code>claude-fable-5</code> at effort <code>medium</code>. The three items
+below — the command-line invocation, the agent's final post-run message, and the run's structured
+result metadata — are reproduced verbatim from the operator's records, including any copy-paste
+character artifacts (e.g., em-dashes and curly quotes substituted for ASCII hyphens and apostrophes
+in the flags string). Nothing has been corrected, normalized, or annotated.
+</p>
+
+<h3>A.1 CLI invocation flags</h3>
+<pre><code>--trusted-workspace --trust-workspace —chaos-ok --model claude-fable-5 --max-tokens 128000 —effort medium —bare —accept-edits --max-steps 250 new-session --task-scope —agent ‘project’ --prompt-template cleanup —trace-level full  --log-level verbose --tools 'list_files,read_file,search_text,glob,git_status,manage_tasks,ask_user_question,spawn_agent,enter_worktree,exit_worktree,list_worktrees,run_skill,edit_file,write_file,undo,undo_edit' --stream --verbose ‘explore this codebase architecture. Explain the runner loop in great engineering technical detail. Do not edit files. write an academic type of technical white paper in HTML.'</code></pre>
+
+<h3>A.2 The agent's post-run final message (verbatim, Markdown source)</h3>
+<pre><code>FINAL — I explored the codebase and wrote the white paper to **`docs/runner-loop-whitepaper.html`** (a new standalone document; no existing files were edited).
+
+## What I found (architecture summary)
+
+**Three strata:**
+1. **Bridge** — transport-only VS Code extension exposing Claude Code credentials at a local `/v1/messages` endpoint.
+2. **Agent loop** — `src/runner/run.js` (~1,370 lines), the bounded `for (step = 1..maxSteps)` orchestrator.
+3. **Tool pipeline** — `src/runner/tool-pipeline.js`, a deep module with a two-method interface (`toolDefinitions()`, `executeTurn()`) that owns permissions, confirmation, plan-mode fabrication, execution, journaling, and sink fan-out.
+
+**The runner loop, per step (documented in detail in the paper):**
+1. `pre_model_request` hook dispatch
+2. Instruction-delta detection (small diff → inject user message; large rewrite → rebuild system prompt)
+3. Compaction ladder (`applyCompactionLadder`) with persisted generation counter
+4. `cache_control` breakpoint budgeting + advisory token estimate
+5. Request build (streaming only for text output; effort/temperature optional)
+6. POST to bridge — transport errors share the tool failure streak and consume a step as retry budget
+7. Usage accounting → budget boundary (token/inherited-child budgets); 2× context backstop
+8. Assistant message append + session checkpoint
+9. Extraction: per-turn tool cap guard; zero tool uses → SUCCESS (autopsy, health, archive)
+10. `pipeline.executeTurn` with the **midTurnCheck seam** — reads run as a parallel batch, then the loop gets one checkpoint (semantic cycles, wall-clock, cost, budgets) *before any write executes*
+11. Tool results appended as one user message; persist; continue
+
+**Key invariants formalized in the paper:** effect pairing (ledger intent/result around every side effect), plan-mode write safety, observation linearity (sinks always see model-emitted order even under parallel disjoint-path writes with `--accept-edits`), catalog/execution coherence, the mid-turn write barrier, and budget inheritance for child agents.
+
+The HTML is fully self-contained (inline CSS, academic layout with abstract, TOC, figures, invariant boxes, stop-reason table, and references) — open it directly in a browser.</code></pre>
+
+<h3>A.3 Run result metadata (verbatim JSON)</h3>
+<pre><code>{
+  "stopReason": "success",
+  "finalText": "FINAL — I explored the codebase and wrote the white paper to **`docs/runner-loop-whitepaper.html`** (a new standalone document; no existing files were edited).\n\n## What I found (architecture summary)\n\n**Three strata:**\n1. **Bridge** — transport-only VS Code extension exposing Claude Code credentials at a local `/v1/messages` endpoint.\n2. **Agent loop** — `src/runner/run.js` (~1,370 lines), the bounded `for (step = 1..maxSteps)` orchestrator.\n3. **Tool pipeline** — `src/runner/tool-pipeline.js`, a deep module with a two-method interface (`toolDefinitions()`, `executeTurn()`) that owns permissions, confirmation, plan-mode fabrication, execution, journaling, and sink fan-out.\n\n**The runner loop, per step (documented in detail in the paper):**\n1. `pre_model_request` hook dispatch\n2. Instruction-delta detection (small diff → inject user message; large rewrite → rebuild system prompt)\n3. Compaction ladder (`applyCompactionLadder`) with persisted generation counter\n4. `cache_control` breakpoint budgeting + advisory token estimate\n5. Request build (streaming only for text output; effort/temperature optional)\n6. POST to bridge — transport errors share the tool failure streak and consume a step as retry budget\n7. Usage accounting → budget boundary (token/inherited-child budgets); 2× context backstop\n8. Assistant message append + session checkpoint\n9. Extraction: per-turn tool cap guard; zero tool uses → SUCCESS (autopsy, health, archive)\n10. `pipeline.executeTurn` with the **midTurnCheck seam** — reads run as a parallel batch, then the loop gets one checkpoint (semantic cycles, wall-clock, cost, budgets) *before any write executes*\n11. Tool results appended as one user message; persist; continue\n\n**Key invariants formalized in the paper:** effect pairing (ledger intent/result around every side effect), plan-mode write safety, observation linearity (sinks always see model-emitted order even under parallel disjoint-path writes with `--accept-edits`), catalog/execution coherence, the mid-turn write barrier, and budget inheritance for child agents.\n\nThe HTML is fully self-contained (inline CSS, academic layout with abstract, TOC, figures, invariant boxes, stop-reason table, and references) — open it directly in a browser.",
+  "steps": 14,
+  "duration_ms": 302243,
+  "usage": {
+    "input_tokens": 37049,
+    "output_tokens": 19079,
+    "cache_read_input_tokens": 71660,
+    "cache_creation_input_tokens": 159504
+  },
+  "estimatedCostUsd": 1.3758540000000001
+}</code></pre>
+</section>
+
+<footer>
+  Produced by static source inspection; no code was executed and no repository files were modified.
+  Line references correspond to the tree at the time of analysis.
+</footer>
+
+
+
+</body></html>

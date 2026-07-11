@@ -1,346 +1,257 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Apple Shortcuts × Bridge Runner — 5 Recommended Shortcuts</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Apple Shortcuts × Bridge Runner — 5 Recommendations</title>
 <style>
   :root {
-    --bg: #0d0f14;
-    --panel: #161a22;
-    --panel-2: #1d2230;
-    --border: #2a3040;
-    --text: #e8ecf4;
-    --muted: #9aa4b8;
-    --accent: #4da3ff;
-    --accent-2: #8b7bff;
+    --bg: #0d0d10;
+    --card: #1c1c21;
+    --card-inner: #26262c;
+    --accent: #4b9bff;
+    --accent-soft: rgba(75, 155, 255, 0.15);
     --green: #3ddc84;
-    --amber: #ffc857;
+    --amber: #ffb454;
     --red: #ff6b6b;
-    --code-bg: #10131b;
-    --radius: 14px;
-    font-size: 16px;
+    --text: #ececf1;
+    --muted: #9a9aa5;
+    --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; }
   body {
+    margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-    line-height: 1.6;
-    padding: 2.5rem 1.25rem 5rem;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    line-height: 1.55;
   }
-  .wrap { max-width: 980px; margin: 0 auto; }
-  header.hero {
-    background: linear-gradient(135deg, #1a2340 0%, #241b3f 60%, #16202c 100%);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 2.25rem 2rem;
-    margin-bottom: 2rem;
+  .wrap { max-width: 880px; margin: 0 auto; padding: 40px 24px 80px; }
+  header h1 { font-size: 2rem; margin: 0 0 8px; }
+  header p.lede { color: var(--muted); font-size: 1.05rem; margin-top: 0; }
+  .pill {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em;
+    background: var(--accent-soft); color: var(--accent); margin-right: 6px;
   }
-  header.hero h1 { font-size: 1.9rem; letter-spacing: -0.02em; }
-  header.hero h1 .chip-title {
-    background: linear-gradient(90deg, var(--accent), var(--accent-2));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-  }
-  header.hero p.sub { color: var(--muted); margin-top: 0.6rem; max-width: 62ch; }
-  .badges { margin-top: 1rem; display: flex; flex-wrap: wrap; gap: 0.5rem; }
-  .badge {
-    font-size: 0.75rem; padding: 0.25rem 0.7rem; border-radius: 999px;
-    border: 1px solid var(--border); color: var(--muted); background: rgba(255,255,255,0.03);
-  }
-  .badge.blue { color: var(--accent); border-color: #2a4a72; }
-  .badge.green { color: var(--green); border-color: #2a5a40; }
-  .badge.amber { color: var(--amber); border-color: #5f4d24; }
-
+  .pill.green { background: rgba(61,220,132,.12); color: var(--green); }
+  .pill.amber { background: rgba(255,180,84,.12); color: var(--amber); }
+  .pill.red   { background: rgba(255,107,107,.12); color: var(--red); }
   section.card {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 1.75rem 2rem;
-    margin-bottom: 1.75rem;
+    background: var(--card); border-radius: 18px; padding: 24px 28px;
+    margin: 28px 0; border: 1px solid #2b2b33;
   }
+  section.card h2 { margin: 0 0 4px; font-size: 1.3rem; display: flex; align-items: center; gap: 10px; }
   .num {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 2.1rem; height: 2.1rem; border-radius: 10px; font-weight: 700;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    color: #0b0d12; margin-right: 0.75rem; flex-shrink: 0;
+    width: 30px; height: 30px; border-radius: 9px; background: var(--accent);
+    color: #fff; font-size: 0.95rem; font-weight: 700; flex: none;
   }
-  .card-head { display: flex; align-items: center; margin-bottom: 0.35rem; }
-  .card-head h2 { font-size: 1.3rem; letter-spacing: -0.01em; }
-  .tagline { color: var(--muted); margin-bottom: 1rem; font-size: 0.95rem; }
-
-  .meta-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.1rem; }
-  .chip {
-    font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
-    padding: 0.2rem 0.65rem; border-radius: 999px; border: 1px solid var(--border);
+  .subtitle { color: var(--muted); margin: 2px 0 16px; font-size: 0.95rem; }
+  .flow { border-left: 2px solid #33333c; margin: 16px 0; padding-left: 0; list-style: none; }
+  .flow li {
+    background: var(--card-inner); border-radius: 12px; padding: 12px 16px;
+    margin: 10px 0 10px 18px; position: relative; font-size: 0.93rem;
   }
-  .chip.trigger { color: var(--accent); border-color: #2a4a72; background: rgba(77,163,255,0.08); }
-  .chip.safety-low { color: var(--green); border-color: #2a5a40; background: rgba(61,220,132,0.08); }
-  .chip.safety-med { color: var(--amber); border-color: #5f4d24; background: rgba(255,200,87,0.08); }
-  .chip.feature { color: var(--accent-2); border-color: #40365f; background: rgba(139,123,255,0.08); }
-
-  h3.step-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 1.2rem 0 0.5rem; }
-  ol.steps { margin-left: 1.3rem; }
-  ol.steps li { margin-bottom: 0.4rem; }
-  ol.steps li strong { color: var(--accent); font-weight: 600; }
-
+  .flow li::before {
+    content: ""; position: absolute; left: -24px; top: 18px;
+    width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
+  }
+  .flow li b { color: var(--accent); }
   pre {
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 1rem 1.1rem;
-    overflow-x: auto;
-    font-size: 0.82rem;
-    line-height: 1.55;
-    margin: 0.6rem 0 0.9rem;
+    background: #101014; border: 1px solid #2e2e36; border-radius: 10px;
+    padding: 14px 16px; overflow-x: auto; font-family: var(--mono);
+    font-size: 0.82rem; line-height: 1.5; color: #d8e4ff;
   }
-  code { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; }
-  pre .c { color: #6b7690; }  /* comment */
-  pre .f { color: var(--amber); } /* flags */
-  pre .s { color: #a5d6a7; }  /* strings */
-  pre .v { color: var(--accent); } /* shortcut vars */
-
-  .why {
-    background: var(--panel-2);
-    border-left: 3px solid var(--accent-2);
-    border-radius: 0 10px 10px 0;
-    padding: 0.8rem 1.1rem;
-    font-size: 0.9rem;
-    color: var(--muted);
-    margin-top: 1rem;
+  code { font-family: var(--mono); font-size: 0.86em; background: #101014; padding: 1px 5px; border-radius: 5px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin: 12px 0; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #2b2b33; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  .note {
+    background: var(--accent-soft); border-left: 3px solid var(--accent);
+    border-radius: 8px; padding: 10px 14px; font-size: 0.88rem; margin: 14px 0;
   }
-  .why strong { color: var(--text); }
-
-  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 0.75rem; }
-  th, td { text-align: left; padding: 0.55rem 0.75rem; border-bottom: 1px solid var(--border); }
-  th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
-  td code { color: var(--accent); font-size: 0.82rem; }
-
-  footer { color: var(--muted); font-size: 0.85rem; text-align: center; margin-top: 3rem; }
-  footer code { color: var(--accent); }
-  .note { font-size: 0.85rem; color: var(--muted); margin-top: 0.4rem; }
+  .note.warn { background: rgba(255,180,84,.08); border-left-color: var(--amber); }
+  footer { color: var(--muted); font-size: 0.85rem; margin-top: 40px; text-align: center; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <header class="hero">
-    <h1>5 macOS Apple Shortcuts for the <span class="chip-title">Bridge Runner</span></h1>
-    <p class="sub">
-      The <code>local-bridge-runner.js</code> CLI is a self-contained coding-agent loop: it talks to Claude through the
-      local bridge on <code>localhost:11437</code>, and it exposes read, write, recovery, session, worktree, and
-      (opt-in) shell tools against any folder you point it at with <code>--cwd</code>. That makes it a perfect
-      backend for Apple Shortcuts <em>Run Shell Script</em> actions — following the exact pattern in your example
-      screenshot (Receive input → Run Shell Script → Stop and output).
-    </p>
-    <div class="badges">
-      <span class="badge blue">Transport: localhost:11437 bridge</span>
-      <span class="badge green">No API key needed (Claude Code OAuth)</span>
-      <span class="badge amber">Fail-closed: use --dont-ask for non-TTY Shortcuts</span>
-      <span class="badge">Multimodal read_file (PNG/JPG/PDF)</span>
-      <span class="badge">Prompt templates &amp; agent profiles</span>
-      <span class="badge">Per-run undo manifests</span>
-    </div>
-  </header>
+<header>
+  <h1>🧩 Apple Shortcuts × Bridge Runner</h1>
+  <p class="lede">
+    Five macOS Shortcuts that wrap <code>bin/local-bridge-runner.js</code> — the local coding-agent
+    loop that talks to Claude via the <code>localhost:11437</code> bridge (Claude Code OAuth, no Console
+    API key). Each follows the same pattern as your example screenshot:
+    <b>Receive input → Run Shell Script (zsh) → Stop and output</b>.
+  </p>
+  <span class="pill">local-only</span>
+  <span class="pill green">no API key</span>
+  <span class="pill amber">bridge must be running</span>
+</header>
 
-  <!-- ============================================================ 1 -->
-  <section class="card">
-    <div class="card-head"><span class="num">1</span><h2>“Explain This Folder” — Finder Quick Action</h2></div>
-    <p class="tagline">Right-click any project folder in Finder → get an instant plain-English summary of what the codebase does.</p>
-    <div class="meta-row">
-      <span class="chip trigger">Trigger: Finder Quick Action (folders)</span>
-      <span class="chip safety-low">Read-only</span>
-      <span class="chip feature">Uses: --cwd, explore template, repo map</span>
-    </div>
+<section class="card">
+  <h2>⚙️ Runner capabilities these Shortcuts lean on</h2>
+  <table>
+    <tr><th>Capability</th><th>Flags</th><th>Why it matters for Shortcuts</th></tr>
+    <tr><td>Point at any project</td><td><code>--cwd &lt;path&gt;</code></td><td>One Shortcut works on whatever folder/file the Share Sheet hands it.</td></tr>
+    <tr><td>Read-only safety</td><td><code>--plan</code>, <code>--allowed-tools list_files,read_file,search_text,glob</code></td><td>Headless runs can't prompt for confirmation — lock tools down instead.</td></tr>
+    <tr><td>Non-interactive mode</td><td><code>--dont-ask</code>, <code>--accept-edits</code>, <code>--confirm-timeout</code></td><td>Shortcuts have no TTY; the runner must never block on a prompt.</td></tr>
+    <tr><td>Prompt templates</td><td><code>--template review|cleanup|explore</code>, <code>--prompt-arg k=v</code></td><td>Reusable, consistent prompts without long strings in the Shortcut.</td></tr>
+    <tr><td>Budgets &amp; limits</td><td><code>--max-cost-usd</code>, <code>--max-wall-clock-ms</code>, <code>--max-steps</code></td><td>Fire-and-forget automations can't run away.</td></tr>
+    <tr><td>Sessions &amp; resume</td><td><code>--session-id</code>, <code>--resume-session</code>, <code>--continue</code></td><td>A daily digest Shortcut can carry context across days.</td></tr>
+    <tr><td>Context injection</td><td><code>--include-file</code>, <code>--bare</code></td><td>Feed exactly the file the user shared; keep token cost low.</td></tr>
+    <tr><td>Machine output</td><td><code>--output-format json</code>, <code>--transcript</code></td><td>Parse results in later Shortcut actions (Notes, notifications, Quick Look).</td></tr>
+  </table>
+  <div class="note">
+    All examples assume the repo lives at
+    <code>~/Developer/claude-local-bridge-playground</code> and the bridge is up on
+    <code>http://localhost:11437</code>. Adjust paths to taste.
+  </div>
+</section>
 
-    <h3 class="step-title">Shortcut layout</h3>
-    <ol class="steps">
-      <li><strong>Receive</strong> Files/Folders from <em>Quick Actions</em> in Finder.</li>
-      <li><strong>Run Shell Script</strong> (zsh, Pass Input: <em>as arguments</em>) with the script below — <code>$1</code> is the selected folder.</li>
-      <li><strong>Show Result</strong> (or Quick Look) with the Shell Script Result.</li>
-    </ol>
-
-    <pre><code>cd <span class="s">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+<!-- 1 -->
+<section class="card">
+  <h2><span class="num">1</span> Explain This Code</h2>
+  <p class="subtitle">Share Sheet / Quick Action on any file or folder in Finder → plain-English explanation.
+    <span class="pill green">read-only</span></p>
+  <ul class="flow">
+    <li><b>Receive</b> Files and Folders from <b>Share Sheet, Quick Actions</b> — if no input: Ask For Input.</li>
+    <li><b>Run Shell Script</b> (zsh, Pass Input: <b>as arguments</b>):</li>
+  </ul>
+  <pre>cd "$HOME/Developer/claude-local-bridge-playground"
+TARGET="$1"
 node bin/local-bridge-runner.js \
-  <span class="f">--cwd</span> <span class="v">"$1"</span> \
-  <span class="f">--prompt-template</span> explore \
-  <span class="f">--include-repo-map</span> <span class="f">--include-repo-context</span> \
-  <span class="f">--dont-ask</span> <span class="f">--no-session-persistence</span> \
-  <span class="s">"Summarize what this project does, its main entry points, and how to run it. Read-only; do not edit files."</span></code></pre>
+  --cwd "$(dirname "$TARGET")" \
+  --allowed-tools list_files,read_file,search_text,glob \
+  --max-steps 8 --log-level quiet \
+  "Explain what $(basename "$TARGET") does, its key entry points, and anything surprising. Keep it under 300 words."</pre>
+  <ul class="flow">
+    <li><b>Stop and output</b> Shell Script Result — if nowhere to output: <b>Show Result</b> (or Quick Look).</li>
+  </ul>
+  <p class="subtitle">Read-only tool allowlist means it can never modify the shared file, so <code>--dont-ask</code> isn't even needed.</p>
+</section>
 
-    <div class="why">
-      <strong>Why it fits the runner:</strong> the built-in <code>explore</code> prompt template plus
-      <code>--include-repo-map</code> gives the model structured context for unfamiliar repos, while the default
-      read-only tool posture means a stray folder selection can never be modified. <code>--dont-ask</code> makes
-      interactive confirmations fail closed instead of hanging the Shortcut.
-    </div>
-  </section>
-
-  <!-- ============================================================ 2 -->
-  <section class="card">
-    <div class="card-head"><span class="num">2</span><h2>“Review My Diff” — Pre-commit Code Review from the Menu Bar</h2></div>
-    <p class="tagline">One click before you commit: a findings-first code review of the current working tree using the shipped <code>code-reviewer</code> agent.</p>
-    <div class="meta-row">
-      <span class="chip trigger">Trigger: Menu Bar / Hotkey</span>
-      <span class="chip safety-low">Read-only (plan mode)</span>
-      <span class="chip feature">Uses: --agent code-reviewer, review template, git_status</span>
-    </div>
-
-    <h3 class="step-title">Shortcut layout</h3>
-    <ol class="steps">
-      <li><strong>Choose from List</strong> — a static list of your frequently-used repo paths (or an <em>Ask for Input</em> with a default).</li>
-      <li><strong>Run Shell Script</strong> with <em>Chosen Item</em> as input, passed as arguments.</li>
-      <li><strong>Show Result</strong>, and optionally <strong>Copy to Clipboard</strong> so findings can be pasted into the commit message or PR.</li>
-    </ol>
-
-    <pre><code>cd <span class="s">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+<!-- 2 -->
+<section class="card">
+  <h2><span class="num">2</span> Review My Clipboard</h2>
+  <p class="subtitle">Copy a diff, function, or PR snippet anywhere → instant code review using the built-in <code>review</code> template.
+    <span class="pill green">read-only</span> <span class="pill">hotkey-friendly</span></p>
+  <ul class="flow">
+    <li><b>Get Clipboard</b> → set variable <b>Snippet</b>.</li>
+    <li><b>Run Shell Script</b> (zsh, Input: Snippet, Pass Input: <b>to stdin</b>):</li>
+  </ul>
+  <pre>cd "$HOME/Developer/claude-local-bridge-playground"
+SNIPPET="$(cat)"   # clipboard arrives on stdin
 node bin/local-bridge-runner.js \
-  <span class="f">--cwd</span> <span class="v">"$1"</span> \
-  <span class="f">--agent</span> code-reviewer \
-  <span class="f">--prompt-template</span> review \
-  <span class="f">--prompt-arg</span> focus=<span class="s">"uncommitted changes shown by git_status"</span> \
-  <span class="f">--plan</span> <span class="f">--dont-ask</span> \
-  <span class="s">"Run git_status, read every modified file, and review the pending changes for correctness, safety, and missing tests. Lead with concrete findings."</span></code></pre>
+  --bare --template review \
+  --allowed-tools read_file \
+  --max-steps 4 --max-tokens 1500 --log-level quiet \
+  "Review this snippet for bugs, edge cases, and style issues:
 
-    <div class="why">
-      <strong>Why it fits the runner:</strong> the playground ships a curated <code>code-reviewer</code> file agent
-      under <code>.bridge-runner/agents/</code>, and the <code>review</code> template is parameterized with a
-      <code>{{focus}}</code> placeholder filled via <code>--prompt-arg</code>. <code>--plan</code> guarantees the
-      review only describes changes — it never makes them.
-    </div>
-  </section>
+$SNIPPET"</pre>
+  <ul class="flow">
+    <li><b>Show Result</b> — or <b>Copy to Clipboard</b> so the review replaces the snippet, ready to paste into a PR comment.</li>
+  </ul>
+  <p class="subtitle"><code>--bare</code> skips repo context and instruction docs — the snippet itself is the whole context, keeping runs fast and cheap.</p>
+</section>
 
-  <!-- ============================================================ 3 -->
-  <section class="card">
-    <div class="card-head"><span class="num">3</span><h2>“Explain This Screenshot” — Share Sheet Multimodal Analysis</h2></div>
-    <p class="tagline">Share any screenshot, diagram, or PDF from Preview/Photos/Finder and have the runner read it with its multimodal <code>read_file</code> tool.</p>
-    <div class="meta-row">
-      <span class="chip trigger">Trigger: Share Sheet (Images &amp; PDFs)</span>
-      <span class="chip safety-low">Read-only</span>
-      <span class="chip feature">Uses: multimodal read_file (7MB img / 10MB PDF caps)</span>
-    </div>
-
-    <h3 class="step-title">Shortcut layout</h3>
-    <ol class="steps">
-      <li><strong>Receive</strong> Images and PDFs from the <em>Share Sheet</em>.</li>
-      <li><strong>Save File</strong> — write Shortcut Input to a scratch folder, e.g. <code>~/Documents/runner-inbox/</code> (the runner can only read inside its <code>--cwd</code>).</li>
-      <li><strong>Run Shell Script</strong> with the saved file path as argument.</li>
-      <li><strong>Show Result</strong> / <strong>Quick Look</strong>.</li>
-    </ol>
-
-    <pre><code>cd <span class="s">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
-FILE=<span class="v">"$1"</span>
+<!-- 3 -->
+<section class="card">
+  <h2><span class="num">3</span> Ask My Repo (Dictation)</h2>
+  <p class="subtitle">"Hey Siri, Ask My Repo" → dictate a question → get an answer grounded in the codebase.
+    <span class="pill green">read-only</span> <span class="pill">voice</span></p>
+  <ul class="flow">
+    <li><b>Dictate Text</b> (or Ask For Input) → variable <b>Question</b>.</li>
+    <li><b>Choose from List</b> (optional): pick which project folder to target → variable <b>Project</b>.</li>
+    <li><b>Run Shell Script</b> (zsh, Input: Question, Pass Input: <b>as arguments</b>):</li>
+  </ul>
+  <pre>cd "$HOME/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js \
-  <span class="f">--cwd</span> <span class="s">"$HOME/Documents/runner-inbox"</span> \
-  <span class="f">--bare</span> <span class="f">--dont-ask</span> <span class="f">--no-session-persistence</span> \
-  <span class="s">"Use read_file on '$(basename "$FILE")' and explain what it shows. If it contains code or an error message, transcribe it and suggest a fix. If it is a UI, describe the flow."</span></code></pre>
+  --cwd "$HOME/Developer/my-project" \
+  --include-repo-context --include-repo-map \
+  --allowed-tools list_files,read_file,search_text,glob \
+  --max-steps 10 --max-cost-usd 0.25 --log-level quiet \
+  "$1"</pre>
+  <ul class="flow">
+    <li><b>Stop and output</b> Shell Script Result — if nowhere to output: <b>Speak Text</b> (Siri reads the answer back).</li>
+  </ul>
+  <p class="subtitle"><code>--include-repo-map</code> gives the model a structural overview up front so voice questions like
+  "where is auth handled?" resolve in fewer tool loops.</p>
+</section>
 
-    <div class="why">
-      <strong>Why it fits the runner:</strong> <code>read_file</code> natively attaches PNG/JPG/GIF/WebP/PDF bytes
-      as Anthropic multimodal content blocks (exactly how your example screenshot was read for this report), so the
-      Shortcut becomes a general-purpose “explain this image” tool — error dialogs, architecture diagrams, PDFs of
-      docs, even other Shortcuts screenshots. <code>--bare</code> keeps the prompt minimal and fast.
-    </div>
-  </section>
-
-  <!-- ============================================================ 4 -->
-  <section class="card">
-    <div class="card-head"><span class="num">4</span><h2>“Siri, Fix It in a Worktree” — Dictated Task, Isolated Branch</h2></div>
-    <p class="tagline">Dictate a coding task to Siri; the runner performs the edits inside an isolated git worktree branch so your main checkout is never touched.</p>
-    <div class="meta-row">
-      <span class="chip trigger">Trigger: Siri / “Hey Siri, fix it”</span>
-      <span class="chip safety-med">Writes — but only in a throwaway worktree branch</span>
-      <span class="chip feature">Uses: enter_worktree, --accept-edits, run manifests</span>
-    </div>
-
-    <h3 class="step-title">Shortcut layout</h3>
-    <ol class="steps">
-      <li><strong>Dictate Text</strong> (or <em>Ask for Input</em>) — the task description.</li>
-      <li><strong>Run Shell Script</strong> with the dictated text as <code>$1</code>.</li>
-      <li><strong>Show Notification</strong> with the result summary, including the worktree branch name to review with <code>git diff</code> later.</li>
-    </ol>
-
-    <pre><code>cd <span class="s">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+<!-- 4 -->
+<section class="card">
+  <h2><span class="num">4</span> Fix-It Ticket (Safe Auto-Edit)</h2>
+  <p class="subtitle">Type or share a bug description → runner edits code in an isolated git worktree, then notifies you.
+    <span class="pill amber">writes files</span> <span class="pill">worktree-isolated</span></p>
+  <ul class="flow">
+    <li><b>Ask For Input</b> "Describe the bug or small change" → variable <b>Ticket</b>.</li>
+    <li><b>Run Shell Script</b> (zsh, Input: Ticket, Pass Input: <b>as arguments</b>):</li>
+  </ul>
+  <pre>cd "$HOME/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js \
-  <span class="f">--cwd</span> <span class="s">"/Users/alanman/Developer/my-active-project"</span> \
-  <span class="f">--accept-edits</span> <span class="f">--dont-ask</span> <span class="f">--max-steps</span> 24 \
-  <span class="s">"First call enter_worktree to create an isolated worktree branch. Then, inside it: $1. When done, summarize the changes and report the worktree branch name. Do NOT call exit_worktree with cleanup — preserve the branch for my review."</span></code></pre>
-    <p class="note">Rollback safety net if a run goes sideways:
-      <code>node bin/local-bridge-undo.js last-run --cwd &lt;project&gt; --dry-run</code></p>
+  --cwd "$HOME/Developer/my-project" \
+  --accept-edits --dont-ask \
+  --max-steps 14 --max-cost-usd 1.00 --max-wall-clock-ms 300000 \
+  --transcript "$HOME/.bridge-runner/logs/shortcut-fixit.jsonl" \
+  --log-level quiet \
+  "Work in an isolated worktree (enter_worktree) on this task, make the minimal fix, and report the branch name: $1"</pre>
+  <ul class="flow">
+    <li><b>Show Notification</b> "Fix-It done" with Shell Script Result.</li>
+    <li><b>Stop and output</b> Shell Script Result (branch name + summary for review before merging).</li>
+  </ul>
+  <div class="note warn">
+    ⚠️ This is the only write-capable Shortcut here. Shell stays <b>disabled</b> (no <code>--allow-shell</code>),
+    edits land on a throwaway branch via the runner's worktree tools, and hard budget/wall-clock caps bound the blast radius.
+    Review the branch diff before merging.
+  </div>
+</section>
 
-    <div class="why">
-      <strong>Why it fits the runner:</strong> this leans on the runner's headline safety features —
-      <code>enter_worktree</code> puts all edits on a fresh branch under <code>~/.bridge-runner/worktrees/</code>
-      (default <code>cleanup=false</code> preserves work for review), every edit is recorded in a per-run
-      <code>manifest.json</code>, and <code>local-bridge-undo</code> can revert the entire run in one command.
-      Hands-free coding with a real undo story.
-    </div>
-  </section>
-
-  <!-- ============================================================ 5 -->
-  <section class="card">
-    <div class="card-head"><span class="num">5</span><h2>“Morning Repo Health Check” — Scheduled Automation + Notification</h2></div>
-    <p class="tagline">Every weekday at 9 AM, spawn a verify-style pass over your active repo: dirty files, TODO drift, failing-looking tests, and doc mismatches — delivered as a notification digest.</p>
-    <div class="meta-row">
-      <span class="chip trigger">Trigger: Shortcuts Automation (time of day)</span>
-      <span class="chip safety-low">Read-only</span>
-      <span class="chip feature">Uses: spawn_agent (verify), git_status, --trace-level summary</span>
-    </div>
-
-    <h3 class="step-title">Shortcut layout</h3>
-    <ol class="steps">
-      <li><strong>Automation</strong>: Time of Day → 9:00 AM, weekdays, “Run Immediately”.</li>
-      <li><strong>Run Shell Script</strong> (no input needed).</li>
-      <li><strong>Show Notification</strong> with the Shell Script Result; optionally <strong>Append to Note</strong> “Repo Health Log” for a running history.</li>
-    </ol>
-
-    <pre><code>cd <span class="s">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
+<!-- 5 -->
+<section class="card">
+  <h2><span class="num">5</span> Morning Repo Digest (Automation)</h2>
+  <p class="subtitle">Scheduled Automation (e.g. 9:00 AM) → what changed, what's stale, what to do next → saved to Notes.
+    <span class="pill green">read-only</span> <span class="pill">scheduled</span> <span class="pill">session-aware</span></p>
+  <ul class="flow">
+    <li><b>Automation trigger:</b> Time of Day, 9:00 AM, weekdays (Run Immediately).</li>
+    <li><b>Run Shell Script</b> (zsh):</li>
+  </ul>
+  <pre>cd "$HOME/Developer/claude-local-bridge-playground"
 node bin/local-bridge-runner.js \
-  <span class="f">--cwd</span> <span class="s">"/Users/alanman/Developer/my-active-project"</span> \
-  <span class="f">--include-repo-context</span> \
-  <span class="f">--dont-ask</span> <span class="f">--trace-level</span> summary \
-  <span class="s">"Do a repo health check: 1) git_status — flag uncommitted or unexpected files; 2) scan for new TODO/FIXME markers; 3) spot-check that README commands still match package.json scripts; 4) delegate a quick consistency pass to a 'verify' child via spawn_agent if anything looks off. End with a 5-line digest: OK items first, then warnings."</span></code></pre>
+  --cwd "$HOME/Developer/my-project" \
+  --session-id daily-digest --resume-session \
+  --allowed-tools list_files,read_file,search_text,glob,git_status \
+  --template explore \
+  --max-steps 10 --max-cost-usd 0.50 --log-level quiet \
+  "Compare against what you reported yesterday: summarize git status, recently modified files, TODO/FIXME markers, and suggest the top 3 things to tackle today."</pre>
+  <ul class="flow">
+    <li><b>Create Note</b> "Repo Digest — Current Date" with Shell Script Result in a "Dev Digests" folder.</li>
+    <li><b>Show Notification</b> "☕ Your repo digest is ready."</li>
+  </ul>
+  <p class="subtitle">Reusing <code>--session-id daily-digest</code> lets the runner's session store carry yesterday's
+  findings forward, so the digest highlights <em>deltas</em> instead of repeating itself.
+  (First run only: omit <code>--resume-session</code> to seed the session.)</p>
+</section>
 
-    <div class="why">
-      <strong>Why it fits the runner:</strong> this exercises the orchestration layer — the main loop can
-      <code>spawn_agent</code> a focused <code>verify</code> child with its own context window for deeper checks,
-      and <code>--trace-level summary</code> writes a local flight-recorder audit trail
-      (<code>~/.bridge-runner/traces/</code>) so unattended scheduled runs stay inspectable. Since
-      <code>--dont-ask</code> makes <code>spawn_agent</code> confirmations non-interactive and the tool surface stays
-      read-only, an automation firing while you're away can't change anything.
-    </div>
-  </section>
+<section class="card">
+  <h2>✅ Setup checklist</h2>
+  <table>
+    <tr><th>Step</th><th>Detail</th></tr>
+    <tr><td>1. Bridge running</td><td>Start the local bridge so <code>http://localhost:11437</code> answers before any Shortcut runs (consider a LaunchAgent).</td></tr>
+    <tr><td>2. Node on PATH</td><td>Shortcuts' shell is non-login zsh; if <code>node</code> isn't found, use an absolute path like <code>/opt/homebrew/bin/node</code>.</td></tr>
+    <tr><td>3. Full Disk Access</td><td>Grant Shortcuts access to the project folders it will read via <code>--cwd</code>.</td></tr>
+    <tr><td>4. Start read-only</td><td>Shortcuts 1–3 and 5 use tool allowlists that make writes impossible; graduate to #4 once you trust the flow.</td></tr>
+    <tr><td>5. Budgets everywhere</td><td>Every headless run carries <code>--max-steps</code> plus a cost or wall-clock cap — automations should never run open-ended.</td></tr>
+  </table>
+</section>
 
-  <!-- ============================================================ recap -->
-  <section class="card">
-    <div class="card-head"><h2>At a glance</h2></div>
-    <table>
-      <thead>
-        <tr><th>#</th><th>Shortcut</th><th>Trigger</th><th>Key runner capability</th><th>Risk posture</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>1</td><td>Explain This Folder</td><td>Finder Quick Action</td><td><code>--cwd</code> + explore template + repo map</td><td>Read-only</td></tr>
-        <tr><td>2</td><td>Review My Diff</td><td>Menu bar / hotkey</td><td><code>--agent code-reviewer</code> + <code>--prompt-arg</code></td><td>Read-only (<code>--plan</code>)</td></tr>
-        <tr><td>3</td><td>Explain This Screenshot</td><td>Share Sheet</td><td>Multimodal <code>read_file</code> (images/PDF)</td><td>Read-only (<code>--bare</code>)</td></tr>
-        <tr><td>4</td><td>Siri, Fix It in a Worktree</td><td>Siri dictation</td><td><code>enter_worktree</code> + run-manifest undo</td><td>Writes on isolated branch</td></tr>
-        <tr><td>5</td><td>Morning Repo Health Check</td><td>Scheduled automation</td><td><code>spawn_agent</code> + flight-recorder traces</td><td>Read-only, audited</td></tr>
-      </tbody>
-    </table>
+<footer>
+  Generated for <b>claude-local-bridge-playground</b> · Pattern: Receive → Run Shell Script (zsh) → Stop and output,
+  as in <code>apple-shortcuts-screenshot-example.PNG</code>.
+</footer>
 
-    <h3 class="step-title">Shared setup notes</h3>
-    <ol class="steps">
-      <li>Every shortcut follows the screenshot pattern: <strong>Receive</strong> → <strong>Run Shell Script</strong> (zsh, Pass Input: as arguments) → <strong>Stop and Output / Show Result</strong>.</li>
-      <li>The VS Code window hosting the <strong>Claude Local Bridge</strong> extension must be running (bridge on <code>http://localhost:11437</code>); no <code>ANTHROPIC_API_KEY</code> is needed — the bridge injects Claude Code OAuth from the macOS Keychain.</li>
-      <li>Shortcuts' shell is non-interactive: always pass <code>--dont-ask</code> so confirmation prompts fail closed instead of hanging. Reserve <code>--accept-edits</code> for the worktree shortcut only, and avoid <code>--allow-shell</code> in unattended shortcuts.</li>
-      <li>If Shortcuts' minimal PATH can't find <code>node</code>, use the absolute path (e.g. <code>/opt/homebrew/bin/node</code>).</li>
-      <li>If caller auth is enabled on the bridge, add <code>--caller-token</code> or set <code>BRIDGE_CALLER_TOKEN</code> in the script.</li>
-    </ol>
-  </section>
-
-  <footer>
-    Generated from a review of <code>claude-local-bridge-playground</code> — runner CLI: <code>bin/local-bridge-runner.js</code>,
-    undo CLI: <code>bin/local-bridge-undo.js</code>, prompts CLI: <code>bin/local-bridge-prompts.js</code>.
-  </footer>
 </div>
 </body>
 </html>
