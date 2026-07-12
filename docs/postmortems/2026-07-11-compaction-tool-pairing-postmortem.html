@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Post-mortem — Compaction split a tool pair</title>
+    <style>
+      :root {
+        --ink: #172033;
+        --muted: #5d6a7e;
+        --paper: #f7f4ee;
+        --card: #fffdf8;
+        --line: #d9d3c7;
+        --navy: #183153;
+        --blue: #245ea8;
+        --red: #a43d3d;
+        --amber: #a76818;
+        --green: #23734d;
+        --shadow: 0 16px 44px rgba(30, 42, 62, 0.1);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 10% 0%, rgba(36, 94, 168, 0.1), transparent 30rem),
+          linear-gradient(180deg, #eef2f7 0, var(--paper) 25rem);
+        font:
+          16px/1.62 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+      a {
+        color: var(--blue);
+      }
+      code {
+        font:
+          0.9em/1.45 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+      }
+      .hero {
+        color: white;
+        background: linear-gradient(130deg, #13233b 0%, #1d426d 72%, #286199 100%);
+        padding: 4.5rem max(1.5rem, calc((100vw - 1120px) / 2));
+        position: relative;
+        overflow: hidden;
+      }
+      .hero::after {
+        content: '';
+        position: absolute;
+        width: 32rem;
+        height: 32rem;
+        right: -10rem;
+        top: -16rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        box-shadow:
+          0 0 0 5rem rgba(255, 255, 255, 0.025),
+          0 0 0 10rem rgba(255, 255, 255, 0.02);
+      }
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        font-size: 0.76rem;
+        font-weight: 800;
+        opacity: 0.82;
+      }
+      h1 {
+        max-width: 900px;
+        font:
+          700 clamp(2.3rem, 5vw, 4.8rem)/1.03 Georgia,
+          serif;
+        margin: 0.7rem 0 1rem;
+        letter-spacing: -0.035em;
+      }
+      .deck {
+        max-width: 850px;
+        font-size: 1.25rem;
+        color: #dfeafb;
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        margin-top: 1.5rem;
+      }
+      .pill {
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 999px;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.85rem;
+      }
+      main {
+        max-width: 1120px;
+        margin: -2rem auto 5rem;
+        padding: 0 1.25rem;
+        position: relative;
+      }
+      .verdict {
+        background: var(--card);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--line);
+        border-top: 6px solid var(--red);
+        border-radius: 16px;
+        padding: 2rem;
+      }
+      .verdict h2 {
+        margin-top: 0;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin: 1.4rem 0;
+      }
+      .stat {
+        background: #f3f6fa;
+        border: 1px solid #dce3ed;
+        border-radius: 12px;
+        padding: 1rem;
+      }
+      .stat strong {
+        display: block;
+        font-size: 1.55rem;
+        color: var(--navy);
+      }
+      section {
+        background: rgba(255, 253, 248, 0.86);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 1.7rem 2rem;
+        margin: 1.2rem 0;
+      }
+      h2 {
+        font:
+          700 1.8rem/1.2 Georgia,
+          serif;
+        color: var(--navy);
+      }
+      h3 {
+        color: var(--navy);
+        margin-top: 1.6rem;
+      }
+      .label {
+        display: inline-block;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-size: 0.7rem;
+        font-weight: 800;
+        border-radius: 4px;
+        padding: 0.2rem 0.4rem;
+        margin-right: 0.35rem;
+      }
+      .confirmed {
+        color: var(--green);
+        background: #dff3e8;
+      }
+      .trigger {
+        color: var(--amber);
+        background: #f7ead4;
+      }
+      .root {
+        color: var(--red);
+        background: #f6dddd;
+      }
+      .flow {
+        display: grid;
+        gap: 0.55rem;
+        max-width: 760px;
+        margin: 1.5rem auto;
+      }
+      .flow div {
+        text-align: center;
+        background: #f4f7fb;
+        border: 1px solid #d7e0eb;
+        border-radius: 10px;
+        padding: 0.8rem 1rem;
+        font-weight: 650;
+      }
+      .flow div:not(:last-child)::after {
+        content: '↓';
+        display: block;
+        height: 0;
+        transform: translateY(0.65rem);
+        color: var(--blue);
+        font-size: 1.3rem;
+      }
+      .flow .bad {
+        background: #fff0ee;
+        border-color: #e3aaa3;
+        color: #852f2f;
+      }
+      .table-wrap {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+        font-size: 0.94rem;
+      }
+      th {
+        background: var(--navy);
+        color: white;
+        text-align: left;
+      }
+      th,
+      td {
+        padding: 0.7rem 0.8rem;
+        border: 1px solid var(--line);
+        vertical-align: top;
+      }
+      tr:nth-child(even) td {
+        background: #f6f4ef;
+      }
+      pre {
+        overflow-x: auto;
+        background: #142033;
+        color: #e8eef8;
+        border-radius: 10px;
+        padding: 1rem;
+      }
+      .callout {
+        border-left: 5px solid var(--blue);
+        background: #edf4fd;
+        padding: 1rem 1.2rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+      }
+      .warning {
+        border-left-color: var(--amber);
+        background: #fff5e5;
+      }
+      .danger {
+        border-left-color: var(--red);
+        background: #fff0ee;
+      }
+      .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+      }
+      .lane {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 1rem;
+        background: #fff;
+      }
+      .lane h3 {
+        margin-top: 0;
+      }
+      ol.priority > li {
+        margin: 0.8rem 0;
+      }
+      footer {
+        max-width: 1120px;
+        margin: 2rem auto;
+        padding: 1rem 1.25rem 3rem;
+        color: var(--muted);
+      }
+      @media (max-width: 780px) {
+        .grid,
+        .two {
+          grid-template-columns: 1fr;
+        }
+        .hero {
+          padding-top: 3rem;
+        }
+        section,
+        .verdict {
+          padding: 1.25rem;
+        }
+      }
+      @media print {
+        body {
+          background: white;
+        }
+        .hero {
+          padding: 2rem;
+        }
+        main {
+          margin-top: 1rem;
+        }
+        section,
+        .verdict {
+          box-shadow: none;
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="hero">
+      <div class="eyebrow">Cross-repository incident review · 2026-07-11 local</div>
+      <h1>Compaction split a tool call from its result</h1>
+      <p class="deck">
+        A max-settings Fable 5 build run exposed an unsafe history boundary in the Claude runner. The work survived; the
+        request did not.
+      </p>
+      <div class="meta">
+        <span class="pill">Root cause confirmed</span>
+        <span class="pill">No fix applied</span>
+        <span class="pill">Run 9f395456…</span>
+        <span class="pill">Claude runner owns remediation</span>
+      </div>
+    </header>
+
+    <main>
+      <article class="verdict">
+        <span class="label root">Root cause</span><span class="label trigger">Stress-triggered</span>
+        <h2>Executive verdict</h2>
+        <p>
+          <strong
+            >The max settings exposed a real runner defect; they did not make an otherwise-correct runner entitled to
+            send malformed history.</strong
+          >
+          At step 52, <code>summarizeOldTurns()</code> kept the last 12 raw messages as if they were always six complete
+          turns. A standalone instruction-update message shifted that cutoff, leaving a <code>tool_result</code> whose
+          matching <code>tool_use</code> had been summarized away.
+        </p>
+        <p>
+          Anthropic correctly rejected the request with HTTP 400. A tiny local harness reproduces the same failure
+          without a model, bridge, network, large prompt, or long run.
+        </p>
+        <div class="grid">
+          <div class="stat"><strong>52</strong>first invalid step</div>
+          <div class="stat"><strong>81,944</strong>estimated tokens at full compaction</div>
+          <div class="stat"><strong>0</strong>worktree edits lost</div>
+        </div>
+      </article>
+
+      <section>
+        <h2>The failure chain</h2>
+        <div class="flow">
+          <div><code>max_steps=1000</code> lets the build reach 52 turns</div>
+          <div>Step 51 successfully edits <code>CLAUDE.md</code></div>
+          <div>Step 52 appends a standalone user instruction delta</div>
+          <div>Context estimate crosses the normal 80,000-token warning threshold</div>
+          <div>Compactor slices by raw message count instead of logical groups</div>
+          <div class="bad">A retained <code>tool_result</code> loses its preceding <code>tool_use</code></div>
+          <div class="bad">HTTP 400 is retried unchanged twice; run stops at step 54</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Impact assessment</h2>
+        <div class="table-wrap">
+          <table>
+            <tr>
+              <th>Dimension</th>
+              <th>Assessment</th>
+            </tr>
+            <tr>
+              <td>Runner reliability</td>
+              <td><strong>High impact</strong> for long autonomous Claude runs that reach full summarization.</td>
+            </tr>
+            <tr>
+              <td>Ordinary likelihood</td>
+              <td>Lower because the default step ceiling is 16; the full summarizer did not run until step 52 here.</td>
+            </tr>
+            <tr>
+              <td>Worktree data</td>
+              <td>No loss. All Stage 6 edits survived, passed 599 tests, and were later committed.</td>
+            </tr>
+            <tr>
+              <td>Session state</td>
+              <td>The persisted 104-message history remains valid. The malformed 13-message request was not saved.</td>
+            </tr>
+            <tr>
+              <td>Bridge/API</td>
+              <td>Not at fault. The bridge received an already-malformed request; upstream rejected it correctly.</td>
+            </tr>
+            <tr>
+              <td>Model</td>
+              <td>Not at fault. Fable 5 emitted valid tool pairs before runner-side compaction.</td>
+            </tr>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Confirmed timeline</h2>
+        <div class="table-wrap">
+          <table>
+            <tr>
+              <th>UTC</th>
+              <th>Step</th>
+              <th>Event</th>
+            </tr>
+            <tr>
+              <td>00:07:22</td>
+              <td>Start</td>
+              <td>Full tracing; Fable 5; <code>max_steps=1000</code>; request <code>max_tokens=128000</code>.</td>
+            </tr>
+            <tr>
+              <td>00:14:04</td>
+              <td>13</td>
+              <td>First clip event at 42,373 estimated tokens.</td>
+            </tr>
+            <tr>
+              <td>00:14–00:41</td>
+              <td>13–51</td>
+              <td>39 clip-only records; outbound histories remain structurally valid.</td>
+            </tr>
+            <tr>
+              <td>00:41:31</td>
+              <td>51</td>
+              <td>Final edits succeed, including <code>CLAUDE.md</code>.</td>
+            </tr>
+            <tr>
+              <td>00:42:02</td>
+              <td>52</td>
+              <td>
+                Instruction delta added; first full <code>clip → snip → cost → ghost → summarize</code> at 81,944
+                estimated tokens.
+              </td>
+            </tr>
+            <tr>
+              <td>00:42:09</td>
+              <td>52</td>
+              <td>First HTTP 400 for orphaned step-46 <code>read_file</code> result.</td>
+            </tr>
+            <tr>
+              <td>00:42:13–15</td>
+              <td>53–54</td>
+              <td>Unchanged invalid history retried twice; terminal <code>bridge_error</code>.</td>
+            </tr>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Root cause in the code</h2>
+        <p>
+          The compactor says it preserves recent “turns,” but it actually subtracts twice that number from the raw
+          message count:
+        </p>
+        <pre><code>const cutoff = Math.max(0, messages.length - preserveRecent * 2);
+const head = messages.slice(0, cutoff);
+const tail = messages.slice(cutoff);
+return { messages: [summaryMsg, ...tail], ... };</code></pre>
+        <p>
+          This assumes every logical turn is exactly an assistant message followed by a user message. The
+          instruction-delta feature can add a standalone user message before compaction. Once the alignment shifts, an
+          arbitrary raw-message cutoff can land on a user <code>tool_result</code>.
+        </p>
+        <div class="callout danger">
+          <strong>Missing defense:</strong> no request-boundary validator checks that every retained Anthropic
+          <code>tool_result</code> is immediately preceded by a matching assistant <code>tool_use</code>.
+        </div>
+      </section>
+
+      <section>
+        <h2>Hypotheses tested</h2>
+        <div class="table-wrap">
+          <table>
+            <tr>
+              <th>Hypothesis</th>
+              <th>Disposition</th>
+              <th>Why</th>
+            </tr>
+            <tr>
+              <td>Arbitrary compaction cutoff split the pair</td>
+              <td><strong>Confirmed</strong></td>
+              <td>Trace transition plus deterministic local reproduction.</td>
+            </tr>
+            <tr>
+              <td>Instruction delta shifted alignment</td>
+              <td><strong>Confirmed trigger</strong></td>
+              <td>Occurs directly before turn 52; one synthetic standalone user message reproduces the defect.</td>
+            </tr>
+            <tr>
+              <td>Max settings created invalid semantics</td>
+              <td>Rejected as root cause</td>
+              <td>A tiny forced-threshold harness fails identically; settings only made the path reachable.</td>
+            </tr>
+            <tr>
+              <td>Bridge transformation corrupted history</td>
+              <td>Rejected</td>
+              <td>The bridge request-received capture is already malformed.</td>
+            </tr>
+            <tr>
+              <td>Retries created the first failure</td>
+              <td>Rejected</td>
+              <td>Turn 52 is invalid before retries; retries amplify it.</td>
+            </tr>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>What the max settings actually did</h2>
+        <div class="two">
+          <div class="lane">
+            <h3><code>max_steps=1000</code></h3>
+            <p>The main stress enabler. The default is 16; this run needed 52 turns to reach full summarization.</p>
+          </div>
+          <div class="lane">
+            <h3><code>max_tokens=128000</code></h3>
+            <p>
+              A per-request output ceiling, not the compactor threshold. It created headroom but did not define valid
+              history.
+            </p>
+          </div>
+        </div>
+        <div class="callout warning">
+          <strong>Important UI/documentation gap:</strong> <code>--max-context-tokens</code> does not configure the
+          compaction ladder. Current code uses it for separate advisory/cumulative-stop logic. The compactor retains its
+          own 80,000/160,000 thresholds unless a preset overrides them.
+        </div>
+        <p>
+          <strong>Conclusion:</strong> this was a successful stress test in the engineering sense—it exposed a hidden
+          invariant violation.
+        </p>
+      </section>
+
+      <section>
+        <h2>Test gap and secondary defects</h2>
+        <h3>False-green pairing test</h3>
+        <p>
+          The existing test is named “summarizeOldTurns preserves recent turns and pairs,” and its own fixture produces
+          an orphaned older result. It passes because it checks only that one newest result exists, not that every
+          result has the correct immediately preceding call.
+        </p>
+        <h3>Non-idempotent clipping</h3>
+        <p>
+          The clip function keeps 12,000 characters and then adds a footer, leaving content above the same limit. A
+          second pass clips it again. This explains 39 clip-only records; they were not 39 full summaries.
+        </p>
+        <h3>Unproductive retry</h3>
+        <p>
+          A deterministic invalid-request 400 is retried twice without changing history. Local validation and
+          non-retriable error classification would save time and requests.
+        </p>
+      </section>
+
+      <section>
+        <h2>Two repositories, two native fixes</h2>
+        <div class="two">
+          <div class="lane">
+            <h3>Claude playground — owns this incident</h3>
+            <ul>
+              <li>Fix semantic grouping in the Anthropic-message compactor.</li>
+              <li>Add instruction-delta integration coverage.</li>
+              <li>Validate tool pairing before each request.</li>
+              <li>Keep bridge/auth/proxy internals untouched.</li>
+            </ul>
+          </div>
+          <div class="lane">
+            <h3>Codex fork — learns from it</h3>
+            <ul>
+              <li>Do not reactivate or blindly cherry-pick the Anthropic compactor.</li>
+              <li>Keep <code>function_call</code> plus <code>function_call_output</code> atomic.</li>
+              <li>Preserve native reasoning-item order and adjacency.</li>
+              <li>Log deliberate cross-repo ports in <code>PORTING.md</code>.</li>
+            </ul>
+          </div>
+        </div>
+        <p>
+          This is behavioral convergence, not schema convergence: both runners need the same logical guarantee,
+          implemented in their provider-native history formats.
+        </p>
+      </section>
+
+      <section>
+        <h2>Codex roadmap consequence</h2>
+        <p>
+          The current roadmap schedules live compaction in Phase 4 but basic compaction goldens in Phase 5. This
+          incident shows that order is unsafe for a load-bearing history transform.
+        </p>
+        <ol>
+          <li>Keep Stage 7 focused on pricing, documentation, and one short live read-only run.</li>
+          <li>
+            Before the Phase 4 compaction rung, implement a native Responses compactor—or explicitly block that rung.
+          </li>
+          <li>
+            Move basic native invariants before live compaction: call/output atomicity, reasoning adjacency, standalone
+            instruction messages, multi-call batches, resume/replay, and post-compaction request validation.
+          </li>
+          <li>Use Phase 5 for adversarial, fuzz, and broader hardening—not the first pairing test.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>Audience guidance</h2>
+        <div class="table-wrap">
+          <table>
+            <tr>
+              <th>Audience</th>
+              <th>Action</th>
+            </tr>
+            <tr>
+              <td>Alan / operator</td>
+              <td>
+                Use bounded phases and fresh sessions for long runs; avoid resuming this degraded session; the max
+                settings were a valid stress test.
+              </td>
+            </tr>
+            <tr>
+              <td>Claude implementation agents</td>
+              <td>Fix semantic grouping and add a request validator in the Claude runner repository.</td>
+            </tr>
+            <tr>
+              <td>Codex roadmap agents</td>
+              <td>Design native item grouping; move invariants before live Phase 4 compaction.</td>
+            </tr>
+            <tr>
+              <td>Verification agents</td>
+              <td>Check every retained pair and the integrated instruction-delta → compaction → request path.</td>
+            </tr>
+            <tr>
+              <td>Bridge agents</td>
+              <td>No bridge fix. Preserve rejection, correlation, and redaction.</td>
+            </tr>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Recommended remediation</h2>
+        <ol class="priority">
+          <li>
+            <strong>P0 — operating guardrail:</strong> start a fresh session before deep compaction when a long run
+            mutates <code>CLAUDE.md</code>.
+          </li>
+          <li>
+            <strong>P1 — Claude correctness:</strong> compact whole semantic groups; add post-compaction validation;
+            cover the integrated trigger; stop retrying deterministic 400s.
+          </li>
+          <li>
+            <strong>P2 — compaction quality:</strong> make clip idempotent; improve telemetry; clarify context-budget vs
+            compaction-threshold controls.
+          </li>
+          <li>
+            <strong>P3 — Codex gate:</strong> implement provider-native grouping and tests before enabling Phase 4
+            compaction.
+          </li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>Definition of done</h2>
+        <ul>
+          <li>The existing fixture fails before the fix under a full pairing validator.</li>
+          <li>Standalone instruction messages cannot split a tool pair.</li>
+          <li>Multi-tool batches survive as one logical unit.</li>
+          <li>The captured turn-52 shape validates after repair/recompaction.</li>
+          <li>Clip reports no change on its second pass.</li>
+          <li>Invalid-request 400s are not retried unchanged.</li>
+          <li>Targeted and full checks pass; the root cause is recorded in the fix commit.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Evidence and measured outcome</h2>
+        <p>
+          Correlated sources: runner transcript, full runner trace, paired bridge trace, session ledger/state, and
+          run/session archives. Sensitive values were not needed for this analysis.
+        </p>
+        <div class="grid">
+          <div class="stat"><strong>34m 53s</strong>run duration</div>
+          <div class="stat"><strong>54</strong>model attempts</div>
+          <div class="stat"><strong>$4.668</strong>estimated cost</div>
+        </div>
+        <p>
+          <strong>Usage:</strong> 131,306 input; 42,947 output; 4,836,360 cache-read; 363,202 cache-creation tokens.
+          <strong>Terminal stop:</strong> <code>bridge_error</code>.
+        </p>
+        <div class="callout">
+          <strong>Scope boundary:</strong> no runner fix or new live model call was made during this post-mortem.
+          Findings come from captured artifacts and deterministic local function calls.
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      Claude Local Bridge Playground · Compaction tool-pairing post-mortem · Root cause confirmed, remediation pending
+    </footer>
+  </body>
+</html>
