@@ -605,7 +605,8 @@
             </div>
             <div id="permissionCautions" class="warn-panel caution"></div>
             <div id="shellWarn" class="shell-warn">
-              &#9888; Shell is on — the model can run Terminal commands in your project folder.
+              &#9888; Shell is on — unsandboxed local-account authority. Commands start in your project folder but are
+              <strong>not</strong> confined to it; <code>--no-network</code> is best-effort only.
             </div>
             <div id="planNote" class="note" style="display: none">
               &#8505; <strong>Plan mode:</strong> the model describes actions instead of executing writes and shell commands.
@@ -1090,13 +1091,13 @@
                     <span><strong>apply_patch</strong><small>Patch a file; opt-in only</small></span>
                   </label>
                   <div class="capability-group">Shell</div>
-                  <label class="check-label tool-choice" id="bashToolRow" style="display: none" title="Run shell commands in your project folder (npm test, git diff, etc.). The most powerful tool — it can do anything your terminal can. Hidden until --allow-shell is enabled.">
+                  <label class="check-label tool-choice" id="bashToolRow" style="display: none" title="Run shell commands. Starts in your project folder but is unsandboxed local-account authority — not a cwd jail. Hidden until --allow-shell is enabled.">
                     <input type="checkbox" value="bash" />
-                    <span><strong>bash</strong><small>Shell commands</small></span>
+                    <span><strong>bash</strong><small>Shell commands (unsandboxed)</small></span>
                   </label>
-                  <label class="check-label tool-choice" id="manageShellJobsRow" style="display: none" title="Start, list, poll, and kill background shell processes. Lets the model run long commands (like a dev server) in the background while continuing other work. Hidden until --allow-shell is enabled.">
+                  <label class="check-label tool-choice" id="manageShellJobsRow" style="display: none" title="Start, list, poll, and kill background shell processes. Same unsandboxed local-account authority as bash. Hidden until --allow-shell is enabled.">
                     <input type="checkbox" value="manage_shell_jobs" />
-                    <span><strong>manage_shell_jobs</strong><small>Background shell jobs (start/list/poll/kill)</small></span>
+                    <span><strong>manage_shell_jobs</strong><small>Background shell jobs (unsandboxed)</small></span>
                   </label>
                 </div>
               </div>

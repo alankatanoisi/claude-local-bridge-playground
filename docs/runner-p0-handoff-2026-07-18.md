@@ -64,7 +64,7 @@ Do not pull over an unexplained dirty working tree. Do not move this work to the
 
 ## Current executive status
 
-The assessment identified 43 findings: 12 P0, 15 P1, and 16 P2. Alan approved P0-01 through P0-03, then Option 1 containment for P0-04 through P0-06 plus typed HTTP retries (P1-03).
+The assessment identified 43 findings: 12 P0, 15 P1, and 16 P2. Alan approved P0-01 through P0-03, Option 1 containment for P0-04 through P0-06 plus typed HTTP retries (P1-03), then P0-07 through P0-09. **Stopping point for this session: P0-09 landed.** Next session should take **P0-10 through P0-12 as one chunk**.
 
 | Finding | Current status | Resolution |
 |---|---|---|
@@ -75,9 +75,19 @@ The assessment identified 43 findings: 12 P0, 15 P1, and 16 P2. Alan approved P0
 | P0-05 — hidden/aliased tool executes unoffered | Implemented and verified | Per-run `offeredTools` snapshot; execute hard-denies unoffered names and aliases |
 | P0-06 — apply_patch shell interpolation | Quarantined | Never offered; every execute path refuses until argv/atomic/hunk/rollback repair |
 | P1-03 — deterministic HTTP retries | Implemented and verified | Typed `BridgeHttpError` / `BridgeNetworkError`; fail-fast 4xx; retry only 429/5xx/network with capped Retry-After |
-| P0-07 onward | Not yet implemented | Continue in risk order after reviewing the annotated assessment |
+| P0-07 — destructive worktree cleanup confirmation | Implemented and verified | `exit_worktree` + `cleanup: true` always asks with purpose-built copy; never implied by `--accept-edits` / `--dont-ask` |
+| P0-08 — worker startup / trust / confinement | Implemented and verified | Package-pinned worker binary; `--inherit-workspace-trust` without writing `trust.json`; Set allowlists honored; test-only `skipTrustGate` |
+| P0-09 — shell sandbox honesty | Implemented and verified | Shared honesty constants; CLI/help/confirmations/system prompt/threat-model/command-builder/quickstart/README all state unsandboxed local-account authority |
+| P0-10 — permission cache across root changes | Open · next session | Include canonical root identity in cache keys; invalidate on scope changes; re-confine before I/O |
+| P0-11 — centralized redaction | Open · next session | One redaction service before stdout/JSON/stream/SSE/transcript/ledger fan-out |
+| P0-12 — private session/ledger files | Open · next session | 0700 directories / 0600 files; clarify `--no-session-persistence` vs diagnostics |
 
 Full `apply_patch` repair remains open under P0-06; quarantine is containment only.
+
+**Next-session handoff (start here for P0-10–12):**
+
+- `docs/runner-p0-next-session-handoff-2026-07-18.md` (agent)
+- `docs/runner-p0-next-session-handoff-2026-07-18.html` (browser)
 
 ## Decisions and rationale
 
@@ -217,27 +227,26 @@ Do not “fix” the second response by restoring an upstream `x-api-key` succes
 
 ## Remaining work and recommended order
 
-### Next containment slice
+### Next session chunk (approved stop point after P0-09)
 
-1. **P0-07 — destructive worktree cleanup confirmation**
-   - Dedicated consent that shows branch, dirty state, and deletion behavior; never imply from `--accept-edits`.
-2. **P0-08 — worker startup / trust / confinement**
-   - Keep child authority beneath the parent ceiling after profile retirement.
-3. **P0-09 — shell sandbox honesty**
-   - Document and enforce that shell is full local-account authority, not cwd confinement.
-4. **P0-10 — permission cache across root changes**
-5. **P0-11 / P0-12 — centralized redaction and private session files**
-6. **Full P0-06 repair** — argv `apply_patch`, atomic writes, hunk validation, rollback (after quarantine).
+1. **P0-10 — permission cache across root changes**
+   - Include canonical root identity in every permission-decision cache key.
+   - Invalidate on worktree / cwd scope changes.
+   - Re-confine immediately before each I/O; restore undo only to currently validated paths.
+2. **P0-11 — centralized redaction**
+   - One redaction service used by stdout, JSON, stream-json, SSE, model text, tool inputs, transcripts, ledgers, archives, human logs, and hooks before fan-out.
+3. **P0-12 — private session and ledger files**
+   - Create private run-bundle directories at 0700 and files at 0600.
+   - Label canonical resume state as sensitive; define `--no-session-persistence` as disabling resumable state only—not diagnostics.
+
+Use `docs/runner-p0-next-session-handoff-2026-07-18.md` as the agent entrypoint for that chunk.
+
+### After P0-10–12
+
+4. **Full P0-06 repair** — argv `apply_patch`, atomic writes, hunk validation, rollback (after quarantine).
+5. Continue the assessment sequence: monotonic authority ceiling, evidence-capable plan mode, private telemetry finalizer, compatibility doctor, recovery/session completion, built-ins/templates/skills, documentation rewrite.
 
 Confirm the exact P0 numbering against the annotated assessment before coding.
-
-### Then continue the assessment sequence
-
-- Monotonic authority ceiling across plan, tools, trust, shell, edits, network, budgets, and parent/child runs.
-- Evidence-capable plan mode: execute pure reads, fabricate only effectful operations.
-- Complete private telemetry/session bundle and one terminal finalizer.
-- Compatibility doctor for CLI fingerprints, headers, models, effort, thinking, context, and parameter constraints.
-- Recovery/session completion, built-in/template cleanup, packaged skills, and the larger documentation rewrite.
 
 ## Non-obvious traps for the next agent
 

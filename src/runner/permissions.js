@@ -9,6 +9,7 @@ const safety = require('./safety');
 // CATEGORIES is derived from each tool module's own meta — see tool-catalog.js.
 const { CATEGORIES } = require('./tool-catalog');
 const { normalizeSlot, inspectWorktreeStatus } = require('./worktree-utils');
+const { SHELL_AUTHORITY_SHORT } = require('./shell-policy');
 
 const MODES = {
   default: {
@@ -306,7 +307,9 @@ function _checkUncached(toolName, args, ctx) {
         mode,
         ruleId: 'shell_disabled',
         severity: 'bypassable_deny',
-        explanation: 'Shell is hidden by default. Add --allow-shell when you need terminal commands.',
+        explanation:
+          'Shell is hidden by default. Add --allow-shell only when you accept unsandboxed local-account authority ' +
+          '(commands start in --cwd but are not confined to it; --no-network is best-effort only).',
       },
     );
   }
@@ -381,7 +384,8 @@ function _checkUncached(toolName, args, ctx) {
         mode,
         ruleId: 'mode_policy',
         severity: 'bypassable_ask',
-        explanation: 'Shell commands require approval.',
+        explanation:
+          'Shell commands require approval. Shell is unsandboxed local-account authority, not cwd confinement.',
       },
     );
   }
@@ -455,7 +459,9 @@ function describeDestructiveWorktreeCleanup(args, ctx) {
 
 function describeShellAction(args) {
   const cmd = args.command || '(no command)';
-  return 'Run: ' + (cmd.length > 100 ? cmd.slice(0, 97) + '...' : cmd);
+  const shown = cmd.length > 100 ? cmd.slice(0, 97) + '...' : cmd;
+  // Lead with the command, then the honesty line so Alan sees both before y/n.
+  return 'Run: ' + shown + '\n[shell] ' + SHELL_AUTHORITY_SHORT;
 }
 
 /** Hard denies survive force execution. */

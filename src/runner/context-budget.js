@@ -99,7 +99,7 @@ const TOOL_SUMMARIES = Object.freeze({
   apply_patch: 'Apply a unified diff patch',
   undo: 'List or restore from backups',
   undo_edit: 'Undo an edit from the current run',
-  bash: 'Run a shell command in the project directory',
+  bash: 'Run a shell command (starts in --cwd; unsandboxed local-account authority, not cwd confinement)',
 });
 
 function buildToolSummarySection(ctx) {

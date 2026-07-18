@@ -1,20 +1,20 @@
 'use strict';
 
 /**
- * bash tool — Run a bounded, sandboxed shell command.
+ * bash tool — Run a bounded but unsandboxed shell command.
  *
- * Safety bounds:
- *   - Runs inside the project cwd
+ * Safety bounds (defense-in-depth, not OS isolation):
+ *   - Process starts with cwd set to the project folder
  *   - Timeout (default 30s, max 900s from --shell-timeout)
  *   - Output truncated (default 10KB, enforced via maxBuffer)
- *   - Does NOT parse or restrict commands — the model is trusted
- *     to stay within bounds, and the system prompt discourages
- *     destructive commands
+ *   - Regex shell-policy scanning blocks some sensitive path/env patterns
+ *   - NOT cwd-confined: absolute paths, parent paths, and process spawn work
  *   - Only available when --allow-shell CLI flag is set
  */
 
 const { spawnSync } = require('child_process');
 const safety = require('../safety');
+const { SHELL_AUTHORITY_HONESTY } = require('../shell-policy');
 const persistentShell = require('./persistent-shell');
 
 const DEFAULT_SHELL_TIMEOUT = 30000;
@@ -26,16 +26,16 @@ function definition() {
   return {
     name: 'bash',
     description:
-      'Run a shell command inside the project directory. ' +
-      'The command is limited by timeout and output size. ' +
-      'Do NOT use this for destructive commands (rm -rf, git reset --hard, etc). ' +
+      'Run a shell command. Starts in the project folder, limited by timeout and output size. ' +
+      SHELL_AUTHORITY_HONESTY +
+      ' Do NOT use this for destructive commands (rm -rf, git reset --hard, etc). ' +
       'Prefer read-only commands and project tooling (npm test, npx, node, ls, etc).',
     input_schema: {
       type: 'object',
       properties: {
         command: {
           type: 'string',
-          description: 'The shell command to run inside the project directory',
+          description: 'The shell command to run. Starts in --cwd but is not confined to that folder.',
         },
       },
       required: ['command'],

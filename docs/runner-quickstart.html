@@ -768,7 +768,7 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             <tr>
               <td><code>--no-network</code></td>
               <td>off</td>
-              <td>Best-effort HTTP/HTTPS proxy guard for shell commands; not a sandbox</td>
+              <td>Best-effort HTTP/HTTPS proxy guard for shell commands; not hard network isolation</td>
             </tr>
             <tr>
               <td><code>--bare</code></td>
@@ -818,7 +818,10 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             <tr>
               <td><code>--allow-shell</code></td>
               <td>off</td>
-              <td>Expose the bash tool to the model</td>
+              <td>
+                Expose bash / manage_shell_jobs; unsandboxed local-account authority (starts in
+                <code>--cwd</code>, not cwd confinement)
+              </td>
             </tr>
             <tr>
               <td><code>--test-watch</code></td>
@@ -1022,7 +1025,8 @@ node bin/local-bridge-coordinator.js \
         </p>
         <div class="callout warn">
           <strong>Not a sandbox</strong>
-          A shell command can unset proxy variables or use a protocol those variables do not control. Use
+          Shell is unsandboxed local-account authority: it starts in <code>--cwd</code> but is not confined to that
+          folder. A shell command can also unset proxy variables or use a protocol those variables do not control. Use
           <code>--no-network</code> as defense in depth, not as a promise that bash has no network. See the
           <a href="threat-model.html">threat model</a> for details.
         </div>

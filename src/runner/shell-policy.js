@@ -2,9 +2,26 @@
 
 /**
  * Shell policy scanner — command-level checks beyond permission matrix.
+ *
+ * Honesty contract (P0-09): shell is unsandboxed local-account authority.
+ * Regex scanning and --no-network are defense-in-depth only — not cwd
+ * confinement and not a hard network / OS sandbox.
  */
 
 const path = require('path');
+
+/** Short label for CLI flags, banners, and compact warnings. */
+const SHELL_AUTHORITY_SHORT =
+  'unsandboxed local-account authority (starts in --cwd; not cwd confinement; --no-network is best-effort only)';
+
+/**
+ * Full honesty sentence shared by tool descriptions, confirmations, and docs.
+ * Every shell-enabling surface should surface this meaning.
+ */
+const SHELL_AUTHORITY_HONESTY =
+  'Shell is unsandboxed local-account authority: commands start in --cwd but can ' +
+  'read/write absolute paths outside it, spawn processes, and reach the network ' +
+  'unless separately constrained. Regex scanning and --no-network are defense-in-depth, not OS isolation.';
 
 const BLOCKED_BASENAMES = ['.env', '.env.local', '.env.production', '.env.development', '.envrc'];
 const BLOCKED_PATTERNS = [
@@ -157,4 +174,6 @@ module.exports = {
   HARD_DENY_PATH_SEGMENTS,
   extractPathTokens,
   isBlockedPathToken,
+  SHELL_AUTHORITY_SHORT,
+  SHELL_AUTHORITY_HONESTY,
 };

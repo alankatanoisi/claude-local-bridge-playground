@@ -204,3 +204,15 @@ This section is for Cloud Agents running in a headless Linux VM (not Alan's Mac)
 - In non-interactive/headless mode the runner requires `--trust-workspace` (otherwise it stops with
   `workspace_not_trusted`). Add `--allow-shell` / `--accept-edits` / `--dont-ask` only when the task
   needs them, consistent with the runner safety rules above.
+
+## Learned User Preferences
+
+- Treat `docs/command-builder.html` as the primary day-to-day runner UX; keep it lean, and update it when runner CLI flags or capabilities change.
+- Prefer compact in-UI explanations for runner flags (hover/"what does this do"/glossary) over relying on long docs alone; Alan learns mainly by doing.
+- When drafting multi-step plans for this repo, write them as HTML rather than Markdown.
+- When resolving mutually exclusive or risky command-builder choices, grey out or warn without resetting unrelated toggles the user already set.
+
+## Learned Workspace Facts
+
+- A sibling Codex lab lives at `/Users/alanman/Developer/codex-local-bridge-playground`; keep that work separate from this Claude playground unless Alan explicitly asks to cross-apply.
+- Local runner session artifacts often live under `~/.bridge-runner`; prefer a unified transcript/index layout when changing logging rather than inventing a second parallel scheme.

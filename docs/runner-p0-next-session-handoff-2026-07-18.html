@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="referrer" content="no-referrer" />
+    <title>Runner P0 next session — P0-10 through P0-12</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --canvas: #f4f7fb;
+        --surface: #ffffff;
+        --ink: #172033;
+        --muted: #5d687c;
+        --line: #d7deea;
+        --accent: #4f46e5;
+        --accent-soft: #eef2ff;
+        --good: #067647;
+        --good-soft: #ecfdf3;
+        --open: #b42318;
+        --open-soft: #fff1f0;
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--canvas); color: var(--ink); font-size: 15px; line-height: 1.6; }
+      a { color: var(--accent); }
+      code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      code { overflow-wrap: anywhere; }
+      .shell { width: min(920px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 64px; }
+      header {
+        padding: 28px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: linear-gradient(145deg, var(--surface), var(--accent-soft));
+      }
+      .kicker {
+        margin: 0 0 6px;
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      h1 { margin: 0 0 10px; font-size: clamp(26px, 4vw, 40px); line-height: 1.1; letter-spacing: -0.03em; }
+      h2 { margin: 0 0 10px; font-size: 20px; }
+      h3 { margin: 18px 0 8px; font-size: 16px; }
+      p { margin: 8px 0; }
+      .muted { color: var(--muted); }
+      .panel {
+        margin-top: 18px;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--surface);
+      }
+      .status {
+        display: inline-flex;
+        margin-bottom: 8px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .done { color: var(--good); background: var(--good-soft); }
+      .open { color: var(--open); background: var(--open-soft); }
+      ul, ol { margin: 8px 0; padding-left: 22px; }
+      li + li { margin-top: 4px; }
+      pre {
+        overflow: auto;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #f7f9fc;
+        font-size: 12px;
+      }
+      .callout {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-left: 4px solid var(--accent);
+        border-radius: 8px;
+        background: var(--accent-soft);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --canvas: #121722;
+          --surface: #1b2230;
+          --ink: #eef2ff;
+          --muted: #b8c0d4;
+          --line: #3a4358;
+          --accent-soft: #272f4c;
+          --good-soft: #1d3328;
+          --open-soft: #402522;
+        }
+        pre { background: #151b27; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <p class="kicker">Next session · 2026-07-18</p>
+        <h1>P0-10 through P0-12 as one chunk</h1>
+        <p class="muted">
+          Stopped after P0-09 (shell honesty). Alan will review tonight or tomorrow; the next agent should start here.
+          Agent Markdown twin:
+          <a href="runner-p0-next-session-handoff-2026-07-18.md">runner-p0-next-session-handoff-2026-07-18.md</a>.
+        </p>
+      </header>
+
+      <section class="panel">
+        <h2>Read first</h2>
+        <ol>
+          <li><code>AGENTS.md</code></li>
+          <li>
+            Annotated status + findings
+            <a href="runner-runtime-concordance-assessment-2026-07-17.html#P0-10">P0-10</a>,
+            <a href="runner-runtime-concordance-assessment-2026-07-17.html#P0-11">P0-11</a>,
+            <a href="runner-runtime-concordance-assessment-2026-07-17.html#P0-12">P0-12</a>
+          </li>
+          <li>Optional cumulative context: <a href="runner-p0-handoff-2026-07-18.html">July 18 handoff</a></li>
+        </ol>
+      </section>
+
+      <section class="panel">
+        <h2>Already done</h2>
+        <p><span class="status done">Done</span> P0-01–P0-05, P1-03, P0-07, P0-08, P0-09</p>
+        <p><span class="status done">Quarantined</span> P0-06 (<code>apply_patch</code> — full repair deferred)</p>
+        <p class="muted">Do not re-litigate completed findings unless a regression appears.</p>
+      </section>
+
+      <section class="panel">
+        <h2>This chunk</h2>
+        <h3><span class="status open">Open</span> P0-10 · Permission cache across root changes</h3>
+        <p>
+          Include canonical root identity in cache keys; invalidate on worktree/cwd changes; re-confine before each I/O;
+          restore only to currently validated paths.
+        </p>
+        <p class="muted">Likely: <code>permissions.js</code>, <code>worktree-utils.js</code>, <code>undo-edit.js</code>, <code>safety.js</code></p>
+
+        <h3><span class="status open">Open</span> P0-11 · Centralized redaction</h3>
+        <p>
+          One redaction service before fan-out to stdout, JSON, stream-json, SSE, model text, tool inputs, transcripts,
+          ledgers, archives, human logs, and hooks. Streaming-safe windowing for chunk-split secrets.
+        </p>
+        <p class="muted">Likely: <code>run.js</code>, <code>model-client.js</code>, <code>tool-pipeline.js</code>, <code>safety.js</code></p>
+
+        <h3><span class="status open">Open</span> P0-12 · Private session / ledger files</h3>
+        <p>
+          Directories <code>0700</code>, files <code>0600</code>; clarify that
+          <code>--no-session-persistence</code> disables resumable state only—not diagnostics.
+        </p>
+        <p class="muted">Likely: <code>run.js</code>, <code>session-store.js</code>, <code>session-ledger.js</code></p>
+      </section>
+
+      <section class="panel">
+        <h2>Constraints</h2>
+        <ul>
+          <li>Playground <code>main</code> only; no canonical promotion.</li>
+          <li>Runner/docs lane; do not touch bridge auth/proxy internals unless required.</li>
+          <li>OAuth-only — never restore upstream <code>x-api-key</code> success paths.</li>
+          <li>Do not restore agent/capability profiles.</li>
+          <li>Shell stays opt-in and unsandboxed local-account authority (P0-09).</li>
+        </ul>
+        <div class="callout">
+          After this chunk, the natural follow-on is full P0-06 <code>apply_patch</code> repair, then the broader
+          assessment work packages.
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Checks</h2>
+        <pre>node --require ./test/setup.js --test test/runner/*.test.js
+npm test
+npm run lint
+npm run check:docs
+npm run format:check</pre>
+        <p class="muted">Live canary still needs credential refresh; local fixtures are enough unless Alan asks otherwise.</p>
+      </section>
+    </div>
+  </body>
+</html>

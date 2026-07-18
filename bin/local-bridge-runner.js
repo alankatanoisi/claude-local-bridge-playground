@@ -87,11 +87,11 @@ Options:\n\
   --no-archive          Skip writing per-turn archive under ~/.bridge-runner/archive/\n\
   --accept-edits       Auto-approve write/edit/patch tools (skip confirmation)\n\
   --dont-ask           Skip confirmation for already-enabled risky tools\n\
-  --allow-shell        Enable the bash tool (disabled by default)\n\
+  --allow-shell        Enable bash/manage_shell_jobs; unsandboxed local-account authority (not cwd confinement)\n\
   --enable-lsp         Expose lsp_query (requires a language server on PATH)\n\
   --test-watch         After successful writes, run detected tests (requires --allow-shell)\n\
   --shell-timeout <ms> Max time for shell commands in ms (default: 30000; cap: 900000)\n\
-  --no-network         Best-effort HTTP/HTTPS proxy guard for shell commands; not a sandbox\n\
+  --no-network         Best-effort HTTP/HTTPS proxy guard for shell; not hard network isolation\n\
   --system-prompt <s>  Override the default system prompt\n\
   --allowed-tools <f>  Same as --tools (others hidden + denied)\n\
   --max-context-tokens <n> Warn when total tokens exceed budget; halt at 2x budget\n\
@@ -118,8 +118,9 @@ Examples:\n\
 Beginner notes:\n\
   Type the command in Terminal after the local bridge is running.\n\
   Start with --plan or read-only tools while you learn what a prompt will do.\n\
-  --accept-edits allows file changes. --allow-shell exposes bash commands.\n\
+  --accept-edits allows file changes. --allow-shell exposes unsandboxed local-account shell (not cwd confinement).\n\
   --dont-ask only skips prompts for tools you already enabled; it does not enable bash by itself.\n\
+  --no-network is a best-effort proxy guard only; it is not hard network isolation.\n\
   apply_patch is hidden by default; use --tools apply_patch only when patch-mode edits are needed.\n\
   redacted/full traces are local files that can contain prompts and source-code details.\n\
 ',
@@ -642,7 +643,10 @@ function printRuntimeTips(options) {
     console.error('[runner] warning: --accept-edits lets the model change files without a write confirmation.');
   }
   if (options.allowShell) {
-    console.error('[runner] warning: --allow-shell exposes bash. Read the proposed command before approving it.');
+    console.error(
+      '[runner] warning: --allow-shell grants unsandboxed local-account authority ' +
+        '(starts in --cwd; not cwd confinement). Read each proposed command before approving.',
+    );
   } else if (options.dontAsk) {
     console.error('[runner] tip: --dont-ask does not enable bash. Add --allow-shell only when shell access is needed.');
   }
@@ -652,7 +656,9 @@ function printRuntimeTips(options) {
     );
   }
   if (options.noNetwork) {
-    console.error('[runner] warning: --no-network is a best-effort shell proxy guard, not a network sandbox.');
+    console.error(
+      '[runner] warning: --no-network is a best-effort shell proxy guard, not hard network isolation or a sandbox.',
+    );
   }
   if (options.allowedTools) {
     console.error('[runner] tip: only these tools are visible: ' + options.allowedTools.join(', ') + '.');

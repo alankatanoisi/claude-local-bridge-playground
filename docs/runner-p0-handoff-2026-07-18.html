@@ -321,8 +321,8 @@
         <div class="meta">
           <span class="chip">Playground repository</span>
           <span class="chip">Branch: main</span>
-          <span class="chip">P0-01–06 + P1-03 done</span>
-          <span class="chip">P0-07 onward pending</span>
+          <span class="chip">P0-01–09 + P1-03 done</span>
+          <span class="chip">Next: P0-10–12 chunk</span>
         </div>
       </header>
 
@@ -369,8 +369,9 @@ git status --short</code></pre>
         <section class="panel" id="status">
           <h2>Current executive status</h2>
           <p class="muted">
-            The assessment recorded 43 findings: 12 P0, 15 P1, and 16 P2. Alan approved P0-01 through P0-03, then
-            Option 1 containment for P0-04 through P0-06 plus typed HTTP retries (P1-03).
+            The assessment recorded 43 findings: 12 P0, 15 P1, and 16 P2. Alan approved P0-01 through P0-03, Option 1
+            containment for P0-04 through P0-06 plus typed HTTP retries (P1-03), then P0-07 through P0-09. This session
+            stops after P0-09; next session takes P0-10 through P0-12 as one chunk.
           </p>
           <div class="grid">
             <article class="card">
@@ -409,14 +410,30 @@ git status --short</code></pre>
               <p>Fail-fast 4xx; retry only 429/5xx/network with Retry-After.</p>
             </article>
             <article class="card">
-              <span class="status pending">Open</span>
-              <h3>P0-07 onward</h3>
-              <p>Worktree consent, worker trust, shell honesty, redaction, private sessions.</p>
+              <span class="status done">Implemented</span>
+              <h3>P0-07 · Worktree cleanup</h3>
+              <p>Dedicated destructive-cleanup consent; never implied by accept-edits.</p>
+            </article>
+            <article class="card">
+              <span class="status done">Implemented</span>
+              <h3>P0-08 · Worker confinement</h3>
+              <p>Pinned binary, inherit trust without writing trust.json, Set allowlists.</p>
+            </article>
+            <article class="card">
+              <span class="status done">Implemented</span>
+              <h3>P0-09 · Shell honesty</h3>
+              <p>Unsandboxed local-account authority on every shell-enabling surface.</p>
+            </article>
+            <article class="card">
+              <span class="status pending">Open · next session</span>
+              <h3>P0-10–P0-12</h3>
+              <p>Permission-cache roots, centralized redaction, private session files.</p>
             </article>
           </div>
           <p>
             Full <code>apply_patch</code> repair remains open under P0-06; quarantine is containment only. Do not mark
-            the whole P0 register complete.
+            the whole P0 register complete. Prefer
+            <a href="runner-p0-next-session-handoff-2026-07-18.html">the next-session handoff</a> when starting P0-10.
           </p>
         </section>
 
@@ -534,13 +551,11 @@ git status --short</code></pre>
         <section class="panel" id="remaining">
           <h2>Recommended continuation order</h2>
           <ol>
-            <li><strong>P0-07:</strong> dedicated consent for destructive worktree cleanup (never imply from <code>--accept-edits</code>).</li>
-            <li><strong>P0-08:</strong> worker startup, trust, and confinement under the parent authority ceiling.</li>
-            <li><strong>P0-09:</strong> shell sandbox honesty — full local-account authority, not cwd confinement.</li>
-            <li><strong>P0-10–P0-12:</strong> permission-cache root changes, centralized redaction, private session files.</li>
+            <li><strong>P0-10–P0-12 (next session chunk):</strong> permission-cache root identity, centralized redaction, private 0700/0600 session/ledger files. Start from <a href="runner-p0-next-session-handoff-2026-07-18.html">the next-session handoff</a>.</li>
             <li><strong>Full P0-06 repair:</strong> argv <code>apply_patch</code>, atomic writes, hunk validation, rollback (quarantine already in place).</li>
             <li>Continue the monotonic-authority, evidence-capable plan mode, telemetry finalizer, compatibility doctor, recovery, built-ins, skills, and documentation packages from the assessment.</li>
           </ol>
+          <p class="muted">Completed in this containment arc: P0-07 worktree cleanup consent, P0-08 worker confinement, P0-09 shell honesty.</p>
           <div class="callout">
             Confirm the exact finding number and acceptance criterion in the annotated assessment before coding. This
             list is a continuation aid, not a replacement for the full evidence register.

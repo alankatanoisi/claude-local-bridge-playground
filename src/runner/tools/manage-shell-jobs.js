@@ -4,17 +4,20 @@
  * manage_shell_jobs — start, list, poll, and kill background shell commands.
  *
  * Gated behind --allow-shell (shell category). Uses the same shell-policy
- * scanner as synchronous bash.
+ * scanner as synchronous bash. Same honesty contract: unsandboxed
+ * local-account authority, not cwd confinement.
  */
 
 const { startJob, listJobs, pollJob, killJob } = require('../background-shell');
+const { SHELL_AUTHORITY_HONESTY } = require('../shell-policy');
 
 function definition() {
   return {
     name: 'manage_shell_jobs',
     description:
       'Manage background shell jobs for long-running commands (dev servers, watch tasks). ' +
-      'Actions: start (requires command), list, poll (requires job_id), kill (requires job_id).',
+      SHELL_AUTHORITY_HONESTY +
+      ' Actions: start (requires command), list, poll (requires job_id), kill (requires job_id).',
     input_schema: {
       type: 'object',
       properties: {
@@ -25,7 +28,7 @@ function definition() {
         },
         command: {
           type: 'string',
-          description: 'Shell command for action=start',
+          description: 'Shell command for action=start. Starts in --cwd but is not confined to that folder.',
         },
         job_id: {
           type: 'string',

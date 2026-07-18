@@ -311,7 +311,7 @@ The model-facing tool surface is framed as four capability groups:
 - **Skills:** `run_skill` — load a skill document body by name (read-only)
 - **Write:** `edit_file`, `write_file`
 - **Recovery:** `undo`, `undo_edit`
-- **Shell:** `bash`, `manage_shell_jobs` — hidden unless `--allow-shell` is set
+- **Shell:** `bash`, `manage_shell_jobs` — hidden unless `--allow-shell` is set; unsandboxed local-account authority (starts in `--cwd`, not a cwd jail)
 
 `apply_patch` exists in the catalog but is **quarantined**: it is never offered to the
 model and every execute path refuses with a clear unsupported message. A later repair will
@@ -417,12 +417,12 @@ Useful runner options:
 | `--bridge-url <url>`                                     | Override local bridge endpoint/root; also reads `BRIDGE_RUNNER_BRIDGE_URL`     |
 | `--caller-token <token>`                                 | Local bridge caller-auth token; can also use `BRIDGE_CALLER_TOKEN` env         |
 | `--plan`                                                 | Plan mode: describe actions instead of executing them                          |
-| `--no-network`                                           | Best-effort HTTP/HTTPS proxy guard for shell, not a network sandbox            |
+| `--no-network`                                           | Best-effort HTTP/HTTPS proxy guard for shell; not hard network isolation       |
 | `--system-prompt <s>`                                    | Override the default system prompt                                             |
 | `--continue`                                             | Resume from the latest transcript in ~/.bridge-runner/logs/                    |
 | `--stream`                                               | Stream assistant text live while still preserving streamed tool inputs         |
 | `--accept-edits`                                         | Auto-approve edit/write tools                                                  |
-| `--allow-shell`                                          | Expose the bash tool; hidden by default                                        |
+| `--allow-shell`                                          | Expose bash; unsandboxed local-account authority (not cwd confinement)         |
 | `--enable-lsp`                                           | Expose `lsp_query` (requires a language server on PATH)                        |
 | `--test-watch`                                           | After successful writes, auto-run detected tests (requires `--allow-shell`)    |
 | `--no-archive`                                           | Skip per-turn archive export to `~/.bridge-runner/archive/`                    |

