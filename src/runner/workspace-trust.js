@@ -87,10 +87,17 @@ function askInteractive(question) {
  * @returns {Promise<{ trusted: boolean, recorded?: boolean, reason?: string }>}
  */
 async function evaluateWorkspaceTrust(options) {
-  const { cwdRealpath, trustWorkspace = false, quiet = false } = options;
+  const { cwdRealpath, trustWorkspace = false, inheritTrust = false, quiet = false } = options;
 
   if (isTrusted(cwdRealpath)) {
     return { trusted: true, reason: 'prior_consent' };
+  }
+
+  // Parent already validated this cwd for the current process tree. Allow the
+  // run without writing trust.json — workers must not persist consent they
+  // did not collect from the human (P0-08).
+  if (inheritTrust) {
+    return { trusted: true, recorded: false, reason: 'inherited_trust' };
   }
 
   if (trustWorkspace) {

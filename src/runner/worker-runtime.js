@@ -1,6 +1,7 @@
 'use strict';
 
 const { spawn } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
@@ -21,15 +22,45 @@ const WORKER_STATES = Object.freeze({
   KILLED: 'killed',
 });
 
+function packageRootDir() {
+  // src/runner → package root (…/claude-local-bridge-playground)
+  return fs.realpathSync(path.join(__dirname, '../..'));
+}
+
+/**
+ * Resolve the worker CLI so a malicious --cwd cannot swap which runner code
+ * executes. The binary must realpath to this package's bin/local-bridge-runner.js
+ * (or, for explicit test overrides, stay under the package root with that name).
+ */
+function resolveRunnerBin(override) {
+  const packageRoot = packageRootDir();
+  const expected = path.join(packageRoot, 'bin', 'local-bridge-runner.js');
+  const candidate = override ? path.resolve(override) : expected;
+  let real;
+  try {
+    real = fs.realpathSync(candidate);
+  } catch (err) {
+    throw new Error('Worker runner binary missing: ' + candidate + ' (' + err.message + ')');
+  }
+  if (real === expected) return real;
+  const underPackage = real.startsWith(packageRoot + path.sep) || real === packageRoot;
+  if (!underPackage || path.basename(real) !== 'local-bridge-runner.js') {
+    throw new Error('Refusing worker runner binary outside this package (cwd must not choose the executable): ' + real);
+  }
+  return real;
+}
+
 function makeWorkerId(prefix = 'wrk') {
   return prefix + '_' + crypto.randomBytes(6).toString('hex');
 }
 
 class WorkerRuntime {
   constructor(options = {}) {
-    this.runnerBin = options.runnerBin || path.resolve(__dirname, '../../bin/local-bridge-runner.js');
+    this.runnerBin = resolveRunnerBin(options.runnerBin);
     this.workers = new Map();
     this.spawnDepth = options.spawnDepth || 0;
+    // Injectable for tests so we can assert argv without launching a child.
+    this._spawn = options.spawn || spawn;
   }
 
   spawnWorker(spec, options = {}) {
@@ -38,6 +69,8 @@ class WorkerRuntime {
     const allowedList = Array.isArray(spec.allowedTools) ? spec.allowedTools : [...DEFAULT_CHILD_TOOLS];
     const allowed = allowedList.join(',');
 
+    // Inherit this-run trust only — never --trust-workspace, which would write
+    // ~/.bridge-runner/trust.json as if the child collected human consent.
     const args = [
       this.runnerBin,
       '--cwd',
@@ -50,9 +83,11 @@ class WorkerRuntime {
       allowed,
       '--log-level',
       'quiet',
-      '--trust-workspace',
+      '--inherit-workspace-trust',
     ];
 
+    // Children stay beneath the parent ceiling: only enable shell/edits when
+    // both the parent options and the child's explicit tool list allow it.
     if (allowedList.includes('bash') && options.allowShell) args.push('--allow-shell');
     if (spec.acceptEdits && options.acceptEdits) args.push('--accept-edits');
     if (spec.dontAsk && options.dontAsk) args.push('--dont-ask');
@@ -74,7 +109,7 @@ class WorkerRuntime {
     this.workers.set(workerId, record);
 
     return new Promise((resolve) => {
-      const child = spawn(process.execPath, args, {
+      const child = this._spawn(process.execPath, args, {
         cwd: spec.cwd,
         env: { ...process.env, BRIDGE_RUNNER_SPAWN_DEPTH: String(this.spawnDepth + 1), ...options.env },
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -161,4 +196,6 @@ module.exports = {
   makeWorkerId,
   buildWorkerSummary,
   DEFAULT_CHILD_TOOLS,
+  resolveRunnerBin,
+  packageRootDir,
 };

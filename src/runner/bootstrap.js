@@ -63,6 +63,7 @@ async function runBootstrap(input) {
   const trust = await evaluateWorkspaceTrust({
     cwdRealpath: result.ctx.cwdRealpath,
     trustWorkspace: !!input.trustWorkspace,
+    inheritTrust: !!input.inheritTrust,
     quiet: !!input.quiet,
   });
   result.trust = trust;

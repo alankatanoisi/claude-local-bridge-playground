@@ -159,8 +159,8 @@ class Coordinator {
         sessionPath,
         sessionId,
         outputFormat: input.outputFormat || 'text',
-        trustWorkspace: true,
-        skipTrustGate: false,
+        inheritTrust: true,
+        trustWorkspace: false,
         ...(input.kernelOptions || {}),
       });
       this.eventBus.emit('phase', {

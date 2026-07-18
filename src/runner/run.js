@@ -86,6 +86,20 @@ function normalizeEffort(effort) {
 }
 const OUTPUT_FORMATS = new Set(['text', 'json', 'stream-json']);
 
+/**
+ * Normalize --tools / allowedTools input. AgentKernel may pass a Set; treating
+ * only Array.isArray as valid used to drop the allowlist entirely (P0-08).
+ */
+function normalizeExposedToolsList(value) {
+  if (!value) return null;
+  if (value instanceof Set) {
+    const list = [...value];
+    return list.length > 0 ? list : null;
+  }
+  if (Array.isArray(value) && value.length > 0) return value;
+  return null;
+}
+
 function extractTextBlocks(content) {
   if (!Array.isArray(content)) return '';
   return content
@@ -431,6 +445,7 @@ async function run(options) {
     sessionId,
     compactionPolicy,
     trustWorkspace,
+    inheritTrust,
     trustedWorkspace,
     chaosOk,
     maxWallClockMs,
@@ -456,10 +471,7 @@ async function run(options) {
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
-  const exposedToolsList =
-    (Array.isArray(options.exposedTools) && options.exposedTools.length > 0 && options.exposedTools) ||
-    (Array.isArray(allowedTools) && allowedTools.length > 0 && allowedTools) ||
-    null;
+  const exposedToolsList = normalizeExposedToolsList(options.exposedTools) || normalizeExposedToolsList(allowedTools);
 
   const ctx = {
     cwd: cwd || process.cwd(),
@@ -484,7 +496,9 @@ async function run(options) {
 
   ctx.allowedTools = computeAllowedTools(ctx);
 
-  if (!skipTrustGate && process.env.BRIDGE_RUNNER_TEST !== '1') {
+  // Trust bypass is opt-in via skipTrustGate (tests inject this). Do not treat
+  // BRIDGE_RUNNER_TEST as a public production escape hatch (P0-08).
+  if (!skipTrustGate) {
     const boot = await runBootstrap({
       cwd: cwd || process.cwd(),
       allowShell: !!allowShell,
@@ -492,6 +506,7 @@ async function run(options) {
       dontAsk: !!dontAsk,
       chaosOk: !!chaosOk,
       trustWorkspace: !!trustWorkspace,
+      inheritTrust: !!inheritTrust,
       trustedWorkspace: !!trustedWorkspace,
       quiet: !!quiet,
       sessionPath,
@@ -1557,6 +1572,7 @@ module.exports = {
   normalizeEffort,
   isTransientBridgeError,
   bridgeRetryDelayMs,
+  normalizeExposedToolsList,
   // Re-exported from tool-pipeline for existing callers/tests.
   _arePathsDisjoint,
   _groupDisjointWrites,

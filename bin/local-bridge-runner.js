@@ -63,6 +63,7 @@ Options:\n\
   --auto-memory        Opt-in runner auto-memory in context (default off)\n\
   --trusted-workspace  Enable hooks from .bridge-runner/hooks.json in cwd\n\
   --trust-workspace    Record trust consent for cwd (required in CI/non-interactive)\n\
+  --inherit-workspace-trust  Allow this run because a parent already validated cwd (do not write trust.json)\n\
   --chaos-ok           Allow risky flag combo: --allow-shell --accept-edits --dont-ask\n\
   --max-wall-clock-ms <n> Stop after N milliseconds\n\
   --max-cost-usd <n>    Stop after estimated cost exceeds N USD\n\
@@ -159,6 +160,7 @@ async function main() {
         'auto-memory': { type: 'boolean' },
         'trusted-workspace': { type: 'boolean' },
         'trust-workspace': { type: 'boolean' },
+        'inherit-workspace-trust': { type: 'boolean' },
         'chaos-ok': { type: 'boolean' },
         'max-wall-clock-ms': { type: 'string' },
         'max-cost-usd': { type: 'string' },
@@ -600,13 +602,16 @@ async function main() {
     autoMemory,
     trustedWorkspace: !!args.values['trusted-workspace'],
     trustWorkspace: !!args.values['trust-workspace'],
+    inheritTrust: !!args.values['inherit-workspace-trust'],
     chaosOk: !!args.values['chaos-ok'],
     maxWallClockMs: parseInt(args.values['max-wall-clock-ms'], 10) || undefined,
     maxCostUsd: parseFloat(args.values['max-cost-usd']) || undefined,
     budgetInputTokens: parseInt(args.values['budget-input-tokens'], 10) || undefined,
     budgetOutputTokens: parseInt(args.values['budget-output-tokens'], 10) || undefined,
     sessionExtract: !!args.values['session-extract'],
-    skipTrustGate: process.env.BRIDGE_RUNNER_TEST === '1' && !args.values['trust-workspace'],
+    // Tests inject skipTrustGate via test/setup.js — do not treat BRIDGE_RUNNER_TEST
+    // as a public CLI bypass (P0-08).
+    skipTrustGate: false,
     noArchive: !!args.values['no-archive'],
     bare: !!args.values.bare,
     includeInstructionDocs: !!args.values['include-instruction-docs'],

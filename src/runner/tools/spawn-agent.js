@@ -115,9 +115,10 @@ async function execute(args, ctx) {
       budgetRemaining,
     },
     {
-      allowShell: !!ctx.allowShell,
-      acceptEdits: !!ctx.acceptEdits,
-      dontAsk: !!ctx.dontAsk,
+      // Generic read-only children do not inherit shell/edit automation flags.
+      allowShell: false,
+      acceptEdits: false,
+      dontAsk: false,
     },
   );
 

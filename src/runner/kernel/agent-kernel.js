@@ -58,6 +58,7 @@ async function runKernel(input) {
     sessionId: input.sessionId,
     compactionPolicy: input.compactionPolicy,
     trustWorkspace: input.trustWorkspace,
+    inheritTrust: input.inheritTrust,
     trustedWorkspace: input.trustedWorkspace,
     chaosOk: input.chaosOk,
     maxWallClockMs: input.maxWallClockMs,
