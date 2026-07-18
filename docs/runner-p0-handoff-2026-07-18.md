@@ -64,16 +64,20 @@ Do not pull over an unexplained dirty working tree. Do not move this work to the
 
 ## Current executive status
 
-The assessment identified 43 findings: 12 P0, 15 P1, and 16 P2. Alan approved immediate implementation of P0-01 through P0-03.
+The assessment identified 43 findings: 12 P0, 15 P1, and 16 P2. Alan approved P0-01 through P0-03, then Option 1 containment for P0-04 through P0-06 plus typed HTTP retries (P1-03).
 
 | Finding | Current status | Resolution |
 |---|---|---|
-| P0-01 — invalid tool history after compaction | Implemented and verified | Semantic exchange grouping, exact tool-ID validation before every request, safe resume batching, bounded/idempotent clipping, and interactive repeated-failure recovery |
+| P0-01 — invalid tool history after compaction | Implemented and verified | Semantic exchange grouping, exact tool-ID validation before every request, safe resume batching, bounded/idempotent clipping, interactive repeated-failure recovery; second-pass review also rejects whitespace-only tool IDs |
 | P0-02 — agent profiles widen authority | Retired and archived | Runtime agent profiles and their CLI flags were removed; historical source and tests were retained as inert text files |
 | P0-03 — capability/tool profiles fail open | Retired and archived | Runtime capability profiles were removed; visibility now comes from explicit feature gates and tool allowlists |
-| P0-04 onward | Not yet implemented | Continue in risk order after reviewing the annotated assessment and the notes below |
+| P0-04 — search_text deny-matrix bypass | Implemented and verified | Shared `isFileCandidateAllowed` (realpath + deny matrix) on every search backend; symlink escape and `.env` fixtures |
+| P0-05 — hidden/aliased tool executes unoffered | Implemented and verified | Per-run `offeredTools` snapshot; execute hard-denies unoffered names and aliases |
+| P0-06 — apply_patch shell interpolation | Quarantined | Never offered; every execute path refuses until argv/atomic/hunk/rollback repair |
+| P1-03 — deterministic HTTP retries | Implemented and verified | Typed `BridgeHttpError` / `BridgeNetworkError`; fail-fast 4xx; retry only 429/5xx/network with capped Retry-After |
+| P0-07 onward | Not yet implemented | Continue in risk order after reviewing the annotated assessment |
 
-The implementation was deliberately narrower than the assessment's entire P0 work package. In particular, P0-04, exact offered-tool enforcement, patch quarantine, typed HTTP error handling, and the full telemetry finalizer remain open.
+Full `apply_patch` repair remains open under P0-06; quarantine is containment only.
 
 ## Decisions and rationale
 
@@ -185,21 +189,16 @@ An agent's belief that another folder would help is not authorization. A future 
 
 ## Verification evidence
 
-Final implementation checks completed before this handoff:
+Final implementation checks for the Option 1 containment slice (P0-04–P0-06 + P1-03):
 
-- Repository-wide Node test suite: **561/561 passed** with normal local permissions.
-- Runner-only test suite: **523/523 passed**.
+- Repository-wide Node test suite: **574/574 passed**.
+- Runner-only test suite: **537/537 passed**.
 - `npm run lint`: passed.
-- `npm run check:docs`: passed.
+- `npm run check:docs`: passed (still reports package default `claude-sonnet-4-5` — P2-15 blind spot unchanged).
 - `npm run format:check`: passed.
 - `git diff --check`: passed.
-- All six prompt-template validations passed.
-- The Harbor Python adapter and test file compiled, but the optional `harbor` Python package was unavailable for its separate unit test.
-- Browser visual inspection of local HTML was blocked by the app browser's `file://` security policy; static HTML/JavaScript validation and documentation checks passed.
 
-The test count is lower than the assessment baseline of 573 repository tests and 536 runner tests because 18 profile-specific tests were archived and 5 explicit retirement tests replaced them. The net reduction of 13 is intentional, not evidence of silently skipped tests.
-
-**Important documentation-check blind spot:** the passing check currently reports the bridge/package default as `claude-sonnet-4-5`, while `bin/local-bridge-runner.js`, the runner quickstart, and the command builder identify `claude-sonnet-4-6` as the runner default. `scripts/check-doc-defaults.js` checks three bridge/package defaults but does not compare the runner CLI default. This is a concrete reproduction of assessment finding P2-15 and should be addressed by the shared runtime manifest/document-generation work—not by silently changing either model constant during unrelated P0 containment.
+No live bridge canary was run in this slice; typed 401 fail-fast is covered by unit tests. Refresh Claude Code / VS Code credentials before any paid multi-turn canary.
 
 ## Live canary status
 
@@ -220,25 +219,22 @@ Do not “fix” the second response by restoring an upstream `x-api-key` succes
 
 ### Next containment slice
 
-1. **P0-04 — search confinement and deny-matrix parity**
-   - Apply the shared candidate safety predicate to every `search_text` backend and immediately before I/O.
-   - Cover ripgrep, fallback traversal, symlink aliases, and denied files.
-   - Consider a separately designed, explicit extra-root request later; do not weaken credential denies.
-2. **P0-05 — exact offered-tool enforcement**
-   - Reject model-returned names and aliases unless the canonical tool was in the exact definition set sent for that turn.
-3. **P0-06 — quarantine or repair advanced patch mode**
-   - Keep `apply_patch` unavailable until argument-vector execution, atomic writes, backups, full hunk validation, and rollback are established.
-4. **Typed bridge error handling**
-   - Deterministic 4xx errors should fail once.
-   - Only 429, 5xx, and network failures should receive a capped transient retry budget with backoff and `Retry-After` support.
+1. **P0-07 — destructive worktree cleanup confirmation**
+   - Dedicated consent that shows branch, dirty state, and deletion behavior; never imply from `--accept-edits`.
+2. **P0-08 — worker startup / trust / confinement**
+   - Keep child authority beneath the parent ceiling after profile retirement.
+3. **P0-09 — shell sandbox honesty**
+   - Document and enforce that shell is full local-account authority, not cwd confinement.
+4. **P0-10 — permission cache across root changes**
+5. **P0-11 / P0-12 — centralized redaction and private session files**
+6. **Full P0-06 repair** — argv `apply_patch`, atomic writes, hunk validation, rollback (after quarantine).
 
-Confirm the exact P0 numbering against the annotated assessment before coding; do not infer an ID solely from this abbreviated list.
+Confirm the exact P0 numbering against the annotated assessment before coding.
 
 ### Then continue the assessment sequence
 
 - Monotonic authority ceiling across plan, tools, trust, shell, edits, network, budgets, and parent/child runs.
 - Evidence-capable plan mode: execute pure reads, fabricate only effectful operations.
-- Destructive worktree cleanup confirmation and coordinator trust repair.
 - Complete private telemetry/session bundle and one terminal finalizer.
 - Compatibility doctor for CLI fingerprints, headers, models, effort, thinking, context, and parameter constraints.
 - Recovery/session completion, built-in/template cleanup, packaged skills, and the larger documentation rewrite.

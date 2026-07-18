@@ -9,6 +9,9 @@
  *
  * Endpoint: POST http://127.0.0.1:11437/v1/messages
  * Body: Anthropic Messages API JSON
+ *
+ * Errors are typed so the agent loop can fail-fast on deterministic 4xx
+ * responses and only retry transient 429 / 5xx / network failures.
  */
 
 const http = require('http');
@@ -19,12 +22,35 @@ const DEFAULT_BRIDGE_URL = 'http://127.0.0.1:11437/v1/messages';
 // TCP connection instead of paying a handshake penalty on every turn.
 const keepAliveAgent = new http.Agent({ keepAlive: true, maxSockets: 1 });
 
+class BridgeHttpError extends Error {
+  constructor(statusCode, body, headers = {}) {
+    const snippet = typeof body === 'string' ? body.slice(0, 500) : '';
+    super('Bridge returned HTTP ' + statusCode + ': ' + snippet);
+    this.name = 'BridgeHttpError';
+    this.statusCode = statusCode;
+    this.body = body;
+    this.headers = headers || {};
+    // Deterministic client errors (incl. 401) must not consume retry budget.
+    // 429 and 5xx are transient and may retry with backoff / Retry-After.
+    this.retryable = statusCode === 429 || statusCode >= 500;
+  }
+}
+
+class BridgeNetworkError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'BridgeNetworkError';
+    this.retryable = true;
+  }
+}
+
 function responseMeta(res) {
   return {
     status_code: res.statusCode,
     headers: {
       'content-type': res.headers['content-type'] || null,
       'x-request-id': res.headers['x-request-id'] || null,
+      'retry-after': res.headers['retry-after'] || null,
       'anthropic-ratelimit-requests-remaining': res.headers['anthropic-ratelimit-requests-remaining'] || null,
       'anthropic-ratelimit-tokens-remaining': res.headers['anthropic-ratelimit-tokens-remaining'] || null,
     },
@@ -34,6 +60,24 @@ function responseMeta(res) {
 function withCallerAuth(headers = {}, callerToken) {
   if (!callerToken) return headers;
   return { authorization: 'Bearer ' + callerToken, ...headers };
+}
+
+/**
+ * Parse Retry-After as seconds. Supports integer seconds and HTTP-date.
+ * Returns null when absent or unusable.
+ */
+function parseRetryAfterSeconds(headers) {
+  const raw = headers && (headers['retry-after'] || headers['Retry-After']);
+  if (raw === null || raw === undefined || raw === '') return null;
+  const asInt = Number.parseInt(String(raw), 10);
+  if (Number.isFinite(asInt) && String(asInt) === String(raw).trim()) {
+    return Math.max(0, asInt);
+  }
+  const when = Date.parse(String(raw));
+  if (!Number.isNaN(when)) {
+    return Math.max(0, Math.ceil((when - Date.now()) / 1000));
+  }
+  return null;
 }
 
 function post(body, bridgeUrl, opts = {}) {
@@ -62,7 +106,7 @@ function post(body, bridgeUrl, opts = {}) {
       res.on('end', () => {
         const raw = Buffer.concat(chunks).toString('utf8');
         if (res.statusCode !== 200) {
-          reject(new Error('Bridge returned HTTP ' + res.statusCode + ': ' + raw.slice(0, 500)));
+          reject(new BridgeHttpError(res.statusCode, raw, res.headers));
           return;
         }
         try {
@@ -75,10 +119,10 @@ function post(body, bridgeUrl, opts = {}) {
       });
     });
 
-    req.on('error', (err) => reject(new Error('Request error: ' + err.message)));
+    req.on('error', (err) => reject(new BridgeNetworkError('Request error: ' + err.message)));
     req.on('timeout', () => {
       req.destroy();
-      reject(new Error('Request timed out after 120s'));
+      reject(new BridgeNetworkError('Request timed out after 120s'));
     });
 
     req.write(bodyStr);
@@ -119,7 +163,7 @@ function postStream(body, cb, bridgeUrl, opts) {
         res.on('data', (c) => chunks.push(c));
         res.on('end', () => {
           const raw = Buffer.concat(chunks).toString('utf8');
-          reject(new Error('Bridge returned HTTP ' + res.statusCode + ': ' + raw.slice(0, 500)));
+          reject(new BridgeHttpError(res.statusCode, raw, res.headers));
         });
         return;
       }
@@ -244,14 +288,14 @@ function postStream(body, cb, bridgeUrl, opts) {
       });
 
       res.on('error', (err) => {
-        reject(new Error('Stream error: ' + err.message));
+        reject(new BridgeNetworkError('Stream error: ' + err.message));
       });
     });
 
-    req.on('error', (err) => reject(new Error('Request error: ' + err.message)));
+    req.on('error', (err) => reject(new BridgeNetworkError('Request error: ' + err.message)));
     req.on('timeout', () => {
       req.destroy();
-      reject(new Error('Request timed out after 120s'));
+      reject(new BridgeNetworkError('Request timed out after 120s'));
     });
 
     req.write(bodyStr);
@@ -259,4 +303,11 @@ function postStream(body, cb, bridgeUrl, opts) {
   });
 }
 
-module.exports = { post, postStream, withCallerAuth };
+module.exports = {
+  post,
+  postStream,
+  withCallerAuth,
+  BridgeHttpError,
+  BridgeNetworkError,
+  parseRetryAfterSeconds,
+};

@@ -55,7 +55,13 @@
  */
 
 const path = require('path');
-const { getDefinitions, execute, executeForce, executeReadOnlyBatch } = require('./tool-registry');
+const {
+  getDefinitions,
+  execute,
+  executeForce,
+  executeReadOnlyBatch,
+  snapshotOfferedTools,
+} = require('./tool-registry');
 const { CATEGORIES } = require('./tool-catalog');
 const safety = require('./safety');
 const { makeEffectId } = require('./session-ledger');
@@ -519,7 +525,11 @@ function createToolPipeline(deps = {}) {
 
   return {
     toolDefinitions() {
-      return getDefinitions(ctx);
+      const defs = getDefinitions(ctx);
+      // Pin the exact offered set for this run so execute hard-denies any
+      // name/alias the model invents that was not in the request tools array.
+      snapshotOfferedTools(ctx, defs);
+      return defs;
     },
     executeTurn,
     get failureStreak() {

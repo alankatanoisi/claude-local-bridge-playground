@@ -69,6 +69,10 @@ describe('tool catalog — derived maps', () => {
     assert.deepEqual([...catalog.DEFAULT_HIDDEN_TOOLS], ['apply_patch']);
   });
 
+  it('derives QUARANTINED_TOOLS from meta.quarantined', () => {
+    assert.deepEqual([...catalog.QUARANTINED_TOOLS], ['apply_patch']);
+  });
+
   it('every category is one of the six valid kinds', () => {
     for (const [name, category] of Object.entries(catalog.CATEGORIES)) {
       assert.ok(catalog.VALID_CATEGORIES.has(category), name + ' has a valid category');

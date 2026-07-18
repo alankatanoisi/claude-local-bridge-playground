@@ -33,12 +33,18 @@ function contentBlocks(message) {
 
 function toolUseIds(message) {
   if (!message || message.role !== 'assistant' || !Array.isArray(message.content)) return [];
-  return message.content.filter((block) => block?.type === 'tool_use').map((block) => block.id);
+  return message.content
+    .filter((block) => block?.type === 'tool_use')
+    .map((block) => (typeof block.id === 'string' ? block.id.trim() : ''))
+    .filter(Boolean);
 }
 
 function toolResultIds(message) {
   if (!message || message.role !== 'user' || !Array.isArray(message.content)) return [];
-  return message.content.filter((block) => block?.type === 'tool_result').map((block) => block.tool_use_id);
+  return message.content
+    .filter((block) => block?.type === 'tool_result')
+    .map((block) => (typeof block.tool_use_id === 'string' ? block.tool_use_id.trim() : ''))
+    .filter(Boolean);
 }
 
 function sameIdSet(left, right) {
@@ -76,14 +82,18 @@ function assertValidAnthropicMessages(messages) {
           fail('tool_result blocks may only appear in user messages.', { index });
         }
         if (block?.type !== 'tool_use') continue;
-        if (!block.id || !block.name) {
-          fail('Every tool_use block must include id and name.', { index, block });
+        // IDs must be non-empty after trim so whitespace-only values cannot
+        // slip past a truthiness check and create an unmatchable pairing.
+        const useId = typeof block.id === 'string' ? block.id.trim() : '';
+        const useName = typeof block.name === 'string' ? block.name.trim() : '';
+        if (!useId || !useName) {
+          fail('Every tool_use block must include a non-empty id and name.', { index, block });
         }
-        if (seenToolUses.has(block.id)) {
-          fail('Duplicate tool_use id: ' + block.id, { index, toolUseId: block.id });
+        if (seenToolUses.has(useId)) {
+          fail('Duplicate tool_use id: ' + useId, { index, toolUseId: useId });
         }
-        seenToolUses.add(block.id);
-        uses.push(block.id);
+        seenToolUses.add(useId);
+        uses.push(useId);
       }
 
       if (uses.length === 0) continue;
@@ -119,14 +129,15 @@ function assertValidAnthropicMessages(messages) {
       if (nonResultBlockSeen) {
         fail('tool_result blocks must come before text or other blocks in a user message.', { index });
       }
-      if (!block.tool_use_id) {
-        fail('Every tool_result block must include tool_use_id.', { index, block });
+      const resultId = typeof block.tool_use_id === 'string' ? block.tool_use_id.trim() : '';
+      if (!resultId) {
+        fail('Every tool_result block must include a non-empty tool_use_id.', { index, block });
       }
-      if (seenToolResults.has(block.tool_use_id)) {
-        fail('Duplicate tool_result id: ' + block.tool_use_id, { index, toolUseId: block.tool_use_id });
+      if (seenToolResults.has(resultId)) {
+        fail('Duplicate tool_result id: ' + resultId, { index, toolUseId: resultId });
       }
-      seenToolResults.add(block.tool_use_id);
-      results.push(block.tool_use_id);
+      seenToolResults.add(resultId);
+      results.push(resultId);
     }
 
     if (results.length === 0) continue;

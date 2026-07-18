@@ -119,6 +119,20 @@ function applyBasicPatch(lines, patchText) {
 }
 
 function execute(args, ctx) {
+  // P0-06 quarantine: shell-interpolated patch + incomplete hunk/rollback
+  // semantics are unsafe. Refuse every call until argv execution, atomic
+  // writes, full hunk validation, and rollback land in a later repair.
+  void args;
+  void ctx;
+  return {
+    ok: false,
+    text:
+      'apply_patch is quarantined until it uses argv-based patch execution, ' +
+      'atomic writes, full hunk validation, and rollback. Use edit_file or write_file instead.',
+  };
+}
+
+function _legacyUnsafeExecute(args, ctx) {
   // Validate path stays inside the project
   const confined = safety.confinePath(ctx, args.path);
   if (!confined) {
@@ -159,4 +173,9 @@ function execute(args, ctx) {
   return { ok: true, text: 'Patch applied (basic patcher). Backup: ' + backupPath };
 }
 
-module.exports = { definition, execute, meta: { name: 'apply_patch', category: 'write', hidden: true } };
+module.exports = {
+  definition,
+  execute,
+  _legacyUnsafeExecute,
+  meta: { name: 'apply_patch', category: 'write', hidden: true, quarantined: true },
+};

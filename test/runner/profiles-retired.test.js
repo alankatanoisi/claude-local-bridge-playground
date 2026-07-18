@@ -40,9 +40,12 @@ describe('retired runner profiles', () => {
       _cliToolAllowlist: new Set(['read_file', 'bash', 'apply_patch']),
     };
     const allowed = computeAllowedTools(ctx);
-    assert.deepEqual([...allowed].sort(), ['apply_patch', 'read_file']);
+    // apply_patch is quarantined: naming it in --tools must not expose it.
+    // bash still requires --allow-shell even when named.
+    assert.deepEqual([...allowed].sort(), ['read_file']);
     assert.equal(isToolVisible('read_file', { ...ctx, allowedTools: allowed }), true);
     assert.equal(isToolVisible('bash', { ...ctx, allowedTools: allowed }), false);
+    assert.equal(isToolVisible('apply_patch', { ...ctx, allowedTools: allowed }), false);
   });
 
   it('keeps subagents generic and read-only without a profile selector', () => {

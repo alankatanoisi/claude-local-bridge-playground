@@ -57,6 +57,7 @@ function buildCatalog(modules) {
   const CATEGORIES = {};
   const WRITE_TOOLS = new Set();
   const DEFAULT_HIDDEN_TOOLS = new Set();
+  const QUARANTINED_TOOLS = new Set();
 
   for (const mod of modules) {
     const meta = mod && mod.meta;
@@ -82,11 +83,21 @@ function buildCatalog(modules) {
     CATEGORIES[meta.name] = meta.category;
     if (meta.category === 'write') WRITE_TOOLS.add(meta.name);
     if (meta.hidden) DEFAULT_HIDDEN_TOOLS.add(meta.name);
+    if (meta.quarantined) QUARANTINED_TOOLS.add(meta.name);
   }
 
-  return { TOOLS, CATEGORIES, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS };
+  return { TOOLS, CATEGORIES, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS, QUARANTINED_TOOLS };
 }
 
-const { TOOLS, CATEGORIES, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS } = buildCatalog(TOOL_MODULES);
+const { TOOLS, CATEGORIES, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS, QUARANTINED_TOOLS } = buildCatalog(TOOL_MODULES);
 
-module.exports = { TOOLS, CATEGORIES, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS, VALID_CATEGORIES, buildCatalog, TOOL_MODULES };
+module.exports = {
+  TOOLS,
+  CATEGORIES,
+  WRITE_TOOLS,
+  DEFAULT_HIDDEN_TOOLS,
+  QUARANTINED_TOOLS,
+  VALID_CATEGORIES,
+  buildCatalog,
+  TOOL_MODULES,
+};

@@ -64,4 +64,38 @@ describe('search_text tool', () => {
     assert.ok(!result.text.includes('actions-runner'));
     assert.ok(!result.text.includes('do-not-search-this-text'));
   });
+
+  it('does not return matches from deny-matrix files such as .env', () => {
+    fs.writeFileSync(path.join(tmpDir, '.env'), 'SEARCH_DENY_SECRET=super-secret-value\n');
+    fs.writeFileSync(path.join(tmpDir, 'safe.txt'), 'SEARCH_DENY_SECRET should appear only here\n');
+
+    const result = execute({ pattern: 'SEARCH_DENY_SECRET' }, ctx);
+
+    assert.equal(result.ok, true);
+    assert.ok(result.text.includes('safe.txt'), 'ordinary files remain searchable');
+    assert.ok(!result.text.includes('.env'), 'deny-matrix path must not appear');
+    assert.ok(!result.text.includes('super-secret-value'), 'secret value must not leak via search');
+  });
+
+  it('refuses a direct search path that points at a deny-matrix file', () => {
+    fs.writeFileSync(path.join(tmpDir, '.env'), 'DIRECT_ENV_SECRET=nope\n');
+    const result = execute({ pattern: 'DIRECT_ENV_SECRET', path: '.env' }, ctx);
+    assert.equal(result.ok, false);
+    assert.match(result.text, /Blocked file type|potential secret/i);
+    assert.ok(!result.text.includes('nope'));
+  });
+
+  it('does not follow a project symlink to a file outside --cwd', () => {
+    const outsideDir = fs.mkdtempSync(path.join(os.tmpdir(), 'search-outside-'));
+    const outsideFile = path.join(outsideDir, 'outside-secret.txt');
+    fs.writeFileSync(outsideFile, 'SYMLINK_ESCAPE_NEEDLE=outside\n');
+    const linkPath = path.join(tmpDir, 'alias-outside.txt');
+    fs.symlinkSync(outsideFile, linkPath);
+
+    const result = execute({ pattern: 'SYMLINK_ESCAPE_NEEDLE' }, ctx);
+
+    assert.equal(result.ok, true);
+    assert.ok(!result.text.includes('SYMLINK_ESCAPE_NEEDLE'));
+    assert.ok(!result.text.includes('outside-secret'));
+  });
 });

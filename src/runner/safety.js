@@ -456,6 +456,56 @@ function isPathBlockedByDenyMatrix(resolvedPath) {
   return false;
 }
 
+/**
+ * Shared predicate for traversal tools (search_text, and similar).
+ *
+ * Two independent boundaries, both required:
+ *   1. Location — the candidate's realpath must stay under --cwd.
+ *   2. File class — deny-matrix patterns (.env, keys, .ssh, …) stay blocked
+ *      even when the file lives inside the authorized root.
+ *
+ * Symlink aliases are resolved before the checks so a link inside the project
+ * cannot silently grant access to a file outside it.
+ *
+ * @param {object} ctx — runner context with cwd / cwdRealpath
+ * @param {string} absolutePath — absolute path to the candidate file or dir
+ * @returns {boolean}
+ */
+function isFileCandidateAllowed(ctx, absolutePath) {
+  if (!absolutePath || typeof absolutePath !== 'string') return false;
+
+  const cwdInput = ctx && (ctx.cwdRealpath || ctx.cwd);
+  if (!cwdInput) return false;
+  const cwdAbs = path.resolve(cwdInput);
+
+  let rel = path.relative(cwdAbs, absolutePath);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) return false;
+  if (rel === '') rel = '.';
+
+  const confined = confinePath(ctx, rel);
+  if (!confined) return false;
+  if (isPathBlockedByDenyMatrix(confined)) return false;
+
+  // Re-check the realpath target so a project-local symlink cannot point at a
+  // denied file or escape the working tree.
+  try {
+    if (!fs.existsSync(absolutePath)) return true;
+    const real = cachedRealpathSync(ctx, absolutePath);
+    let realCwd;
+    try {
+      realCwd = cachedRealpathSync(ctx, cwdAbs);
+    } catch {
+      realCwd = cwdAbs;
+    }
+    if (!real.startsWith(realCwd + path.sep) && real !== realCwd) return false;
+    if (isPathBlockedByDenyMatrix(real)) return false;
+  } catch {
+    return false;
+  }
+
+  return true;
+}
+
 module.exports = {
   validateCwd,
   confinePath,
@@ -464,6 +514,7 @@ module.exports = {
   scrubObject,
   buildSafeEnv,
   isPathBlockedByDenyMatrix,
+  isFileCandidateAllowed,
   cachedRealpathSync,
   invalidateRealpathCache,
   makeStreamingScrubber,

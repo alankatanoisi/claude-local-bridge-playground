@@ -50,7 +50,7 @@
  * All three return Promises. Synchronous callers should `await`.
  */
 
-const { TOOLS, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS } = require('./tool-catalog');
+const { TOOLS, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS, QUARANTINED_TOOLS } = require('./tool-catalog');
 const { isToolVisible } = require('./tool-visibility');
 const permissions = require('./permissions');
 const safety = require('./safety');
@@ -66,6 +66,43 @@ function getDefinitions(ctx) {
   return Object.entries(TOOLS)
     .filter(([name]) => isToolVisible(name, ctx))
     .map(([, tool]) => tool.definition());
+}
+
+/**
+ * Snapshot the canonical names offered on this turn. Callers (the agent loop)
+ * set ctx.offeredTools from getDefinitions() so execute can hard-deny anything
+ * the model invents that was never in the request tools array.
+ */
+function snapshotOfferedTools(ctx, definitions) {
+  const offered = new Set((definitions || getDefinitions(ctx)).map((def) => def.name));
+  if (ctx) ctx.offeredTools = offered;
+  return offered;
+}
+
+/**
+ * A tool may run only when its canonical name was in the exact definition set
+ * sent for this turn. Quarantined tools are never offered.
+ *
+ * When offeredTools is unset (direct unit tests / older call sites), defer to
+ * permissions and other gates so messages like "--allow-shell" stay accurate.
+ * Production always snapshots via toolDefinitions().
+ */
+function isOfferedThisTurn(canonical, ctx) {
+  if (QUARANTINED_TOOLS.has(canonical)) return false;
+  if (ctx && ctx.offeredTools instanceof Set) return ctx.offeredTools.has(canonical);
+  return true;
+}
+
+function denyNotOffered(toolName, canonical, aliasUsed) {
+  const via = aliasUsed ? ' (alias "' + aliasUsed + '" → ' + canonical + ')' : '';
+  return {
+    ok: false,
+    text:
+      'Tool not offered this turn: ' +
+      toolName +
+      via +
+      '. The model may only call tools included in the current request definitions.',
+  };
 }
 
 // Tools may return:
@@ -189,6 +226,11 @@ function wrapPermissionResult(perm, toolName, args) {
 async function execute(toolName, args, ctx, toolUseId) {
   const resolved = resolveToolName(toolName);
   const canonical = resolved.canonical;
+
+  if (!isOfferedThisTurn(canonical, ctx)) {
+    return denyNotOffered(toolName, canonical, resolved.aliasUsed);
+  }
+
   const perm = permissions.check(canonical, args, ctx);
   const blocked = wrapPermissionResult(perm, canonical, args);
   if (blocked) return blocked;
@@ -226,6 +268,11 @@ async function execute(toolName, args, ctx, toolUseId) {
 async function executeForce(toolName, args, ctx, toolUseId) {
   const resolved = resolveToolName(toolName);
   const canonical = resolved.canonical;
+
+  if (!isOfferedThisTurn(canonical, ctx)) {
+    return denyNotOffered(toolName, canonical, resolved.aliasUsed);
+  }
+
   const perm = permissions.check(canonical, args, { ...ctx, acceptEdits: true, dontAsk: true });
   if (permissions.isHardDeny(perm)) {
     return { ok: false, text: 'Permission denied: ' + perm.reason, permission: perm };
@@ -288,10 +335,12 @@ async function executeReadOnlyBatch(toolUses, ctx) {
 
 module.exports = {
   getDefinitions,
+  snapshotOfferedTools,
   execute,
   executeForce,
   executeReadOnlyBatch,
   TOOLS,
   WRITE_TOOLS,
   DEFAULT_HIDDEN_TOOLS,
+  QUARANTINED_TOOLS,
 };

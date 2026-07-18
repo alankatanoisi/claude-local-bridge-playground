@@ -10,6 +10,10 @@
  * That matters because agents naturally ask "search this file for X"; treating
  * a file path as a shell working directory makes rg/grep fail with ENOTDIR and
  * burns an extra model turn.
+ *
+ * Safety: every candidate file is checked with safety.isFileCandidateAllowed
+ * (realpath confinement + deny matrix) before its contents can reach the model.
+ * rg/grep exclusions are defense-in-depth; the shared predicate is authoritative.
  */
 
 const { execSync } = require('child_process');
@@ -21,13 +25,18 @@ const searchCache = require('./_search-cache');
 
 const MAX_OUTPUT_LINES = 200;
 
+// Extra rg/grep excludes for common secret basenames. Complex deny-matrix
+// patterns still rely on isFileCandidateAllowed after the shell tool returns.
+const DENY_BASENAME_GLOBS = ['.env', '.env*', '.netrc', '.npmrc', '*.pem', '*.key', '*.p8', '*.p12', '*.pfx'];
+
 function definition() {
   return {
     name: 'search_text',
     description:
       'Search for a text pattern inside the project. ' +
       'Prefers ripgrep, falls back to grep or Node walk. ' +
-      'Skips .git, node_modules, dist, build, coverage, and actions-runner.',
+      'Skips .git, node_modules, dist, build, coverage, and actions-runner. ' +
+      'Never returns matches from deny-matrix files (.env, keys, credentials).',
     input_schema: {
       type: 'object',
       properties: {
@@ -37,7 +46,7 @@ function definition() {
         },
         path: {
           type: 'string',
-          description: 'Relative subdirectory to search in (default: whole project)',
+          description: 'Relative subdirectory or file to search in (default: whole project)',
         },
       },
       required: ['pattern'],
@@ -73,9 +82,10 @@ function shellEscape(str) {
 }
 
 function searchWithRg(pattern, targetDir, targetFile) {
+  const excludeGlobs = [...BLOCKED_DIRS.map((d) => '!' + d), ...DENY_BASENAME_GLOBS.map((g) => '!' + g)];
   const cmd =
     'rg -i -n --max-count 50 --hidden ' +
-    BLOCKED_DIRS.map((d) => '-g ' + shellEscape('!' + d)).join(' ') +
+    excludeGlobs.map((g) => '-g ' + shellEscape(g)).join(' ') +
     ' -- ' +
     shellEscape(pattern) +
     (targetFile ? ' ' + shellEscape(targetFile) : '');
@@ -93,6 +103,7 @@ function searchWithGrep(pattern, targetDir, targetFile) {
     ? 'grep -i -n --max-count=50 ' + shellEscape(pattern) + ' ' + shellEscape(targetFile)
     : 'grep -r -i -n --max-count=50 ' +
       BLOCKED_DIRS.map((d) => '--exclude-dir=' + shellEscape(d)).join(' ') +
+      DENY_BASENAME_GLOBS.map((g) => ' --exclude=' + shellEscape(g)).join('') +
       ' ' +
       shellEscape(pattern) +
       ' .';
@@ -105,10 +116,11 @@ function searchWithGrep(pattern, targetDir, targetFile) {
   return result;
 }
 
-function searchWithNode(pattern, targetDir, targetFile) {
+function searchWithNode(pattern, targetDir, targetFile, ctx) {
   const lowerPattern = pattern.toLowerCase();
   const results = [];
   function searchFile(full) {
+    if (!safety.isFileCandidateAllowed(ctx, full)) return;
     try {
       const text = fs.readFileSync(full, 'utf8');
       const lines = text.split('\n');
@@ -135,6 +147,9 @@ function searchWithNode(pattern, targetDir, targetFile) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (BLOCKED_DIRS.includes(entry.name)) continue;
+        // Skip sensitive trees (.ssh, .aws, …) before descending.
+        if (safety.isPathBlockedByDenyMatrix(full)) continue;
+        if (!safety.isFileCandidateAllowed(ctx, full)) continue;
         walk(full);
       } else if (entry.isFile()) {
         searchFile(full);
@@ -145,26 +160,68 @@ function searchWithNode(pattern, targetDir, targetFile) {
   return results.join('\n');
 }
 
+/**
+ * Parse "relpath:lineno:text" hits and drop any whose resolved file fails the
+ * shared candidate predicate. Covers rg/grep backends that may still touch a
+ * deny-matrix file despite exclude globs.
+ *
+ * When targetFile is set, rg/grep emit "lineno:text" without a path prefix —
+ * the candidate was already checked before the search, so pass lines through.
+ */
+function filterSearchHits(raw, targetDir, ctx, targetFile) {
+  if (!raw || !raw.trim()) return '';
+  if (targetFile) {
+    const full = path.join(targetDir, targetFile);
+    if (!safety.isFileCandidateAllowed(ctx, full)) return '';
+    return raw.split('\n').filter(Boolean).slice(0, MAX_OUTPUT_LINES).join('\n');
+  }
+  const kept = [];
+  for (const line of raw.split('\n')) {
+    if (!line) continue;
+    // ripgrep/grep: path:line:content — take the path before the first :digits:
+    const match = line.match(/^(.+?):(\d+):(.*)$/);
+    if (!match) continue;
+    const hitPath = path.resolve(targetDir, match[1]);
+    if (!safety.isFileCandidateAllowed(ctx, hitPath)) continue;
+    kept.push(line);
+    if (kept.length >= MAX_OUTPUT_LINES) break;
+  }
+  return kept.join('\n');
+}
+
 function execute(args, ctx) {
-  const cwd = ctx.cwd || process.cwd();
-  const requestedPath = args && args.path ? path.resolve(cwd, args.path) : cwd;
-  const pattern = args.pattern;
+  const pattern = args && args.pattern;
 
   if (!pattern) {
     return { ok: false, text: 'Missing pattern argument.' };
   }
 
-  let targetDir = requestedPath;
+  // Confine the search root before any backend I/O. Default is the project root.
+  const requestedRel = args && args.path ? args.path : '.';
+  const confinedRoot = safety.confinePath(ctx, requestedRel);
+  if (!confinedRoot) {
+    return { ok: false, text: 'Search path escapes working directory: ' + (args.path || '.') };
+  }
+
+  let targetDir = confinedRoot;
   let targetFile = null;
   try {
-    const stat = fs.statSync(requestedPath);
+    const stat = fs.statSync(confinedRoot);
     if (stat.isFile()) {
+      if (!safety.isFileCandidateAllowed(ctx, confinedRoot)) {
+        return {
+          ok: false,
+          text: 'Blocked file type (potential secret): ' + path.basename(confinedRoot),
+        };
+      }
       // Shell tools need a directory as cwd. For file-scoped search we run from
       // the parent directory and pass the filename as the explicit search target.
-      targetDir = path.dirname(requestedPath);
-      targetFile = path.basename(requestedPath);
+      targetDir = path.dirname(confinedRoot);
+      targetFile = path.basename(confinedRoot);
     } else if (!stat.isDirectory()) {
       return { ok: false, text: 'Search path is neither a file nor a directory: ' + (args.path || '.') };
+    } else if (!safety.isFileCandidateAllowed(ctx, confinedRoot)) {
+      return { ok: false, text: 'Search path is blocked: ' + (args.path || '.') };
     }
   } catch (err) {
     return { ok: false, text: 'Search path not found: ' + (args.path || '.') + ' (' + err.message + ')' };
@@ -189,7 +246,7 @@ function execute(args, ctx) {
   // Try ripgrep first
   if (rgAvailable()) {
     try {
-      raw = searchWithRg(pattern, targetDir, targetFile);
+      raw = filterSearchHits(searchWithRg(pattern, targetDir, targetFile), targetDir, ctx, targetFile);
     } catch (err) {
       // rg returns exit code 1 when no matches — that's not an error
       if (err.status !== 1) lastErr = err;
@@ -199,17 +256,17 @@ function execute(args, ctx) {
   // Fall back to grep
   if (!raw && grepAvailable()) {
     try {
-      raw = searchWithGrep(pattern, targetDir, targetFile);
+      raw = filterSearchHits(searchWithGrep(pattern, targetDir, targetFile), targetDir, ctx, targetFile);
     } catch (err) {
       // grep returns exit code 1 when no matches — that's not an error
       if (err.status !== 1) lastErr = err;
     }
   }
 
-  // Final fallback to pure Node walk
+  // Final fallback to pure Node walk (predicate enforced per file)
   if (!raw) {
     try {
-      raw = searchWithNode(pattern, targetDir, targetFile);
+      raw = searchWithNode(pattern, targetDir, targetFile, ctx);
     } catch (err) {
       lastErr = err;
     }

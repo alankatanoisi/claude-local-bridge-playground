@@ -51,13 +51,26 @@ describe('model-client', () => {
     }
   });
 
-  it('handles 400 error', async () => {
+  it('handles 400 error as a typed BridgeHttpError that is not retryable', async () => {
+    const { BridgeHttpError } = require('../../src/runner/model-client');
     const { server, url } = await createMockServer({ error: 'bad request' }, 400);
     try {
-      await assert.rejects(post({ model: 'test', max_tokens: 10, messages: [] }, url), /HTTP 400/);
+      await assert.rejects(
+        post({ model: 'test', max_tokens: 10, messages: [] }, url),
+        (err) => err instanceof BridgeHttpError && err.statusCode === 400 && err.retryable === false,
+      );
     } finally {
       server.close();
     }
+  });
+
+  it('marks HTTP 401 as non-retryable and HTTP 429 as retryable', async () => {
+    const { BridgeHttpError, parseRetryAfterSeconds } = require('../../src/runner/model-client');
+    const unauthorized = new BridgeHttpError(401, 'nope', {});
+    assert.equal(unauthorized.retryable, false);
+    const limited = new BridgeHttpError(429, 'slow down', { 'retry-after': '2' });
+    assert.equal(limited.retryable, true);
+    assert.equal(parseRetryAfterSeconds(limited.headers), 2);
   });
 
   it('handles 500 error', async () => {

@@ -122,4 +122,16 @@ describe('Anthropic message contract', () => {
     const compactedAgain = summarizeOldTurns(compacted.messages, 2);
     assert.doesNotThrow(() => assertValidAnthropicMessages(compactedAgain.messages));
   });
+
+  it('rejects whitespace-only tool ids as a local contract failure', () => {
+    assert.throws(
+      () =>
+        assertValidAnthropicMessages([
+          { role: 'user', content: 'go' },
+          { role: 'assistant', content: [{ type: 'tool_use', id: '  ', name: 'read_file', input: {} }] },
+          { role: 'user', content: [toolResult('  ')] },
+        ]),
+      (error) => error instanceof MessageContractError,
+    );
+  });
 });

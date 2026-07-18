@@ -5,6 +5,7 @@ const { buildUserMessage, buildRepoContextBlock, buildDynamicEnvironmentBlock } 
 const { resolveContextPolicy } = require('./context-policy');
 const { resolveSystemPrompt } = require('./system-prompt');
 const modelClient = require('./model-client');
+const { parseRetryAfterSeconds } = modelClient;
 const { createToolPipeline, _arePathsDisjoint, _groupDisjointWrites } = require('./tool-pipeline');
 const { Transcript } = require('./transcript');
 const confirm = require('./confirmation');
@@ -49,7 +50,31 @@ const { writeRunManifest } = require('./recovery/run-manifest');
 const DEFAULT_MAX_STEPS = 16;
 const MAX_CONSECUTIVE_TOOL_FAILURE_BATCHES = 3;
 const MAX_BRIDGE_RETRIES = 2;
+// Cap how long we sleep on Retry-After so a hostile/huge header cannot stall
+// the runner for minutes during an interactive session.
+const MAX_RETRY_AFTER_MS = 30_000;
 const VALID_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'max']);
+
+function isTransientBridgeError(err) {
+  if (!err) return false;
+  if (err.retryable === true) return true;
+  if (err.retryable === false) return false;
+  // Older string-only errors from network paths.
+  return /Request error:|timed out|Stream error:|ECONNREFUSED|ECONNRESET|ENOTFOUND/i.test(err.message || '');
+}
+
+function bridgeRetryDelayMs(err, attempt) {
+  if (err && err.name === 'BridgeHttpError' && err.statusCode === 429) {
+    const seconds = parseRetryAfterSeconds(err.headers);
+    if (seconds !== null && seconds !== undefined) return Math.min(seconds * 1000, MAX_RETRY_AFTER_MS);
+  }
+  // Mild exponential backoff for 5xx / network: 250ms, 500ms, …
+  return Math.min(250 * 2 ** Math.max(0, attempt - 1), MAX_RETRY_AFTER_MS);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function normalizeEffort(effort) {
   if (!effort) return null;
@@ -1067,12 +1092,33 @@ async function run(options) {
       const hint = emitHint(msg, { quiet, verbose });
       if (transcript) transcript.append({ type: 'error', step, message: msg });
       if (humanLog) humanLog.writeError(msg, { stopReason: STOP_REASONS.BRIDGE_ERROR });
-      if (trace) trace.append('runner_bridge_error', { run_id: runId, turn: step, message: msg });
+      if (trace) {
+        trace.append('runner_bridge_error', {
+          run_id: runId,
+          turn: step,
+          message: msg,
+          status_code: typeof err.statusCode === 'number' ? err.statusCode : null,
+          retryable: isTransientBridgeError(err),
+          bridge_retry_count: bridgeRetryCount,
+        });
+      }
       output.emit('error', { message: msg, hint: hint ? { whatHappened: hint.whatHappened, tip: hint.tip } : null });
-      if (step < steps && bridgeRetryCount < MAX_BRIDGE_RETRIES) {
+      // Only 429 / 5xx / network failures retry. Deterministic 4xx (401, 400, …)
+      // fail once so expired credentials do not burn the retry budget.
+      if (step < steps && bridgeRetryCount < MAX_BRIDGE_RETRIES && isTransientBridgeError(err)) {
         bridgeRetryCount++;
-        if (!quiet)
-          console.error('[runner] retrying after bridge error (' + bridgeRetryCount + '/' + MAX_BRIDGE_RETRIES + ')');
+        const delayMs = bridgeRetryDelayMs(err, bridgeRetryCount);
+        if (!quiet) {
+          console.error(
+            '[runner] retrying after bridge error (' +
+              bridgeRetryCount +
+              '/' +
+              MAX_BRIDGE_RETRIES +
+              ')' +
+              (delayMs ? ' in ' + delayMs + 'ms' : ''),
+          );
+        }
+        if (delayMs > 0) await sleep(delayMs);
         continue;
       }
       if (transcript) transcript.flush();
@@ -1509,6 +1555,8 @@ module.exports = {
   applyCacheControlBudget,
   addUsage,
   normalizeEffort,
+  isTransientBridgeError,
+  bridgeRetryDelayMs,
   // Re-exported from tool-pipeline for existing callers/tests.
   _arePathsDisjoint,
   _groupDisjointWrites,

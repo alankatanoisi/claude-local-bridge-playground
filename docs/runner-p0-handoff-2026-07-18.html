@@ -321,8 +321,8 @@
         <div class="meta">
           <span class="chip">Playground repository</span>
           <span class="chip">Branch: main</span>
-          <span class="chip">P0-01–03 implemented</span>
-          <span class="chip">P0-04 onward pending</span>
+          <span class="chip">P0-01–06 + P1-03 done</span>
+          <span class="chip">P0-07 onward pending</span>
         </div>
       </header>
 
@@ -369,8 +369,8 @@ git status --short</code></pre>
         <section class="panel" id="status">
           <h2>Current executive status</h2>
           <p class="muted">
-            The assessment recorded 43 findings: 12 P0, 15 P1, and 16 P2. Alan approved the first three P0 findings
-            for immediate implementation.
+            The assessment recorded 43 findings: 12 P0, 15 P1, and 16 P2. Alan approved P0-01 through P0-03, then
+            Option 1 containment for P0-04 through P0-06 plus typed HTTP retries (P1-03).
           </p>
           <div class="grid">
             <article class="card">
@@ -389,14 +389,34 @@ git status --short</code></pre>
               <p>Replaced by explicit feature gates and optional tool allowlists.</p>
             </article>
             <article class="card">
+              <span class="status done">Implemented</span>
+              <h3>P0-04 · Search deny parity</h3>
+              <p>Shared file-candidate predicate on every search backend, including symlink escapes.</p>
+            </article>
+            <article class="card">
+              <span class="status done">Implemented</span>
+              <h3>P0-05 · Offered tools</h3>
+              <p>Per-run snapshot; hard-deny unoffered names and aliases.</p>
+            </article>
+            <article class="card">
+              <span class="status done">Quarantined</span>
+              <h3>P0-06 · apply_patch</h3>
+              <p>Never offered; execute refuses until full atomic repair.</p>
+            </article>
+            <article class="card">
+              <span class="status done">Implemented</span>
+              <h3>P1-03 · Typed HTTP</h3>
+              <p>Fail-fast 4xx; retry only 429/5xx/network with Retry-After.</p>
+            </article>
+            <article class="card">
               <span class="status pending">Open</span>
-              <h3>P0-04 onward</h3>
-              <p>Search confinement, offered-tool enforcement, patch safety, typed HTTP errors, and later packages.</p>
+              <h3>P0-07 onward</h3>
+              <p>Worktree consent, worker trust, shell honesty, redaction, private sessions.</p>
             </article>
           </div>
           <p>
-            The implementation is intentionally narrower than the full assessment plan. Do not mark the whole P0
-            register complete.
+            Full <code>apply_patch</code> repair remains open under P0-06; quarantine is containment only. Do not mark
+            the whole P0 register complete.
           </p>
         </section>
 
@@ -507,17 +527,18 @@ git status --short</code></pre>
           <ul>
             <li>Refresh the Claude/VS Code credential state before the next paid canary.</li>
             <li>Do not restore captured or upstream <code>x-api-key</code> behavior as a workaround.</li>
-            <li>Typed HTTP handling remains open: deterministic 4xx errors should not consume transient retries.</li>
+            <li>Typed HTTP handling is now implemented: deterministic 4xx fail once; only 429/5xx/network retry.</li>
           </ul>
         </section>
 
         <section class="panel" id="remaining">
           <h2>Recommended continuation order</h2>
           <ol>
-            <li><strong>P0-04:</strong> enforce realpath confinement and the deny matrix in every search backend and immediately before I/O.</li>
-            <li><strong>P0-05:</strong> reject tools and aliases not included in the exact definitions sent that turn.</li>
-            <li><strong>Advanced patch mode:</strong> quarantine or rebuild it with argv execution, atomic writes, backups, complete hunk validation, and rollback.</li>
-            <li><strong>Typed bridge errors:</strong> fail deterministic 4xx once; reserve capped retries for 429, 5xx, and network failures.</li>
+            <li><strong>P0-07:</strong> dedicated consent for destructive worktree cleanup (never imply from <code>--accept-edits</code>).</li>
+            <li><strong>P0-08:</strong> worker startup, trust, and confinement under the parent authority ceiling.</li>
+            <li><strong>P0-09:</strong> shell sandbox honesty — full local-account authority, not cwd confinement.</li>
+            <li><strong>P0-10–P0-12:</strong> permission-cache root changes, centralized redaction, private session files.</li>
+            <li><strong>Full P0-06 repair:</strong> argv <code>apply_patch</code>, atomic writes, hunk validation, rollback (quarantine already in place).</li>
             <li>Continue the monotonic-authority, evidence-capable plan mode, telemetry finalizer, compatibility doctor, recovery, built-ins, skills, and documentation packages from the assessment.</li>
           </ol>
           <div class="callout">

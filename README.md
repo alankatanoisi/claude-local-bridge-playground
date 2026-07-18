@@ -313,8 +313,11 @@ The model-facing tool surface is framed as four capability groups:
 - **Recovery:** `undo`, `undo_edit`
 - **Shell:** `bash`, `manage_shell_jobs` — hidden unless `--allow-shell` is set
 
-`apply_patch` still exists for advanced patch-style edits, but it is hidden by default. Opt into it explicitly with
-`--tools apply_patch` or include it in a comma-separated `--tools` / `--allowed-tools` list.
+`apply_patch` exists in the catalog but is **quarantined**: it is never offered to the
+model and every execute path refuses with a clear unsupported message. A later repair will
+restore argv-based patch execution, atomic writes, full hunk validation, and rollback.
+Until then use `edit_file` or `write_file`. Naming `apply_patch` in `--tools` does not
+re-enable it.
 
 ### Recovery: undo a whole run
 
@@ -389,40 +392,40 @@ and `"trusted": true` in the hooks config; hook commands are scanned by the same
 
 Useful runner options:
 
-| Option                                                   | Purpose                                                                     |
-| -------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `--cwd <path>`                                           | Target project folder the tools can inspect or edit                         |
-| `--bare`                                                 | Minimal context: no instruction docs, repo block, or skills                 |
-| `--include-instruction-docs`                             | Opt in to AGENTS.md / CLAUDE.md instruction hierarchy                       |
-| `--include-repo-context`                                 | Opt in to session repo-context block (cwd/git fingerprint)                  |
-| `--include-claude-md`                                    | Include CLAUDE.md in repo-context (needs `--include-repo-context`)          |
-| `--include-repo-map`                                     | Opt in to repo map inside repo-context                                      |
-| `--include-skills`                                       | Opt in to skills listing in the system prompt                               |
-| `--permission-mode <m>`                                  | default, plan, accept-edits, dont-ask, accept-edits-dont-ask, auto          |
-| `--tools <list>`                                         | Expose only these tools; include `apply_patch` to opt into patch mode       |
-| `--append-system-prompt` / `--append-system-prompt-file` | Add text after the default system prompt                                    |
-| `--system-prompt-file`                                   | Replace default system prompt with a file                                   |
-| `--exclude-dynamic-system-prompt-sections`               | Put cwd/git fingerprint in the first user message instead                   |
-| `--no-session-persistence`                               | Skip writing session checkpoints under ~/.bridge-runner/sessions/           |
-| `--allowed-tools <list>`                                 | Same as `--tools` (legacy name)                                             |
-| `--include-file <path>`                                  | Attach a bounded file from `--cwd` before the model call                    |
-| `--prompt-template <name>` / `--template <name>`         | Prepend a reusable prompt template: review, cleanup, explore, or file       |
-| `--prompt-arg key=value`                                 | Fill a `{{key}}` placeholder in the chosen prompt template (repeatable)     |
-| `--human-log <path>`                                     | Write a plain text log of the prompt, tool results, and final answer        |
-| `--trace-level <level>`                                  | Write correlated flight-recorder traces: summary, redacted, or full         |
-| `--trace-path <path>`                                    | Choose the runner trace JSONL path; bridge trace path is correlated         |
-| `--bridge-url <url>`                                     | Override local bridge endpoint/root; also reads `BRIDGE_RUNNER_BRIDGE_URL`  |
-| `--caller-token <token>`                                 | Local bridge caller-auth token; can also use `BRIDGE_CALLER_TOKEN` env      |
-| `--plan`                                                 | Plan mode: describe actions instead of executing them                       |
-| `--no-network`                                           | Best-effort HTTP/HTTPS proxy guard for shell, not a network sandbox         |
-| `--system-prompt <s>`                                    | Override the default system prompt                                          |
-| `--continue`                                             | Resume from the latest transcript in ~/.bridge-runner/logs/                 |
-| `--stream`                                               | Stream assistant text live while still preserving streamed tool inputs      |
-| `--accept-edits`                                         | Auto-approve edit/write tools                                               |
-| `--allow-shell`                                          | Expose the bash tool; hidden by default                                     |
-| `--enable-lsp`                                           | Expose `lsp_query` (requires a language server on PATH)                     |
-| `--test-watch`                                           | After successful writes, auto-run detected tests (requires `--allow-shell`) |
-| `--no-archive`                                           | Skip per-turn archive export to `~/.bridge-runner/archive/`                 |
+| Option                                                   | Purpose                                                                        |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `--cwd <path>`                                           | Target project folder the tools can inspect or edit                            |
+| `--bare`                                                 | Minimal context: no instruction docs, repo block, or skills                    |
+| `--include-instruction-docs`                             | Opt in to AGENTS.md / CLAUDE.md instruction hierarchy                          |
+| `--include-repo-context`                                 | Opt in to session repo-context block (cwd/git fingerprint)                     |
+| `--include-claude-md`                                    | Include CLAUDE.md in repo-context (needs `--include-repo-context`)             |
+| `--include-repo-map`                                     | Opt in to repo map inside repo-context                                         |
+| `--include-skills`                                       | Opt in to skills listing in the system prompt                                  |
+| `--permission-mode <m>`                                  | default, plan, accept-edits, dont-ask, accept-edits-dont-ask, auto             |
+| `--tools <list>`                                         | Expose only these tools (quarantined tools such as `apply_patch` stay blocked) |
+| `--append-system-prompt` / `--append-system-prompt-file` | Add text after the default system prompt                                       |
+| `--system-prompt-file`                                   | Replace default system prompt with a file                                      |
+| `--exclude-dynamic-system-prompt-sections`               | Put cwd/git fingerprint in the first user message instead                      |
+| `--no-session-persistence`                               | Skip writing session checkpoints under ~/.bridge-runner/sessions/              |
+| `--allowed-tools <list>`                                 | Same as `--tools` (legacy name)                                                |
+| `--include-file <path>`                                  | Attach a bounded file from `--cwd` before the model call                       |
+| `--prompt-template <name>` / `--template <name>`         | Prepend a reusable prompt template: review, cleanup, explore, or file          |
+| `--prompt-arg key=value`                                 | Fill a `{{key}}` placeholder in the chosen prompt template (repeatable)        |
+| `--human-log <path>`                                     | Write a plain text log of the prompt, tool results, and final answer           |
+| `--trace-level <level>`                                  | Write correlated flight-recorder traces: summary, redacted, or full            |
+| `--trace-path <path>`                                    | Choose the runner trace JSONL path; bridge trace path is correlated            |
+| `--bridge-url <url>`                                     | Override local bridge endpoint/root; also reads `BRIDGE_RUNNER_BRIDGE_URL`     |
+| `--caller-token <token>`                                 | Local bridge caller-auth token; can also use `BRIDGE_CALLER_TOKEN` env         |
+| `--plan`                                                 | Plan mode: describe actions instead of executing them                          |
+| `--no-network`                                           | Best-effort HTTP/HTTPS proxy guard for shell, not a network sandbox            |
+| `--system-prompt <s>`                                    | Override the default system prompt                                             |
+| `--continue`                                             | Resume from the latest transcript in ~/.bridge-runner/logs/                    |
+| `--stream`                                               | Stream assistant text live while still preserving streamed tool inputs         |
+| `--accept-edits`                                         | Auto-approve edit/write tools                                                  |
+| `--allow-shell`                                          | Expose the bash tool; hidden by default                                        |
+| `--enable-lsp`                                           | Expose `lsp_query` (requires a language server on PATH)                        |
+| `--test-watch`                                           | After successful writes, auto-run detected tests (requires `--allow-shell`)    |
+| `--no-archive`                                           | Skip per-turn archive export to `~/.bridge-runner/archive/`                    |
 
 Open [docs/command-builder.html](./docs/command-builder.html) in your browser if you prefer a form that builds these
 commands for you. See [docs/runner-expansion-roadmap.md](./docs/runner-expansion-roadmap.md) for a categorized plan to
