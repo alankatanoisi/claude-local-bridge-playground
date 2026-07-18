@@ -825,8 +825,7 @@
 
                 <p class="subsection-title">Startup context (default: minimal)</p>
                 <p style="font-size: 0.78rem; color: var(--muted); margin: 0 0 0.5rem">
-                  The runner no longer injects AGENTS.md / repo map by default. Opt in below or choose
-                  <code>--agent project</code>.
+                  The runner no longer injects AGENTS.md / repo map by default. Opt in explicitly below.
                 </p>
                 <div class="checks">
                   <label class="check-label" title="Start with the absolute minimum system prompt — no AGENTS.md, no repo map, no built-in instructions. Use when you want full control over what the model knows, or for a clean experiment."> <input type="checkbox" id="bareContext" /> Skip default instructions <code>--bare</code> </label>
@@ -925,54 +924,6 @@
                   </label>
                 </div>
                 <div class="row">
-                  <div class="field">
-                    <label for="agentProfile" title="An agent profile pre-configures the model's personality and tool access for a specific job (like 'explore' for read-only orientation, or 'project' for richer context). File agents load from .bridge-runner/agents/.">Agent profile or file agent</label>
-                    <select id="agentProfile">
-                      <option value="">(default)</option>
-                      <optgroup label="Built-in profiles">
-                        <option value="explore">explore</option>
-                        <option value="plan">plan</option>
-                        <option value="implement">implement</option>
-                        <option value="verify">verify</option>
-                        <option value="test">test</option>
-                        <option value="bench">bench (eval mode)</option>
-                        <option value="replay">replay</option>
-                        <option value="extractor">extractor</option>
-                        <option value="project">project (richer context)</option>
-                      </optgroup>
-                      <optgroup label=".bridge-runner/agents/">
-                        <option value="code-reviewer">code-reviewer</option>
-                        <option value="debugger">debugger</option>
-                        <option value="refactoring-specialist">refactoring-specialist</option>
-                        <option value="test-automator">test-automator</option>
-                      </optgroup>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <label for="customAgent">Custom agent name/path</label>
-                    <input
-                      type="text"
-                      id="customAgent"
-                      placeholder="awesome-claude-code-subagents/categories/04-quality-security/code-reviewer.md"
-                    />
-                    <div class="small">
-                      Optional override for <code>--agent &lt;name|path&gt;</code>. Compatible Markdown agents map tools
-                      safely; <code>Bash</code> still requires <code>--allow-shell</code>.
-                    </div>
-                  </div>
-                  <div class="field">
-                    <label for="toolProfile" title="A capability profile layers per-tool allow/deny rules on top of permission flags. For example, 'review-only' restricts to read tools regardless of other settings. Git shell profile still requires --allow-shell.">Capability profile</label>
-                    <select id="toolProfile">
-                      <option value="">(none)</option>
-                      <option value="review-only">review-only</option>
-                      <option value="edit-source-no-shell">edit-source-no-shell</option>
-                      <option value="git-readonly-shell">git-readonly-shell (needs shell)</option>
-                    </select>
-                    <div class="small">
-                      <code>--profile</code> layers per-tool allow/deny over permission flags. Git shell profile still
-                      requires <code>--allow-shell</code>.
-                    </div>
-                  </div>
                   <div class="field">
                     <label for="maxWallClockMs" title="Maximum total real-world time the entire run can take, in milliseconds. The runner stops after this limit regardless of how many steps remain. 600000 = 10 minutes.">Max wall clock (ms)</label>
                     <input type="text" id="maxWallClockMs" placeholder="600000" />
@@ -1333,9 +1284,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const chaosOk = document.getElementById('chaosOk');
       const sessionExtract = document.getElementById('sessionExtract');
       const reviewMemory = document.getElementById('reviewMemory');
-      const agentProfile = document.getElementById('agentProfile');
-      const customAgent = document.getElementById('customAgent');
-      const toolProfile = document.getElementById('toolProfile');
       const maxWallClockMs = document.getElementById('maxWallClockMs');
       const maxCostUsd = document.getElementById('maxCostUsd');
       const budgetInputTokens = document.getElementById('budgetInputTokens');
@@ -1408,7 +1356,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           allowShell: false,
           chaosOk: false,
           noNetwork: false,
-          agentProfile: 'explore',
           applyTools: true,
           tools: READ_TOOL_NAMES,
         },
@@ -1419,7 +1366,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           allowShell: false,
           chaosOk: false,
           noNetwork: false,
-          agentProfile: 'plan',
         },
         'edit-ask': {
           plan: false,
@@ -1428,7 +1374,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           allowShell: false,
           chaosOk: false,
           noNetwork: false,
-          agentProfile: '',
         },
         'edit-auto': {
           plan: false,
@@ -1437,7 +1382,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           allowShell: false,
           chaosOk: false,
           noNetwork: false,
-          agentProfile: 'implement',
         },
         'edit-shell': {
           plan: false,
@@ -1446,7 +1390,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           allowShell: true,
           chaosOk: true,
           noNetwork: true,
-          agentProfile: 'test',
         },
       };
 
@@ -1469,8 +1412,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         allowShell.checked = !!style.allowShell;
         chaosOk.checked = !!style.chaosOk;
         noNetwork.checked = !!style.noNetwork;
-        if (Object.prototype.hasOwnProperty.call(style, 'agentProfile') && !options.keepAgent)
-          agentProfile.value = style.agentProfile || '';
         if (style.applyTools && style.tools) {
           toolChoices.forEach((choice) => {
             choice.checked = style.tools.includes(choice.value);
@@ -1526,9 +1467,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           parts.push('--repair');
           return parts;
         }
-        const agentName = customAgent.value.trim() || agentProfile.value;
-        if (agentName) parts.push('--agent ' + shellQuote(agentName));
-        if (toolProfile.value.trim()) parts.push('--profile ' + shellQuote(toolProfile.value.trim()));
         if (maxWallClockMs.value.trim()) parts.push('--max-wall-clock-ms ' + maxWallClockMs.value.trim());
         if (maxCostUsd.value.trim()) parts.push('--max-cost-usd ' + maxCostUsd.value.trim());
         if (budgetInputTokens.value.trim()) parts.push('--budget-input-tokens ' + budgetInputTokens.value.trim());
@@ -1987,9 +1925,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         chaosOk,
         sessionExtract,
         reviewMemory,
-        agentProfile,
-        customAgent,
-        toolProfile,
         maxWallClockMs,
         maxCostUsd,
         budgetInputTokens,
@@ -2084,9 +2019,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           sessionId: sessionId.value,
           sessionPath: sessionPath.value,
           forkFrom: forkFrom.value,
-          agentProfile: agentProfile.value,
-          customAgent: customAgent.value,
-          toolProfile: toolProfile.value,
           maxWallClockMs: maxWallClockMs.value,
           maxCostUsd: maxCostUsd.value,
           budgetInputTokens: budgetInputTokens.value,
@@ -2137,7 +2069,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           'logLevel', 'resumePath', 'transcript', 'humanLog', 'traceLevel',
           'tracePath', 'bridgeUrl', 'callerToken', 'systemPrompt', 'systemPromptFile',
           'appendSystemPrompt', 'appendSystemPromptFile', 'sessionId', 'sessionPath',
-          'forkFrom', 'agentProfile', 'customAgent', 'toolProfile', 'maxWallClockMs',
+          'forkFrom', 'maxWallClockMs',
           'maxCostUsd', 'budgetInputTokens', 'budgetOutputTokens', 'effort',
           'permissionMode',
         ];
@@ -2149,7 +2081,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           logLevel, resumePath, transcript, humanLog, traceLevel,
           tracePath, bridgeUrl, callerToken, systemPrompt, systemPromptFile,
           appendSystemPrompt, appendSystemPromptFile, sessionId, sessionPath,
-          forkFrom, agentProfile, customAgent, toolProfile, maxWallClockMs,
+          forkFrom, maxWallClockMs,
           maxCostUsd, budgetInputTokens, budgetOutputTokens, effort,
           permissionMode,
         };
@@ -2274,10 +2206,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         },
         delegate: {
           prompt:
-            'Use spawn_agent with the code-reviewer file agent to review src/runner/tools/spawn-agent.js read-only. Summarize findings before making any edits yourself.',
+            'Use spawn_agent to review src/runner/tools/spawn-agent.js read-only. Summarize findings before making any edits yourself.',
           permissionStyle: 'edit-ask',
-          agentProfile: '',
-          customAgent: '',
           maxSteps: 12,
           runnerPath: PLAYGROUND,
           cwd: PLAYGROUND,
@@ -2286,7 +2216,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           prompt:
             'Enter a worktree with enter_worktree, make a small safe edit to README.md, then exit_worktree with cleanup=false so the work is preserved for review. Summarize the branch name and path.',
           permissionStyle: 'edit-ask',
-          agentProfile: 'implement',
           tools: [
             'list_files',
             'read_file',
@@ -2342,8 +2271,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         if (!p.permissionsOnly) {
           applyPresetValue(sessionId, 'sessionId', p);
           applyPresetValue(sessionPath, 'sessionPath', p);
-          if (!p.permissionStyle) applyPresetValue(agentProfile, 'agentProfile', p);
-          applyPresetValue(customAgent, 'customAgent', p);
           applyPresetValue(resumePath, 'resumePath', p);
           applyPresetValue(forkFrom, 'forkFrom', p);
           applyPresetValue(tracePath, 'tracePath', p);

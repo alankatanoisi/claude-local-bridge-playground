@@ -4,7 +4,7 @@
  * context-policy.js — Resolve what startup context is injected into the model.
  *
  * Default is minimal: no project markdown docs, no repo-context block, no skills.
- * Richer context is opt-in via CLI flags or profile defaults.
+ * Richer context is opt-in via explicit CLI flags.
  */
 
 const DEFAULT_POLICY = Object.freeze({
@@ -40,23 +40,15 @@ function resolveContextPolicy(input = {}) {
     };
   }
 
-  const profile = input.profileContext || {};
   const minimalDefault = input.minimalDefault !== false;
 
   const policy = {
     minimal: minimalDefault,
-    includeInstructionDocs:
-      !!input.includeInstructionDocs ||
-      !!profile.includeInstructionDocs ||
-      envTruthy('BRIDGE_RUNNER_INCLUDE_INSTRUCTION_DOCS'),
-    includeRepoContext:
-      !!input.includeRepoContext || !!profile.includeRepoContext || envTruthy('BRIDGE_RUNNER_INCLUDE_REPO_CONTEXT'),
-    includeClaudeMdInRepoContext:
-      !!input.includeClaudeMdInRepoContext ||
-      !!profile.includeClaudeMdInRepoContext ||
-      envTruthy('BRIDGE_RUNNER_INCLUDE_CLAUDE_MD'),
-    includeRepoMap: !!input.includeRepoMap || !!profile.includeRepoMap || envTruthy('BRIDGE_RUNNER_INCLUDE_REPO_MAP'),
-    includeSkills: !!input.includeSkills || !!profile.includeSkills || envTruthy('BRIDGE_RUNNER_INCLUDE_SKILLS'),
+    includeInstructionDocs: !!input.includeInstructionDocs || envTruthy('BRIDGE_RUNNER_INCLUDE_INSTRUCTION_DOCS'),
+    includeRepoContext: !!input.includeRepoContext || envTruthy('BRIDGE_RUNNER_INCLUDE_REPO_CONTEXT'),
+    includeClaudeMdInRepoContext: !!input.includeClaudeMdInRepoContext || envTruthy('BRIDGE_RUNNER_INCLUDE_CLAUDE_MD'),
+    includeRepoMap: !!input.includeRepoMap || envTruthy('BRIDGE_RUNNER_INCLUDE_REPO_MAP'),
+    includeSkills: !!input.includeSkills || envTruthy('BRIDGE_RUNNER_INCLUDE_SKILLS'),
     excludeDynamicFromSystem: !!input.excludeDynamicFromSystem || envTruthy('BRIDGE_RUNNER_EXCLUDE_DYNAMIC_SYSTEM'),
   };
 

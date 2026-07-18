@@ -13,6 +13,7 @@ const { HumanLog } = require('./human-log');
 const { STOP_REASONS } = require('./kernel/contract');
 const { SessionStore, resolveSessionPath } = require('./session-store');
 const { applyCompactionLadder, DEFAULT_POLICY } = require('./context-compactor');
+const { assertValidAnthropicMessages, toolUseIds } = require('./message-contract');
 const { HookDispatcher } = require('./hooks/hook-dispatcher');
 const { runBootstrap } = require('./bootstrap');
 const { SessionLedger } = require('./session-ledger');
@@ -29,8 +30,7 @@ const {
   formatTaskScopeEndTip,
   RECOMMENDATIONS,
 } = require('./session-health');
-const { assertForkAllowed, applyProfileToRunOptions } = require('./agents/registry');
-const { applyToolProfileToRunOptions, computeAllowedTools } = require('./tool-profiles');
+const { computeAllowedTools } = require('./tool-visibility');
 const {
   JsonlTrace,
   bodySummary,
@@ -47,7 +47,8 @@ const { createBudgetTracker } = require('./budget-tracker');
 const { writeRunManifest } = require('./recovery/run-manifest');
 
 const DEFAULT_MAX_STEPS = 16;
-const MAX_CONSECUTIVE_FAILURES = 2;
+const MAX_CONSECUTIVE_TOOL_FAILURE_BATCHES = 3;
+const MAX_BRIDGE_RETRIES = 2;
 const VALID_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'max']);
 
 function normalizeEffort(effort) {
@@ -219,6 +220,17 @@ function loadMessagesFromTranscript(filePath, options = {}) {
   const messages = [];
   let isFirstUser = true;
   let processed = 0;
+  let pendingToolUseIds = null;
+  let pendingToolResults = [];
+
+  function flushPendingToolResults() {
+    if (pendingToolResults.length > 0) {
+      messages.push({ role: 'user', content: pendingToolResults });
+    }
+    pendingToolUseIds = null;
+    pendingToolResults = [];
+  }
+
   for (const line of lines) {
     if (processed >= lineCap) break;
     processed++;
@@ -229,30 +241,53 @@ function loadMessagesFromTranscript(filePath, options = {}) {
       continue;
     }
     if (ev.type === 'user_prompt' && isFirstUser) {
+      flushPendingToolResults();
       messages.push({ role: 'user', content: ev.text });
       isFirstUser = false;
       continue;
     }
     if (ev.type === 'assistant' && ev.content) {
+      flushPendingToolResults();
       messages.push({ role: 'assistant', content: ev.content });
+      const ids = toolUseIds(messages[messages.length - 1]);
+      pendingToolUseIds = ids.length > 0 ? new Set(ids) : null;
       continue;
     }
     if (ev.type === 'tool_call' && ev.toolUseId) continue;
     if (ev.type === 'tool_result' && ev.toolUseId) {
-      messages.push({
-        role: 'user',
-        content: [
-          {
-            type: 'tool_result',
-            tool_use_id: ev.toolUseId,
-            content: ev.ok ? ev.text || '' : 'Tool error: ' + (ev.text || 'unknown'),
-          },
-        ],
-      });
+      const resultBlock = {
+        type: 'tool_result',
+        tool_use_id: ev.toolUseId,
+        content: ev.ok ? ev.text || '' : 'Tool error: ' + (ev.text || 'unknown'),
+      };
+
+      if (pendingToolUseIds) {
+        pendingToolResults.push(resultBlock);
+        const returnedIds = new Set(pendingToolResults.map((block) => block.tool_use_id));
+        const complete =
+          returnedIds.size === pendingToolUseIds.size && [...pendingToolUseIds].every((id) => returnedIds.has(id));
+        if (complete) flushPendingToolResults();
+      } else {
+        // Preserve an orphan as an orphan. The final request validator will
+        // reject it with an exact local diagnostic instead of silently hiding
+        // transcript corruption.
+        messages.push({ role: 'user', content: [resultBlock] });
+      }
       continue;
     }
   }
-  while (messages.length > 0 && messages[messages.length - 1].role !== 'user') messages.pop();
+  flushPendingToolResults();
+
+  // A final prose-only assistant answer is stripped so the resume prompt can
+  // continue from the last user turn. An unfinished assistant tool batch stays
+  // visible and will be rejected locally rather than replayed ambiguously.
+  while (
+    messages.length > 0 &&
+    messages[messages.length - 1].role === 'assistant' &&
+    toolUseIds(messages[messages.length - 1]).length === 0
+  ) {
+    messages.pop();
+  }
   return messages;
 }
 
@@ -295,6 +330,7 @@ function hydrateRunnerStateFromSession(ctx, sessionStore) {
   const runner = sessionStore.data().runner || {};
   if (Array.isArray(runner.tasks)) ctx.tasks = runner.tasks;
   else if (!ctx.tasks) ctx.tasks = [];
+  ctx._consecutiveToolFailures = Number.isInteger(runner.consecutiveToolFailures) ? runner.consecutiveToolFailures : 0;
 }
 
 function appendLedger(ledger, hooks, type, payload) {
@@ -326,11 +362,13 @@ function maybeRunSessionExtract(sessionExtract, ctx, autopsy, sessionPath) {
 }
 
 async function run(options) {
-  if (options.agentProfile) {
-    options = applyProfileToRunOptions(options.agentProfile, options);
-  }
-  if (options.toolProfileName) {
-    options = applyToolProfileToRunOptions(options);
+  const retiredProfileKeys = ['agentProfile', 'toolProfileName', 'toolProfile', 'profileContext'];
+  const suppliedRetiredKeys = retiredProfileKeys.filter((key) => options[key] !== undefined && options[key] !== null);
+  if (suppliedRetiredKeys.length > 0) {
+    throw new Error(
+      'Runner profiles are retired. Use explicit flags and --tools/--allowed-tools instead. Unsupported option(s): ' +
+        suppliedRetiredKeys.join(', '),
+    );
   }
   const contextPolicy = resolveContextPolicy(options);
   options = { ...options, contextPolicy };
@@ -390,7 +428,6 @@ async function run(options) {
     noSessionPersistence,
     testWatch,
     enableLsp,
-    toolProfile,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
@@ -410,7 +447,6 @@ async function run(options) {
     confirmTimeout: typeof confirmTimeout === 'number' && confirmTimeout > 0 ? confirmTimeout : null,
     _cliToolAllowlist: exposedToolsList ? new Set(exposedToolsList) : null,
     allowedTools: null,
-    toolProfile: toolProfile || null,
     contextPolicy,
     undoLog: [],
     tasks: [],
@@ -444,7 +480,6 @@ async function run(options) {
       exposedTools: exposedToolsList,
       autoMemory,
       ...contextPolicy,
-      profileContext: options.profileContext,
       bare: options.bare,
       includeInstructionDocs: contextPolicy.includeInstructionDocs,
       includeRepoContext: contextPolicy.includeRepoContext,
@@ -487,7 +522,9 @@ async function run(options) {
   }
 
   try {
-    assertForkAllowed(ctx.spawnDepth);
+    if (ctx.spawnDepth > 0) {
+      throw new Error('Child agents cannot spawn further children (fork depth exceeded).');
+    }
   } catch (err) {
     emitHint(err.message, { quiet, verbose, stopReason: 'fork_depth_exceeded' });
     process.exitCode = 1;
@@ -589,7 +626,6 @@ async function run(options) {
         plan: ctx.plan,
         noNetwork: ctx.noNetwork,
       },
-      agentProfile: options.agentProfile,
       transcriptPath,
       tracePath: trace?.filePath || null,
       sessionPath: resolvedSessionPath,
@@ -609,7 +645,7 @@ async function run(options) {
     confirm,
     sinks: { ledger, hooks, output, trace, transcript, humanLog, archive: archiveCollector },
     verbosity: { verbose, quiet },
-    failureLimit: MAX_CONSECUTIVE_FAILURES,
+    failureLimit: MAX_CONSECUTIVE_TOOL_FAILURE_BATCHES,
   });
 
   function syncBudgetRemaining(totalUsage) {
@@ -742,6 +778,7 @@ async function run(options) {
       });
     }
     messages = sessionStore.messages.length ? [...sessionStore.messages] : null;
+    pipeline.restoreFailureStreak(ctx._consecutiveToolFailures);
     if (!messages || messages.length === 0) {
       emitHint('Could not resume: no valid ledger or session checkpoint.', {
         quiet,
@@ -792,7 +829,9 @@ async function run(options) {
       hydrateRunnerStateFromSession(ctx, sessionStore);
       if (newSession) {
         sessionStore.updateRunner({ health: null, compactionGeneration: 0, consecutiveToolFailures: 0 });
+        ctx._consecutiveToolFailures = 0;
       }
+      pipeline.restoreFailureStreak(ctx._consecutiveToolFailures);
       sessionStore.setMessages(messages);
       sessionStore.updateMetadata({ cwd: ctx.cwdRealpath, model });
       sessionStore.save();
@@ -866,6 +905,8 @@ async function run(options) {
     humanLog.writeUserPrompt(prompt, stdinText);
   }
 
+  let bridgeRetryCount = 0;
+
   for (let step = 1; step <= steps; step++) {
     hooks.dispatch('pre_model_request', { step, runId });
 
@@ -933,6 +974,46 @@ async function run(options) {
       repoContextBlock,
     );
 
+    // The Anthropic Messages API treats an assistant tool-use batch and its
+    // following user tool-result batch as one indivisible exchange. Validate
+    // the exact payload at the final outbound boundary so compaction, resume,
+    // or a future feature cannot accidentally send orphaned or duplicate IDs.
+    try {
+      assertValidAnthropicMessages(cachedMessages);
+    } catch (err) {
+      const msg = 'Runner message contract check failed before step ' + step + ': ' + err.message;
+      emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.MESSAGE_CONTRACT_ERROR });
+      if (transcript) transcript.append({ type: 'error', step, message: msg });
+      if (humanLog) humanLog.writeError(msg, { stopReason: STOP_REASONS.MESSAGE_CONTRACT_ERROR });
+      if (trace) {
+        trace.append('runner_message_contract_error', {
+          run_id: runId,
+          turn: step,
+          message: msg,
+          message_count: cachedMessages.length,
+        });
+      }
+      output.emit('error', { message: msg, stop_reason: STOP_REASONS.MESSAGE_CONTRACT_ERROR });
+      hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.MESSAGE_CONTRACT_ERROR });
+      if (ledger) {
+        appendLedger(ledger, hooks, 'run_stopped', {
+          runId,
+          stopReason: STOP_REASONS.MESSAGE_CONTRACT_ERROR,
+        });
+      }
+      process.exitCode = 1;
+      const result = {
+        stopReason: STOP_REASONS.MESSAGE_CONTRACT_ERROR,
+        finalText: msg,
+        steps: step,
+        duration_ms: Date.now() - startedAt,
+        usage: totalUsage,
+        events: output.events,
+      };
+      output.finish(result);
+      return completeRun(result);
+    }
+
     const advisoryTokens = estimateTokensAdvisory(messages);
     if (maxContextTokens && advisoryTokens > maxContextTokens && !quiet) {
       emitHint('Approaching context budget (~' + advisoryTokens + ' tokens estimated).', {
@@ -988,12 +1069,10 @@ async function run(options) {
       if (humanLog) humanLog.writeError(msg, { stopReason: STOP_REASONS.BRIDGE_ERROR });
       if (trace) trace.append('runner_bridge_error', { run_id: runId, turn: step, message: msg });
       output.emit('error', { message: msg, hint: hint ? { whatHappened: hint.whatHappened, tip: hint.tip } : null });
-      if (step < steps && pipeline.failureStreak < MAX_CONSECUTIVE_FAILURES) {
-        pipeline.recordExternalFailure();
+      if (step < steps && bridgeRetryCount < MAX_BRIDGE_RETRIES) {
+        bridgeRetryCount++;
         if (!quiet)
-          console.error(
-            '[runner] retrying after bridge error (' + pipeline.failureStreak + '/' + MAX_CONSECUTIVE_FAILURES + ')',
-          );
+          console.error('[runner] retrying after bridge error (' + bridgeRetryCount + '/' + MAX_BRIDGE_RETRIES + ')');
         continue;
       }
       if (transcript) transcript.flush();
@@ -1010,6 +1089,8 @@ async function run(options) {
       output.finish(result);
       return completeRun(result);
     }
+
+    bridgeRetryCount = 0;
 
     hooks.dispatch('post_model_response', { step, runId });
 
@@ -1279,13 +1360,77 @@ async function run(options) {
       }
       return completeRun(result);
     }
-    messages.push({ role: 'user', content: turn.toolResults });
+    const resultMessage = { role: 'user', content: turn.toolResults };
+    messages.push(resultMessage);
     persistSession(
       sessionStore,
       messages,
       { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
       !!noSessionPersistence,
     );
+
+    if (turn.needsRecoveryDecision) {
+      const decision = await confirm.askToolFailureRecovery(
+        { failures: turn.failureStreak, failureSummary: turn.failureSummary },
+        ctx.confirmTimeout,
+      );
+      if (transcript) {
+        transcript.append({
+          type: 'tool_failure_recovery_decision',
+          step,
+          failures: turn.failureStreak,
+          action: decision.action,
+          guidance: decision.guidance || null,
+        });
+      }
+      if (trace) {
+        trace.append('tool_failure_recovery_decision', {
+          run_id: runId,
+          turn: step,
+          failures: turn.failureStreak,
+          action: decision.action,
+          guidance: decision.guidance ? trace.capture(decision.guidance) : null,
+        });
+      }
+
+      if (decision.action === 'stop') {
+        const msg = 'Stopped safely after ' + turn.failureStreak + ' consecutive failed tool batches.';
+        emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.TOOL_FAILURE_ESCALATION });
+        if (humanLog) humanLog.writeError(msg, { stopReason: STOP_REASONS.TOOL_FAILURE_ESCALATION });
+        output.emit('error', { message: msg, stop_reason: STOP_REASONS.TOOL_FAILURE_ESCALATION });
+        hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.TOOL_FAILURE_ESCALATION });
+        if (ledger) {
+          appendLedger(ledger, hooks, 'run_stopped', {
+            runId,
+            stopReason: STOP_REASONS.TOOL_FAILURE_ESCALATION,
+          });
+        }
+        process.exitCode = 1;
+        const result = {
+          stopReason: STOP_REASONS.TOOL_FAILURE_ESCALATION,
+          finalText: msg,
+          steps: step,
+          duration_ms: Date.now() - startedAt,
+          usage: totalUsage,
+          events: output.events,
+        };
+        output.finish(result);
+        return completeRun(result);
+      }
+
+      const recoveryText =
+        decision.action === 'guide'
+          ? 'Tool recovery guidance from the user: ' + decision.guidance
+          : 'Tool recovery decision: continue. Reassess the failures, change the approach or inputs, and do not blindly repeat the same failed calls.';
+      resultMessage.content.push({ type: 'text', text: recoveryText });
+      pipeline.resetFailureStreak();
+      persistSession(
+        sessionStore,
+        messages,
+        { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
+        !!noSessionPersistence,
+      );
+    }
   }
 
   const msg = 'Reached max_steps (' + steps + ') without a final answer.';

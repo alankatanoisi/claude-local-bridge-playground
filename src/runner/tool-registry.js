@@ -51,7 +51,7 @@
  */
 
 const { TOOLS, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS } = require('./tool-catalog');
-const { isToolVisible } = require('./tool-profiles');
+const { isToolVisible } = require('./tool-visibility');
 const permissions = require('./permissions');
 const safety = require('./safety');
 const { normalizeToolResult, resolveToolName } = require('./tool-envelope');

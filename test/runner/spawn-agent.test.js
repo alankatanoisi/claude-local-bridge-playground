@@ -19,20 +19,17 @@ describe('spawn_agent tool', () => {
 
   it('rejects spawn at depth > 0', async () => {
     const result = await spawnAgent.execute(
-      { agent: 'explore', prompt: 'look around' },
+      { prompt: 'look around' },
       { spawnDepth: 1, cwd: '/tmp', cwdRealpath: '/tmp' },
     );
     assert.equal(result.ok, false);
     assert.match(result.text, /cannot spawn further children/i);
   });
 
-  it('rejects unknown agent', async () => {
-    const result = await spawnAgent.execute(
-      { agent: 'not-a-real-agent', prompt: 'task' },
-      { spawnDepth: 0, cwd: '/tmp', cwdRealpath: '/tmp' },
-    );
-    assert.equal(result.ok, false);
-    assert.match(result.text, /Unknown agent/i);
+  it('exposes no profile/personality selector in the model-facing schema', () => {
+    const schema = spawnAgent.definition().input_schema;
+    assert.equal(schema.properties.agent, undefined);
+    assert.deepEqual(schema.required, ['prompt']);
   });
 
   it('delegates to WorkerRuntime and returns child output', async () => {
@@ -63,21 +60,30 @@ describe('spawn_agent tool', () => {
       workerRuntime: fakeRuntime,
     };
 
-    const result = await spawnAgent.execute({ agent: 'explore', prompt: 'Summarize src/runner/', max_steps: 4 }, ctx);
+    const result = await spawnAgent.execute({ prompt: 'Summarize src/runner/', max_steps: 4 }, ctx);
 
     assert.equal(result.ok, true);
     assert.match(result.text, /Child finished/);
     assert.equal(calls.length, 1);
-    assert.equal(calls[0].agent, 'explore');
+    assert.equal(calls[0].agent, undefined);
+    assert.deepEqual(calls[0].allowedTools, [
+      'list_files',
+      'read_file',
+      'search_text',
+      'glob',
+      'git_status',
+      'manage_tasks',
+      'ask_user_question',
+    ]);
     assert.equal(calls[0].maxSteps, 4);
-    assert.equal(calls[0].dontAsk, true);
+    assert.equal(calls[0].dontAsk, undefined, 'generic read-only children do not inherit automation flags');
     assert.equal(ctx.spawnCount, 1);
   });
 
   it('permissions deny spawn_agent for child depth', () => {
     const decision = permissions.check(
       'spawn_agent',
-      { agent: 'explore', prompt: 'x' },
+      { prompt: 'x' },
       { spawnDepth: 1, cwd: '/tmp', cwdRealpath: '/tmp' },
     );
     assert.equal(decision.decision, 'deny');
@@ -86,7 +92,7 @@ describe('spawn_agent tool', () => {
   it('permissions ask by default at top level', () => {
     const decision = permissions.check(
       'spawn_agent',
-      { agent: 'explore', prompt: 'x' },
+      { prompt: 'x' },
       { spawnDepth: 0, cwd: '/tmp', cwdRealpath: '/tmp' },
     );
     assert.equal(decision.decision, 'ask');

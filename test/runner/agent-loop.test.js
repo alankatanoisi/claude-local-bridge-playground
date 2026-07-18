@@ -9,6 +9,7 @@ const fs = require('fs');
 const modelClient = require('../../src/runner/model-client');
 const confirm = require('../../src/runner/confirmation');
 const { run, extractTextBlocks, extractToolUses, applyCacheControlBudget } = require('../../src/runner/run');
+const { SessionStore } = require('../../src/runner/session-store');
 
 describe('run helpers', () => {
   it('extractTextBlocks joins text blocks', () => {
@@ -206,6 +207,103 @@ describe('agent loop — read-only', () => {
       assert.ok(logged.includes('hello.js'));
     } finally {
       modelClient.post = originalPost;
+    }
+  });
+
+  it('stops locally before a malformed resumed tool exchange reaches the bridge', async () => {
+    const malformedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-contract-'));
+    const sessionPath = path.join(malformedDir, 'malformed.state.json');
+    const store = new SessionStore(sessionPath);
+    store.load();
+    store.setMessages([
+      { role: 'user', content: 'inspect' },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', id: 'a', name: 'list_files', input: { path: '.' } },
+          { type: 'tool_use', id: 'b', name: 'read_file', input: { path: 'x' } },
+        ],
+      },
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'a', content: 'only one result' }] },
+    ]);
+    store.save();
+
+    const originalPost = modelClient.post;
+    const originalExitCode = process.exitCode;
+    let bridgeCalls = 0;
+    modelClient.post = async () => {
+      bridgeCalls++;
+      return { content: [{ type: 'text', text: 'should not happen' }] };
+    };
+
+    try {
+      const result = await run({
+        prompt: 'continue',
+        cwd: malformedDir,
+        model: 'test',
+        maxTokens: 10,
+        maxSteps: 1,
+        sessionPath,
+        resume: true,
+        ackResumeRisk: true,
+        quiet: true,
+      });
+      assert.equal(bridgeCalls, 0);
+      assert.equal(result.stopReason, 'message_contract_error');
+      assert.match(result.finalText, /tool_result IDs do not exactly match/i);
+    } finally {
+      modelClient.post = originalPost;
+      process.exitCode = originalExitCode;
+    }
+  });
+
+  it('asks after three fully failed batches and can continue with a fresh recovery window', async () => {
+    const recoveryDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-recovery-'));
+    const originalPost = modelClient.post;
+    const originalRecovery = confirm.askToolFailureRecovery;
+    const originalExitCode = process.exitCode;
+    let bridgeCalls = 0;
+    let recoveryPrompts = 0;
+
+    modelClient.post = async (body) => {
+      bridgeCalls++;
+      if (bridgeCalls <= 3) {
+        return {
+          content: [
+            {
+              type: 'tool_use',
+              id: 'missing-' + bridgeCalls,
+              name: 'read_file',
+              input: { path: 'missing-' + bridgeCalls + '.txt' },
+            },
+          ],
+        };
+      }
+      const last = body.messages[body.messages.length - 1];
+      assert.ok(last.content.some((block) => block.type === 'text' && /reassess/i.test(block.text)));
+      return { content: [{ type: 'text', text: 'Recovered.' }] };
+    };
+    confirm.askToolFailureRecovery = async () => {
+      recoveryPrompts++;
+      return { action: 'continue' };
+    };
+
+    try {
+      const result = await run({
+        prompt: 'inspect missing files',
+        cwd: recoveryDir,
+        model: 'test',
+        maxTokens: 10,
+        maxSteps: 4,
+        quiet: true,
+      });
+      assert.equal(result.stopReason, 'success');
+      assert.equal(recoveryPrompts, 1);
+      assert.equal(bridgeCalls, 4);
+    } finally {
+      modelClient.post = originalPost;
+      confirm.askToolFailureRecovery = originalRecovery;
+      process.exitCode = originalExitCode;
     }
   });
 

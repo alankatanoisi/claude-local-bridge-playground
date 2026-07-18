@@ -8,7 +8,6 @@ const path = require('node:path');
 const { resolveContextPolicy, DEFAULT_POLICY } = require('../../src/runner/context-policy');
 const { buildSystem, buildRepoContextBlock } = require('../../src/runner/context-builder');
 const { resolveSystemPrompt } = require('../../src/runner/system-prompt');
-const { applyProfileToRunOptions } = require('../../src/runner/agents/registry');
 const { applyPermissionMode, normalizePermissionMode } = require('../../src/runner/permission-mode');
 
 describe('context policy', () => {
@@ -29,9 +28,10 @@ describe('context policy', () => {
     assert.equal(policy.includeRepoContext, false);
   });
 
-  it('profile context merges opt-ins', () => {
+  it('explicit context flags merge opt-ins', () => {
     const policy = resolveContextPolicy({
-      profileContext: { includeInstructionDocs: true, includeRepoMap: true },
+      includeInstructionDocs: true,
+      includeRepoMap: true,
     });
     assert.equal(policy.includeInstructionDocs, true);
     assert.equal(policy.includeRepoMap, true);
@@ -99,20 +99,6 @@ describe('system prompt assembly', () => {
       else process.env.HOME = priorHome;
       fs.rmSync(tmp, { recursive: true, force: true });
     }
-  });
-});
-
-describe('runner personalities', () => {
-  it('project profile enables richer context defaults', () => {
-    const opts = applyProfileToRunOptions('project', {});
-    const policy = resolveContextPolicy(opts);
-    assert.equal(policy.includeInstructionDocs, true);
-    assert.equal(policy.includeRepoMap, true);
-  });
-
-  it('implement profile sets accept-edits permission mode', () => {
-    const opts = applyProfileToRunOptions('implement', {});
-    assert.equal(opts.acceptEdits, true);
   });
 });
 

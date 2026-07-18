@@ -3,7 +3,16 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const crypto = require('crypto');
-const { getProfile, applyProfileToRunOptions } = require('./agents/registry');
+
+const DEFAULT_CHILD_TOOLS = Object.freeze([
+  'list_files',
+  'read_file',
+  'search_text',
+  'glob',
+  'git_status',
+  'manage_tasks',
+  'ask_user_question',
+]);
 
 const WORKER_STATES = Object.freeze({
   RUNNING: 'running',
@@ -18,7 +27,7 @@ function makeWorkerId(prefix = 'wrk') {
 
 class WorkerRuntime {
   constructor(options = {}) {
-    this.runnerBin = options.runnerBin || path.join(process.cwd(), 'bin/local-bridge-runner.js');
+    this.runnerBin = options.runnerBin || path.resolve(__dirname, '../../bin/local-bridge-runner.js');
     this.workers = new Map();
     this.spawnDepth = options.spawnDepth || 0;
   }
@@ -26,19 +35,7 @@ class WorkerRuntime {
   spawnWorker(spec, options = {}) {
     const workerId = makeWorkerId();
     const phase = spec.phase || 'research';
-    const profile = spec.agent
-      ? getProfile(spec.agent, { cwd: spec.cwd, allowShell: !!(spec.allowShell || options.allowShell) })
-      : null;
-    const allowedList = spec.allowedTools ||
-      profile?.allowedTools || [
-        'list_files',
-        'read_file',
-        'search_text',
-        'glob',
-        'git_status',
-        'manage_tasks',
-        'spawn_agent',
-      ];
+    const allowedList = Array.isArray(spec.allowedTools) ? spec.allowedTools : [...DEFAULT_CHILD_TOOLS];
     const allowed = allowedList.join(',');
 
     const args = [
@@ -48,7 +45,7 @@ class WorkerRuntime {
       '--output-format',
       'json',
       '--max-steps',
-      String(spec.maxSteps || profile?.maxSteps || 6),
+      String(spec.maxSteps || 6),
       '--allowed-tools',
       allowed,
       '--log-level',
@@ -56,18 +53,15 @@ class WorkerRuntime {
       '--trust-workspace',
     ];
 
-    if (profile?.allowShell || allowedList.includes('bash')) args.push('--allow-shell');
-    if (spec.acceptEdits || options.acceptEdits) args.push('--accept-edits');
-    if (spec.dontAsk || options.dontAsk) args.push('--dont-ask');
-    if (spec.agent) args.push('--agent', spec.agent);
+    if (allowedList.includes('bash') && options.allowShell) args.push('--allow-shell');
+    if (spec.acceptEdits && options.acceptEdits) args.push('--accept-edits');
+    if (spec.dontAsk && options.dontAsk) args.push('--dont-ask');
     if (typeof spec.budgetRemaining?.input_tokens === 'number') {
       args.push('--budget-input-tokens', String(spec.budgetRemaining.input_tokens));
     }
     if (typeof spec.budgetRemaining?.output_tokens === 'number') {
       args.push('--budget-output-tokens', String(spec.budgetRemaining.output_tokens));
     }
-    if (spec.toolProfile) args.push('--profile', spec.toolProfile);
-
     args.push(spec.prompt);
 
     const record = {
@@ -166,5 +160,5 @@ module.exports = {
   WorkerRuntime,
   makeWorkerId,
   buildWorkerSummary,
-  applyProfileToRunOptions,
+  DEFAULT_CHILD_TOOLS,
 };

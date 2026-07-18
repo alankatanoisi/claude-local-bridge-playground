@@ -555,20 +555,13 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
       </section>
 
       <section>
-        <h2>Custom agents from files</h2>
+        <h2>Generic read-only subagents</h2>
         <p>
-          Pass <code>--agent &lt;name&gt;</code> or <code>--agent path/to/agent.md</code> to load a Markdown file with YAML
-          frontmatter (the same format as
-          <a href="https://github.com/VoltAgent/awesome-claude-code-subagents">awesome-claude-code-subagents</a>).
-          Bare names resolve under <code>.bridge-runner/agents/</code> in the project, then
-          <code>~/.bridge-runner/agents/</code>.
+          The <code>spawn_agent</code> tool delegates a focused read-only task to a generic child with its own context.
+          The child receives an explicit seven-tool read set, has no profile/personality selector, and cannot create
+          grandchildren. Agent and capability profiles were retired because they made granular flags harder to reason
+          about; their historical code is preserved under <code>docs/archive/runner-profiles/</code>.
         </p>
-        <p>
-          This repo ships <code>code-reviewer</code>, <code>debugger</code>, <code>refactoring-specialist</code>, and
-          <code>test-automator</code> under <code>.bridge-runner/agents/</code>. Claude Code tool names are mapped to
-          runner tools; network and MCP tools are dropped. <code>Bash</code> requires <code>--allow-shell</code>.
-        </p>
-        <pre><code>node bin/local-bridge-runner.js --cwd . --agent code-reviewer "Review src/runner/agents/"</code></pre>
       </section>
 
       <section>
@@ -738,16 +731,6 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td>Stop after estimated API cost exceeds N USD (advisory pricing table)</td>
             </tr>
             <tr>
-              <td><code>--agent &lt;name|path&gt;</code></td>
-              <td>off</td>
-              <td>Built-in profile, file name under <code>.bridge-runner/agents/</code>, or path to agent <code>.md</code></td>
-            </tr>
-            <tr>
-              <td><code>--list-agents</code></td>
-              <td>off</td>
-              <td>List built-in and discovered file agents, then exit</td>
-            </tr>
-            <tr>
               <td><code>--review-memory</code></td>
               <td>off</td>
               <td>List pending memory promotions for approval (no prompt required)</td>
@@ -801,21 +784,6 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td><code>--include-repo-context</code></td>
               <td>off</td>
               <td>Opt in to a session-stable repo-context block (cwd/git fingerprint)</td>
-            </tr>
-            <tr>
-              <td><code>--agent project</code></td>
-              <td>off</td>
-              <td>Personality preset with richer context defaults (docs + repo map)</td>
-            </tr>
-            <tr>
-              <td><code>--agent bench</code></td>
-              <td>off</td>
-              <td>Benchmark preset for realistic dev tasks; shell and edit flags still need explicit opt-in</td>
-            </tr>
-            <tr>
-              <td><code>--list-agents</code></td>
-              <td>—</td>
-              <td>List built-in runner personalities</td>
             </tr>
             <tr>
               <td><code>--permission-mode &lt;m&gt;</code></td>
@@ -911,7 +879,6 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
 LAB="$(node scripts/create-runner-throwaway-lab.js)"
 node bin/local-bridge-runner.js \
   --cwd "$LAB" \
-  --agent bench \
   --trust-workspace \
   --allow-shell \
   --accept-edits \
@@ -1110,8 +1077,7 @@ node bin/local-bridge-coordinator.js \
           and a neutral coding-assistant identity. It does <strong>not</strong> load project markdown files unless you
           opt in. Use <code>--include-instruction-docs</code> for the AGENTS.md hierarchy,
           <code>--include-repo-context</code> for cwd/git fingerprinting, <code>--include-repo-map</code> for a capped
-          tree snapshot, or <code>--agent project</code> for a preset that enables several of these at once.
-          <code>--bare</code> is the strictest minimal mode.
+          tree snapshot. <code>--bare</code> is the strictest minimal mode.
         </p>
         <p>
           The local bridge may still prepend Claude Code OAuth identity text upstream; that is transport context,

@@ -15,7 +15,7 @@
  *     confirm,            // confirm port: { ask(proposedAction, timeoutMs) → 'allow'|'deny' }
  *     sinks: { ledger, hooks, output, trace, transcript, humanLog, archive }, // each nullable
  *     verbosity: { verbose, quiet },
- *     failureLimit,           // consecutive failures before escalation text
+ *     failureLimit,           // fully failed tool batches before user recovery
  *     initialFailureStreak,   // seed on session resume
  *   });
  *
@@ -26,7 +26,7 @@
  *                                              // pipeline would refuse to run.
  *   await pipeline.executeTurn(step, toolUses, { midTurnCheck })
  *   pipeline.failureStreak                     // getter, for persistence
- *   pipeline.recordExternalFailure()           // bridge errors share the streak
+ *   pipeline.resetFailureStreak()               // after an explicit recovery choice
  *
  * Invariants the implementation guarantees:
  *
@@ -158,7 +158,7 @@ function traceRepeatWarning(runId, warning) {
 }
 
 function createToolPipeline(deps = {}) {
-  const { ctx, runId, confirm, sinks = {}, verbosity = {}, failureLimit = 2, initialFailureStreak = 0 } = deps;
+  const { ctx, runId, confirm, sinks = {}, verbosity = {}, failureLimit = 3, initialFailureStreak = 0 } = deps;
   if (!ctx) throw new Error('createToolPipeline: ctx is required');
   if (!confirm || typeof confirm.ask !== 'function') {
     throw new Error('createToolPipeline: confirm port with ask() is required');
@@ -284,44 +284,45 @@ function createToolPipeline(deps = {}) {
     return { ok: true, text: 'Plan mode: would ' + result.proposedAction, permission: result.permission };
   }
 
-  // Failure streak: counted on the write/shell path only (read failures never
-  // escalated historically). Escalation text is appended before the result is
-  // recorded so every sink sees it identically.
-  function noteWriteOutcome(step, toolName, result) {
-    let escalated = false;
-    if (!result.ok && !result.needsConfirmation) {
-      failureStreak++;
-      if (failureStreak >= failureLimit) {
-        const escalate =
-          '\n\n⚠️  ' +
-          failureStreak +
-          ' consecutive tool failures. The runner is stopping to prevent an infinite retry loop. Last failure: ' +
-          toolName +
-          ' — ' +
-          result.text;
-        result.text = (result.text || '') + escalate;
-        escalated = true;
-        bestEffort(
-          'transcript',
-          () => transcript && transcript.append({ type: 'escalation', step, tool: toolName, failures: failureStreak }),
-        );
-        console.error(escalate);
-      } else if (!quiet) {
-        console.error(
-          '[runner] tool failure (' +
-            failureStreak +
-            '/' +
-            failureLimit +
-            '): ' +
-            toolName +
-            ' — ' +
-            (result.text || 'unknown error').slice(0, 200),
-        );
-      }
-    } else {
+  // Count failed *batches*, not individual calls. A four-tool parallel batch
+  // is one model decision and therefore advances the streak at most once.
+  // Any successful result proves forward progress and resets the streak.
+  // A human declining an approval is also not a broken tool contract.
+  function noteBatchOutcome(step, outcomes) {
+    const anySuccess = outcomes.some((outcome) => outcome.result && outcome.result.ok);
+    const failures = outcomes.filter((outcome) => outcome.result && !outcome.result.ok && !outcome.result.userDenied);
+
+    if (anySuccess || failures.length === 0) {
       failureStreak = 0;
+      return { needsRecoveryDecision: false, failureSummary: [] };
     }
-    return escalated;
+
+    failureStreak++;
+    const failureSummary = failures.map((outcome) => ({
+      tool: outcome.toolUse.name,
+      message: String(outcome.result.text || 'unknown error').slice(0, 500),
+    }));
+    const needsRecoveryDecision = failureStreak >= failureLimit;
+
+    if (!quiet) {
+      console.error(
+        '[runner] failed tool batch (' +
+          failureStreak +
+          '/' +
+          failureLimit +
+          '): ' +
+          failureSummary.map((item) => item.tool).join(', '),
+      );
+    }
+    if (needsRecoveryDecision) {
+      bestEffort(
+        'transcript',
+        () =>
+          transcript &&
+          transcript.append({ type: 'tool_failure_recovery_required', step, failures: failureStreak, failureSummary }),
+      );
+    }
+    return { needsRecoveryDecision, failureSummary };
   }
 
   async function executeTurn(step, toolUses, opts = {}) {
@@ -474,12 +475,10 @@ function createToolPipeline(deps = {}) {
               'transcript',
               () => transcript && transcript.append({ type: 'tool_denied', step, tool: tu.name }),
             );
-            result = { ok: false, text: 'User denied this action.' };
+            result = { ok: false, text: 'User denied this action.', userDenied: true };
           }
         }
       }
-
-      if (noteWriteOutcome(step, tu.name, result)) escalated = true;
 
       recordCompleted(step, tu, result, effectId);
       toolResults.push({
@@ -505,7 +504,17 @@ function createToolPipeline(deps = {}) {
       }
     }
 
-    return { toolResults, outcomes, failureStreak, escalated, aborted: null };
+    const batchHealth = noteBatchOutcome(step, outcomes);
+    escalated = batchHealth.needsRecoveryDecision;
+    return {
+      toolResults,
+      outcomes,
+      failureStreak,
+      escalated,
+      needsRecoveryDecision: batchHealth.needsRecoveryDecision,
+      failureSummary: batchHealth.failureSummary,
+      aborted: null,
+    };
   }
 
   return {
@@ -516,10 +525,12 @@ function createToolPipeline(deps = {}) {
     get failureStreak() {
       return failureStreak;
     },
-    // Bridge errors share the consecutive-failure streak with tool failures —
-    // the agent loop's retry gate reads and advances the same counter.
-    recordExternalFailure() {
-      failureStreak++;
+    resetFailureStreak() {
+      failureStreak = 0;
+      return failureStreak;
+    },
+    restoreFailureStreak(value) {
+      failureStreak = Number.isInteger(value) && value > 0 ? value : 0;
       return failureStreak;
     },
   };

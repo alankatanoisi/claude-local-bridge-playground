@@ -19,32 +19,24 @@ in the Claude Local Bridge Output log. That token is a local debug door code, no
 
 ## What the model can touch
 
-| Category     | Tools                                                  | Scope                                                                                                                                                                                                          |
-| ------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Read**     | `list_files`, `read_file`, `search_text`, `glob`, `git_status`, `lsp_query` | Text reads are path-confined. `read_file` also supports images/PDF as multimodal blocks (size caps; logs redact base64). `lsp_query` is opt-in (`--enable-lsp`) and spawns a local language-server subprocess. |
-| **Session**  | `manage_tasks`, `ask_user_question`                    | Task checklist in the session file; structured operator questions (TTY-only, fail closed in workers and `--dont-ask`). |
-| **Orchestration** | `spawn_agent`                                     | Spawns a child runner subprocess with a chosen agent profile. Top-level only (`spawnDepth === 0`). Asks by default; capped at 8 spawns per run. Child inherits cwd deny matrix; cannot recurse.              |
-| **Worktree**  | `enter_worktree`, `exit_worktree`, `list_worktrees` | Multiple named **slots** per run (`slot` parameter); each creates an isolated git worktree on a fresh branch and switches cwd. Re-enter a slot to switch between parallel worktrees. `list_worktrees` lists active slots and orphan dirs under `~/.bridge-runner/worktrees/`. Requires a git repo. Asks by default; `cleanup=true` removes the worktree and branch. |
-| **Skills**    | `run_skill`                                       | Loads a skill Markdown body by name from `.bridge-runner/skills/` or `.cursor/skills/`. Read-only text return — does not execute embedded shell or network instructions. |
-| **Write**    | `edit_file`, `write_file`                              | Any file inside `cwd` that passes the deny matrix. Backups saved before mutation. Requires user confirmation (or `--accept-edits`).                                                                            |
-| **Recovery** | `undo`, `undo_edit`                                    | Restore files from `.bridge-runner/backups/` or the in-memory undo log. Auto-approved.                                                                                                                         |
-| **Advanced** | `apply_patch`                                          | Patch-style edits. Hidden from the default tool surface; opt in explicitly with `--tools apply_patch` or a custom tool list. Requires the same write confirmations and path checks as other write tools.       |
-| **Shell**    | `bash`, `manage_shell_jobs`                            | Run shell commands inside `cwd`. **Opt-in only** (`--allow-shell`). Synchronous `bash` is bounded by timeout (default 30s) and output limits (10KB). `manage_shell_jobs` runs background commands (max 8 per run) with poll/kill; same shell-policy scanner applies. Filtered environment. Shell argument scanning blocks dangerous path references. |
+| Category          | Tools                                                                       | Scope                                                                                                                                                                                                                                                                                                                                                               |
+| ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Read**          | `list_files`, `read_file`, `search_text`, `glob`, `git_status`, `lsp_query` | Text reads are path-confined. `read_file` also supports images/PDF as multimodal blocks (size caps; logs redact base64). `lsp_query` is opt-in (`--enable-lsp`) and spawns a local language-server subprocess.                                                                                                                                                      |
+| **Session**       | `manage_tasks`, `ask_user_question`                                         | Task checklist in the session file; structured operator questions (TTY-only, fail closed in workers and `--dont-ask`).                                                                                                                                                                                                                                              |
+| **Orchestration** | `spawn_agent`                                                               | Spawns a generic read-only child runner with an explicit seven-tool set. Top-level only (`spawnDepth === 0`). Asks by default; capped at 8 spawns per run. Child inherits cwd deny matrix; cannot recurse.                                                                                                                                                          |
+| **Worktree**      | `enter_worktree`, `exit_worktree`, `list_worktrees`                         | Multiple named **slots** per run (`slot` parameter); each creates an isolated git worktree on a fresh branch and switches cwd. Re-enter a slot to switch between parallel worktrees. `list_worktrees` lists active slots and orphan dirs under `~/.bridge-runner/worktrees/`. Requires a git repo. Asks by default; `cleanup=true` removes the worktree and branch. |
+| **Skills**        | `run_skill`                                                                 | Loads a skill Markdown body by name from `.bridge-runner/skills/` or `.cursor/skills/`. Read-only text return — does not execute embedded shell or network instructions.                                                                                                                                                                                            |
+| **Write**         | `edit_file`, `write_file`                                                   | Any file inside `cwd` that passes the deny matrix. Backups saved before mutation. Requires user confirmation (or `--accept-edits`).                                                                                                                                                                                                                                 |
+| **Recovery**      | `undo`, `undo_edit`                                                         | Restore files from `.bridge-runner/backups/` or the in-memory undo log. Auto-approved.                                                                                                                                                                                                                                                                              |
+| **Advanced**      | `apply_patch`                                                               | Patch-style edits. Hidden from the default tool surface; opt in explicitly with `--tools apply_patch` or a custom tool list. Requires the same write confirmations and path checks as other write tools.                                                                                                                                                            |
+| **Shell**         | `bash`, `manage_shell_jobs`                                                 | Run shell commands inside `cwd`. **Opt-in only** (`--allow-shell`). Synchronous `bash` is bounded by timeout (default 30s) and output limits (10KB). `manage_shell_jobs` runs background commands (max 8 per run) with poll/kill; same shell-policy scanner applies. Filtered environment. Shell argument scanning blocks dangerous path references.                |
 
-## File-based agents (`--agent <name|path>`)
+## Retired profile loaders
 
-Markdown agent files (YAML frontmatter + prompt body) can extend built-in `--agent` profiles. They are loaded from
-`.bridge-runner/agents/` or an explicit path the user passes on the CLI.
-
-| Risk                          | Mitigation                                                                 |
-| ----------------------------- | -------------------------------------------------------------------------- |
-| Untrusted third-party prompts | Body is appended to the system prompt only; cannot bypass deny matrix     |
-| Tool widening                 | Frontmatter `tools` are mapped to the runner catalog; unknown tools dropped |
-| Network egress                | `WebFetch`, `WebSearch`, and MCP tool names are always dropped             |
-| Shell without consent         | `Bash` maps to `bash` only when `--allow-shell` is already set           |
-| Path escape via `--agent`     | User-directed path (like `--system-prompt-file`); not auto-scanned        |
-
-Built-in profile ids always take precedence over file agents with the same name.
+Agent/file profiles and capability profiles are not part of the active runtime. Their historical code is stored as
+non-executable text under `docs/archive/runner-profiles/`. The CLI rejects the former flags so an old command cannot
+silently run with different authority. Prompt customization remains available through prompt templates and explicit
+system-prompt files; authority remains controlled by explicit flags and `--tools`.
 
 ## Run-level recovery (`local-bridge-undo` CLI)
 
@@ -53,14 +45,14 @@ runner also persists that log to a **per-run manifest** at `<cwd>/.bridge-runner
 operator-facing `local-bridge-undo` CLI (`list-runs`, `show`, `last-run`, `run <id>`) reverts a whole run from those
 backups. It is **not** a model-callable tool and adds no new model permission surface — it composes existing primitives.
 
-| Property                  | Behavior                                                                                                            |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Path confinement          | Revert targets pass `safety.confinePath()`; a tampered manifest pointing outside `cwd` is marked `denied` and skipped |
-| Divergence protection     | A file changed after the run (`current sha ≠ run's last write`) is `diverged` and skipped unless `--force`           |
-| Created files             | A file the run created (no backup) is removed on revert; a divergent created file needs `--force`                   |
-| Non-interactive fail-safe | Without `--yes`/`--dry-run` and no TTY, revert refuses (exit 2) rather than silently rewriting files                 |
+| Property                  | Behavior                                                                                                               |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Path confinement          | Revert targets pass `safety.confinePath()`; a tampered manifest pointing outside `cwd` is marked `denied` and skipped  |
+| Divergence protection     | A file changed after the run (`current sha ≠ run's last write`) is `diverged` and skipped unless `--force`             |
+| Created files             | A file the run created (no backup) is removed on revert; a divergent created file needs `--force`                      |
+| Non-interactive fail-safe | Without `--yes`/`--dry-run` and no TTY, revert refuses (exit 2) rather than silently rewriting files                   |
 | Manifest contents         | Edit paths, tool names, SHA-256 hashes, and backup paths — no file bodies. Treat as sensitive (it lists project paths) |
-| Garbage collection        | None automatic in v1; manifests are pruned manually by deleting `.bridge-runner/runs/<run-id>`                       |
+| Garbage collection        | None automatic in v1; manifests are pruned manually by deleting `.bridge-runner/runs/<run-id>`                         |
 
 Manifests inherit the same secret-redaction posture as other on-disk artifacts: they store hashes and relative paths, not
 file contents. The backups they point at live under `.bridge-runner/backups/` and are themselves project source — treat
@@ -72,16 +64,16 @@ Prompt templates (`.bridge-runner/prompts/<name>.md` + built-ins) may declare `{
 with `--prompt-arg key=value`. A parameter value is text spliced directly into the system/user prompt, so it is treated
 as untrusted input:
 
-| Risk                              | Mitigation                                                                                          |
-| --------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Forged conversation turns         | Values containing `\n\nHuman:` / `\n\nAssistant:` / `\n\nSystem:` are **refused**, not escaped       |
-| Special/control tokens            | `<|…|>`, `[INST]`/`[/INST]`, and role-ish XML tags (`<system>`, `<tool>`) are refused                |
-| Template-composition break-out    | Values containing `{{`/`}}`, a bare `---` fence, or our `## Prompt template:` / `## User request` headers are refused |
-| Oversized values                  | Values over 2000 characters are refused                                                              |
-| Missing required parameters       | The run fails **before** any model call, rather than sending a half-filled template                 |
+| Risk                           | Mitigation                                                                                                            |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------- | --- | -------------------------------------------------------------------------------- |
+| Forged conversation turns      | Values containing `\n\nHuman:` / `\n\nAssistant:` / `\n\nSystem:` are **refused**, not escaped                        |
+| Special/control tokens         | `<                                                                                                                    | …   | >`, `[INST]`/`[/INST]`, and role-ish XML tags (`<system>`, `<tool>`) are refused |
+| Template-composition break-out | Values containing `{{`/`}}`, a bare `---` fence, or our `## Prompt template:` / `## User request` headers are refused |
+| Oversized values               | Values over 2000 characters are refused                                                                               |
+| Missing required parameters    | The run fails **before** any model call, rather than sending a half-filled template                                   |
 
 Template **bodies** are author-controlled text (same trust level as `.bridge-runner/SYSTEM.md`); only the parameter
-*values* are gated. This is refusal-by-default, not best-effort escaping.
+_values_ are gated. This is refusal-by-default, not best-effort escaping.
 
 ## What the model can NEVER touch
 
@@ -120,6 +112,10 @@ User prompt
   → evaluateWorkspaceTrust() — no tools until cwd is consented (--trust-workspace or interactive y)
   → Runner sends model request through the local bridge
   → Model returns tool_use blocks
+  → Final message-contract validation:
+      - exact tool_use_id/tool_result membership (order-independent)
+      - one atomic result batch immediately after each assistant tool batch
+      - reject duplicate, orphaned, missing, or misplaced IDs before network I/O
   → permissions.check():
       1. confinePath() — realpath containment → deny on escape
       2. isPathBlockedByDenyMatrix() — glob patterns → deny on match (severity: hard_deny)
@@ -183,11 +179,11 @@ Redacted patterns:
 
 The runner exposes live budget signals for long sessions and nested `spawn_agent` children:
 
-| Flag | Behavior |
-| ---- | -------- |
-| `--max-wall-clock-ms` | Hard stop when wall time exceeds N ms (existing) |
-| `--max-cost-usd` | Hard stop when estimated cost exceeds N USD (existing) |
-| `--budget-input-tokens` | Hard stop when cumulative API `input_tokens` reach N; soft warning at 80% |
+| Flag                     | Behavior                                                                   |
+| ------------------------ | -------------------------------------------------------------------------- |
+| `--max-wall-clock-ms`    | Hard stop when wall time exceeds N ms (existing)                           |
+| `--max-cost-usd`         | Hard stop when estimated cost exceeds N USD (existing)                     |
+| `--budget-input-tokens`  | Hard stop when cumulative API `input_tokens` reach N; soft warning at 80%  |
 | `--budget-output-tokens` | Hard stop when cumulative API `output_tokens` reach N; soft warning at 80% |
 
 Stream-json and flight-recorder traces may include `{ type: "budget", input_tokens, output_tokens, wall_ms, spawns, depth }`
@@ -197,46 +193,34 @@ guards. Child agents inherit the parent's **remaining** token budget via CLI fla
 Hard-cap termination stops the loop at the next boundary; it does **not** auto-revert in-flight edits — use recovery
 tools (`undo`, run manifests when available) if a partial run must be rolled back.
 
-## Composable tool capability profiles (`--profile`)
+## Explicit tool allowlists
 
-Per-tool profiles layer **over** coarse permission flags (`--accept-edits`, `--allow-shell`). They cannot bypass the
-hard-deny matrix (`.env`, `.ssh/`, path escapes, shell scanner hits) or the `--chaos-ok` interlock.
-
-| Source | Path |
-| ------ | ---- |
-| Built-in | `review-only`, `edit-source-no-shell`, `git-readonly-shell` |
-| Project | `.bridge-runner/profiles/<name>.json` |
-| User | `~/.bridge-runner/profiles/<name>.json` |
-
-Profile JSON supports per-tool `allow`/`deny` and optional constraints (`bash.command_regex`, `write_file.max_bytes`).
-Denied tools are **removed** from the model tool list (not merely blocked at execution). List profiles with
-`--list-profiles`.
-
-**Composition:** `--profile` applies after `--agent` personality defaults; `--tools` intersects with the profile
-exposure set (narrower only).
+`--tools`/`--allowed-tools` is the only per-tool visibility layer. It intersects with dedicated feature gates:
+requesting `bash` still requires `--allow-shell`, requesting LSP still requires `--enable-lsp`, and child runners cannot
+request `spawn_agent`. The hard-deny matrix remains independent and cannot be bypassed by any visibility flag.
 
 ## Executable hooks (`.bridge-runner/hooks.json`)
 
 Hooks can log lifecycle events or run trusted shell commands when `"action": "exec"` or `"run"` is set.
 
-| Risk | Mitigation |
-| ---- | ---------- |
-| Arbitrary command execution | Requires workspace trust **and** `"trusted": true` in hooks.json |
-| Secret exfiltration via hook output | Hook stdout/stderr pass through `scrubSecrets()` before logging |
-| Reading `.env` / keys via hook command | Same `scanShellCommand()` hard-deny patterns as `bash` |
-| Network egress | Hook env inherits scrubbed `buildSafeEnv()`; `--no-network` proxy guard applies |
-| Runaway hook | `spawnSync` timeout (default 120s, max 120s); output capped at 8KB in hook results |
+| Risk                                   | Mitigation                                                                         |
+| -------------------------------------- | ---------------------------------------------------------------------------------- |
+| Arbitrary command execution            | Requires workspace trust **and** `"trusted": true` in hooks.json                   |
+| Secret exfiltration via hook output    | Hook stdout/stderr pass through `scrubSecrets()` before logging                    |
+| Reading `.env` / keys via hook command | Same `scanShellCommand()` hard-deny patterns as `bash`                             |
+| Network egress                         | Hook env inherits scrubbed `buildSafeEnv()`; `--no-network` proxy guard applies    |
+| Runaway hook                           | `spawnSync` timeout (default 120s, max 120s); output capped at 8KB in hook results |
 
 Exec hooks are **user-configured**, not model-callable. The model cannot add or modify hook commands mid-run.
 
 ## Multimodal read_file and LSP
 
-| Risk | Mitigation |
-| ---- | ---------- |
-| Large image/PDF token burn | Hard caps (7MB images, 10MB PDFs); human logs/transcripts store summaries, not base64 payloads |
-| Reading sensitive screenshots | Same deny matrix as text reads (`.env`, keys blocked) |
-| Arbitrary LSP subprocess | Opt-in `--enable-lsp`; scrubbed env; sessions disposed at run end; read-only tool category |
-| Missing language server | Fail closed with install hint; no shell fallback |
+| Risk                          | Mitigation                                                                                     |
+| ----------------------------- | ---------------------------------------------------------------------------------------------- |
+| Large image/PDF token burn    | Hard caps (7MB images, 10MB PDFs); human logs/transcripts store summaries, not base64 payloads |
+| Reading sensitive screenshots | Same deny matrix as text reads (`.env`, keys blocked)                                          |
+| Arbitrary LSP subprocess      | Opt-in `--enable-lsp`; scrubbed env; sessions disposed at run end; read-only tool category     |
+| Missing language server       | Fail closed with install hint; no shell fallback                                               |
 
 ## Known limitations
 

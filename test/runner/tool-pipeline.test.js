@@ -325,7 +325,7 @@ describe('tool pipeline — confirmation flow', () => {
     );
   });
 
-  it('ask → deny returns a denial result and counts toward the failure streak', async () => {
+  it('ask → deny returns a denial result without counting it as a broken tool', async () => {
     const tmpDir = freshDir('pipeline-denyflow-');
     const { pipeline, calls } = makePipeline({ cwd: tmpDir }, { answers: ['deny'] });
 
@@ -336,7 +336,7 @@ describe('tool pipeline — confirmation flow', () => {
     assert.equal(fs.existsSync(path.join(tmpDir, 'new.txt')), false);
     assert.equal(turn.toolResults[0].is_error, true);
     assert.ok(turn.toolResults[0].content.includes('User denied this action.'));
-    assert.equal(turn.failureStreak, 1);
+    assert.equal(turn.failureStreak, 0);
     assert.ok(calls.some((c) => c.sink === 'transcript' && c.type === 'tool_denied'));
   });
 
@@ -425,38 +425,57 @@ describe('tool pipeline — accept-edits parallel pre-pass', () => {
 });
 
 describe('tool pipeline — failure streak', () => {
-  it('escalates after failureLimit consecutive failures and resets on success', async () => {
+  it('counts one fully failed batch once, even when the batch contains multiple failures', async () => {
     const tmpDir = freshDir('pipeline-streak-');
     const { pipeline } = makePipeline({ cwd: tmpDir, acceptEdits: true }, { failureLimit: 2 });
 
-    const turn = await silencedStderr(() =>
+    const first = await silencedStderr(() =>
       pipeline.executeTurn(1, [
         { id: 'w1', name: 'write_file', input: {} },
         { id: 'w2', name: 'write_file', input: {} },
       ]),
     );
+    assert.equal(first.failureStreak, 1);
+    assert.equal(first.needsRecoveryDecision, false);
 
-    assert.equal(turn.escalated, true);
-    assert.equal(turn.failureStreak, 2);
-    assert.ok(turn.toolResults[1].content.includes('consecutive tool failures'));
+    const second = await silencedStderr(() => pipeline.executeTurn(2, [{ id: 'w3', name: 'write_file', input: {} }]));
+    assert.equal(second.failureStreak, 2);
+    assert.equal(second.needsRecoveryDecision, true);
+    assert.equal(second.failureSummary[0].tool, 'write_file');
 
-    const recovery = await pipeline.executeTurn(2, [
-      { id: 'w3', name: 'write_file', input: { path: 'ok.txt', content: 'x' } },
+    const recovery = await pipeline.executeTurn(3, [
+      { id: 'w4', name: 'write_file', input: { path: 'ok.txt', content: 'x' } },
     ]);
     assert.equal(recovery.failureStreak, 0);
     assert.equal(pipeline.failureStreak, 0);
   });
 
-  it('seeds from initialFailureStreak and shares the streak with external failures', async () => {
+  it('counts read failures and resets a failed streak when any tool in the next batch succeeds', async () => {
     const tmpDir = freshDir('pipeline-seed-');
-    const { pipeline } = makePipeline({ cwd: tmpDir, acceptEdits: true }, { failureLimit: 2, initialFailureStreak: 1 });
+    const { pipeline } = makePipeline({ cwd: tmpDir, acceptEdits: true }, { failureLimit: 3 });
 
-    assert.equal(pipeline.failureStreak, 1);
-    assert.equal(pipeline.recordExternalFailure(), 2);
+    const failedRead = await silencedStderr(() =>
+      pipeline.executeTurn(1, [{ id: 'r1', name: 'read_file', input: { path: 'missing.txt' } }]),
+    );
+    assert.equal(failedRead.failureStreak, 1);
+
+    const mixed = await silencedStderr(() =>
+      pipeline.executeTurn(2, [
+        { id: 'r2', name: 'read_file', input: { path: 'missing-again.txt' } },
+        { id: 'r3', name: 'read_file', input: { path: 'src/app.js' } },
+      ]),
+    );
+    assert.equal(mixed.failureStreak, 0);
+    assert.equal(mixed.needsRecoveryDecision, false);
+  });
+
+  it('can reset a resumed streak after the user explicitly chooses recovery', async () => {
+    const tmpDir = freshDir('pipeline-reset-');
+    const { pipeline } = makePipeline({ cwd: tmpDir, acceptEdits: true }, { initialFailureStreak: 2 });
+
     assert.equal(pipeline.failureStreak, 2);
-
-    const turn = await silencedStderr(() => pipeline.executeTurn(1, [{ id: 'w1', name: 'write_file', input: {} }]));
-    assert.equal(turn.escalated, true, 'seeded streak escalates on the next failure');
+    assert.equal(pipeline.resetFailureStreak(), 0);
+    assert.equal(pipeline.failureStreak, 0);
   });
 });
 

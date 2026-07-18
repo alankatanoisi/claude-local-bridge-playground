@@ -6,7 +6,6 @@
 
 const path = require('path');
 const safety = require('./safety');
-const { checkProfileConstraints } = require('./tool-profiles');
 // CATEGORIES is derived from each tool module's own meta — see tool-catalog.js.
 const { CATEGORIES } = require('./tool-catalog');
 
@@ -128,14 +127,13 @@ function _getDecisionCache(ctx) {
 
 function _decisionKey(toolName, args, ctx) {
   const flags = (ctx.acceptEdits ? 'A' : '') + (ctx.dontAsk ? 'D' : '') + (ctx.allowShell ? 'S' : '');
-  const profileId = ctx.toolProfile?.id || '';
   let argsKey;
   try {
     argsKey = JSON.stringify(args || {});
   } catch {
     argsKey = '<unserializable>';
   }
-  return toolName + '|' + flags + '|' + profileId + '|' + argsKey;
+  return toolName + '|' + flags + '|' + argsKey;
 }
 
 function invalidateDecisionCache(ctx, paths) {
@@ -320,36 +318,7 @@ function _checkUncached(toolName, args, ctx) {
         mode,
         ruleId: 'allowed_tools',
         severity: 'hard_deny',
-        explanation: ctx.toolProfile
-          ? 'Tool blocked by capability profile "' + ctx.toolProfile.id + '" or --tools allowlist.'
-          : 'Tool not in --allowed-tools list.',
-      },
-    );
-  }
-
-  if (ctx.toolProfile?.tools?.[toolName] === 'deny') {
-    return enrichDecision(
-      { decision: 'deny', reason: "Tool '" + toolName + "' is denied by profile '" + ctx.toolProfile.id + "'." },
-      {
-        category,
-        mode,
-        ruleId: 'tool_profile_deny',
-        severity: 'hard_deny',
-        explanation: ctx.toolProfile.rationale || 'Denied by capability profile.',
-      },
-    );
-  }
-
-  const constraintReason = checkProfileConstraints(toolName, args, ctx.toolProfile);
-  if (constraintReason) {
-    return enrichDecision(
-      { decision: 'deny', reason: constraintReason },
-      {
-        category,
-        mode,
-        ruleId: 'tool_profile_constraint',
-        severity: 'hard_deny',
-        explanation: constraintReason,
+        explanation: 'Tool not in --tools/--allowed-tools list.',
       },
     );
   }

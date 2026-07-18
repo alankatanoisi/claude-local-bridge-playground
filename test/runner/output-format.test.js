@@ -156,7 +156,7 @@ describe('runner output formats', () => {
     }
   });
 
-  it('prints parseable JSON when bench-mode bridge calls fail', async () => {
+  it('prints parseable JSON when bridge calls fail', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'runner-bench-json-fail-'));
     const originalPost = modelClient.post;
     modelClient.post = async () => {
@@ -173,7 +173,6 @@ describe('runner output formats', () => {
           maxTokens: 10,
           maxSteps: 1,
           outputFormat: 'json',
-          agentProfile: 'bench',
           quiet: true,
         }),
       );

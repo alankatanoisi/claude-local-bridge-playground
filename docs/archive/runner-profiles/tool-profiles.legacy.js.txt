@@ -1,5 +1,9 @@
 'use strict';
 
+// HISTORICAL SNAPSHOT ONLY. Capability profiles were retired from the active
+// runner in July 2026. Tool authority now comes from explicit flags and the
+// --tools/--allowed-tools allowlist.
+
 /**
  * tool-profiles.js — Composable per-tool capability profiles (roadmap §6.1).
  *

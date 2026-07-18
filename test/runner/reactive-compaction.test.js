@@ -2,7 +2,8 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { summarizeOldTurns, applyCompactionLadder } = require('../../src/runner/context-compactor');
+const { clipToolResults, summarizeOldTurns, applyCompactionLadder } = require('../../src/runner/context-compactor');
+const { assertValidAnthropicMessages } = require('../../src/runner/message-contract');
 
 describe('reactive compaction', () => {
   function toolTurn(id, content) {
@@ -40,6 +41,20 @@ describe('reactive compaction', () => {
       (m) => Array.isArray(m.content) && m.content.some((b) => b.type === 'tool_result' && b.tool_use_id === 't9'),
     );
     assert.equal(tailHasPair, true);
+    assert.doesNotThrow(() => assertValidAnthropicMessages(out));
+  });
+
+  it('clips within the declared limit and is byte-for-byte idempotent', () => {
+    const messages = toolTurn('bounded', 'x'.repeat(200));
+    const first = clipToolResults(messages, 80);
+    const clipped = first.messages[1].content[0].content;
+
+    assert.equal(first.changed, true);
+    assert.ok(clipped.length <= 80, 'continuation notice is inside the declared limit');
+
+    const second = clipToolResults(first.messages, 80);
+    assert.equal(second.changed, false);
+    assert.deepEqual(second.messages, first.messages);
   });
 
   it('applyCompactionLadder runs summarize at halt threshold', () => {

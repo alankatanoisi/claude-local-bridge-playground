@@ -1,5 +1,9 @@
 'use strict';
 
+// HISTORICAL SNAPSHOT ONLY. Agent profiles were retired from the active
+// runner in July 2026. This file is preserved as design reference and is not
+// loaded by the CLI, runner, coordinator, or spawn_agent tool.
+
 const path = require('path');
 
 /**

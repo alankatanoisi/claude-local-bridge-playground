@@ -6,6 +6,7 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const { loadMessagesFromTranscript } = require('../../src/runner/run');
+const { assertValidAnthropicMessages } = require('../../src/runner/message-contract');
 
 describe('loadMessagesFromTranscript', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'resume-'));
@@ -51,6 +52,28 @@ describe('loadMessagesFromTranscript', () => {
     // Should have at least user message, assistant with tool_use, tool_result user message
     assert.ok(messages.length >= 2);
     assert.equal(messages[0].role, 'user');
+    assert.doesNotThrow(() => assertValidAnthropicMessages(messages));
+  });
+
+  it('rebuilds one atomic result batch for parallel tools, regardless of completion order', () => {
+    const filePath = path.join(tmpDir, 'parallel-tools.jsonl');
+    const lines = [
+      '{"type":"user_prompt","text":"Inspect both"}',
+      '{"type":"assistant","step":1,"content":[{"type":"tool_use","id":"a","name":"read_file","input":{"path":"a"}},{"type":"tool_use","id":"b","name":"read_file","input":{"path":"b"}}]}',
+      // Transcript sinks can observe parallel completions in a different order
+      // from the assistant's tool_use array. Resume must batch by ID membership.
+      '{"type":"tool_result","step":1,"tool":"read_file","ok":true,"toolUseId":"b","text":"B"}',
+      '{"type":"tool_result","step":1,"tool":"read_file","ok":true,"toolUseId":"a","text":"A"}',
+    ];
+    fs.writeFileSync(filePath, lines.join('\n'));
+
+    const messages = loadMessagesFromTranscript(filePath);
+    assert.equal(messages.length, 3);
+    assert.deepEqual(
+      messages[2].content.map((block) => block.tool_use_id),
+      ['b', 'a'],
+    );
+    assert.doesNotThrow(() => assertValidAnthropicMessages(messages));
   });
 
   it('respects ledgerCursor early-termination cap (C3)', () => {

@@ -34,7 +34,7 @@ class CcBridgeRunnerAgentTest(unittest.TestCase):
 
         self.assertIn("--bridge-url http://bridge.example:11437", command)
         self.assertIn('--cwd "$TASK_WORKDIR"', command)
-        self.assertIn("--agent bench", command)
+        self.assertNotIn("--agent", command)
         self.assertIn("--allow-shell", command)
         self.assertIn("--accept-edits", command)
         self.assertIn("/logs/agent/runner-output.json", command)

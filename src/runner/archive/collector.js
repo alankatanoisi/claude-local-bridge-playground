@@ -14,7 +14,6 @@ class RunArchiveCollector {
       prompt: meta.prompt,
       stdinText: meta.stdinText,
       flags: meta.flags || {},
-      agentProfile: meta.agentProfile ?? null,
       transcriptPath: meta.transcriptPath ?? null,
       tracePath: meta.tracePath ?? null,
       sessionPath: meta.sessionPath ?? null,

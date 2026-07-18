@@ -107,8 +107,7 @@ class Coordinator {
             input.objective,
           cwd: input.cwd,
           phase: 'research',
-          agent: 'explore',
-          allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks', 'spawn_agent'],
+          allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks'],
           maxSteps: 6,
         });
         artifacts.workerResults.push(workerResult);
@@ -181,7 +180,7 @@ class Coordinator {
           (kernelResult.finalText || '').slice(0, 1500),
         cwd: input.cwd,
         phase: 'verify',
-        agent: 'verify',
+        allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks'],
         maxSteps: 4,
       });
       artifacts.workerResults.push(verifyResult);

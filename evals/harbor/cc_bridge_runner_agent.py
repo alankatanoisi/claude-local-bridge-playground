@@ -116,8 +116,6 @@ class CcBridgeRunnerAgent(BaseInstalledAgent):
             '"$TASK_WORKDIR"',
             "--model",
             shlex.quote(model),
-            "--agent",
-            "bench",
             "--trust-workspace",
             "--allow-shell",
             "--accept-edits",

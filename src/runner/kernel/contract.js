@@ -14,6 +14,7 @@ const STOP_REASONS = Object.freeze({
   MAX_TOOL_CALLS_PER_TURN: 'max_tool_calls_per_turn',
   CONTEXT_BUDGET_EXCEEDED: 'context_budget_exceeded',
   BRIDGE_ERROR: 'bridge_error',
+  MESSAGE_CONTRACT_ERROR: 'message_contract_error',
   CWD_INVALID: 'cwd_invalid',
   RESUME_FAILED: 'resume_failed',
   USER_DENIED: 'user_denied',

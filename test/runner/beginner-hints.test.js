@@ -29,4 +29,10 @@ describe('beginner hints', () => {
     const hint = formatHint('max_steps', { quiet: true, rawMessage: 'Reached max_steps (4)' });
     assert.equal(hint.formatted, 'Reached max_steps (4)');
   });
+
+  it('explains a local message-contract stop without blaming the bridge', () => {
+    const hint = formatHint('message_contract_error');
+    assert.match(hint.whatHappened, /tool-call\/result pairing/i);
+    assert.match(hint.tip, /fresh session/i);
+  });
 });

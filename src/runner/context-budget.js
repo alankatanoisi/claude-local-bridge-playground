@@ -10,7 +10,7 @@
  */
 
 const crypto = require('crypto');
-const { isToolVisible } = require('./tool-profiles');
+const { isToolVisible } = require('./tool-visibility');
 
 const DEFAULT_CONTEXT_BUDGET_CHARS = 32_000;
 const SKILL_ENTRY_MAX_CHARS = 250;
@@ -24,11 +24,10 @@ let dynamicCacheKey = null;
 function _toolRegistryHash(ctx) {
   const allowShell = ctx && ctx.allowShell ? '1' : '0';
   const allowed = ctx && ctx.allowedTools ? [...ctx.allowedTools].sort().join(',') : '*';
-  const profile = ctx?.toolProfile?.id || '';
   const names = Object.keys(TOOL_SUMMARIES).sort().join(',');
   return crypto
     .createHash('sha1')
-    .update(allowShell + '|' + allowed + '|' + profile + '|' + names)
+    .update(allowShell + '|' + allowed + '|' + names)
     .digest('hex')
     .slice(0, 8);
 }
@@ -118,15 +117,6 @@ function buildToolSummarySection(ctx) {
     lines.push('- Shell: bash, manage_shell_jobs');
   }
   lines.push('\n## Available tools (summaries)\n');
-  if (ctx?.toolProfile) {
-    lines.push(
-      'Active capability profile: **' +
-        ctx.toolProfile.id +
-        '** — ' +
-        (ctx.toolProfile.rationale || ctx.toolProfile.title) +
-        '\n',
-    );
-  }
   for (const [name, summary] of Object.entries(TOOL_SUMMARIES)) {
     if (!isToolVisible(name, ctx)) continue;
     lines.push('- ' + name + ': ' + summary);

@@ -257,9 +257,9 @@ node bin/local-bridge-runner.js <span class="fl">--plan --include-repo-context -
   <div class="badges">
     <span class="badge trigger">Keyboard hotkey / Menu bar</span>
     <span class="badge caution">writes to sandbox only</span>
-    <span class="badge">file agent</span>
+    <span class="badge">explicit edit flags</span>
   </div>
-  <p class="desc">Uses the shipped <code style="font-family:var(--mono)">refactoring-specialist</code> agent from <code style="font-family:var(--mono)">.bridge-runner/agents/</code>. The clipboard is written into a scratch file inside a sandbox folder, the agent refactors it with <code style="font-family:var(--mono)">--accept-edits</code> scoped to that sandbox, and the improved file is read back onto the clipboard. Works from any app — Slack, browser, Mail.</p>
+  <p class="desc">The clipboard is written into a scratch file inside a sandbox folder, the runner refactors it with <code style="font-family:var(--mono)">--accept-edits</code> scoped to that sandbox, and the improved file is read back onto the clipboard. Works from any app — Slack, browser, Mail.</p>
   <div class="flow"><span class="label">Shortcut actions</span>
     <ol>
       <li><strong>Get Clipboard</strong></li>
@@ -272,7 +272,7 @@ node bin/local-bridge-runner.js <span class="fl">--plan --include-repo-context -
 SANDBOX=<span class="st">"$HOME/Documents/runner-clipboard-sandbox"</span>
 mkdir -p <span class="st">"$SANDBOX"</span> && cat > <span class="st">"$SANDBOX/snippet.txt"</span>   <span class="cm"># clipboard → file</span>
 cd <span class="st">"$REPO"</span>
-node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"$SANDBOX"</span> <span class="fl">--agent</span> refactoring-specialist \
+node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"$SANDBOX"</span> \
   <span class="fl">--accept-edits --dont-ask --max-cost-usd</span> 0.40 \
   <span class="st">"Refactor snippet.txt in place: improve naming, structure, and clarity while
    preserving behavior. Keep the same language. Save the result to snippet.txt."</span> \
@@ -288,10 +288,10 @@ cat <span class="st">"$SANDBOX/snippet.txt"</span>   <span class="cm"># file →
   <p class="tagline">Right-click any project folder → adversarial findings-first code review, no edits possible.</p>
   <div class="badges">
     <span class="badge trigger">Finder Quick Action · Folders</span>
-    <span class="badge safe">review-only profile</span>
+    <span class="badge safe">explicit read-only tools</span>
     <span class="badge">prompt template</span>
   </div>
-  <p class="desc">Registers as a Finder <strong>Quick Action</strong> that receives folders. The selected folder path arrives as <code style="font-family:var(--mono)">$1</code> and becomes the runner's <code style="font-family:var(--mono)">--cwd</code>. The built-in <code style="font-family:var(--mono)">grill</code> prompt template plus the <code style="font-family:var(--mono)">review-only</code> capability profile means the run is aggressive in analysis and physically incapable of editing.</p>
+  <p class="desc">Registers as a Finder <strong>Quick Action</strong> that receives folders. The selected folder path arrives as <code style="font-family:var(--mono)">$1</code> and becomes the runner's <code style="font-family:var(--mono)">--cwd</code>. The built-in <code style="font-family:var(--mono)">grill</code> prompt template plus an explicit read-only <code style="font-family:var(--mono)">--tools</code> list means the run is aggressive in analysis and physically incapable of editing.</p>
   <div class="flow"><span class="label">Shortcut actions</span>
     <ol>
       <li><strong>Receive</strong> Files/Folders from Quick Actions in Finder</li>
@@ -300,12 +300,13 @@ cat <span class="st">"$SANDBOX/snippet.txt"</span>   <span class="cm"># file →
     </ol>
   </div>
   <pre><code>cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
-node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"$1"</span> <span class="fl">--profile</span> review-only \
+node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"$1"</span> \
+  <span class="fl">--tools</span> list_files,read_file,search_text,glob,git_status,manage_tasks,ask_user_question \
   <span class="fl">--prompt-template</span> grill <span class="fl">--dont-ask --max-cost-usd</span> 1.00 \
   <span class="fl">--human-log</span> <span class="st">"$HOME/Desktop/review-$(date +%H%M%S).log"</span> \
   <span class="st">"Review this project. Lead with the 5 most severe concrete findings,
    each with file:line references and a suggested fix."</span> 2>/dev/null</code></pre>
-  <div class="why"><strong>Why it's clever:</strong> profiles + templates compose — the same shortcut can review <em>any</em> repo on disk because the runner is repo-agnostic and takes <code>--cwd</code> from the Finder selection.</div>
+  <div class="why"><strong>Why it's clever:</strong> explicit tools + templates compose — the same shortcut can review <em>any</em> repo on disk because the runner is repo-agnostic and takes <code>--cwd</code> from the Finder selection.</div>
 </div>
 
 <!-- ═══════════════ 5 ═══════════════ -->
@@ -375,10 +376,10 @@ node bin/local-bridge-runner.js <span class="fl">--accept-edits --dont-ask --max
   <div class="badges">
     <span class="badge trigger">Automation · Time of day</span>
     <span class="badge power">--allow-shell</span>
-    <span class="badge">test-automator agent</span>
+    <span class="badge">explicit test prompt</span>
     <span class="badge">budget capped</span>
   </div>
-  <p class="desc">Shortcuts personal automations can run on a schedule with "Run Immediately". This one lets the <code style="font-family:var(--mono)">test-automator</code> file agent run <code style="font-family:var(--mono)">npm test</code> via <code style="font-family:var(--mono)">--allow-shell</code>, triage any failures down to root cause, and write a dated report. A notification tells you PASS/FAIL before you've had coffee.</p>
+  <p class="desc">Shortcuts personal automations can run on a schedule with "Run Immediately". This one lets the runner execute <code style="font-family:var(--mono)">npm test</code> via <code style="font-family:var(--mono)">--allow-shell</code>, triage failures down to root cause, and write a dated report. A notification tells you PASS/FAIL before you've had coffee.</p>
   <div class="flow"><span class="label">Shortcut actions</span>
     <ol>
       <li><strong>Automation</strong>: Time of Day 2:00 AM, Run Immediately</li>
@@ -388,7 +389,7 @@ node bin/local-bridge-runner.js <span class="fl">--accept-edits --dont-ask --max
   </div>
   <pre><code>cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
 REPORT=<span class="st">"$HOME/Desktop/nightly-sentinel-$(date +%Y-%m-%d).md"</span>
-node bin/local-bridge-runner.js <span class="fl">--agent</span> test-automator <span class="fl">--allow-shell --dont-ask</span> \
+node bin/local-bridge-runner.js <span class="fl">--allow-shell --dont-ask</span> \
   <span class="fl">--max-cost-usd</span> 2.00 <span class="fl">--budget-output-tokens</span> 20000 <span class="fl">--max-steps</span> 40 \
   <span class="fl">--human-log</span> <span class="st">"$REPORT"</span> \
   <span class="st">"Run 'npm test'. If everything passes, output exactly 'PASS: all tests green'
@@ -406,9 +407,9 @@ node bin/local-bridge-runner.js <span class="fl">--agent</span> test-automator <
   <div class="badges">
     <span class="badge trigger">Menu bar / Dock</span>
     <span class="badge power">full autonomy, sandboxed</span>
-    <span class="badge">bench agent</span>
+    <span class="badge">explicit permissions</span>
   </div>
-  <p class="desc">Wraps the repo's own <code style="font-family:var(--mono)">create-runner-throwaway-lab.js</code> helper: it mints a timestamped lab under <code style="font-family:var(--mono)">~/Documents/…-throwaway-labs/</code>, then unleashes the <code style="font-family:var(--mono)">bench</code> agent with full permissions <em>inside that lab only</em>. Great as a "is my whole stack healthy?" smoke test — bridge, OAuth, tools, shell, edits — from a single Dock icon.</p>
+  <p class="desc">Wraps the repo's own <code style="font-family:var(--mono)">create-runner-throwaway-lab.js</code> helper: it mints a timestamped lab under <code style="font-family:var(--mono)">~/Documents/…-throwaway-labs/</code>, then runs with explicit full permissions <em>inside that lab only</em>. Great as a "is my whole stack healthy?" smoke test — bridge, OAuth, tools, shell, edits — from a single Dock icon.</p>
   <div class="flow"><span class="label">Shortcut actions</span>
     <ol>
       <li><strong>Run Shell Script</strong></li>
@@ -417,7 +418,7 @@ node bin/local-bridge-runner.js <span class="fl">--agent</span> test-automator <
   </div>
   <pre><code>cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
 LAB=<span class="st">"$(node scripts/create-runner-throwaway-lab.js)"</span>
-node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"$LAB"</span> <span class="fl">--agent</span> bench \
+node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"$LAB"</span> \
   <span class="fl">--trust-workspace --allow-shell --accept-edits --dont-ask --chaos-ok</span> \
   <span class="fl">--max-steps</span> 24 <span class="fl">--max-cost-usd</span> 1.00 \
   <span class="st">"Fix the calculator bug, run npm test, and summarize the result."</span> 2>/dev/null
@@ -477,13 +478,14 @@ node bin/local-bridge-undo.js last-run <span class="fl">--cwd</span> . <span cla
     </ol>
   </div>
   <pre><code>cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
-node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"${1:-.}"</span> <span class="fl">--profile</span> review-only \
+node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"${1:-.}"</span> \
+  <span class="fl">--tools</span> list_files,read_file,search_text,glob,git_status,manage_tasks,ask_user_question,spawn_agent \
   <span class="fl">--dont-ask --max-cost-usd</span> 2.50 <span class="fl">--max-steps</span> 20 \
   <span class="st">"You are an orchestrator. Spawn three child agents with spawn_agent, each
    focused on this project:
-   1) agent 'code-reviewer' — correctness and logic bugs;
-   2) agent 'explore' — security smells, secret handling, unsafe shell use;
-   3) agent 'test-automator' — test coverage gaps (analysis only, no shell).
+   1) correctness and logic bugs;
+   2) security smells, secret handling, unsafe shell use;
+   3) test coverage gaps (analysis only, no shell).
    Merge their reports into one ranked list of findings in Markdown, deduplicated,
    most severe first, with file references."</span> 2>/dev/null</code></pre>
   <div class="why"><strong>Why it's clever:</strong> this is the runner's multi-agent capability made tangible from a right-click — three isolated context windows means each specialist reads deeply without exhausting one shared context, and <code>--dont-ask</code> lets spawns proceed unattended (children inherit the parent's remaining budget).</div>

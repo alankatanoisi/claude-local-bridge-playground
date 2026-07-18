@@ -1,5 +1,9 @@
 'use strict';
 
+// HISTORICAL SNAPSHOT ONLY. File-based agent profiles are no longer loaded by
+// the active runner. Keep this text for a possible future subagent-template
+// design, not as executable runtime code.
+
 const fs = require('fs');
 const path = require('path');
 

@@ -19,7 +19,6 @@ const CSV_COLUMNS = [
   'estimatedCostUsd',
   'turnCount',
   'promptPreview',
-  'agentProfile',
 ];
 
 function csvEscape(value) {

@@ -67,9 +67,11 @@ product surface for day-to-day work.
 Inspired by minimalist agent designs such as pi, prefer a small core with explicit opt-ins:
 
 - Keep the default system prompt short and generic.
-- Keep startup context minimal unless a profile, template, or flag asks for more.
+- Keep startup context minimal unless a template or explicit flag asks for more.
 - Treat tools as capability groups instead of an ever-growing flat feature list.
-- Prefer prompt templates, `.bridge-runner/` project files, hooks, and profiles for customization.
+- Prefer prompt templates, `.bridge-runner/` project files, hooks, and explicit flags for customization.
+- Agent profiles and capability profiles are retired runtime concepts. Do not restore `--agent`, `--profile`,
+  `--list-agents`, or `--list-profiles`; historical code lives under `docs/archive/runner-profiles/`.
 - Keep shell and advanced patch mode hidden unless explicitly enabled.
 
 Transport/auth invariants still matter because they keep the runner lane clean:
@@ -98,7 +100,7 @@ prompt -> local bridge /v1/messages -> model response -> tool_use -> local tool 
 ```
 
 The bridge owns OAuth, keychain, interceptor, and proxy behavior. The runner owns the part we are actively evolving:
-the local agent loop, capability groups, permissions, prompts, profiles, transcripts, archives, and command-line user
+the local agent loop, capability groups, permissions, prompts, transcripts, archives, and command-line user
 experience.
 
 ## Boundaries

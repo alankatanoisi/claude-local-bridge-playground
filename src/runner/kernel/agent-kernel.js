@@ -64,7 +64,6 @@ async function runKernel(input) {
     maxCostUsd: input.maxCostUsd,
     spawnDepth: input.spawnDepth,
     skipTrustGate: input.skipTrustGate,
-    agentProfile: input.agentProfile,
     sessionExtract: input.sessionExtract,
     noArchive: input.noArchive,
   };

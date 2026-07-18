@@ -9,6 +9,7 @@
 
 const { CATEGORIES, WRITE_TOOLS } = require('./tool-catalog');
 const { stringifyToolResultContent } = require('./tool-result-content');
+const { groupSemanticExchanges } = require('./message-contract');
 
 const COMPACTION_STAGES = Object.freeze(['none', 'clip', 'snip', 'cost', 'ghost', 'summarize']);
 
@@ -69,24 +70,39 @@ function clipToolResults(messages, maxChars) {
       const text = stringifyToolResultContent(block.content);
       if (text.length <= maxChars) return block;
       changed = true;
-      return {
-        ...block,
-        content:
-          text.slice(0, maxChars) +
-          '\n... [compaction:clip truncated ' +
-          (text.length - maxChars) +
-          ' chars; re-fetch with read_file if needed]',
-      };
+      const limit = Math.max(0, Math.floor(Number(maxChars) || 0));
+      if (limit === 0) return { ...block, content: '' };
+
+      // The notice is part of the limit. Calculate the retained prefix against
+      // the final notice length so the first pass is bounded and every later
+      // pass is a true no-op.
+      let keepChars = limit;
+      let notice = '';
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const omitted = Math.max(0, text.length - keepChars);
+        notice = '\n... [compaction:clip omitted ' + omitted + ' chars; re-fetch with read_file if needed]';
+        keepChars = Math.max(0, limit - notice.length);
+      }
+      const clipped = notice.length >= limit ? '[compaction:clip]'.slice(0, limit) : text.slice(0, keepChars) + notice;
+      return { ...block, content: clipped.slice(0, limit) };
     });
     return { ...msg, content };
   });
   return { messages: out, stage: changed ? 'clip' : 'none', changed };
 }
 
+function preservedTailCutoff(messages, preserveRecent) {
+  const groups = groupSemanticExchanges(messages);
+  const keep = Math.max(0, Math.floor(Number(preserveRecent) || 0));
+  if (keep === 0) return messages.length;
+  if (groups.length <= keep) return 0;
+  return groups[groups.length - keep].start;
+}
+
 function snipOldToolResults(messages, snipAfter, preserveRecent) {
   if (messages.length <= snipAfter) return { messages, stage: 'none', changed: false };
 
-  const cutoff = Math.max(0, messages.length - preserveRecent * 2);
+  const cutoff = preservedTailCutoff(messages, preserveRecent);
   let changed = false;
   const out = messages.map((msg, idx) => {
     if (idx >= cutoff || msg.role !== 'user' || !Array.isArray(msg.content)) return msg;
@@ -148,7 +164,7 @@ function dropStaleToolResults(messages, preserveRecent) {
     }
   }
 
-  const cutoff = Math.max(0, messages.length - preserveRecent * 2);
+  const cutoff = preservedTailCutoff(messages, preserveRecent);
   let changed = false;
   const staleIds = new Set();
   for (const [id, use] of idToUse) {
@@ -212,7 +228,7 @@ function injectGhostSystemBlock(system, ghostBlock) {
 }
 
 function summarizeOldTurns(messages, preserveRecent) {
-  const cutoff = Math.max(0, messages.length - preserveRecent * 2);
+  const cutoff = preservedTailCutoff(messages, preserveRecent);
   if (cutoff <= 0) return { messages, stage: 'none', changed: false };
 
   const head = messages.slice(0, cutoff);

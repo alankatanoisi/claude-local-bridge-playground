@@ -3,8 +3,8 @@
 /**
  * spawn_agent — delegate a focused subtask to a child runner with isolated context.
  *
- * Reuses WorkerRuntime (subprocess) and file/built-in agent profiles. Blocked when
- * spawnDepth > 0 so children cannot fork further.
+ * Reuses WorkerRuntime (subprocess) with a small read-only child capability
+ * set. Blocked when spawnDepth > 0 so children cannot fork further.
  */
 
 const MIN_STEPS = 1;
@@ -13,20 +13,25 @@ const DEFAULT_STEPS = 6;
 const MAX_PROMPT_CHARS = 8000;
 const MAX_SPAWNS_PER_RUN = 8;
 
+const CHILD_READ_TOOLS = Object.freeze([
+  'list_files',
+  'read_file',
+  'search_text',
+  'glob',
+  'git_status',
+  'manage_tasks',
+  'ask_user_question',
+]);
+
 function definition() {
   return {
     name: 'spawn_agent',
     description:
-      'Delegate a focused subtask to a child agent with its own context window. ' +
-      'Use built-in profiles (explore, verify, code-reviewer, …) or a file agent name/path. ' +
-      'The child returns a summary; it cannot spawn further children.',
+      'Delegate a focused read-only subtask to a generic child agent with its own context window. ' +
+      'The child returns a summary and cannot spawn further children.',
     input_schema: {
       type: 'object',
       properties: {
-        agent: {
-          type: 'string',
-          description: 'Agent id or path: built-in (explore, verify, implement, …) or .bridge-runner/agents/ name/path',
-        },
         prompt: {
           type: 'string',
           description: 'Focused task for the child agent',
@@ -36,7 +41,7 @@ function definition() {
           description: 'Child step budget (1–16, default 6)',
         },
       },
-      required: ['agent', 'prompt'],
+      required: ['prompt'],
     },
   };
 }
@@ -58,9 +63,9 @@ function ensureWorkerRuntime(ctx) {
   return ctx.workerRuntime;
 }
 
-function formatSpawnResult(agentName, result) {
+function formatSpawnResult(result) {
   const lines = [
-    '[spawn_agent:' + agentName + '] state=' + result.state,
+    '[spawn_agent] state=' + result.state,
     'duration_ms=' + result.duration_ms,
     'exitCode=' + result.exitCode,
     '',
@@ -77,9 +82,7 @@ async function execute(args, ctx) {
     return { ok: false, text: 'Child agents cannot spawn further children (fork depth exceeded).' };
   }
 
-  const agentName = String(args.agent || '').trim();
   const prompt = String(args.prompt || '').trim();
-  if (!agentName) return { ok: false, text: 'spawn_agent requires agent.' };
   if (!prompt) return { ok: false, text: 'spawn_agent requires prompt.' };
   if (prompt.length > MAX_PROMPT_CHARS) {
     return { ok: false, text: 'spawn_agent prompt exceeds ' + MAX_PROMPT_CHARS + ' characters.' };
@@ -91,17 +94,8 @@ async function execute(args, ctx) {
   }
 
   const cwd = ctx.cwdRealpath || ctx.cwd;
-  const { getProfile } = require('../agents/registry');
-  const profile = getProfile(agentName, { cwd, allowShell: !!ctx.allowShell });
-  if (!profile) {
-    return {
-      ok: false,
-      text: 'Unknown agent: ' + agentName + '. Use --list-agents or place a file under .bridge-runner/agents/.',
-    };
-  }
-
   const runtime = ensureWorkerRuntime(ctx);
-  const maxSteps = clampSteps(args.max_steps ?? profile.maxSteps ?? DEFAULT_STEPS);
+  const maxSteps = clampSteps(args.max_steps ?? DEFAULT_STEPS);
 
   const budgetRemaining =
     typeof ctx.budgetInputRemaining === 'number' || typeof ctx.budgetOutputRemaining === 'number'
@@ -113,24 +107,24 @@ async function execute(args, ctx) {
 
   const result = await runtime.spawnWorker(
     {
-      agent: agentName,
       prompt,
       cwd,
       maxSteps,
       phase: 'subagent',
+      allowedTools: [...CHILD_READ_TOOLS],
+      budgetRemaining,
+    },
+    {
       allowShell: !!ctx.allowShell,
       acceptEdits: !!ctx.acceptEdits,
       dontAsk: !!ctx.dontAsk,
-      budgetRemaining,
-      toolProfile: ctx.toolProfile?.id || null,
     },
-    { allowShell: !!ctx.allowShell },
   );
 
   const ok = result.state === 'completed';
   return {
     ok,
-    text: formatSpawnResult(profile.id || agentName, result),
+    text: formatSpawnResult(result),
     bytes: (result.finalText || '').length,
   };
 }

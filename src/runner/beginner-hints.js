@@ -96,6 +96,12 @@ const HINT_CATALOG = Object.freeze({
     tip: 'Check that VS Code and the bridge extension are running, then retry.',
     docLink: 'docs/runner-quickstart.html#troubleshooting',
   },
+  message_contract_error: {
+    whatHappened: 'The runner found a broken tool-call/result pairing before sending the next model request.',
+    why: 'Every assistant tool batch must be followed by exactly one matching result for each tool-use ID.',
+    tip: 'Start a fresh session. If this repeats, keep the trace and report it as a runner bug.',
+    docLink: 'docs/runner-quickstart.html',
+  },
   tool_failure_escalation: {
     whatHappened: 'The runner stopped because tools kept failing.',
     why: 'Repeated failures usually mean the agent is stuck retrying the same broken action.',
