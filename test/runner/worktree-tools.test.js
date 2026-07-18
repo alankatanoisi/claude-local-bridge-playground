@@ -38,13 +38,69 @@ describe('worktree tools — permissions', () => {
     assert.equal(d.decision, 'ask');
   });
 
-  it('allow with acceptEdits', () => {
+  it('exit without cleanup may allow under acceptEdits', () => {
+    const d = permissions.check(
+      'exit_worktree',
+      { cleanup: false },
+      { spawnDepth: 0, acceptEdits: true, cwd: '/tmp', cwdRealpath: '/tmp' },
+    );
+    assert.equal(d.decision, 'allow');
+  });
+
+  it('destructive cleanup still asks under acceptEdits (P0-07)', () => {
     const d = permissions.check(
       'exit_worktree',
       { cleanup: true },
       { spawnDepth: 0, acceptEdits: true, cwd: '/tmp', cwdRealpath: '/tmp' },
     );
-    assert.equal(d.decision, 'allow');
+    assert.equal(d.decision, 'ask');
+    assert.equal(d.ruleId, 'destructive_worktree_cleanup');
+    assert.match(d.proposedAction, /DESTRUCTIVE worktree cleanup/i);
+    assert.match(d.proposedAction, /NOT covered by --accept-edits/i);
+    assert.match(d.proposedAction, /branch -D/i);
+  });
+
+  it('destructive cleanup still asks under dontAsk and acceptEdits together', () => {
+    const d = permissions.check(
+      'exit_worktree',
+      { cleanup: true, slot: 'default' },
+      {
+        spawnDepth: 0,
+        acceptEdits: true,
+        dontAsk: true,
+        cwd: '/tmp',
+        cwdRealpath: '/tmp',
+        activeWorktreeSlot: 'default',
+        worktrees: {
+          default: {
+            path: '/tmp/fake-wt',
+            branch: 'bridge-runner/example',
+            repoRoot: '/tmp/repo',
+          },
+        },
+      },
+    );
+    assert.equal(d.decision, 'ask');
+    assert.equal(d.ruleId, 'destructive_worktree_cleanup');
+    assert.match(d.proposedAction, /bridge-runner\/example/);
+    assert.match(d.proposedAction, /\/tmp\/fake-wt/);
+  });
+
+  it('destructive cleanup confirmation reports dirty status when the worktree has edits', () => {
+    const repo = tmpRepo();
+    const originalCwd = fs.realpathSync(repo);
+    const ctx = { cwd: originalCwd, cwdRealpath: originalCwd, spawnDepth: 0, acceptEdits: true };
+    const entered = enterWorktree.execute({ branch: 'dirty-cleanup', slot: 'dirty' }, ctx);
+    assert.equal(entered.ok, true);
+    fs.writeFileSync(path.join(ctx.worktrees.dirty.path, 'scratch.txt'), 'uncommitted\n');
+
+    const d = permissions.check('exit_worktree', { cleanup: true, slot: 'dirty' }, ctx);
+    assert.equal(d.decision, 'ask');
+    assert.match(d.proposedAction, /dirty/i);
+    assert.match(d.proposedAction, /scratch\.txt/);
+
+    // Keep the fixture from leaking worktrees on disk.
+    exitWorktree.execute({ cleanup: true, slot: 'dirty' }, ctx);
   });
 
   it('plan mode surfaces a plan-mode explanation (decision is ask, ruleId mode_policy)', () => {

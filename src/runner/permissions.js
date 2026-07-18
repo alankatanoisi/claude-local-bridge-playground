@@ -8,6 +8,7 @@ const path = require('path');
 const safety = require('./safety');
 // CATEGORIES is derived from each tool module's own meta — see tool-catalog.js.
 const { CATEGORIES } = require('./tool-catalog');
+const { normalizeSlot, inspectWorktreeStatus } = require('./worktree-utils');
 
 const MODES = {
   default: {
@@ -323,6 +324,28 @@ function _checkUncached(toolName, args, ctx) {
     );
   }
 
+  // P0-07: force-deleting a worktree + branch is irreversible enough that
+  // --accept-edits / --dont-ask must never imply consent. Always ask with a
+  // purpose-built description (path, branch, dirty state, recovery limits).
+  if (toolName === 'exit_worktree' && args && args.cleanup) {
+    const proposed = describeDestructiveWorktreeCleanup(args, ctx);
+    return enrichDecision(
+      {
+        decision: 'ask',
+        proposedAction: mode === 'plan' ? '(plan mode) ' + proposed : proposed,
+      },
+      {
+        category,
+        mode,
+        ruleId: 'destructive_worktree_cleanup',
+        severity: 'bypassable_ask',
+        explanation:
+          'Destructive worktree cleanup requires its own confirmation. ' +
+          '--accept-edits only covers ordinary file edits, not branch deletion.',
+      },
+    );
+  }
+
   const rule = MODES[mode];
   const decision = rule[category] || 'deny';
 
@@ -388,7 +411,46 @@ function describeWriteAction(toolName, args) {
   if (toolName === 'apply_patch') {
     return 'Apply patch to ' + file;
   }
+  if (toolName === 'exit_worktree') {
+    return args && args.cleanup
+      ? describeDestructiveWorktreeCleanup(args, {})
+      : 'Exit worktree slot (keep directory and branch)';
+  }
+  if (toolName === 'enter_worktree') {
+    return 'Enter/create worktree slot "' + (args && args.slot ? args.slot : 'default') + '"';
+  }
   return toolName + ' on ' + file;
+}
+
+/**
+ * Purpose-built confirmation copy for exit_worktree cleanup=true.
+ * Must never be replaced by a generic "write tool" sentence.
+ */
+function describeDestructiveWorktreeCleanup(args, ctx) {
+  const slot = normalizeSlot((args && args.slot) || (ctx && ctx.activeWorktreeSlot));
+  const wt = ctx && ctx.worktrees ? ctx.worktrees[slot] : null;
+  const wtPath = wt && wt.path ? wt.path : '(unknown path — slot "' + slot + '" not registered in this run)';
+  const branch = wt && wt.branch ? wt.branch : '(unknown branch)';
+  const status = wt && wt.path ? inspectWorktreeStatus(wt.path) : { dirty: null, summary: 'status unavailable' };
+
+  return (
+    'DESTRUCTIVE worktree cleanup — explicit yes required:\n' +
+    '  slot: ' +
+    slot +
+    '\n' +
+    '  path: ' +
+    wtPath +
+    '\n' +
+    '  branch: ' +
+    branch +
+    ' (will be force-deleted with git branch -D)\n' +
+    '  git status: ' +
+    status.summary +
+    '\n' +
+    '  actions: git worktree remove --force <path>; then git branch -D <branch>\n' +
+    '  recovery: force-deleted branches and uncommitted worktree files are difficult or impossible to recover\n' +
+    'This is NOT covered by --accept-edits. Approve only if you intend permanent deletion.'
+  );
 }
 
 function describeShellAction(args) {

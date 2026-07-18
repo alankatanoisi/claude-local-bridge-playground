@@ -132,6 +132,27 @@ function scanOrphanWorktreeDirs() {
     .map((entry) => path.join(root, entry.name));
 }
 
+/**
+ * Inspect whether a worktree path has uncommitted changes. Used to build the
+ * dedicated destructive-cleanup confirmation (P0-07) so Alan sees dirty state
+ * before a force-delete can run.
+ *
+ * @returns {{ dirty: boolean|null, summary: string }}
+ */
+function inspectWorktreeStatus(wtPath) {
+  if (!wtPath) return { dirty: null, summary: 'worktree path unknown' };
+  try {
+    const porcelain = git(['status', '--porcelain'], wtPath);
+    if (!porcelain) return { dirty: false, summary: 'clean (no uncommitted changes)' };
+    const lines = porcelain.split('\n').filter(Boolean);
+    const preview = lines.slice(0, 5).join('; ');
+    const extra = lines.length > 5 ? '; … (+' + (lines.length - 5) + ' more)' : '';
+    return { dirty: true, summary: 'dirty — ' + preview + extra };
+  } catch (err) {
+    return { dirty: null, summary: 'status unavailable (' + (err.message || 'git error') + ')' };
+  }
+}
+
 module.exports = {
   BRANCH_PREFIX,
   DEFAULT_SLOT,
@@ -149,4 +170,5 @@ module.exports = {
   deactivateToRepoRoot,
   listRegisteredWorktrees,
   scanOrphanWorktreeDirs,
+  inspectWorktreeStatus,
 };
