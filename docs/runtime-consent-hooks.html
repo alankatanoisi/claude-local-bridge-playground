@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bridge Runner — 10 At-Runtime Hooks for Consent, Boundaries &amp; Scope</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #1a2129; --panel2: #212a34; --ink: #d8e1ea;
+    --muted: #8fa1b3; --accent: #4fc3f7; --good: #66bb6a; --warn: #ffb74d;
+    --bad: #ef5350; --code-bg: #10161d; --border: #2c3844;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.55; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 32px 20px 80px; }
+  h1 { font-size: 1.7rem; margin: 0 0 4px; color: #fff; }
+  h2 { font-size: 1.25rem; margin: 40px 0 12px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  h3 { font-size: 1.05rem; margin: 0; color: #fff; }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); font-size: 0.95rem; margin-bottom: 24px; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 0.85em; background: var(--code-bg); padding: 1px 5px; border-radius: 4px; color: #a5d6ff; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font-size: 0.82rem; line-height: 1.5; }
+  pre code { background: none; padding: 0; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin: 16px 0; }
+  .card .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .num { background: var(--accent); color: #06222e; font-weight: 700; border-radius: 6px; padding: 2px 9px; font-size: 0.9rem; }
+  .tag { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 999px; padding: 2px 10px; border: 1px solid var(--border); color: var(--muted); }
+  .tag.consent { color: var(--good); border-color: var(--good); }
+  .tag.boundary { color: var(--warn); border-color: var(--warn); }
+  .tag.scope { color: var(--accent); border-color: var(--accent); }
+  .tag.event { color: #ce93d8; border-color: #ce93d8; }
+  .label { font-weight: 700; color: #fff; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 12px; display: block; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 0.88rem; }
+  th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--panel2); color: #fff; }
+  .perf { background: var(--panel2); border-left: 4px solid var(--warn); border-radius: 6px; padding: 12px 16px; margin: 12px 0; }
+  .perf strong { color: var(--warn); }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  .foot { margin-top: 48px; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); padding-top: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>10 At-Runtime Hooks for Consent, Boundaries &amp; Project Scope</h1>
+<p class="sub">Bridge Runner — runtime performance review &amp; hook proposals · grounded in <code>src/runner/hooks/</code>, <code>tool-pipeline.js</code>, <code>permissions.js</code>, <code>shell-policy.js</code>, <code>budget-tracker.js</code>, <code>workspace-trust.js</code>, <code>session-health.js</code></p>
+
+<!-- ============================================================ -->
+<h2>Part 1 — Runtime performance findings (current hook path)</h2>
+
+<p>The runner already has a real hook substrate: <code>HookDispatcher</code> supports six events
+(<code>session_start</code>, <code>pre_model_request</code>, <code>post_model_response</code>,
+<code>pre_tool</code>, <code>post_tool</code>, <code>session_end</code>), loads
+<code>.bridge-runner/hooks.json</code> once at construction, is double-gated on workspace trust
+(<code>trust.json</code> fingerprint <em>and</em> the config's own <code>trusted</code> flag), and
+<code>hook-runner.js</code> executes commands through the same <code>scanShellCommand</code> policy,
+a scrubbed env (<code>safety.buildSafeEnv()</code>), and secret-scrubbed, 8&nbsp;KB-capped output.
+That's a strong safety baseline. The performance picture is where care is needed:</p>
+
+<div class="perf"><strong>P1 — Hooks execute with <code>spawnSync</code>.</strong>
+Every <code>exec</code> hook blocks the Node event loop for its full duration, with a default timeout of
+<strong>120,000&nbsp;ms</strong>. A slow <code>pre_tool</code> hook stalls the entire turn — and because the
+tool pipeline runs read-only tools as a parallel batch but fires sinks per-tool in order, a sync exec hook
+on <code>pre_tool</code>/<code>post_tool</code> re-serializes the batch and erases the parallelism win.</div>
+
+<div class="perf"><strong>P2 — Hot-path events multiply cost.</strong>
+<code>pre_tool</code>/<code>post_tool</code> fire once per tool use. A 30-step session with ~4 tools/turn
+and one 50&nbsp;ms exec hook on each event adds ~12&nbsp;s of pure process-spawn overhead. Per-event hook
+matching is a linear filter over the config (fine at this scale), but subprocess spawn cost (~10–50&nbsp;ms
+each on macOS) dominates.</div>
+
+<div class="perf"><strong>P3 — Hooks observe but cannot decide.</strong>
+Dispatch results are logged (<code>this.log</code>) and recorded in the sink order
+(ledger intent → <code>pre_tool</code> hook → … → execute), but nothing consumes a hook's verdict to
+<em>block</em> an action. All ten proposals below need one shared change: a decision protocol
+(exit code 0 = allow, 2 = deny, stdout JSON = structured feedback) that <code>tool-pipeline.js</code>
+consults before <code>execute</code>. That keeps the effect-pairing invariant intact — a hook-denied tool
+still emits its paired <code>tool_effect_result</code> as an <code>is_error</code> result.</div>
+
+<div class="perf"><strong>P4 — Payloads travel by convention, not contract.</strong>
+Hooks receive no structured input (payload isn't passed to the child process at all — only used for the
+log entry). Recommendation: pass the JSON payload on <strong>stdin</strong>, never argv/env, so paths and
+tool args can't leak into process listings or trip shell parsing.</div>
+
+<p><strong>Cross-cutting recommendations before adding any new hooks:</strong></p>
+<ul>
+  <li>Switch <code>executeHookCommand</code> to async <code>spawn</code> with per-event default timeouts:
+  <strong>2–5&nbsp;s for <code>pre_tool</code>/<code>pre_model_request</code></strong> (they gate the loop),
+  keep long budgets only for <code>session_end</code>. Time out ⇒ fail-open for observers, fail-closed for guards (explicit <code>on_timeout</code> field).</li>
+  <li>Add an <strong>in-process hook type</strong> (<code>"action": "builtin"</code> referencing vetted JS modules under
+  <code>src/runner/hooks/builtin/</code>) for hot-path guards — pure JS checks cost microseconds, not milliseconds. Reserve <code>exec</code> for cold events.</li>
+  <li>Cache per-event hook lists at construction (<code>Map&lt;event, hooks[]&gt;</code>) and short-circuit
+  dispatch when the event has zero hooks — makes the no-hooks case truly free.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2>Part 2 — The 10 hook proposals</h2>
+
+<table>
+  <tr><th>#</th><th>Hook</th><th>Event</th><th>Protects</th><th>Type</th></tr>
+  <tr><td>1</td><td>Path-scope guard</td><td>pre_tool</td><td>Boundary</td><td>builtin (hot)</td></tr>
+  <tr><td>2</td><td>Consent-mode escalation sentinel</td><td>pre_tool</td><td>Consent</td><td>builtin (hot)</td></tr>
+  <tr><td>3</td><td>Network-egress re-consent</td><td>pre_tool</td><td>Consent</td><td>builtin + ask</td></tr>
+  <tr><td>4</td><td>Blast-radius diff budget</td><td>post_tool</td><td>Scope</td><td>builtin (hot)</td></tr>
+  <tr><td>5</td><td>Outbound secret-leak scrubber</td><td>pre_model_request</td><td>Boundary</td><td>builtin (hot)</td></tr>
+  <tr><td>6</td><td>Lane &amp; branch verifier</td><td>session_start</td><td>Scope</td><td>exec (cold)</td></tr>
+  <tr><td>7</td><td>Scope-drift detector</td><td>post_model_response</td><td>Scope</td><td>builtin (warm)</td></tr>
+  <tr><td>8</td><td>New-territory write confirmation</td><td>pre_tool</td><td>Scope + Consent</td><td>builtin + ask</td></tr>
+  <tr><td>9</td><td>Budget checkpoint consent</td><td>post_model_response</td><td>Consent</td><td>builtin (warm)</td></tr>
+  <tr><td>10</td><td>Consent audit trail</td><td>session_end</td><td>Consent</td><td>exec (cold)</td></tr>
+</table>
+
+<!-- 1 -->
+<div class="card">
+  <div class="head"><span class="num">1</span><h3>Path-scope guard</h3>
+    <span class="tag event">pre_tool</span><span class="tag boundary">boundary</span></div>
+  <p><strong>What:</strong> Independently re-verify that every path argument on a write/shell tool canonicalizes
+  (realpath) to inside the workspace — and outside <code>HARD_DENY_PATH_SEGMENTS</code>
+  (<code>.git/</code>, <code>.ssh/</code>, <code>.aws/</code>, <code>.bridge-runner/</code>…) — <em>immediately before execution</em>.</p>
+  <span class="label">Why</span>
+  <p><code>permissions.js</code> checks paths at proposal time, but a TOCTOU gap exists: a symlink created
+  between check and execute (e.g., by a parallel worktree, a background shell, or an earlier tool in the same
+  batch) can redirect a write. A last-instant re-check in the pipeline is the classic defense-in-depth answer,
+  and it's the single highest-value guard because every other boundary depends on path confinement.</p>
+  <span class="label">Implementation</span>
+  <ul>
+    <li>Builtin module <code>hooks/builtin/path-scope-guard.js</code> — reuse <code>safety.confinePath(ctx, p)</code>
+    (already used by <code>_groupDisjointWrites</code>) plus the blocked-segment list from <code>shell-policy.js</code>. Cost: one <code>fs.realpathSync</code> per path.</li>
+    <li>Wire the decision protocol (P3): in <code>tool-pipeline.js</code>, between ledger intent and
+    <code>execute</code>, if any <code>pre_tool</code> hook returns <code>{decision: "deny", reason}</code>,
+    fabricate an <code>is_error</code> tool result exactly like the existing permission-denial path — the
+    effect-pairing invariant stays untouched.</li>
+    <li><strong>Fail-closed:</strong> if realpath throws (dangling symlink), deny.</li>
+  </ul>
+</div>
+
+<!-- 2 -->
+<div class="card">
+  <div class="head"><span class="num">2</span><h3>Consent-mode escalation sentinel</h3>
+    <span class="tag event">pre_tool</span><span class="tag consent">consent</span></div>
+  <p><strong>What:</strong> Detect when the <em>effective</em> behavior of a session drifts above what the user's
+  chosen permission mode implies — e.g., in <code>acceptEdits</code> mode, N consecutive auto-approved writes
+  touching M distinct files within one turn triggers a one-time re-confirmation.</p>
+  <span class="label">Why</span>
+  <p>The <code>MODES</code> matrix in <code>permissions.js</code> is static per session, but consent is contextual:
+  a user who accepted "edit files without asking" for a rename refactor did not necessarily consent to 40 files
+  rewritten in one turn. Rate-based re-consent converts a binary mode into a graduated one, catching runaway
+  behavior (and prompt-injection-driven bulk edits) without nagging on normal work.</p>
+  <span class="label">Implementation</span>
+  <ul>
+    <li>Builtin with per-session counters (files-written set, writes-per-turn), thresholds in
+    <code>hooks.json</code> (<code>{"max_writes_per_turn": 10, "max_distinct_files": 25}</code>).</li>
+    <li>On breach, return <code>{decision: "ask", reason}</code> — route through the existing confirm port
+    (<code>confirm.ask(proposedAction, timeoutMs)</code>) that the pipeline already owns, so UX and timeout
+    semantics match normal confirmations. One approval re-arms the counter at 2× the threshold.</li>
+    <li>Persist counters in the session store so <code>--resume</code> can't reset the odometer.</li>
+  </ul>
+</div>
+
+<!-- 3 -->
+<div class="card">
+  <div class="head"><span class="num">3</span><h3>Network-egress re-consent</h3>
+    <span class="tag event">pre_tool</span><span class="tag consent">consent</span></div>
+  <p><strong>What:</strong> Any shell command matching <code>NETWORK_PATTERNS</code> (<code>curl</code>,
+  <code>ssh</code>, <code>git push</code>, <code>npm publish</code>…) requires explicit interactive consent
+  <em>even in <code>dontAsk</code> mode</em>, where shell is currently <code>allow</code>.</p>
+  <span class="label">Why</span>
+  <p>Egress is the one category where a mistake can't be undone with <code>undo</code> — data leaves the machine,
+  pushes land on remotes, packages publish. <code>shell-policy.js</code> already <em>detects</em> these patterns;
+  this hook upgrades detection into a consent checkpoint. It's also the strongest single mitigation against
+  prompt injection from untrusted repo content, since exfiltration almost always needs egress.</p>
+  <span class="label">Implementation</span>
+  <ul>
+    <li>Builtin that calls the existing <code>scanShellCommand</code> and returns
+    <code>{decision: "ask"}</code> on any network-classified issue — zero new pattern code to maintain.</li>
+    <li>Support a session-scoped allowlist ("allow <code>git push origin feature-x</code> for this session")
+    stored in memory only — never persisted, so consent expires with the session.</li>
+    <li>In non-interactive runs (child workers, <code>--dont-ask</code> with no TTY), "ask" degrades to
+    <strong>deny with a clear message</strong> — fail-closed, matching how <code>ask_user_question</code> is already unavailable to workers.</li>
+  </ul>
+</div>
+
+<!-- 4 -->
+<div class="card">
+  <div class="head"><span class="num">4</span><h3>Blast-radius diff budget</h3>
+    <span class="tag event">post_tool</span><span class="tag scope">scope</span></div>
+  <p><strong>What:</strong> Accumulate a session-level change envelope — files touched, lines added/removed,
+  files <em>created</em> vs <em>modified</em> — and warn at a soft cap / pause for consent at a hard cap.</p>
+  <span class="label">Why</span>
+  <p><code>budget-tracker.js</code> budgets tokens, wall time, and spawns — but not <em>change surface</em>,
+  which is what the user actually experiences as "the agent went too far." A task pitched as "fix the failing
+  test" that has modified 30 files is out of scope regardless of token spend. Mirroring the tracker's proven
+  80% soft-warning / hard-stop pattern makes this instantly familiar.</p>
+  <span class="label">Implementation</span>
+  <ul>
+    <li>Builtin on <code>post_tool</code> for write-category tools; <code>edit_file</code>/<code>write_file</code>
+    results already know the path and content size — add a small <code>{path, linesDelta, created}</code> field
+    to the hook payload from the pipeline.</li>
+    <li>Reuse the tracker structure: <code>createChangeBudget({maxFiles, maxLines})</code> emitting the same
+    structured warning shape at 80%, and a new <code>STOP_REASONS.CHANGE_BUDGET_EXCEEDED</code> at 100% that the
+    kernel treats like <code>CONTEXT_BUDGET_EXCEEDED</code> (stop at loop boundary, resumable after consent).</li>
+    <li>Feed breaches into <code>session-health.js</code> <code>DEGRADED_STOP_REASONS</code> so resume guardrails
+    recommend a fresh session after a blast-radius stop.</li>
+  </ul>
+</div>
+
+<!-- 5 -->
+<div class="card">
+  <div class="head"><span class="num">5</span><h3>Outbound secret-leak scrubber</h3>
+    <span class="tag event">pre_model_request</span><span class="tag boundary">boundary</span></div>
+  <p><strong>What:</strong> Scan the outgoing message array for high-entropy tokens and known credential shapes
+  (<code>AKIA…</code>, <code>ghp_…</code>, <code>sk-…</code>, PEM headers, JWT triplets) before the request
+  leaves for the bridge; redact-and-warn or block on hits.</p>
+  <span class="label">Why</span>
+  <p>Inbound defenses are solid (blocked basenames in <code>permissions.js</code>, <code>scrubSecrets</code> on
+  hook output, safe env) — but they guard <em>tool</em> results. A secret can still enter context via a
+  legitimately readable file (a fixture, a log, a config committed by mistake) and then travel to the API on
+  <em>every subsequent request</em>. The pre-request boundary is the last exit door, and the only place that
+  catches all sources at once.</p>
+  <span class="label">Implementation</span>
+  <ul>
+    <li>Builtin (never exec — you'd be piping the very secrets to a subprocess). Reuse/extend
+    <code>safety.scrubSecrets</code>; add a Shannon-entropy check for unlabeled tokens ≥ 20 chars.</li>
+    <li><strong>Performance discipline:</strong> scan only the messages appended since the previous request
+    (keep a high-water mark), not the whole context each turn — turns an O(context) cost into O(delta).</li>
+    <li>Default action: redact to <code>[REDACTED:sha256-prefix]</code> and log; <code>"on_hit": "block"</code>
+    config for stricter setups. Record every redaction in the ledger for the session-end audit (hook #10).</li>
+  </ul>
+</div>
+
+<!-- 6 -->
+<div class="card">
+  <div class="head"><span class="num">6</span><h3>Lane &amp; branch verifier</h3>
+    <span class="tag event">session_start</span><span class="tag scope">scope</span></div>
+  <p><strong>What:</strong> At session start, assert the runner is in the expected lane: cwd realpath matches the
+  trusted fingerprint, git branch matches an expected pattern, remote URL matches the project, and no unexpected
+  dirty state exists. Mismatch ⇒ refuse to start (or demand explicit override).</p>
+  <span class="label">Why</span>
+  <p>Workspace trust (<code>workspace-trust.js</code>) answers "is this directory trusted?" — but not "is this the
+  directory <em>the user thinks they're in</em>?" With worktree slots, multiple parallel runs, and resumable
+  sessions, the most likely boundary failure isn't malice — it's a session resumed in the wrong worktree or on
+  <code>main</code> instead of a feature branch. Cheapest possible insurance: it runs once per session.</p>
+  <span class="label">Implementation</span>
+  <ul>
+    <li>This one fits the existing <code>exec</code> action as-is (cold path, sync cost acceptable):
+    a repo-committed script checked against <code>hooks.json</code> expectations
+    (<code>{"expect_branch": "^(feat|fix)/", "expect_remote": "github.com/org/repo"}</code>).</li>
+    <li>Make <code>session_start</code> the first <em>blocking-capable</em> event: a non-zero exit prevents the
+    kernel from entering the loop, before any model request is made.</li>
+    <li>Compare against <code>workspace-fingerprint.js</code> output to also catch "trusted path, but the tree was
+    swapped underneath" (fingerprint drift since trust was recorded).</li>
+  </ul>
+</div>
+
+<!-- 7 -->
+<div class="card">
+  <div class="head"><span class="num">7</span><h3>Scope-drift detector</h3>
+    <span class="tag event">post_model_response</span><span class="tag scope">scope</span></div>
+  <p><strong>What:</strong> After each model response, compare the proposed tool uses against a declared scope
+  manifest (glob allowlist derived from the task, e.g. <code>src/runner/**</code> + <code>docs/**</code>) and the
+  live task checklist. First proposal outside scope ⇒ inject a steering note; repeated drift ⇒ pause.</p>
+  <span class="label">Why</span>
+  <p>Boundary violations get blocked (hook #1), but <em>drift</em> is subtler: everything is individually
+  permitted, yet the sum wanders off-task — the classic "went to fix a test, refactored the config system."
+  The runner already has the machinery mindset for this (<code>repeat-tool-detector.js</code> injects steering
+  notes; <code>loop-autopsy.js</code> detects semantic cycles); scope drift is the same pattern with a different
+  predicate. Steering <em>before</em> execution is far cheaper than undoing after.</p>
+  <span class="label">Implementation</span>
+  <ul>
+    <li>Builtin between "model responded" and "pipeline executes": pure glob matching (picomatch) on proposed
+    paths — microseconds.</li>
+    <li>Scope manifest sources, in priority order: explicit <code>--scope</code> flag → coordinator spec
+    (<code>coordinator-spec-compiler.js</code>) → inferred from the first turn's task statement (loosest, warn-only).</li>
+    <li>Escalation ladder mirroring <code>formatRepeatWarningNote</code>: 1st drift → appended note
+    ("<code>path X is outside declared scope Y — confirm or refocus</code>"); 3rd → <code>ask</code> via confirm
+    port; never silently auto-deny, since scope inference can be wrong.</li>
+  </ul>
+</div>
+
+<!-- 8 -->
+<div class="card">
+  <div class="head"><span class="num">8</span><h3>New-territory write confirmation</h3>
+    <span class="tag event">pre_tool</span><span class="tag scope">scope</span><span class="tag consent">consent</span></div>
+  <p><strong>What:</strong> The first write into any top-level directory not yet touched this session (and any
+  file <em>creation</em>, vs modification, outside already-visited directories) requires a one-time confirmation:
+  "expanding into <code>scripts/</code> — allow for this session?"</p>
+  <span class="label">Why</span>
+  <p>Users think in territories, not files. "Yes, edit <code>src/runner/</code>" is a natural consent unit;
+  per-file asks are noise and per-session <code>acceptEdits</code> is too coarse. This gives
+  <code>acceptEdits</code> mode a memory: consent accumulates per directory as the session progresses, which is
+  exactly how a human pair-programmer negotiates scope. It also makes hook #4's blast radius legible — the
+  audit shows <em>which territories</em> were approved and when.</p>
+  <span class="label">Implementation</span>
+  <ul>
+    <li>Builtin with a session <code>Set</code> of approved top-level dirs (seed it from paths the <em>user</em>
+    mentioned in their prompt — pre-consented territory).</li>
+    <li>Depth is configurable (<code>"granularity": 1</code> for top-level, <code>2</code> for
+    <code>src/runner</code>-level); default 1 to keep prompts rare.</li>
+    <li>Approvals recorded in the ledger as <code>consent_scope_expanded</code> events — survives resume, feeds
+    hook #10's audit, and gives crash recovery an accurate consent picture.</li>
+  </ul>
+</div>
+
+<!-- 9 -->
+<div class="card">
+  <div class="head"><span class="num">9</span><h3>Budget checkpoint consent</h3>
+    <span class="tag event">post_model_response</span><span class="tag consent">consent</span></div>
+  <p><strong>What:</strong> Upgrade the budget tracker's soft-cap warning (80% of tokens / wall / spawns) from a
+  one-shot log line into an interactive checkpoint: pause at the loop boundary and ask "80% of budget consumed,
+  task ~60% done — continue, wrap up, or stop?"</p>
+  <span class="label">Why</span>
+  <p>Budget is consent expressed in resources. <code>budget-tracker.js</code> already computes soft caps and
+  even threads <code>parentRemaining</code> through to child agents — but the warning is fire-and-forget
+  (<code>warned.input = true</code>) and the user only regains control at the hard stop, when the remaining 20%
+  is gone. A checkpoint converts "your money is spent" into "how do you want to spend the rest?", and pairing it
+  with the session-health picture lets the user cut losses on a degraded run early.</p>
+  <span class="label">Implementation</span>
+  <ul>
+    <li>Builtin subscribing to the tracker's existing soft-cap emission (the <code>warned</code> flip is the
+    natural trigger point — emit an event instead of only a warning object).</li>
+    <li>Three-way answer via <code>ask_user_question</code>-style options: <em>continue</em> (re-arm at 90%),
+    <em>wrap up</em> (inject "finish current item, then summarize and stop" as a steering note), <em>stop now</em>
+    (clean <code>STOP_REASONS</code> stop, resumable).</li>
+    <li>Non-interactive sessions: default to <em>wrap up</em> — the graceful-degradation choice — and log the
+    auto-decision.</li>
+  </ul>
+</div>
+
+<!-- 10 -->
+<div class="card">
+  <div class="head"><span class="num">10</span><h3>Consent audit trail</h3>
+    <span class="tag event">session_end</span><span class="tag consent">consent</span></div>
+  <p><strong>What:</strong> At session end, compile a human-readable consent ledger: every ask/allow/deny with
+  its reason, every hook decision (including #2/#3/#8 escalations), territories approved, redactions performed
+  (#5), budget checkpoints (#9), and the final change envelope (#4) — written to
+  <code>.bridge-runner/runs/&lt;run-id&gt;/consent-audit.md</code>.</p>
+  <span class="label">Why</span>
+  <p>Consent without auditability is just optimism. All the raw data already exists — the session ledger's
+  effect pairs, <code>HookDispatcher.getLog()</code>, the human log — but scattered across sinks in machine
+  shape. A single post-session artifact closes the loop: the user can verify the run stayed inside what they
+  approved, diff the outcome against expectations, and (crucially) <em>tune</em> hooks #1–#9 based on real
+  false-positive/negative rates rather than guesswork. It's also the document you want when a run went wrong.</p>
+  <span class="label">Implementation</span>
+  <ul>
+    <li><code>exec</code> action is fine here (cold path, session is over); or a builtin reducer over the ledger
+    JSONL — prefer the builtin so it works even in untrusted-exec configurations.</li>
+    <li>Group by consent category: <em>auto-allowed by mode</em> / <em>explicitly approved</em> /
+    <em>hook-escalated then approved</em> / <em>denied</em>. The interesting section is the third — that's where
+    mode settings and reality disagree.</li>
+    <li>End with a one-line verdict the human-log can surface: <code>“Stayed in scope: 47 actions,
+    2 escalations (both approved), 0 denials, 0 redactions.”</code> Feed a machine-readable twin
+    (<code>consent-audit.json</code>) to <code>golden-eval.js</code> so consent regressions become testable.</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2>Part 3 — Suggested build order</h2>
+<ul>
+  <li><strong>Phase 0 (enabler):</strong> the decision protocol (P3), stdin payloads (P4), async spawn with
+  per-event timeouts (P1), and the <code>builtin</code> hook type (P2). Every hook above depends on at least one of these.</li>
+  <li><strong>Phase 1 (hard boundaries):</strong> #1 path-scope guard, #5 secret scrubber, #6 lane verifier —
+  fail-closed, no UX cost, highest damage prevented per line of code.</li>
+  <li><strong>Phase 2 (graduated consent):</strong> #3 egress re-consent, #8 new-territory confirmation,
+  #2 escalation sentinel — these need the confirm-port routing.</li>
+  <li><strong>Phase 3 (scope &amp; stewardship):</strong> #4 diff budget, #7 drift detector, #9 budget checkpoint,
+  #10 audit trail — quality-of-life layer that makes the first two phases tunable.</li>
+</ul>
+
+<div class="foot">Generated from a read-only review of the bridge-runner source. Key files referenced:
+<code>src/runner/hooks/hook-dispatcher.js</code>, <code>src/runner/hooks/hook-runner.js</code>,
+<code>src/runner/tool-pipeline.js</code>, <code>src/runner/permissions.js</code>,
+<code>src/runner/shell-policy.js</code>, <code>src/runner/budget-tracker.js</code>,
+<code>src/runner/workspace-trust.js</code>, <code>src/runner/session-health.js</code>.</div>
+
+</div>
+</body>
+</html>
