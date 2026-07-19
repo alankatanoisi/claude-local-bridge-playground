@@ -15,6 +15,7 @@
  */
 
 const http = require('http');
+const safety = require('./safety');
 
 const DEFAULT_BRIDGE_URL = 'http://127.0.0.1:11437/v1/messages';
 
@@ -174,6 +175,8 @@ function postStream(body, cb, bridgeUrl, opts) {
       let lastText = '';
       let messageMeta = {};
       let usage = {};
+      // P0-11: scrub live stdout only; assembled content stays raw for tool execution.
+      const streamScrubber = options.streamOutput ? safety.makeStreamingScrubber() : null;
 
       res.on('data', (chunk) => {
         buffer += chunk.toString('utf8');
@@ -216,9 +219,10 @@ function postStream(body, cb, bridgeUrl, opts) {
               if (event.delta.type === 'text_delta') {
                 if (!block) fullContent[event.index] = { type: 'text', text: '' };
                 fullContent[event.index].text = (fullContent[event.index].text || '') + event.delta.text;
-                // Stream text deltas to stdout
-                if (options.streamOutput) {
-                  process.stdout.write(event.delta.text);
+                // Stream scrubbed text deltas to stdout (secrets may split across chunks).
+                if (streamScrubber) {
+                  const safe = streamScrubber.push(event.delta.text);
+                  if (safe) process.stdout.write(safe);
                   lastText += event.delta.text;
                 }
               } else if (event.delta.type === 'thinking_delta') {
@@ -275,8 +279,10 @@ function postStream(body, cb, bridgeUrl, opts) {
           }
         }
 
-        if (options.streamOutput && lastText) {
-          process.stdout.write('\n');
+        if (streamScrubber) {
+          const tail = streamScrubber.end();
+          if (tail) process.stdout.write(tail);
+          if (lastText) process.stdout.write('\n');
         }
         resolve({
           streamed: true,

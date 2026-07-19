@@ -1,9 +1,9 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const safety = require('./safety');
 const { formatHint } = require('./beginner-hints');
+const { ensurePrivateDir, privateWriteFileSync, privateAppendFileSync } = require('./private-fs');
 
 function textFromContent(content) {
   if (typeof content === 'string') return content;
@@ -24,14 +24,14 @@ class HumanLog {
     this.filePath = filePath;
     this.verbose = !!options.verbose;
     this.quiet = !!options.quiet;
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, '# Local Bridge Runner Log\n\n');
+    ensurePrivateDir(path.dirname(filePath));
+    privateWriteFileSync(filePath, '# Local Bridge Runner Log\n\n');
   }
 
   appendSection(title, body) {
     const scrubbed = safety.scrubSecrets(body || '');
     const content = scrubbed.trim() ? scrubbed.trim() : '(empty)';
-    fs.appendFileSync(this.filePath, '## ' + title + '\n\n' + content + '\n\n');
+    privateAppendFileSync(this.filePath, '## ' + title + '\n\n' + content + '\n\n');
   }
 
   writeRunStart({ cwd, model, maxSteps, outputFormat }) {

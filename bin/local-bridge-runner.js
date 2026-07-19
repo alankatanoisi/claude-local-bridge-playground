@@ -81,7 +81,7 @@ Options:\n\
   --exclude-dynamic-system-prompt-sections  Put cwd/git fingerprint in first user message\n\
   --permission-mode <m>   default | plan | accept-edits | dont-ask | accept-edits-dont-ask | auto\n\
   --tools <names>         Comma-separated tools to expose; include apply_patch to opt into patch mode\n\
-  --no-session-persistence    Do not write session checkpoints to ~/.bridge-runner/sessions/\n\
+  --no-session-persistence    Disable resume checkpoints (*.state.json); manifests/ledger/diagnostics may still write\n\
   --review-memory       List pending memory promotions for approval\n\
   --session-extract     Run background session extraction after completion\n\
   --no-archive          Skip writing per-turn archive under ~/.bridge-runner/archive/\n\

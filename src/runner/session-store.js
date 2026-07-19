@@ -9,6 +9,8 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { ensurePrivateDir, privateAtomicWriteSync } = require('./private-fs');
+const { scrubDeepSecrets } = require('./redaction-boundary');
 
 const SCHEMA_VERSION = 1;
 const DEFAULT_DEBOUNCE_MS = 75;
@@ -71,11 +73,12 @@ function sessionPathFor(baseDir, sessionId) {
 }
 
 function atomicWriteJson(filePath, data) {
-  const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const tmp = filePath + '.tmp.' + process.pid;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n', 'utf8');
-  fs.renameSync(tmp, filePath);
+  // P0-12: session state is sensitive resume data — private dir + 0600 file.
+  // P0-11: scrub secrets in the on-disk copy without mutating in-memory messages
+  // that the live loop still needs for the next model request.
+  ensurePrivateDir(path.dirname(filePath));
+  const safe = scrubDeepSecrets(data);
+  privateAtomicWriteSync(filePath, JSON.stringify(safe, null, 2) + '\n');
 }
 
 class SessionStore {

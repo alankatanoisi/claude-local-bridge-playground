@@ -4,25 +4,20 @@ Audience: agents only. Supersedes `runner-p0-next-session-handoff-2026-07-18.md`
 Source assessment: `docs/runner-runtime-concordance-assessment-2026-07-17.html`.
 Human-readable review: `docs/runner-p0-10-12-review-2026-07-18.html`.
 
-## State snapshot (verified 2026-07-18 against live tree)
+## State snapshot (verified 2026-07-19 against live tree)
 
-- P0-01..P0-09: annotated done in the assessment; not re-audited line-by-line this session (spot checks consistent).
-- P0-10: **DONE 2026-07-18 (Session A)**. `ctx.rootEpoch` added to `_decisionKey`; bumped (plus realpath-cache
-  clear) via `bumpRootEpoch()` in `activateSlot()`/`deactivateToRepoRoot()`; `undo-edit.js` writes only the
-  `confinePath` result and refuses when `entry.absolute_path` no longer matches it. Tests added in
-  `permission-decision-cache.test.js` (cross-root cache) and `undo-edit.test.js` (root-change refusal, stale
-  absolute-path refusal). Full suite green.
-- P0-11, P0-12: **confirmed still present**, evidence below. No partial fixes have landed.
-- Full test suite (89 files in `test/runner/`) passes on all observed suites but exceeds 30s wall; use targeted runs during work.
+- P0-01..P0-09: annotated done in the assessment.
+- P0-10: **DONE 2026-07-18 (Session A)**. `ctx.rootEpoch` + confined undo-edit restores.
+- P0-12: **DONE 2026-07-19 (Session B)**. `src/runner/private-fs.js` + adoption across session/ledger/manifest/transcript/human-log/traces/backups/trust/worktrees. `--no-session-persistence` = resume checkpoints only.
+- P0-11: **DONE 2026-07-19 (Session C)**. `src/runner/redaction-boundary.js`; wired into `makeOutput`, SSE stdout, tool-input display copies, session-on-disk, ledger appends. Streaming scrubber uses full `scrubSecrets`.
+- Full P0-06 repair remains open (quarantine stays).
 
-## Execution order (do NOT reorder without reason)
+## Execution order (historical)
 
-1. **Session A: P0-10** (small, self-contained)
-2. **Session B: P0-12** (lands `privateWrite` helper that Session C reuses)
-3. **Session C: P0-11** (widest sweep, depends on B for persistence sinks)
-4. Session D (P1, optional): test-suite smoke subset + sharding.
-
-One session per item. Do not attempt more than one P0 per session.
+1. Session A: P0-10 — done
+2. Session B: P0-12 — done
+3. Session C: P0-11 — done
+4. Next: full P0-06 apply_patch repair (optional P1 smoke subset remains)
 
 ## Session A — P0-10: root-change cache & recovery integrity
 

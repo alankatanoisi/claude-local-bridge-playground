@@ -1,10 +1,10 @@
 'use strict';
 
-const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { createHash, randomUUID } = require('crypto');
 const safety = require('./runner/safety');
+const { ensurePrivateDir, privateAppendFileSync } = require('./runner/private-fs');
 
 const TRACE_LEVELS = new Set(['off', 'summary', 'redacted', 'full']);
 const SENSITIVE_KEY_PATTERN =
@@ -117,7 +117,7 @@ class JsonlTrace {
     this.level = normalizeTraceLevel(level);
     this.traceId = makeTraceId(traceId);
     this.layer = layer;
-    if (this.level !== 'off') fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    if (this.level !== 'off') ensurePrivateDir(path.dirname(filePath));
   }
 
   append(type, fields = {}) {
@@ -130,7 +130,7 @@ class JsonlTrace {
       capture_level: this.level,
       ...fields,
     });
-    fs.appendFileSync(this.filePath, JSON.stringify(event) + '\n');
+    privateAppendFileSync(this.filePath, JSON.stringify(event) + '\n');
   }
 
   capture(value) {

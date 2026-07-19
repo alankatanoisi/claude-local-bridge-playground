@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const readline = require('readline');
+const { ensurePrivateDir, privateWriteFileSync } = require('./private-fs');
 
 function userConfigDir() {
   return path.join(process.env.HOME || process.env.USERPROFILE || process.cwd(), '.bridge-runner');
@@ -28,9 +29,8 @@ function loadTrustStore() {
 }
 
 function saveTrustStore(store) {
-  const dir = userConfigDir();
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(trustStorePath(), JSON.stringify(store, null, 2) + '\n', 'utf8');
+  ensurePrivateDir(userConfigDir());
+  privateWriteFileSync(trustStorePath(), JSON.stringify(store, null, 2) + '\n');
 }
 
 function fingerprintCwd(cwdRealpath) {

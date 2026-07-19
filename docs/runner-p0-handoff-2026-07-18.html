@@ -321,8 +321,8 @@
         <div class="meta">
           <span class="chip">Playground repository</span>
           <span class="chip">Branch: main</span>
-          <span class="chip">P0-01–09 + P1-03 done</span>
-          <span class="chip">Next: P0-10–12 chunk</span>
+          <span class="chip">P0-01–12 + P1-03 done</span>
+          <span class="chip">Next: full P0-06 repair</span>
         </div>
       </header>
 
@@ -425,15 +425,29 @@ git status --short</code></pre>
               <p>Unsandboxed local-account authority on every shell-enabling surface.</p>
             </article>
             <article class="card">
-              <span class="status pending">Open · next session</span>
-              <h3>P0-10–P0-12</h3>
-              <p>Permission-cache roots, centralized redaction, private session files.</p>
+              <span class="status done">Implemented</span>
+              <h3>P0-10 · Root cache</h3>
+              <p>rootEpoch cache keys; confined undo-edit restores.</p>
+            </article>
+            <article class="card">
+              <span class="status done">Implemented</span>
+              <h3>P0-11 · Redaction</h3>
+              <p>Central boundary before stdout/json/SSE/session/ledger fan-out.</p>
+            </article>
+            <article class="card">
+              <span class="status done">Implemented</span>
+              <h3>P0-12 · Private FS</h3>
+              <p>0700/0600 for runner artifacts; resume-only persistence flag.</p>
+            </article>
+            <article class="card">
+              <span class="status pending">Open · next</span>
+              <h3>P0-06 repair</h3>
+              <p>Full apply_patch argv/atomic/hunk/rollback (still quarantined).</p>
             </article>
           </div>
           <p>
             Full <code>apply_patch</code> repair remains open under P0-06; quarantine is containment only. Do not mark
-            the whole P0 register complete. Prefer
-            <a href="runner-p0-next-session-handoff-2026-07-18.html">the next-session handoff</a> when starting P0-10.
+            the whole P0 register complete.
           </p>
         </section>
 
@@ -551,11 +565,10 @@ git status --short</code></pre>
         <section class="panel" id="remaining">
           <h2>Recommended continuation order</h2>
           <ol>
-            <li><strong>P0-10–P0-12 (next session chunk):</strong> permission-cache root identity, centralized redaction, private 0700/0600 session/ledger files. Start from <a href="runner-p0-next-session-handoff-2026-07-18.html">the next-session handoff</a>.</li>
             <li><strong>Full P0-06 repair:</strong> argv <code>apply_patch</code>, atomic writes, hunk validation, rollback (quarantine already in place).</li>
             <li>Continue the monotonic-authority, evidence-capable plan mode, telemetry finalizer, compatibility doctor, recovery, built-ins, skills, and documentation packages from the assessment.</li>
           </ol>
-          <p class="muted">Completed in this containment arc: P0-07 worktree cleanup consent, P0-08 worker confinement, P0-09 shell honesty.</p>
+          <p class="muted">Completed in this containment arc through P0-12: worktree cleanup, worker confinement, shell honesty, root-epoch cache, private-fs, centralized redaction.</p>
           <div class="callout">
             Confirm the exact finding number and acceptance criterion in the annotated assessment before coding. This
             list is a continuation aid, not a replacement for the full evidence register.

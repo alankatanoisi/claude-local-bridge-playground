@@ -11,6 +11,7 @@ const fs = require('fs');
 const os = require('os');
 
 const safety = require('./safety');
+const { ensurePrivateDir } = require('./private-fs');
 
 const BRANCH_PREFIX = 'bridge-runner/';
 const MAX_BRANCH_LEN = 60;
@@ -57,9 +58,7 @@ function findRepoRoot(cwd) {
 }
 
 function ensureWorktreeDir() {
-  const dir = worktreeRoot();
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
+  return ensurePrivateDir(worktreeRoot());
 }
 
 function normalizeSlot(raw) {

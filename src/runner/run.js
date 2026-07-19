@@ -46,6 +46,7 @@ const { finalizeArchiveExport } = require('./archive/run-exporter');
 const { disposeSessions } = require('./lsp/lsp-session');
 const { createBudgetTracker } = require('./budget-tracker');
 const { writeRunManifest } = require('./recovery/run-manifest');
+const { scrubDeepSecrets } = require('./redaction-boundary');
 
 const DEFAULT_MAX_STEPS = 16;
 const MAX_CONSECUTIVE_TOOL_FAILURE_BATCHES = 3;
@@ -127,14 +128,16 @@ function addUsage(totalUsage, usage) {
 function makeOutput(outputFormat) {
   const events = [];
   function emit(type, fields) {
-    const event = { type, ...(fields || {}) };
+    // P0-11: scrub before any stdout / event-buffer fan-out.
+    const event = scrubDeepSecrets({ type, ...(fields || {}) });
     events.push(event);
     if (outputFormat === 'stream-json') process.stdout.write(JSON.stringify(event) + '\n');
     return event;
   }
   function finish(result) {
-    if (outputFormat === 'json') process.stdout.write(JSON.stringify(result) + '\n');
-    else if (outputFormat === 'text' && result.finalText && !result.streamed) console.log(result.finalText);
+    const safe = scrubDeepSecrets(result);
+    if (outputFormat === 'json') process.stdout.write(JSON.stringify(safe) + '\n');
+    else if (outputFormat === 'text' && safe.finalText && !safe.streamed) console.log(safe.finalText);
   }
   return { events, emit, finish };
 }
@@ -374,8 +377,10 @@ function hydrateRunnerStateFromSession(ctx, sessionStore) {
 
 function appendLedger(ledger, hooks, type, payload) {
   if (!ledger) return null;
-  const ev = ledger.append(type, payload);
-  if (hooks && ev) hooks.noteLedgerEvent({ type, seq: ev.seq, ts: ev.ts, ...payload });
+  // P0-11: scrub prompt previews and effect payloads at record time.
+  const safePayload = scrubDeepSecrets(payload || {});
+  const ev = ledger.append(type, safePayload);
+  if (hooks && ev) hooks.noteLedgerEvent({ type, seq: ev.seq, ts: ev.ts, ...safePayload });
   return ev;
 }
 
@@ -742,7 +747,9 @@ async function run(options) {
     }
     if (transcript) transcript.recordUsage(usageSummary);
     if (humanLog) humanLog.writeUsage(usageSummary);
-    if (sessionStore && result.stopReason) {
+    // P0-12: --no-session-persistence disables resume checkpoints only.
+    // Diagnostics (ledger, autopsy, transcript) and recovery manifests may still write.
+    if (sessionStore && !noSessionPersistence && result.stopReason) {
       const runner = sessionStore.data().runner || {};
       const health = buildHealth({
         stopReason: result.stopReason,
@@ -752,7 +759,7 @@ async function run(options) {
       });
       sessionStore.updateRunner({ health });
     }
-    if (sessionStore) {
+    if (sessionStore && !noSessionPersistence) {
       try {
         sessionStore.flushSync();
       } catch {
@@ -978,7 +985,7 @@ async function run(options) {
     if (compaction.changed) {
       compactionGeneration = compaction.generation;
       ctx.compactionGeneration = compactionGeneration;
-      if (sessionStore) sessionStore.updateRunner({ compactionGeneration });
+      if (sessionStore && !noSessionPersistence) sessionStore.updateRunner({ compactionGeneration });
     } else {
       ctx.compactionGeneration = compaction.generation;
     }

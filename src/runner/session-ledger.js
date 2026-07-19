@@ -11,6 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { ensurePrivateDir, privateAtomicWriteSync, openPrivateAppend } = require('./private-fs');
 
 const LEDGER_VERSION = 1;
 
@@ -77,10 +78,8 @@ class SessionLedger {
       ts: new Date().toISOString(),
       pendingIntents: this.pendingIntents,
     };
-    const tmp = this.cursorPath + '.tmp.' + process.pid;
     try {
-      fs.writeFileSync(tmp, JSON.stringify(cursor) + '\n', 'utf8');
-      fs.renameSync(tmp, this.cursorPath);
+      privateAtomicWriteSync(this.cursorPath, JSON.stringify(cursor) + '\n');
     } catch {
       // best-effort; cursor is an optimization, never a source of truth
     }
@@ -113,9 +112,8 @@ class SessionLedger {
   _ensureFd() {
     if (this._fd !== null) return;
     if (!this.filePath) return;
-    const dir = path.dirname(this.filePath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    this._fd = fs.openSync(this.filePath, 'a');
+    ensurePrivateDir(path.dirname(this.filePath));
+    this._fd = openPrivateAppend(this.filePath);
     if (this._offset === 0) {
       try {
         this._offset = fs.statSync(this.filePath).size;

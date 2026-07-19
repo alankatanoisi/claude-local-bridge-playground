@@ -6,6 +6,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { ensurePrivateDir, privateWriteFileSync } = require('../private-fs');
 
 function sha256Text(text) {
   return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
@@ -53,10 +54,11 @@ let _backupSeq = 0;
 function saveBackup(filePath, contentBuffer, cwd) {
   const backupsRoot = cwd || path.dirname(filePath);
   const backupsDir = path.join(backupsRoot, '.bridge-runner', 'backups');
-  fs.mkdirSync(backupsDir, { recursive: true });
+  // Backups hold prior file bodies — private under .bridge-runner/.
+  ensurePrivateDir(backupsDir);
   const unique = Date.now() + '-' + (_backupSeq++).toString(36) + '-' + crypto.randomBytes(3).toString('hex');
   const backupPath = path.join(backupsDir, path.basename(filePath) + '-' + unique + '.bak');
-  fs.writeFileSync(backupPath, contentBuffer);
+  privateWriteFileSync(backupPath, contentBuffer);
   return backupPath;
 }
 

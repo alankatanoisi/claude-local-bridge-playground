@@ -69,6 +69,7 @@ const { bytes } = require('../trace-utils');
 const { runIfEnabled, formatVerificationAppendix } = require('./test-watcher');
 const { buildToolResultContent } = require('./tool-result-content');
 const { createRepeatToolDetector, formatRepeatWarningNote } = require('./repeat-tool-detector');
+const { scrubDeepSecrets } = require('./redaction-boundary');
 
 // B3: path-disjoint detection over canonicalized paths. Two paths are
 // disjoint iff neither is identical to the other and neither is a
@@ -189,26 +190,30 @@ function createToolPipeline(deps = {}) {
   // ledger events stays best-effort.
   function appendLedger(type, payload) {
     if (!ledger) return null;
-    const ev = ledger.append(type, payload);
+    const safePayload = scrubDeepSecrets(payload || {});
+    const ev = ledger.append(type, safePayload);
     if (hooks && ev) {
-      bestEffort('hooks', () => hooks.noteLedgerEvent({ type, seq: ev.seq, ts: ev.ts, ...payload }));
+      bestEffort('hooks', () => hooks.noteLedgerEvent({ type, seq: ev.seq, ts: ev.ts, ...safePayload }));
     }
     return ev;
   }
 
   // Pre-execution fan-out, shared by the read batch and the serial write loop.
   function recordRequested(step, tu, effectId) {
+    // Display/persist copies of tool inputs are scrubbed; execution still gets raw tu.input.
+    const displayInput = scrubDeepSecrets(tu.input || {});
     appendLedger('tool_effect_intent', { runId, step, tool: tu.name, toolUseId: tu.id, effectId });
     bestEffort('hooks', () => hooks && hooks.dispatch('pre_tool', { step, tool: tu.name, toolUseId: tu.id }));
     bestEffort(
       'output',
-      () => output && output.emit('tool_use', { step, tool_use_id: tu.id, name: tu.name, input: tu.input || {} }),
+      () => output && output.emit('tool_use', { step, tool_use_id: tu.id, name: tu.name, input: displayInput }),
     );
     bestEffort('trace', () => trace && trace.append('tool_requested', traceToolUse(runId, step, tu, trace)));
     bestEffort(
       'transcript',
       () =>
-        transcript && transcript.append({ type: 'tool_call', step, tool: tu.name, args: tu.input, toolUseId: tu.id }),
+        transcript &&
+        transcript.append({ type: 'tool_call', step, tool: tu.name, args: displayInput, toolUseId: tu.id }),
     );
   }
 

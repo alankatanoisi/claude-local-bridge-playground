@@ -10,9 +10,9 @@
  *   tool_denied, final, error
  */
 
-const fs = require('fs');
 const path = require('path');
 const safety = require('./safety');
+const { ensurePrivateDir, privateAppendFileSync } = require('./private-fs');
 
 const SENSITIVE_KEYS = ['authorization', 'x-api-key', 'cookie', 'set-cookie'];
 const STABLE_IDENTIFIER_HEADER_PATTERN =
@@ -58,10 +58,7 @@ class Transcript {
   constructor(filePath) {
     this.filePath = filePath;
     this._buf = [];
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    ensurePrivateDir(path.dirname(filePath));
   }
 
   append(event) {
@@ -73,7 +70,7 @@ class Transcript {
   flush() {
     if (this._buf.length === 0) return;
     const lines = this._buf.join('\n') + '\n';
-    fs.appendFileSync(this.filePath, lines);
+    privateAppendFileSync(this.filePath, lines);
     this._buf = [];
   }
 

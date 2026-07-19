@@ -43,6 +43,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const safety = require('../safety');
+const { ensurePrivateDir, privateAtomicWriteSync } = require('../private-fs');
 
 const MANIFEST_VERSION = 1;
 
@@ -118,10 +119,9 @@ function writeRunManifest(cwd, meta = {}) {
   };
 
   const dir = manifestDir(cwd, runId);
-  fs.mkdirSync(dir, { recursive: true });
-  const tmp = manifestPath(cwd, runId) + '.tmp.' + process.pid;
-  fs.writeFileSync(tmp, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
-  fs.renameSync(tmp, manifestPath(cwd, runId));
+  // P0-12: manifests list project paths/hashes — private by construction.
+  ensurePrivateDir(dir);
+  privateAtomicWriteSync(manifestPath(cwd, runId), JSON.stringify(manifest, null, 2) + '\n');
   return manifestPath(cwd, runId);
 }
 

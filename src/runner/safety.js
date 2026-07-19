@@ -390,12 +390,9 @@ const STREAM_SCRUB_WINDOW = 4096;
 function makeStreamingScrubber() {
   let buffer = '';
   function scrubFull(text) {
-    if (!text) return text;
-    let out = text;
-    for (const { pattern, replacement } of SECRET_PATTERNS) {
-      out = out.replace(pattern, replacement);
-    }
-    return out;
+    // Use the full scrubSecrets path (patterns + label-aware stable ids) so
+    // streaming sinks match buffered sinks.
+    return scrubSecrets(text);
   }
   return {
     push(chunk) {

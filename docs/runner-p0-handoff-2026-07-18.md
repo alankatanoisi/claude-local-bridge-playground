@@ -78,16 +78,13 @@ The assessment identified 43 findings: 12 P0, 15 P1, and 16 P2. Alan approved P0
 | P0-07 — destructive worktree cleanup confirmation | Implemented and verified | `exit_worktree` + `cleanup: true` always asks with purpose-built copy; never implied by `--accept-edits` / `--dont-ask` |
 | P0-08 — worker startup / trust / confinement | Implemented and verified | Package-pinned worker binary; `--inherit-workspace-trust` without writing `trust.json`; Set allowlists honored; test-only `skipTrustGate` |
 | P0-09 — shell sandbox honesty | Implemented and verified | Shared honesty constants; CLI/help/confirmations/system prompt/threat-model/command-builder/quickstart/README all state unsandboxed local-account authority |
-| P0-10 — permission cache across root changes | Open · next session | Include canonical root identity in cache keys; invalidate on scope changes; re-confine before I/O |
-| P0-11 — centralized redaction | Open · next session | One redaction service before stdout/JSON/stream/SSE/transcript/ledger fan-out |
-| P0-12 — private session/ledger files | Open · next session | 0700 directories / 0600 files; clarify `--no-session-persistence` vs diagnostics |
+| P0-10 — permission cache across root changes | Implemented and verified | `ctx.rootEpoch` in cache keys; bump on worktree transitions; undo_edit writes confined path only |
+| P0-11 — centralized redaction | Implemented and verified | `redaction-boundary.js` before stdout/json/stream-json/SSE/display inputs/session disk/ledger |
+| P0-12 — private session/ledger files | Implemented and verified | `private-fs.js` 0700/0600; `--no-session-persistence` = resume only |
 
 Full `apply_patch` repair remains open under P0-06; quarantine is containment only.
 
-**Next-session handoff (start here for P0-10–12):**
-
-- `docs/runner-p0-next-session-handoff-2026-07-18.md` (agent)
-- `docs/runner-p0-next-session-handoff-2026-07-18.html` (browser)
+**Next open P0:** full P0-06 `apply_patch` repair (argv/atomic/hunk/rollback).
 
 ## Decisions and rationale
 

@@ -155,12 +155,20 @@ The flag `--chaos-ok` is required to combine `--allow-shell`, `--accept-edits`, 
 
 ## Secret redaction (defense in depth)
 
-Even if a blocked file is somehow read, the **result text** passes through `scrubSecrets()` before reaching:
+Even if a blocked file is somehow read, sensitive text passes through the redaction boundary before
+sink fan-out (P0-11):
 
-- Upstream messages (the model never sees raw secrets)
-- Transcript logs (JSONL on disk)
-- stream-json output (stdout)
-- JSON output (stdout)
+- Tool result text (`runAndScrub` / streaming scrubber)
+- Assistant text on stdout, `--json`, and `--stream-json`
+- Live SSE text deltas (streaming scrubber; chunk-split secrets)
+- Display copies of tool inputs (execution still receives raw inputs)
+- Session files on disk (in-memory messages stay raw for the live loop)
+- Ledger payloads at append time
+- Transcript logs, human logs, archives, traces (existing scrubbers)
+
+Runner-owned artifacts under `.bridge-runner/` and `~/.bridge-runner/` are also **private by
+construction** (dirs `0700`, files `0600`; P0-12). `--no-session-persistence` disables resume
+checkpoints (`*.state.json`) only — recovery manifests and diagnostics may still write.
 
 Redacted patterns:
 

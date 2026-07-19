@@ -4,7 +4,7 @@
  * Loop autopsy — read-only analysis at run stop (never writes to ledger).
  */
 
-const fs = require('fs');
+const { privateWriteFileSync } = require('./private-fs');
 
 function normalizeToolCall(toolName, args) {
   return toolName + ':' + JSON.stringify(args || {});
@@ -47,7 +47,7 @@ function buildAutopsy(input) {
 function writeAutopsyFile(sessionPath, autopsy) {
   if (!sessionPath) return null;
   const outPath = sessionPath.replace(/\.state\.json$/, '.autopsy.json');
-  fs.writeFileSync(outPath, JSON.stringify(autopsy, null, 2) + '\n', 'utf8');
+  privateWriteFileSync(outPath, JSON.stringify(autopsy, null, 2) + '\n');
   return outPath;
 }
 
