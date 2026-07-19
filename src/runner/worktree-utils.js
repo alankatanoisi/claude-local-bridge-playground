@@ -10,6 +10,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 
+const safety = require('./safety');
+
 const BRANCH_PREFIX = 'bridge-runner/';
 const MAX_BRANCH_LEN = 60;
 const DEFAULT_SLOT = 'default';
@@ -91,6 +93,18 @@ function syncWorktreeAlias(ctx) {
   }
 }
 
+/**
+ * P0-10: mark that ctx's working root just moved. Permission decisions and
+ * realpath answers cached under the previous root must stop applying, because
+ * the same relative path now points at a different file. The decision cache
+ * keys on ctx.rootEpoch, so incrementing it retires every old entry in O(1);
+ * the realpath cache has no epoch, so it is cleared outright.
+ */
+function bumpRootEpoch(ctx) {
+  ctx.rootEpoch = (ctx.rootEpoch || 0) + 1;
+  safety.invalidateRealpathCache(ctx);
+}
+
 function activateSlot(ctx, slot) {
   ensureWorktreeState(ctx);
   const entry = ctx.worktrees[slot];
@@ -98,6 +112,7 @@ function activateSlot(ctx, slot) {
   ctx.activeWorktreeSlot = slot;
   ctx.cwd = entry.path;
   ctx.cwdRealpath = entry.path;
+  bumpRootEpoch(ctx);
   syncWorktreeAlias(ctx);
   return true;
 }
@@ -108,6 +123,7 @@ function deactivateToRepoRoot(ctx) {
     ctx.cwdRealpath = ctx.worktreeRepoRoot.cwdRealpath;
   }
   ctx.activeWorktreeSlot = null;
+  bumpRootEpoch(ctx);
   syncWorktreeAlias(ctx);
 }
 
@@ -166,6 +182,7 @@ module.exports = {
   ensureWorktreeState,
   saveRepoRoot,
   syncWorktreeAlias,
+  bumpRootEpoch,
   activateSlot,
   deactivateToRepoRoot,
   listRegisteredWorktrees,

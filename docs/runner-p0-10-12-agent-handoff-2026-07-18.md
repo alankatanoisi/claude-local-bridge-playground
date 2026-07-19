@@ -7,7 +7,12 @@ Human-readable review: `docs/runner-p0-10-12-review-2026-07-18.html`.
 ## State snapshot (verified 2026-07-18 against live tree)
 
 - P0-01..P0-09: annotated done in the assessment; not re-audited line-by-line this session (spot checks consistent).
-- P0-10, P0-11, P0-12: **all confirmed still present**, evidence below. No partial fixes have landed.
+- P0-10: **DONE 2026-07-18 (Session A)**. `ctx.rootEpoch` added to `_decisionKey`; bumped (plus realpath-cache
+  clear) via `bumpRootEpoch()` in `activateSlot()`/`deactivateToRepoRoot()`; `undo-edit.js` writes only the
+  `confinePath` result and refuses when `entry.absolute_path` no longer matches it. Tests added in
+  `permission-decision-cache.test.js` (cross-root cache) and `undo-edit.test.js` (root-change refusal, stale
+  absolute-path refusal). Full suite green.
+- P0-11, P0-12: **confirmed still present**, evidence below. No partial fixes have landed.
 - Full test suite (89 files in `test/runner/`) passes on all observed suites but exceeds 30s wall; use targeted runs during work.
 
 ## Execution order (do NOT reorder without reason)
