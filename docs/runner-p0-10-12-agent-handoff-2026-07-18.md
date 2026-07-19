@@ -10,14 +10,16 @@ Human-readable review: `docs/runner-p0-10-12-review-2026-07-18.html`.
 - P0-10: **DONE 2026-07-18 (Session A)**. `ctx.rootEpoch` + confined undo-edit restores.
 - P0-12: **DONE 2026-07-19 (Session B)**. `src/runner/private-fs.js` + adoption across session/ledger/manifest/transcript/human-log/traces/backups/trust/worktrees. `--no-session-persistence` = resume checkpoints only.
 - P0-11: **DONE 2026-07-19 (Session C)**. `src/runner/redaction-boundary.js`; wired into `makeOutput`, SSE stdout, tool-input display copies, session-on-disk, ledger appends. Streaming scrubber uses full `scrubSecrets`.
-- Full P0-06 repair remains open (quarantine stays).
+- Full P0-06 repair: **DONE 2026-07-19**. Pure-JS apply_patch; quarantine retired; still hidden unless `--tools apply_patch`.
+- **All P0-01..P0-12 closed.** Next: post-P0 packages.
 
 ## Execution order (historical)
 
 1. Session A: P0-10 — done
 2. Session B: P0-12 — done
 3. Session C: P0-11 — done
-4. Next: full P0-06 apply_patch repair (optional P1 smoke subset remains)
+4. Session D: full P0-06 apply_patch repair — done
+5. Next: post-P0 assessment packages (optional P1 smoke subset remains)
 
 ## Session A — P0-10: root-change cache & recovery integrity
 

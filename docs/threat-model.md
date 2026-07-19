@@ -28,7 +28,7 @@ in the Claude Local Bridge Output log. That token is a local debug door code, no
 | **Skills**        | `run_skill`                                                                 | Loads a skill Markdown body by name from `.bridge-runner/skills/` or `.cursor/skills/`. Read-only text return — does not execute embedded shell or network instructions.                                                                                                                                                                                            |
 | **Write**         | `edit_file`, `write_file`                                                   | Any file inside `cwd` that passes the deny matrix. Backups saved before mutation. Requires user confirmation (or `--accept-edits`).                                                                                                                                                                                                                                 |
 | **Recovery**      | `undo`, `undo_edit`                                                         | Restore files from `.bridge-runner/backups/` or the in-memory undo log. Auto-approved.                                                                                                                                                                                                                                                                              |
-| **Advanced**      | `apply_patch`                                                               | **Quarantined.** Still registered for a future repair, but never offered and every execute path refuses. Unsafe shell interpolation and incomplete hunk/rollback semantics remain; use `edit_file` / `write_file` instead. Naming it in `--tools` does not re-enable it.                                                                                                                                                            |
+| **Advanced**      | `apply_patch`                                                               | **Hidden by default** (opt in via `--tools apply_patch`). Pure-JS unified-diff apply: no shell, full hunk validation, hash-aware backup, atomic write, rollback on failure (P0-06 repaired). Prefer `edit_file` / `write_file` for ordinary edits.                                                                                                                                                                                    |
 | **Shell**         | `bash`, `manage_shell_jobs`                                                 | **Opt-in only** (`--allow-shell`). Unsandboxed **local-account authority**: the process starts in `--cwd`, but commands are **not** cwd-confined — absolute/parent paths, process spawn, and network remain possible. Timeout (default 30s) and output caps apply. Regex shell-policy scanning blocks some sensitive path/env patterns as defense-in-depth. `--no-network` is a best-effort proxy env guard, **not** hard network isolation. |
 
 ## Retired profile loaders
@@ -278,11 +278,11 @@ files as sensitive local evidence even though authorization and key-looking fiel
 
 The `search_text` tool constructs shell commands from the user's pattern. Shell metacharacters are now properly escaped using single-quote wrapping with internal quote escaping.
 
-### 8. undo/undo_edit/apply_patch path validation (mitigated / quarantined)
+### 8. undo/undo_edit/apply_patch path validation (mitigated)
 
 `undo` and `undo_edit` validate paths through `safety.confinePath()` before operating. This prevents path traversal attacks (e.g., `--path ../../../etc/passwd`).
 
-`apply_patch` is **quarantined** (P0-06): it is never offered and every execute path refuses until argv-based execution, atomic writes, full hunk validation, and rollback are implemented. Path validation alone was not sufficient because the tool still used shell interpolation.
+`apply_patch` is **repaired** (P0-06): pure JavaScript unified-diff apply with `confinePath`, full hunk validation before any write, shared hash-aware backups + atomic writes, and restore-from-backup on write/post-write failure. Filenames and patch text never reach a shell. Still hidden unless named in `--tools`.
 
 ### 8b. search_text deny-matrix parity (mitigated)
 

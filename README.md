@@ -313,11 +313,11 @@ The model-facing tool surface is framed as four capability groups:
 - **Recovery:** `undo`, `undo_edit`
 - **Shell:** `bash`, `manage_shell_jobs` — hidden unless `--allow-shell` is set; unsandboxed local-account authority (starts in `--cwd`, not a cwd jail)
 
-`apply_patch` exists in the catalog but is **quarantined**: it is never offered to the
-model and every execute path refuses with a clear unsupported message. A later repair will
-restore argv-based patch execution, atomic writes, full hunk validation, and rollback.
-Until then use `edit_file` or `write_file`. Naming `apply_patch` in `--tools` does not
-re-enable it.
+`apply_patch` is **hidden by default** (advanced patch mode). After the P0-06 repair it
+applies unified diffs in pure JavaScript — no shell, full hunk validation before write,
+hash-aware backup, atomic write, and rollback on failure. Expose it with
+`--tools apply_patch` (or `--allowed-tools`). Prefer `edit_file` / `write_file` for
+ordinary edits.
 
 ### Recovery: undo a whole run
 
@@ -402,7 +402,7 @@ Useful runner options:
 | `--include-repo-map`                                     | Opt in to repo map inside repo-context                                                   |
 | `--include-skills`                                       | Opt in to skills listing in the system prompt                                            |
 | `--permission-mode <m>`                                  | default, plan, accept-edits, dont-ask, accept-edits-dont-ask, auto                       |
-| `--tools <list>`                                         | Expose only these tools (quarantined tools such as `apply_patch` stay blocked)           |
+| `--tools <list>`                                         | Expose only these tools (e.g. include `apply_patch` to opt into advanced patch mode)     |
 | `--append-system-prompt` / `--append-system-prompt-file` | Add text after the default system prompt                                                 |
 | `--system-prompt-file`                                   | Replace default system prompt with a file                                                |
 | `--exclude-dynamic-system-prompt-sections`               | Put cwd/git fingerprint in the first user message instead                                |

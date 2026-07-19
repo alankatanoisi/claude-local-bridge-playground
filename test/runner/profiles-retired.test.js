@@ -40,12 +40,12 @@ describe('retired runner profiles', () => {
       _cliToolAllowlist: new Set(['read_file', 'bash', 'apply_patch']),
     };
     const allowed = computeAllowedTools(ctx);
-    // apply_patch is quarantined: naming it in --tools must not expose it.
+    // apply_patch is hidden-by-default but opt-in via --tools after P0-06 repair.
     // bash still requires --allow-shell even when named.
-    assert.deepEqual([...allowed].sort(), ['read_file']);
+    assert.deepEqual([...allowed].sort(), ['apply_patch', 'read_file']);
     assert.equal(isToolVisible('read_file', { ...ctx, allowedTools: allowed }), true);
     assert.equal(isToolVisible('bash', { ...ctx, allowedTools: allowed }), false);
-    assert.equal(isToolVisible('apply_patch', { ...ctx, allowedTools: allowed }), false);
+    assert.equal(isToolVisible('apply_patch', { ...ctx, allowedTools: allowed }), true);
   });
 
   it('keeps subagents generic and read-only without a profile selector', () => {

@@ -528,8 +528,10 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
           <div class="tool-card">
             <h4>edit_file / write_file / apply_patch</h4>
             <p>
-              Mutating tools for exact replacements, full writes, and patch-based changes. Writes are atomic, edits can
-              use a SHA-256 guard, and they ask for confirmation unless you pass <code>--accept-edits</code>.
+              Mutating tools for exact replacements, full writes, and (opt-in) patch-based changes.
+              <code>apply_patch</code> is hidden unless you pass <code>--tools apply_patch</code>. Writes are atomic,
+              edits can use a SHA-256 guard, and they ask for confirmation unless you pass
+              <code>--accept-edits</code>.
             </p>
           </div>
           <div class="tool-card">

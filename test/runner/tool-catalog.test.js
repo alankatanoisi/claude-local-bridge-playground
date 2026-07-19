@@ -70,7 +70,7 @@ describe('tool catalog — derived maps', () => {
   });
 
   it('derives QUARANTINED_TOOLS from meta.quarantined', () => {
-    assert.deepEqual([...catalog.QUARANTINED_TOOLS], ['apply_patch']);
+    assert.deepEqual([...catalog.QUARANTINED_TOOLS], []);
   });
 
   it('every category is one of the six valid kinds', () => {

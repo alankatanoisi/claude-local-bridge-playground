@@ -400,9 +400,9 @@ git status --short</code></pre>
               <p>Per-run snapshot; hard-deny unoffered names and aliases.</p>
             </article>
             <article class="card">
-              <span class="status done">Quarantined</span>
+              <span class="status done">Implemented</span>
               <h3>P0-06 · apply_patch</h3>
-              <p>Never offered; execute refuses until full atomic repair.</p>
+              <p>Pure-JS apply; no shell; hunk validate; atomic write; rollback. Opt-in via <code>--tools</code>.</p>
             </article>
             <article class="card">
               <span class="status done">Implemented</span>
@@ -440,14 +440,13 @@ git status --short</code></pre>
               <p>0700/0600 for runner artifacts; resume-only persistence flag.</p>
             </article>
             <article class="card">
-              <span class="status pending">Open · next</span>
-              <h3>P0-06 repair</h3>
-              <p>Full apply_patch argv/atomic/hunk/rollback (still quarantined).</p>
+              <span class="status done">Closed</span>
+              <h3>P0 register</h3>
+              <p>All twelve P0 findings closed, including full <code>apply_patch</code> repair.</p>
             </article>
           </div>
           <p>
-            Full <code>apply_patch</code> repair remains open under P0-06; quarantine is containment only. Do not mark
-            the whole P0 register complete.
+            Full <code>apply_patch</code> repair is done (2026-07-19). Next work is post-P0 assessment packages.
           </p>
         </section>
 
@@ -565,10 +564,9 @@ git status --short</code></pre>
         <section class="panel" id="remaining">
           <h2>Recommended continuation order</h2>
           <ol>
-            <li><strong>Full P0-06 repair:</strong> argv <code>apply_patch</code>, atomic writes, hunk validation, rollback (quarantine already in place).</li>
             <li>Continue the monotonic-authority, evidence-capable plan mode, telemetry finalizer, compatibility doctor, recovery, built-ins, skills, and documentation packages from the assessment.</li>
           </ol>
-          <p class="muted">Completed in this containment arc through P0-12: worktree cleanup, worker confinement, shell honesty, root-epoch cache, private-fs, centralized redaction.</p>
+          <p class="muted">Completed in this containment arc through P0-12 and full P0-06 repair: worktree cleanup, worker confinement, shell honesty, root-epoch cache, private-fs, centralized redaction, pure-JS apply_patch.</p>
           <div class="callout">
             Confirm the exact finding number and acceptance criterion in the annotated assessment before coding. This
             list is a continuation aid, not a replacement for the full evidence register.

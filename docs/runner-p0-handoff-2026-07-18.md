@@ -73,7 +73,7 @@ The assessment identified 43 findings: 12 P0, 15 P1, and 16 P2. Alan approved P0
 | P0-03 — capability/tool profiles fail open | Retired and archived | Runtime capability profiles were removed; visibility now comes from explicit feature gates and tool allowlists |
 | P0-04 — search_text deny-matrix bypass | Implemented and verified | Shared `isFileCandidateAllowed` (realpath + deny matrix) on every search backend; symlink escape and `.env` fixtures |
 | P0-05 — hidden/aliased tool executes unoffered | Implemented and verified | Per-run `offeredTools` snapshot; execute hard-denies unoffered names and aliases |
-| P0-06 — apply_patch shell interpolation | Quarantined | Never offered; every execute path refuses until argv/atomic/hunk/rollback repair |
+| P0-06 — apply_patch shell interpolation | Implemented and verified | Pure-JS unified-diff apply: no shell, full hunk validation, hash-aware backup, atomic write, rollback; still hidden unless `--tools apply_patch` |
 | P1-03 — deterministic HTTP retries | Implemented and verified | Typed `BridgeHttpError` / `BridgeNetworkError`; fail-fast 4xx; retry only 429/5xx/network with capped Retry-After |
 | P0-07 — destructive worktree cleanup confirmation | Implemented and verified | `exit_worktree` + `cleanup: true` always asks with purpose-built copy; never implied by `--accept-edits` / `--dont-ask` |
 | P0-08 — worker startup / trust / confinement | Implemented and verified | Package-pinned worker binary; `--inherit-workspace-trust` without writing `trust.json`; Set allowlists honored; test-only `skipTrustGate` |
@@ -82,9 +82,9 @@ The assessment identified 43 findings: 12 P0, 15 P1, and 16 P2. Alan approved P0
 | P0-11 — centralized redaction | Implemented and verified | `redaction-boundary.js` before stdout/json/stream-json/SSE/display inputs/session disk/ledger |
 | P0-12 — private session/ledger files | Implemented and verified | `private-fs.js` 0700/0600; `--no-session-persistence` = resume only |
 
-Full `apply_patch` repair remains open under P0-06; quarantine is containment only.
+Full P0-06 `apply_patch` repair is **done** (2026-07-19). All twelve P0 findings are closed.
 
-**Next open P0:** full P0-06 `apply_patch` repair (argv/atomic/hunk/rollback).
+**Next:** post-P0 assessment packages (monotonic authority, plan-mode reads, docs rewrite).
 
 ## Decisions and rationale
 
@@ -240,7 +240,7 @@ Use `docs/runner-p0-next-session-handoff-2026-07-18.md` as the agent entrypoint 
 
 ### After P0-10–12
 
-4. **Full P0-06 repair** — argv `apply_patch`, atomic writes, hunk validation, rollback (after quarantine).
+4. **Full P0-06 repair** — **done 2026-07-19** (pure-JS apply, no shell, hunk validate, atomic, rollback; still `--tools` opt-in).
 5. Continue the assessment sequence: monotonic authority ceiling, evidence-capable plan mode, private telemetry finalizer, compatibility doctor, recovery/session completion, built-ins/templates/skills, documentation rewrite.
 
 Confirm the exact P0 numbering against the annotated assessment before coding.

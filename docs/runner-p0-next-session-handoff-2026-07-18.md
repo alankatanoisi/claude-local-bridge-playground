@@ -38,7 +38,7 @@ Success: folder ends with `claude-local-bridge-playground`, branch `main`, `orig
 | ID | Status | Notes |
 |---|---|---|
 | P0-01–P0-05, P1-03 | Done | Message contract, profile retirement, search deny, offered tools, typed HTTP |
-| P0-06 | Quarantined only | Full `apply_patch` repair still deferred |
+| P0-06 | Done | Pure-JS `apply_patch` (no shell, hunk validate, atomic, rollback); opt-in via `--tools` |
 | P0-07 | Done | Destructive `exit_worktree` cleanup always asks |
 | P0-08 | Done | Worker binary pin, inherit trust, Set allowlists, `skipTrustGate` |
 | P0-09 | Done | Shell honesty: unsandboxed local-account authority everywhere |

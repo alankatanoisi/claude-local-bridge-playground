@@ -7,8 +7,8 @@
  * made it difficult to tell which setting won. Visibility now comes only from
  * the ordinary feature gates plus the user's optional --tools allowlist.
  *
- * Quarantined tools (for example apply_patch until its repair lands) are never
- * offered, even when named in --tools.
+ * Quarantined tools are never offered, even when named in --tools.
+ * (apply_patch was quarantined until P0-06 repair; it is hidden-by-default now.)
  */
 
 const { TOOLS, DEFAULT_HIDDEN_TOOLS, QUARANTINED_TOOLS } = require('./tool-catalog');
