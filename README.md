@@ -411,6 +411,8 @@ Useful runner options:
 | `--include-file <path>`                                  | Attach a bounded file from `--cwd` before the model call                                 |
 | `--prompt-template <name>` / `--template <name>`         | Prepend a reusable prompt template: review, cleanup, explore, or file                    |
 | `--prompt-arg key=value`                                 | Fill a `{{key}}` placeholder in the chosen prompt template (repeatable)                  |
+| `--effort <level>`                                       | Model effort: `low`, `medium`, `high`, `xhigh`, or `max`                                 |
+| `--thinking <mode>`                                      | Model-aware adaptive thinking: `auto`, `adaptive`, or `off`                              |
 | `--human-log <path>`                                     | Write a plain text log of the prompt, tool results, and final answer                     |
 | `--trace-level <level>`                                  | Write correlated flight-recorder traces: summary, redacted, or full                      |
 | `--trace-path <path>`                                    | Choose the runner trace JSONL path; bridge trace path is correlated                      |
@@ -432,6 +434,11 @@ commands for you. See [docs/runner-expansion-roadmap.md](./docs/runner-expansion
 expand runner tools and harness parity over time. A conservative first run is read-only or `--plan`; use
 `--accept-edits` only when file changes are intended, and add `--allow-shell` only when the runner needs commands such
 as tests.
+
+Adaptive thinking defaults to `--thinking auto`. The runner sends `thinking: { type: "adaptive" }` for known models
+that require an explicit request, omits that redundant field for always-on models such as Claude Fable 5, and rejects
+known incompatible combinations before contacting the bridge. `xhigh` is similarly rejected for known models that do
+not support it. Unknown future model IDs remain pass-through friendly so Anthropic can remain the source of truth.
 
 ### Runner flight recorder
 

@@ -20,6 +20,7 @@ const fs = require('fs');
 // ── Runtime facts (single source of truth) ──
 
 const { TOOLS, DEFAULT_HIDDEN_TOOLS } = require('../../src/runner/tool-catalog');
+const { EFFORT_LEVELS, THINKING_MODES } = require('../../src/runner/model-capabilities');
 
 // The runtime hides some tools dynamically (not at catalog level):
 //   bash, manage_shell_jobs → hidden unless --allow-shell
@@ -126,6 +127,23 @@ describe('command-builder drift', () => {
       BUILDER_HTML.includes('value="' + defaultModel + '"'),
       'Model dropdown missing default model: ' + defaultModel,
     );
+  });
+
+  it('model-control dropdowns include every runtime effort and thinking value', () => {
+    for (const level of EFFORT_LEVELS) {
+      assert.ok(
+        BUILDER_HTML.includes('<option value="' + level + '">' + level + '</option>'),
+        'Model effort dropdown is missing runtime level: ' + level,
+      );
+    }
+
+    assert.ok(BUILDER_HTML.includes('<select id="thinking">'), 'Adaptive-thinking dropdown is missing');
+    for (const mode of THINKING_MODES) {
+      assert.ok(
+        BUILDER_HTML.includes('<option value="' + mode + '"'),
+        'Adaptive-thinking dropdown is missing runtime mode: ' + mode,
+      );
+    }
   });
 
   it('all tools in HTML have a capability group header before them', () => {

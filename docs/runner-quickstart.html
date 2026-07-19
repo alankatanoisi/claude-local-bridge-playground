@@ -692,8 +692,16 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td><code>--effort &lt;level&gt;</code></td>
               <td>off</td>
               <td>
-                Runner-only model effort: <code>low</code>, <code>medium</code>, <code>high</code>, or
-                <code>max</code> (forwarded as <code>output_config.effort</code>)
+                Runner-only model effort: <code>low</code>, <code>medium</code>, <code>high</code>,
+                <code>xhigh</code>, or <code>max</code>. Known model incompatibilities fail before the API call.
+              </td>
+            </tr>
+            <tr>
+              <td><code>--thinking &lt;mode&gt;</code></td>
+              <td><code>auto</code></td>
+              <td>
+                Adaptive thinking control: <code>auto</code>, <code>adaptive</code>, or <code>off</code>. Auto sends the
+                field when the selected model requires it and omits it when thinking is already always on.
               </td>
             </tr>
             <tr>

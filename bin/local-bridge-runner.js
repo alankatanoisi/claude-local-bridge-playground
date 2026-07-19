@@ -14,6 +14,7 @@ const { parseArgs } = require('util');
 const fs = require('fs');
 const path = require('path');
 const { run } = require('../src/runner/run');
+const { resolveModelControls } = require('../src/runner/model-capabilities');
 const { applyPromptTemplates, resolvePromptTemplate, substituteParameters } = require('../src/runner/prompt-templates');
 const safety = require('../src/runner/safety');
 
@@ -59,7 +60,8 @@ Options:\n\
   --fork-from <id>     Fork an existing session to a new session id/path\n\
   --task-scope         Task-scoped preset: tighter steps + compaction (see playbook)\n\
   --compact-each-turn  Aggressive compaction preset (compact-after-task UX)\n\
-  --effort <level>     Model effort: low, medium, high, or max (runner path only)\n\
+  --effort <level>     Model effort: low, medium, high, xhigh, or max\n\
+  --thinking <mode>    Adaptive thinking: auto, adaptive, or off (default: auto)\n\
   --auto-memory        Opt-in runner auto-memory in context (default off)\n\
   --trusted-workspace  Enable hooks from .bridge-runner/hooks.json in cwd\n\
   --trust-workspace    Record trust consent for cwd (required in CI/non-interactive)\n\
@@ -158,6 +160,7 @@ async function main() {
         'task-scope': { type: 'boolean' },
         'compact-each-turn': { type: 'boolean' },
         effort: { type: 'string' },
+        thinking: { type: 'string' },
         'auto-memory': { type: 'boolean' },
         'trusted-workspace': { type: 'boolean' },
         'trust-workspace': { type: 'boolean' },
@@ -404,20 +407,19 @@ async function main() {
   const taskScope = !!args.values['task-scope'];
   const compactEachTurn = !!args.values['compact-each-turn'];
   const effortRaw = args.values.effort;
+  const thinkingRaw = args.values.thinking;
   const autoMemory = !!args.values['auto-memory'];
 
   let sessionId = args.values['session-id'];
   let sessionPath = args.values['session-path'];
   const forkFrom = args.values['fork-from'];
 
-  if (effortRaw) {
-    const { normalizeEffort } = require('../src/runner/run');
-    try {
-      normalizeEffort(effortRaw);
-    } catch (err) {
-      console.error('Error: ' + err.message);
-      process.exit(1);
-    }
+  try {
+    // Validate the combination before the runner creates any model request.
+    resolveModelControls({ model, effort: effortRaw, thinking: thinkingRaw });
+  } catch (err) {
+    console.error('Error: ' + err.message);
+    process.exit(1);
   }
 
   if (forkFrom) {
@@ -600,6 +602,7 @@ async function main() {
     newSession,
     taskScope,
     effort: effortRaw,
+    thinking: thinkingRaw,
     autoMemory,
     trustedWorkspace: !!args.values['trusted-workspace'],
     trustWorkspace: !!args.values['trust-workspace'],

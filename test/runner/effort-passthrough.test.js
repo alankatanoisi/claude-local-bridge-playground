@@ -13,11 +13,12 @@ const health = require('../../src/runner/session-health');
 describe('effort passthrough', () => {
   it('normalizeEffort accepts planned enum values', () => {
     assert.equal(normalizeEffort('high'), 'high');
+    assert.equal(normalizeEffort('XHIGH'), 'xhigh');
     assert.equal(normalizeEffort('MAX'), 'max');
     assert.throws(() => normalizeEffort('turbo'), /--effort must be one of/);
   });
 
-  it('forwards output_config.effort in model requests', async () => {
+  it('forwards xhigh effort and omits redundant Fable thinking configuration', async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'effort-run-'));
     const originalPost = modelClient.post;
     let capturedBody = null;
@@ -30,12 +31,36 @@ describe('effort passthrough', () => {
       await run({
         prompt: 'Say ok',
         cwd: tmpDir,
-        model: 'test',
+        model: 'claude-fable-5',
         maxTokens: 10,
         maxSteps: 1,
-        effort: 'medium',
+        effort: 'xhigh',
       });
-      assert.deepEqual(capturedBody.output_config, { effort: 'medium' });
+      assert.deepEqual(capturedBody.output_config, { effort: 'xhigh' });
+      assert.equal(Object.hasOwn(capturedBody, 'thinking'), false);
+    } finally {
+      modelClient.post = originalPost;
+    }
+  });
+
+  it('adds adaptive thinking to a Sonnet 4.6 request in auto mode', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'thinking-run-'));
+    const originalPost = modelClient.post;
+    let capturedBody = null;
+    modelClient.post = async (body) => {
+      capturedBody = body;
+      return { content: [{ type: 'text', text: 'ok' }] };
+    };
+
+    try {
+      await run({
+        prompt: 'Say ok',
+        cwd: tmpDir,
+        model: 'claude-sonnet-4-6',
+        maxTokens: 10,
+        maxSteps: 1,
+      });
+      assert.deepEqual(capturedBody.thinking, { type: 'adaptive' });
     } finally {
       modelClient.post = originalPost;
     }

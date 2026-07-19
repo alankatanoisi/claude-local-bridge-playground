@@ -97,6 +97,8 @@ const KERNEL_EVENT_TYPES = Object.freeze([
  * @property {boolean} [quiet]
  * @property {boolean} [stream]
  * @property {string} [systemPromptOverride]
+ * @property {string} [effort] — low | medium | high | xhigh | max
+ * @property {string} [thinking] — auto | adaptive | off
  */
 
 function emptyUsage() {

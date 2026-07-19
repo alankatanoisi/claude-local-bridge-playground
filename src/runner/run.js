@@ -47,6 +47,7 @@ const { disposeSessions } = require('./lsp/lsp-session');
 const { createBudgetTracker } = require('./budget-tracker');
 const { writeRunManifest } = require('./recovery/run-manifest');
 const { scrubDeepSecrets } = require('./redaction-boundary');
+const { normalizeEffort, resolveModelControls } = require('./model-capabilities');
 
 const DEFAULT_MAX_STEPS = 16;
 const MAX_CONSECUTIVE_TOOL_FAILURE_BATCHES = 3;
@@ -54,7 +55,6 @@ const MAX_BRIDGE_RETRIES = 2;
 // Cap how long we sleep on Retry-After so a hostile/huge header cannot stall
 // the runner for minutes during an interactive session.
 const MAX_RETRY_AFTER_MS = 30_000;
-const VALID_EFFORT_LEVELS = new Set(['low', 'medium', 'high', 'max']);
 
 function isTransientBridgeError(err) {
   if (!err) return false;
@@ -77,14 +77,6 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function normalizeEffort(effort) {
-  if (!effort) return null;
-  const level = String(effort).toLowerCase();
-  if (!VALID_EFFORT_LEVELS.has(level)) {
-    throw new Error('--effort must be one of: low, medium, high, max');
-  }
-  return level;
-}
 const OUTPUT_FORMATS = new Set(['text', 'json', 'stream-json']);
 
 /**
@@ -466,6 +458,7 @@ async function run(options) {
     newSession,
     taskScope,
     effort,
+    thinking,
     autoMemory,
     systemPromptFile,
     appendSystemPrompt,
@@ -900,7 +893,9 @@ async function run(options) {
   const steps = maxSteps || DEFAULT_MAX_STEPS;
   let totalUsage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
   const toolHistory = [];
-  const effortLevel = normalizeEffort(effort);
+  // Resolve these together because valid effort and thinking settings depend
+  // on the selected model family. This fails before the first HTTP request.
+  const modelControls = resolveModelControls({ model, effort, thinking });
 
   if (taskScope && !quiet && !plan) {
     console.error('[runner] tip: --task-scope runs work best with --plan for the first pass.');
@@ -1078,7 +1073,8 @@ async function run(options) {
       tools: cachedTools,
       ...(stream && outputFormat === 'text' ? { stream: true } : {}),
       ...(typeof temperature === 'number' && !isNaN(temperature) ? { temperature } : {}),
-      ...(effortLevel ? { output_config: { effort: effortLevel } } : {}),
+      ...(modelControls.effort ? { output_config: { effort: modelControls.effort } } : {}),
+      ...(modelControls.thinkingConfig ? { thinking: modelControls.thinkingConfig } : {}),
     };
 
     if (trace) {

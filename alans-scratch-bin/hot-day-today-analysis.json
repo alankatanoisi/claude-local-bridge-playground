@@ -1,0 +1,113 @@
+{
+  "analysis_version": 1,
+  "generated_at": "2026-07-19T18:00:00Z",
+  "experiment": {
+    "visible_prompt": "hot day today",
+    "purpose": "Compare the captured first-request shapes and bridge-side response-header timelines for Claude -p and the local bridge runner.",
+    "important_boundary": "The logs contain incoming request bodies and bridge/proxy events, but not final response text, response usage, cache usage, or end-of-response timestamps."
+  },
+  "request_composition": [
+    { "client": "Bridge runner", "component": "Messages", "bytes": 43, "share": 0.0042 },
+    { "client": "Bridge runner", "component": "System", "bytes": 1743, "share": 0.1721 },
+    { "client": "Bridge runner", "component": "Tools", "bytes": 8232, "share": 0.8126 },
+    { "client": "Bridge runner", "component": "Envelope / other", "bytes": 112, "share": 0.0111 },
+    { "client": "Claude -p", "component": "Messages", "bytes": 89384, "share": 0.5061 },
+    { "client": "Claude -p", "component": "System", "bytes": 12906, "share": 0.0731 },
+    { "client": "Claude -p", "component": "Tools", "bytes": 73950, "share": 0.4187 },
+    { "client": "Claude -p", "component": "Envelope / other", "bytes": 381, "share": 0.0022 }
+  ],
+  "headline_metrics": [
+    {
+      "request_size_multiple": 17.435,
+      "tool_payload_multiple": 8.983,
+      "instruction_text_multiple": 61.88,
+      "claude_p_upstream_attempts": 2,
+      "runner_upstream_attempts": 1
+    }
+  ],
+  "request_anatomy": [
+    {
+      "client": "Bridge runner",
+      "body_bytes": 10130,
+      "top_level_system_chars": 1629,
+      "instruction_text_chars": 1629,
+      "tool_count": 16,
+      "tool_json_bytes": 8232,
+      "incoming_cache_markers": 2,
+      "streaming": "No",
+      "thinking": "Not declared"
+    },
+    {
+      "client": "Claude -p",
+      "body_bytes": 176621,
+      "top_level_system_chars": 12391,
+      "instruction_text_chars": 100808,
+      "tool_count": 25,
+      "tool_json_bytes": 73950,
+      "incoming_cache_markers": 3,
+      "streaming": "Yes",
+      "thinking": "Adaptive"
+    }
+  ],
+  "timeline": [
+    {
+      "client": "Bridge runner",
+      "server_ready": "10:13:06.688",
+      "request_captured": "10:14:52.901",
+      "first_upstream_start": "10:14:52.928",
+      "first_status": "200",
+      "retry_start": "—",
+      "final_200_headers": "10:14:57.633",
+      "capture_to_200_headers_ms": 4732,
+      "attempts": 1
+    },
+    {
+      "client": "Claude -p",
+      "server_ready": "10:07:18.782",
+      "request_captured": "10:11:33.073",
+      "first_upstream_start": "10:11:33.154",
+      "first_status": "401",
+      "retry_start": "10:11:34.160",
+      "final_200_headers": "10:11:39.474",
+      "capture_to_200_headers_ms": 6401,
+      "attempts": 2
+    }
+  ],
+  "largest_tool_payloads": [
+    { "client": "Claude -p", "tool": "Workflow", "bytes": 21441 },
+    { "client": "Claude -p", "tool": "DesignSync", "bytes": 8978 },
+    { "client": "Claude -p", "tool": "CronCreate", "bytes": 4053 },
+    { "client": "Claude -p", "tool": "EnterWorktree", "bytes": 4027 },
+    { "client": "Claude -p", "tool": "ScheduleWakeup", "bytes": 3838 },
+    { "client": "Bridge runner", "tool": "edit_file", "bytes": 827 },
+    { "client": "Bridge runner", "tool": "read_file", "bytes": 789 },
+    { "client": "Bridge runner", "tool": "manage_tasks", "bytes": 753 }
+  ],
+  "comparability": [
+    { "dimension": "Visible prompt", "runner": "hot day today", "claude_p": "hot day today", "assessment": "Matched" },
+    { "dimension": "Model", "runner": "claude-fable-5", "claude_p": "claude-fable-5", "assessment": "Matched" },
+    { "dimension": "max_tokens", "runner": "64,000", "claude_p": "64,000", "assessment": "Matched ceiling; not usage" },
+    { "dimension": "Effort", "runner": "medium", "claude_p": "medium", "assessment": "Matched" },
+    { "dimension": "Streaming", "runner": "No", "claude_p": "Yes", "assessment": "Not matched" },
+    { "dimension": "Thinking field", "runner": "Absent", "claude_p": "adaptive", "assessment": "Not matched" },
+    { "dimension": "Tool surface", "runner": "16 tools / 8,232 B", "claude_p": "25 tools / 73,950 B", "assessment": "Not matched" },
+    { "dimension": "Instruction context", "runner": "1,629 chars", "claude_p": "100,808 chars", "assessment": "Not matched" },
+    { "dimension": "Credential path", "runner": "Keychain on first attempt", "claude_p": "Cached miss, 401, then Keychain", "assessment": "Not matched" },
+    { "dimension": "Final output and usage", "runner": "Not logged", "claude_p": "Not logged", "assessment": "Unavailable" }
+  ],
+  "roadmap": [
+    { "priority": 1, "item": "Shorten or eliminate negative credential caching", "why": "Avoid a predictable first-request 401 when credentials appear after bridge startup.", "risk": "Low to moderate", "status": "Recommended fix" },
+    { "priority": 2, "item": "Add safe completion and usage summaries", "why": "Make total duration, output tokens, cache reads/writes, and retry cost measurable without dumping response content.", "risk": "Moderate", "status": "Measurement foundation" },
+    { "priority": 3, "item": "Implement real count_tokens parity", "why": "Replace the current hard-coded zero with a useful context preflight; treat it as an estimate, not billing truth.", "risk": "Moderate", "status": "Earmarked" },
+    { "priority": 4, "item": "Add request-shape summary mode", "why": "Report bytes, tool count, cache markers, and section sizes while keeping prompts and metadata private.", "risk": "Low", "status": "Future enhancement" },
+    { "priority": 5, "item": "Test lean or lazy tool exposure", "why": "Tools are 81.3% of the runner's captured first request even though it is already much leaner than Claude -p.", "risk": "Moderate", "status": "Experiment" },
+    { "priority": 6, "item": "Harden raw debug logging", "why": "The logs expose a local debug endpoint token and full prompt/tool context; safe summaries should be the default.", "risk": "Moderate", "status": "Security and privacy" }
+  ],
+  "calculation_notes": [
+    "Body byte counts equal the logged Content-Length values and were independently measured from the logged BODY JSON.",
+    "Envelope / other is total body bytes minus the serialized values of messages, system, and tools; it includes property names, punctuation, and other fields.",
+    "Instruction text excludes the 13-character visible prompt and includes human-readable instruction strings found in the captured request.",
+    "Response timing ends when upstream response headers arrived. It is not time-to-first-token or time-to-complete.",
+    "Incoming request captures are not guaranteed to equal the final transformed upstream body because the bridge can prepend Claude Code system blocks after capture."
+  ]
+}

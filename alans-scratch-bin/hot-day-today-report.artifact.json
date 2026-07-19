@@ -1,0 +1,410 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Hot Day Today: Claude -p vs Bridge Runner",
+    "description": "A technical, beginner-friendly forensic comparison of two captured first requests through Claude Local Bridge.",
+    "generatedAt": "2026-07-19T18:00:00Z",
+    "cards": [
+      {
+        "id": "request_multiple",
+        "description": "Claude -p captured request bytes divided by bridge runner captured request bytes.",
+        "dataset": "headline_metrics",
+        "sourceId": "derived_analysis",
+        "metrics": [
+          { "label": "Claude -p request size multiple", "field": "request_size_multiple", "format": "number" }
+        ]
+      },
+      {
+        "id": "tool_multiple",
+        "description": "Claude -p serialized tool-definition bytes divided by bridge runner tool-definition bytes.",
+        "dataset": "headline_metrics",
+        "sourceId": "derived_analysis",
+        "metrics": [
+          { "label": "Tool payload multiple", "field": "tool_payload_multiple", "format": "number" }
+        ]
+      },
+      {
+        "id": "instruction_multiple",
+        "description": "Human-readable instruction characters, excluding the shared visible prompt.",
+        "dataset": "headline_metrics",
+        "sourceId": "derived_analysis",
+        "metrics": [
+          { "label": "Instruction text multiple", "field": "instruction_text_multiple", "format": "number" }
+        ]
+      },
+      {
+        "id": "attempts",
+        "description": "Upstream attempts observed before Claude -p received a 200 response header.",
+        "dataset": "headline_metrics",
+        "sourceId": "derived_analysis",
+        "metrics": [
+          { "label": "Claude -p upstream attempts", "field": "claude_p_upstream_attempts", "format": "number" },
+          { "label": "Bridge runner attempts", "field": "runner_upstream_attempts", "format": "number" }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "request_composition_chart",
+        "title": "Captured request payload composition",
+        "subtitle": "Exact serialized bytes by top-level component; logarithmic scale is not used",
+        "intent": "comparison",
+        "question": "How does each client's captured request size break down across messages, system instructions, tools, and the remaining JSON envelope?",
+        "rationale": "Grouped bars make the large absolute payload difference and the distinct component mix visible without converting exact byte measurements into estimated tokens.",
+        "type": "bar",
+        "dataset": "request_composition_long",
+        "sourceId": "derived_analysis",
+        "encodings": {
+          "x": { "field": "component", "type": "nominal", "label": "Request component" },
+          "y": { "field": "bytes", "type": "quantitative", "label": "Serialized bytes", "format": "compact" },
+          "color": { "field": "client", "type": "nominal", "label": "Client" },
+          "tooltip": [
+            { "field": "share", "type": "quantitative", "label": "Share of request", "format": "percent" }
+          ]
+        },
+        "valueFormat": "compact",
+        "layout": "full",
+        "maxRows": 4,
+        "emptyState": "No request-composition measurements were available."
+      }
+    ],
+    "tables": [
+      {
+        "id": "request_anatomy_table",
+        "title": "Request anatomy",
+        "subtitle": "Incoming body measurements from each captured request",
+        "dataset": "request_anatomy",
+        "sourceId": "derived_analysis",
+        "defaultSort": { "field": "body_bytes", "direction": "desc" },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          { "field": "client", "label": "Client", "type": "text" },
+          { "field": "body_bytes", "label": "Body bytes", "format": "number" },
+          { "field": "instruction_text_chars", "label": "Instruction text chars", "format": "number" },
+          { "field": "tool_count", "label": "Tools", "format": "number" },
+          { "field": "tool_json_bytes", "label": "Tool JSON bytes", "format": "number" },
+          { "field": "incoming_cache_markers", "label": "Cache markers", "format": "number" },
+          { "field": "streaming", "label": "Streaming", "type": "text" },
+          { "field": "thinking", "label": "Thinking", "type": "text" }
+        ]
+      },
+      {
+        "id": "timeline_table",
+        "title": "Bridge-side timeline",
+        "subtitle": "Local clock times; the final timing stops at upstream response headers",
+        "dataset": "timeline",
+        "sourceId": "derived_analysis",
+        "defaultSort": { "field": "capture_to_200_headers_ms", "direction": "asc" },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          { "field": "client", "label": "Client", "type": "text" },
+          { "field": "request_captured", "label": "Request captured", "type": "text" },
+          { "field": "first_status", "label": "First status", "type": "text" },
+          { "field": "retry_start", "label": "Retry start", "type": "text" },
+          { "field": "final_200_headers", "label": "200 headers", "type": "text" },
+          { "field": "capture_to_200_headers_ms", "label": "Capture to 200 headers (ms)", "format": "number" },
+          { "field": "attempts", "label": "Attempts", "format": "number" }
+        ]
+      },
+      {
+        "id": "comparability_table",
+        "title": "Was this an apples-to-apples experiment?",
+        "subtitle": "Matched and unmatched dimensions in the two captures",
+        "dataset": "comparability",
+        "sourceId": "derived_analysis",
+        "defaultSort": { "field": "order", "direction": "asc" },
+        "density": "dense",
+        "layout": "full",
+        "columns": [
+          { "field": "order", "label": "#", "format": "number" },
+          { "field": "dimension", "label": "Dimension", "type": "text" },
+          { "field": "runner", "label": "Bridge runner", "type": "text" },
+          { "field": "claude_p", "label": "Claude -p", "type": "text" },
+          { "field": "assessment", "label": "Assessment", "type": "text" }
+        ]
+      },
+      {
+        "id": "roadmap_table",
+        "title": "Prioritized future directions",
+        "subtitle": "Measurement and hardening work suggested by this experiment",
+        "dataset": "roadmap",
+        "sourceId": "derived_analysis",
+        "defaultSort": { "field": "priority", "direction": "asc" },
+        "density": "spacious",
+        "layout": "full",
+        "columns": [
+          { "field": "priority", "label": "Priority", "format": "number" },
+          { "field": "item", "label": "Direction", "type": "text" },
+          { "field": "why", "label": "Why it matters", "type": "text" },
+          { "field": "risk", "label": "Implementation risk", "type": "text" },
+          { "field": "status", "label": "Status", "type": "text" }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "runner_log",
+        "label": "Bridge runner hot-day experiment log",
+        "path": "alans-scratch-bin/bridge-runner-hot-day-today.log"
+      },
+      {
+        "id": "claude_p_log",
+        "label": "Claude -p hot-day experiment log",
+        "path": "alans-scratch-bin/claude-p-hot-day-today.log"
+      },
+      {
+        "id": "derived_analysis",
+        "label": "Reviewed measurements derived from both logs",
+        "path": "alans-scratch-bin/hot-day-today-reviewed-measurements.sql"
+      },
+      {
+        "id": "auth_cache_code",
+        "label": "Bridge credential discovery and cache implementation",
+        "path": "src/credentials.js"
+      },
+      {
+        "id": "context_code",
+        "label": "Bridge context and credential-cache TTL",
+        "path": "src/context.js"
+      },
+      {
+        "id": "proxy_code",
+        "label": "Bridge upstream proxy and response lifecycle",
+        "path": "src/proxy.js"
+      },
+      {
+        "id": "handler_code",
+        "label": "Anthropic message and token-count handlers",
+        "path": "src/handlers/anthropic.js"
+      },
+      {
+        "id": "claude_cli_docs",
+        "label": "Official Claude Code CLI reference",
+        "href": "https://code.claude.com/docs/en/cli-usage"
+      },
+      {
+        "id": "claude_headless_docs",
+        "label": "Official Claude Code headless-mode documentation",
+        "href": "https://code.claude.com/docs/en/headless"
+      },
+      {
+        "id": "token_counting_docs",
+        "label": "Official Anthropic token-counting documentation",
+        "href": "https://platform.claude.com/docs/en/build-with-claude/token-counting"
+      },
+      {
+        "id": "prompt_caching_docs",
+        "label": "Official Anthropic prompt-caching documentation",
+        "href": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching"
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "layout": "full",
+        "body": "# Hot Day Today: Claude -p vs Bridge Runner\n\nA forensic comparison of what each client sent through Claude Local Bridge on July 19, 2026. The shared visible prompt was `hot day today`."
+      },
+      {
+        "id": "technical_summary",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## Technical summary\n\nThe bridge runner was dramatically leaner at the captured request boundary: **10,130 bytes** versus **176,621 bytes** for Claude `-p`. That does **not** prove the runner was globally faster, cheaper, or better. The two requests differed in streaming, thinking configuration, tools, hidden instructions, credential state, and response observability.\n\nThe clearest debugging result is independent of model quality: Claude `-p` inherited a cached **no-credential** result, received a 401, then succeeded after the bridge cleared that cache and rediscovered the Keychain credential. The logs also reveal an observability gap: neither file records final output text, reported token usage, cache read/write usage, or true response-completion time."
+      },
+      {
+        "id": "headline_strip",
+        "type": "metric-strip",
+        "layout": "full",
+        "cardIds": ["request_multiple", "tool_multiple", "instruction_multiple", "attempts"]
+      },
+      {
+        "id": "key_findings",
+        "type": "markdown",
+        "layout": "full",
+        "sourceId": "derived_analysis",
+        "body": "## Key findings\n\n1. **Orchestration dwarfed the visible prompt.** The 13-character prompt was almost irrelevant to request size. Claude `-p` carried about 100,808 characters of instruction-like text; the runner carried 1,629.\n2. **Claude `-p` was 17.4× larger at capture.** Its agent roster plus tool definitions accounted for roughly 83% of the body. The single `Workflow` tool definition was 21,441 bytes—more than twice the runner's entire captured request.\n3. **The runner is lean, but tools still dominate it.** Tool definitions were 8,232 bytes, or 81.3% of the runner body. That makes lazy or task-specific tool exposure a meaningful future experiment.\n4. **The observed 6.401 s versus 4.732 s timings are response-header timings only.** Claude `-p` also paid for a 401 retry. Because Claude streamed and the runner did not, these values cannot be treated as equivalent time-to-first-token or total response time."
+      },
+      {
+        "id": "composition_intro",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## Visual evidence: where the bytes went\n\nThe chart uses a linear axis, so the runner's smaller bars look compressed. That is intentional: it preserves the true scale difference. “Envelope / other” includes JSON field names, punctuation, and non-system/message/tool fields. These are **bytes, not tokens**."
+      },
+      {
+        "id": "composition_chart_block",
+        "type": "chart",
+        "layout": "full",
+        "chartId": "request_composition_chart"
+      },
+      {
+        "id": "composition_interpretation",
+        "type": "markdown",
+        "layout": "full",
+        "sourceId": "derived_analysis",
+        "body": "The biggest structural difference is not the base system prompt. Claude `-p` placed a 72,498-character agent roster inside a system-role message, while its 73,950-byte tool array described a much broader capability surface. The runner exposed 16 smaller tools and a short generic system prompt. This is a product-design difference, not merely JSON inefficiency."
+      },
+      {
+        "id": "anatomy_block",
+        "type": "table",
+        "layout": "full",
+        "tableId": "request_anatomy_table"
+      },
+      {
+        "id": "request_flow",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## How to read the request flow\n\nA **client** builds a Messages API request. The **local bridge** receives and logs that incoming body, discovers an OAuth credential, may prepend Claude Code identity/billing system blocks, and then forwards a transformed request to Anthropic. The **proxy** logs the upstream HTTP status when response headers arrive and pipes the response back to the client.\n\nThis boundary matters: the BODY lines in these logs show what each client sent **into** the bridge. They are not guaranteed to be byte-for-byte copies of what the bridge ultimately sent upstream. In the runner case, the bridge had a credential and therefore prepended additional Claude Code system blocks after the incoming capture."
+      },
+      {
+        "id": "timeline_heading",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## Timeline reconstruction\n\nBoth requests ultimately reached an upstream 200 response. Claude `-p` needed two upstream attempts; the runner needed one."
+      },
+      {
+        "id": "timeline_block",
+        "type": "table",
+        "layout": "full",
+        "tableId": "timeline_table"
+      },
+      {
+        "id": "auth_retry_diagnosis",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## Root cause of the Claude `-p` 401 retry\n\nThis is a high-confidence code-and-timestamp diagnosis. At **10:07:18.782**, the bridge started without finding a Bearer credential. The implementation caches the discovered credential object—including `{ source: \"none\" }`—for **300,000 ms (five minutes)**. Claude `-p` arrived **254,291 ms later**, still inside that window, so the bridge reused the cached miss even though Claude had apparently populated the Keychain in the meantime.\n\nThe first upstream attempt therefore had no usable authorization and returned 401. The retry path cleared the credential cache; immediate rediscovery found the Keychain credential; the second attempt returned 200.\n\n**Recommended narrow fix:** give negative credential discoveries a much shorter cache lifetime, or do not cache them at all. Keep valid-token caching and token-rotation safeguards intact. Do not forward the incoming local `Authorization` header upstream as a shortcut; that header belongs to the caller-to-bridge trust boundary and may be only a local placeholder."
+      },
+      {
+        "id": "tokens_cache",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## Tokens, cache reads, and cache writes\n\nThe logs cannot answer how many input/output tokens were billed or how many tokens were read from or written to the prompt cache. `max_tokens: 64000` is only an output ceiling. It is not evidence that 64,000 tokens were produced—or even that many were available after context accounting.\n\nThe incoming bodies contained cache-control markers, but a marker expresses cache intent, not a confirmed cache hit or write. Prompt-cache results must come from response usage fields. Because each client's tool array is very different, the two requests should not be assumed to share a reusable cache prefix.\n\nThe bridge's `/v1/messages/count_tokens` handler currently returns a hard-coded `{ input_tokens: 0 }`. So count-token parity is a real, viable future feature, but the current endpoint is only a compatibility stub. Anthropic's official count endpoint can estimate system, messages, tools, images, and documents; its count may differ slightly from final request usage, so it should be labeled as a preflight estimate rather than billing truth."
+      },
+      {
+        "id": "comparability_heading",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## What this experiment can—and cannot—establish\n\nIt strongly establishes a first-request **shape** difference and exposes a credential-cache bug. It does not establish response-quality parity, end-to-end latency, token cost, cache efficiency, or typical behavior over repeated runs."
+      },
+      {
+        "id": "comparability_block",
+        "type": "table",
+        "layout": "full",
+        "tableId": "comparability_table"
+      },
+      {
+        "id": "methodology",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## Scope, data, and methodology\n\nThe analysis parsed the single captured BODY JSON object in each named log; independently checked its UTF-8 byte length against `Content-Length`; measured the serialized `system`, `messages`, and `tools` values; enumerated tools and cache markers; counted instruction strings separately from the visible prompt; and subtracted local log timestamps for request-to-response-header intervals.\n\nThe repository implementation was then traced through the Anthropic handler, credential cache, context TTL, and proxy response lifecycle to explain the observed 401/200 sequence and to identify exactly where timing begins and ends. No credentials or local debug-token values were copied into this report."
+      },
+      {
+        "id": "privacy",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## Privacy and logging findings\n\nTreat both raw logs as sensitive local debugging artifacts. The header logger correctly redacts incoming authorization, but startup output includes a local debug endpoint token, and full BODY logging captures project instructions, tool schemas, agent descriptions, and metadata. Even when those values are not Anthropic OAuth secrets, they reveal substantial local operating context.\n\nA safer default would log structural summaries—body bytes, section bytes, tool count, cache-marker count, stream mode, status, duration, and usage—while requiring an explicit high-visibility option for full request bodies. Raw captures should live in a permission-restricted directory and debug endpoint tokens should rotate per activation."
+      },
+      {
+        "id": "next_experiment",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## A better next experiment\n\nRun two layers rather than forcing one test to answer everything:\n\n### Layer A — realistic defaults\nRun Claude `-p` and the runner with their normal default capability surfaces. This measures real product overhead, which is what the current logs began to reveal.\n\n### Layer B — matched minimal capability\nAlign model, effort, maximum output, streaming mode, system prompt, included files, and tool exposure as closely as each client permits. Claude Code supports `--bare`, explicit tool control, JSON output, and no-session-persistence flags. The runner can use `--bare`, JSON output, and an explicit small `--tools` allowlist; it does not currently interpret an empty `--tools` value as “zero tools,” which is itself a useful parity enhancement.\n\nBefore each run, verify that the bridge already reports a Keychain credential. Alternate which client runs first, repeat each condition at least 5–10 times, and compare the median plus the range. Capture final text, reported usage, retry events, time to first response data, and time to response completion. Use a harmless baseline prompt for orchestration overhead, then add a small coding task to test whether the extra context earns its cost."
+      },
+      {
+        "id": "future_directions",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## Recommended future directions\n\nThe order below starts with correctness and measurement before optimization. Count-token parity is deliberately earmarked rather than implemented in this report."
+      },
+      {
+        "id": "roadmap_block",
+        "type": "table",
+        "layout": "full",
+        "tableId": "roadmap_table"
+      },
+      {
+        "id": "limitations",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## Limitations, uncertainty, and robustness\n\n- Sample size is one request per client, run sequentially rather than randomized.\n- The logs stop at upstream response headers and omit the response body, usage object, and completion event.\n- Claude `-p` streamed; the runner request did not. Header arrival is therefore not a fair user-perceived latency comparison.\n- The incoming runner BODY was transformed after capture when the bridge prepended Claude Code system blocks. The exact final upstream runner byte/token count is not present here.\n- The two clients intentionally expose different capability and context surfaces. The 17.4× result is exact for these captured bodies but should not be generalized to every task or configuration.\n- No matching runner trace/transcript artifact was found for the trace identifier in the supplied log, so response-level evidence could not be recovered from local session artifacts."
+      },
+      {
+        "id": "further_questions",
+        "type": "markdown",
+        "layout": "full",
+        "body": "## Further questions worth testing\n\n1. How much of Claude `-p`'s large agent roster and workflow schema is actually reused from prompt cache on repeated runs?\n2. Does a lean runner tool allowlist improve time-to-first-token and input usage on trivial tasks without harming coding success?\n3. Should the runner gain an explicit zero-tools mode for conversational or baseline experiments?\n4. Why was the referenced runner trace artifact absent despite trace headers being present, and should a missing trace become a visible warning?\n5. Can the bridge record safe `upstream_response_finished` timing and usage summaries in ordinary logs without storing response text?\n6. After fixing negative credential caching, does the Claude `-p` first-attempt 401 disappear consistently across fresh bridge startups?"
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-07-19T18:00:00Z",
+    "status": "ready",
+    "datasets": {
+      "headline_metrics": [
+        {
+          "request_size_multiple": 17.435,
+          "tool_payload_multiple": 8.983,
+          "instruction_text_multiple": 61.88,
+          "claude_p_upstream_attempts": 2,
+          "runner_upstream_attempts": 1
+        }
+      ],
+      "request_composition_long": [
+        { "client": "Bridge runner", "component": "Messages", "bytes": 43, "share": 0.0042 },
+        { "client": "Bridge runner", "component": "System", "bytes": 1743, "share": 0.1721 },
+        { "client": "Bridge runner", "component": "Tools", "bytes": 8232, "share": 0.8126 },
+        { "client": "Bridge runner", "component": "Envelope / other", "bytes": 112, "share": 0.0111 },
+        { "client": "Claude -p", "component": "Messages", "bytes": 89384, "share": 0.5061 },
+        { "client": "Claude -p", "component": "System", "bytes": 12906, "share": 0.0731 },
+        { "client": "Claude -p", "component": "Tools", "bytes": 73950, "share": 0.4187 },
+        { "client": "Claude -p", "component": "Envelope / other", "bytes": 381, "share": 0.0022 }
+      ],
+      "request_anatomy": [
+        { "client": "Bridge runner", "body_bytes": 10130, "instruction_text_chars": 1629, "tool_count": 16, "tool_json_bytes": 8232, "incoming_cache_markers": 2, "streaming": "No", "thinking": "Not declared" },
+        { "client": "Claude -p", "body_bytes": 176621, "instruction_text_chars": 100808, "tool_count": 25, "tool_json_bytes": 73950, "incoming_cache_markers": 3, "streaming": "Yes", "thinking": "Adaptive" }
+      ],
+      "timeline": [
+        { "client": "Bridge runner", "request_captured": "10:14:52.901", "first_status": "200", "retry_start": "—", "final_200_headers": "10:14:57.633", "capture_to_200_headers_ms": 4732, "attempts": 1 },
+        { "client": "Claude -p", "request_captured": "10:11:33.073", "first_status": "401", "retry_start": "10:11:34.160", "final_200_headers": "10:11:39.474", "capture_to_200_headers_ms": 6401, "attempts": 2 }
+      ],
+      "comparability": [
+        { "order": 1, "dimension": "Visible prompt", "runner": "hot day today", "claude_p": "hot day today", "assessment": "Matched" },
+        { "order": 2, "dimension": "Model", "runner": "claude-fable-5", "claude_p": "claude-fable-5", "assessment": "Matched" },
+        { "order": 3, "dimension": "max_tokens", "runner": "64,000", "claude_p": "64,000", "assessment": "Matched ceiling; not usage" },
+        { "order": 4, "dimension": "Effort", "runner": "medium", "claude_p": "medium", "assessment": "Matched" },
+        { "order": 5, "dimension": "Streaming", "runner": "No", "claude_p": "Yes", "assessment": "Not matched" },
+        { "order": 6, "dimension": "Thinking field", "runner": "Absent", "claude_p": "adaptive", "assessment": "Not matched" },
+        { "order": 7, "dimension": "Tool surface", "runner": "16 tools / 8,232 B", "claude_p": "25 tools / 73,950 B", "assessment": "Not matched" },
+        { "order": 8, "dimension": "Instruction context", "runner": "1,629 chars", "claude_p": "100,808 chars", "assessment": "Not matched" },
+        { "order": 9, "dimension": "Credential path", "runner": "Keychain on first attempt", "claude_p": "Cached miss, 401, then Keychain", "assessment": "Not matched" },
+        { "order": 10, "dimension": "Final output and usage", "runner": "Not logged", "claude_p": "Not logged", "assessment": "Unavailable" }
+      ],
+      "roadmap": [
+        { "priority": 1, "item": "Shorten or eliminate negative credential caching", "why": "Avoid a predictable first-request 401 when credentials appear after bridge startup.", "risk": "Low to moderate", "status": "Recommended fix" },
+        { "priority": 2, "item": "Add safe completion and usage summaries", "why": "Make total duration, output tokens, cache reads/writes, and retry cost measurable without dumping response content.", "risk": "Moderate", "status": "Measurement foundation" },
+        { "priority": 3, "item": "Implement real count_tokens parity", "why": "Replace the current hard-coded zero with a useful context preflight; treat it as an estimate, not billing truth.", "risk": "Moderate", "status": "Earmarked" },
+        { "priority": 4, "item": "Add request-shape summary mode", "why": "Report bytes, tool count, cache markers, and section sizes while keeping prompts and metadata private.", "risk": "Low", "status": "Future enhancement" },
+        { "priority": 5, "item": "Test lean or lazy tool exposure", "why": "Tools are 81.3% of the runner's captured first request even though it is already much leaner than Claude -p.", "risk": "Moderate", "status": "Experiment" },
+        { "priority": 6, "item": "Harden raw debug logging", "why": "The logs expose a local debug endpoint token and full prompt/tool context; safe summaries should be the default.", "risk": "Moderate", "status": "Security and privacy" }
+      ]
+    }
+  },
+  "sources": [
+    { "id": "runner_log", "label": "Bridge runner hot-day experiment log", "path": "alans-scratch-bin/bridge-runner-hot-day-today.log" },
+    { "id": "claude_p_log", "label": "Claude -p hot-day experiment log", "path": "alans-scratch-bin/claude-p-hot-day-today.log" },
+    { "id": "derived_analysis", "label": "Reviewed measurements derived from both logs", "path": "alans-scratch-bin/hot-day-today-reviewed-measurements.sql" },
+    { "id": "analysis_json", "label": "Full deterministic analysis record", "path": "alans-scratch-bin/hot-day-today-analysis.json" },
+    { "id": "auth_cache_code", "label": "Bridge credential discovery and cache implementation", "path": "src/credentials.js" },
+    { "id": "context_code", "label": "Bridge context and credential-cache TTL", "path": "src/context.js" },
+    { "id": "proxy_code", "label": "Bridge upstream proxy and response lifecycle", "path": "src/proxy.js" },
+    { "id": "handler_code", "label": "Anthropic message and token-count handlers", "path": "src/handlers/anthropic.js" },
+    { "id": "claude_cli_docs", "label": "Official Claude Code CLI reference", "href": "https://code.claude.com/docs/en/cli-usage" },
+    { "id": "claude_headless_docs", "label": "Official Claude Code headless-mode documentation", "href": "https://code.claude.com/docs/en/headless" },
+    { "id": "token_counting_docs", "label": "Official Anthropic token-counting documentation", "href": "https://platform.claude.com/docs/en/build-with-claude/token-counting" },
+    { "id": "prompt_caching_docs", "label": "Official Anthropic prompt-caching documentation", "href": "https://platform.claude.com/docs/en/build-with-claude/prompt-caching" }
+  ]
+}

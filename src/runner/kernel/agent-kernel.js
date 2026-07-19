@@ -47,6 +47,8 @@ async function runKernel(input) {
     systemPromptOverride: input.systemPromptOverride,
     plan: input.plan,
     temperature: input.temperature,
+    effort: input.effort,
+    thinking: input.thinking,
     confirmTimeout: input.confirmTimeout,
     allowedTools,
     maxContextTokens: input.maxContextTokens,

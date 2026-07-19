@@ -880,10 +880,20 @@
                       <option value="low">low</option>
                       <option value="medium">medium</option>
                       <option value="high">high</option>
+                      <option value="xhigh">xhigh</option>
                       <option value="max">max</option>
                     </select>
                   </div>
+                  <div class="field">
+                    <label for="thinking" title="Auto follows the selected model's adaptive-thinking rules. Adaptive explicitly requests it where supported. Off disables it where the model allows that.">Adaptive thinking</label>
+                    <select id="thinking">
+                      <option value="auto">auto (recommended)</option>
+                      <option value="adaptive">adaptive</option>
+                      <option value="off">off</option>
+                    </select>
+                  </div>
                 </div>
+                <div class="note show" id="thinkingNote"></div>
 
                 <p class="subsection-title">Ledger utilities</p>
                 <div class="checks">
@@ -1296,6 +1306,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const taskScope = document.getElementById('taskScope');
       const compactEachTurn = document.getElementById('compactEachTurn');
       const effort = document.getElementById('effort');
+      const thinking = document.getElementById('thinking');
+      const thinkingNote = document.getElementById('thinkingNote');
       const autoMemory = document.getElementById('autoMemory');
       const bareContext = document.getElementById('bareContext');
       const includeInstructionDocs = document.getElementById('includeInstructionDocs');
@@ -1499,6 +1511,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         if (taskScope.checked) parts.push('--task-scope');
         if (compactEachTurn.checked) parts.push('--compact-each-turn');
         if (effort.value) parts.push('--effort ' + effort.value);
+        if (thinking.value !== 'auto') parts.push('--thinking ' + thinking.value);
         if (autoMemory.checked) parts.push('--auto-memory');
         if (noArchive.checked) parts.push('--no-archive');
         if (bareContext.checked) parts.push('--bare');
@@ -1746,6 +1759,39 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
 
         traceFullWarn.classList.toggle('show', traceLevel.value === 'full');
 
+        // Keep model-specific controls honest without silently changing the
+        // user's selections. Unsupported choices are greyed out, and a saved
+        // selection that became incompatible is also surfaced as a warning.
+        const selectedModel = model.value;
+        const xhighSupported = /claude-(?:fable-5|sonnet-5|opus-4-(?:8|7))/.test(selectedModel);
+        const thinkingAlwaysOn = /claude-(?:fable-5|mythos-5|mythos-preview)/.test(selectedModel);
+        const adaptiveUnsupported = /claude-(?:sonnet-4-5|haiku-4-5|3-)/.test(selectedModel);
+        const xhighOption = effort.querySelector('option[value="xhigh"]');
+        const adaptiveOption = thinking.querySelector('option[value="adaptive"]');
+        const thinkingOffOption = thinking.querySelector('option[value="off"]');
+        if (xhighOption) xhighOption.disabled = !xhighSupported;
+        if (adaptiveOption) adaptiveOption.disabled = adaptiveUnsupported;
+        if (thinkingOffOption) thinkingOffOption.disabled = thinkingAlwaysOn;
+
+        if (thinkingNote) {
+          if (thinkingAlwaysOn) {
+            thinkingNote.textContent =
+              'This model keeps adaptive thinking on automatically. Auto omits the redundant API field; off is unavailable.';
+          } else if (/claude-sonnet-5/.test(selectedModel)) {
+            thinkingNote.textContent =
+              'This model enables adaptive thinking by default. Auto and adaptive leave that default intact; off sends an explicit disabled setting.';
+          } else if (/claude-(?:sonnet-4-6|opus-4-(?:8|7|6))/.test(selectedModel)) {
+            thinkingNote.textContent =
+              'This model needs an adaptive-thinking request field. Auto adds it; off deliberately omits it.';
+          } else if (adaptiveUnsupported) {
+            thinkingNote.textContent =
+              'This older model does not support adaptive thinking. Leave auto selected, or choose off.';
+          } else {
+            thinkingNote.textContent =
+              'Auto uses the runner\'s known model rules. Explicit adaptive is forwarded for unknown future model IDs.';
+          }
+        }
+
         const planNote = document.getElementById('planNote');
         if (planNote) planNote.style.display = plan.checked ? 'flex' : 'none';
 
@@ -1768,6 +1814,15 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
 
         if ((replayMode.checked || repairMode.checked) && !sessionId.value.trim() && !sessionPath.value.trim())
           validationWarnings.push('Replay / repair needs --session-id or --session-path to find the ledger.');
+
+        if (effort.value === 'xhigh' && !xhighSupported)
+          validationWarnings.push('The selected model does not support --effort xhigh.');
+
+        if (thinking.value === 'off' && thinkingAlwaysOn)
+          validationWarnings.push('The selected model keeps adaptive thinking on and cannot use --thinking off.');
+
+        if (thinking.value === 'adaptive' && adaptiveUnsupported)
+          validationWarnings.push('The selected model does not support --thinking adaptive.');
 
         const validationEl = document.getElementById('validationWarnings');
         if (!validationEl) {
@@ -1937,6 +1992,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         taskScope,
         compactEachTurn,
         effort,
+        thinking,
         autoMemory,
         noArchive,
         replayMode,
@@ -2030,6 +2086,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           taskScope: taskScope.checked,
           compactEachTurn: compactEachTurn.checked,
           effort: effort.value,
+          thinking: thinking.value,
           autoMemory: autoMemory.checked,
           noArchive: noArchive.checked,
           replayMode: replayMode.checked,
@@ -2071,7 +2128,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           'tracePath', 'bridgeUrl', 'callerToken', 'systemPrompt', 'systemPromptFile',
           'appendSystemPrompt', 'appendSystemPromptFile', 'sessionId', 'sessionPath',
           'forkFrom', 'maxWallClockMs',
-          'maxCostUsd', 'budgetInputTokens', 'budgetOutputTokens', 'effort',
+          'maxCostUsd', 'budgetInputTokens', 'budgetOutputTokens', 'effort', 'thinking',
           'permissionMode',
         ];
         const elMap = {
@@ -2083,7 +2140,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           tracePath, bridgeUrl, callerToken, systemPrompt, systemPromptFile,
           appendSystemPrompt, appendSystemPromptFile, sessionId, sessionPath,
           forkFrom, maxWallClockMs,
-          maxCostUsd, budgetInputTokens, budgetOutputTokens, effort,
+          maxCostUsd, budgetInputTokens, budgetOutputTokens, effort, thinking,
           permissionMode,
         };
         for (const key of textKeys) {
@@ -2298,6 +2355,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           if (p.outputFormat !== undefined) outputFormat.value = p.outputFormat;
           if (p.traceLevel !== undefined) traceLevel.value = p.traceLevel;
           if (p.effort !== undefined) effort.value = p.effort;
+          if (p.thinking !== undefined) thinking.value = p.thinking;
         }
 
         const boolKeys = [
