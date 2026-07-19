@@ -150,7 +150,10 @@ Keep these invariants:
 - `--dont-ask` must not enable shell by itself.
 - Block `.env`, private keys, credential JSON, token files, `.ssh`, `.aws`, `.claude`, and path escapes.
 - Write tools ask for confirmation unless `--accept-edits` is set.
-- Tool output, transcripts, JSON/stream-json output, and human logs redact secrets.
+- Tool output, transcripts, and human logs redact secrets. Target invariant: raw assistant text on stdout and
+  `--json`/`--stream-json` events must also pass through one central redaction boundary — this is currently an
+  open gap (P0-11); do not claim stream output is redacted until it lands. See
+  `docs/runner-p0-10-12-agent-handoff-2026-07-18.md`.
 - `--cwd` means the target project folder the tools operate inside.
 
 ## Checks
@@ -169,6 +172,14 @@ For runner-only work:
 ```bash
 node --require ./test/setup.js --test test/runner/*.test.js
 ```
+
+## Active P0 Work
+
+Open runtime-concordance items P0-10 (root-change cache integrity), P0-11 (centralized redaction boundary), and
+P0-12 (private-by-construction artifacts) are tracked in `docs/runner-p0-10-12-agent-handoff-2026-07-18.md`
+(execution order A: P0-10, B: P0-12, C: P0-11 — one item per session). Human-readable review:
+`docs/runner-p0-10-12-review-2026-07-18.html`. Annotate
+`docs/runner-runtime-concordance-assessment-2026-07-17.html` when closing items.
 
 ## Docs To Keep Updated
 
