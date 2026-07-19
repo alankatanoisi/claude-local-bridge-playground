@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Runner P0-10..12 Positioning Review — 2026-07-18</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #171d24; --ink: #e6e1d7; --muted: #9aa4ad;
+    --accent: #d97757; --ok: #7fb069; --warn: #e0af68; --bad: #e06c75;
+    --line: #2a3138; --code-bg: #10151b;
+  }
+  body { margin: 0; font: 16px/1.6 -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  h1 { font-size: 1.6rem; border-bottom: 2px solid var(--accent); padding-bottom: .5rem; }
+  h2 { font-size: 1.25rem; margin-top: 2.2rem; color: var(--accent); }
+  h3 { font-size: 1.05rem; margin-top: 1.5rem; }
+  p, li { color: var(--ink); }
+  .muted { color: var(--muted); }
+  code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .86em; }
+  code { background: var(--code-bg); padding: .1em .35em; border-radius: 4px; border: 1px solid var(--line); }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: .9rem 1rem; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .92rem; }
+  th, td { border: 1px solid var(--line); padding: .5rem .65rem; text-align: left; vertical-align: top; }
+  th { background: var(--panel); }
+  .badge { display: inline-block; padding: .05rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
+  .b-confirmed { background: #3a2326; color: var(--bad); border: 1px solid var(--bad); }
+  .b-partial { background: #3a3226; color: var(--warn); border: 1px solid var(--warn); }
+  .b-ok { background: #23372a; color: var(--ok); border: 1px solid var(--ok); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.25rem; margin: 1rem 0; }
+  .callout { border-left: 4px solid var(--warn); background: var(--panel); padding: .75rem 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; }
+  .callout.good { border-left-color: var(--ok); }
+  .callout.bad { border-left-color: var(--bad); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Runner P0-10..12 Positioning Review</h1>
+<p class="muted">Date: 2026-07-18 &middot; Author: review agent (fresh-eyes pass) &middot; Scope: verify the three open P0 findings against <em>current</em> code, surface blindspots, and set up chunked execution.<br/>
+Companion docs: <code>docs/runner-runtime-concordance-assessment-2026-07-17.html</code> (source assessment), <code>docs/runner-p0-10-12-agent-handoff-2026-07-18.md</code> (machine handoff, supersedes the 07-18 next-session handoff for these items).</p>
+
+<h2>1. Executive summary</h2>
+<div class="card">
+<ul>
+  <li>All three open P0 findings (<strong>P0-10, P0-11, P0-12</strong>) were re-verified against the live tree today and <strong>all three still exist exactly as described</strong> — no drift-invalidation, no partial fixes landed since the 07-17 assessment.</li>
+  <li><strong>One concordance correction:</strong> the P0-12 sub-claim about the recovery manifest being written under <code>--no-session-persistence</code> is now <em>documented as intentional</em> in code (<code>run.js:333&ndash;338</code>) because it powers <code>undo last-run</code>. Reclassify that sub-item from "bug" to "accepted by design, but manifest must adopt private modes + minimal content".</li>
+  <li><strong>One doc-vs-runtime break found:</strong> <code>CLAUDE.md</code> Safety Rules claim "JSON/stream-json output ... redact secrets" — the code shows stdout/<code>--json</code>/<code>--stream-json</code> paths have <em>zero</em> redaction calls. CLAUDE.md has been corrected to state the target invariant and the open gap.</li>
+  <li><strong>Good news blindspot:</strong> <code>safety.js</code> already ships <code>makeStreamingScrubber</code> — a streaming-safe scrubber that solves the "secret split across SSE chunk boundary" problem. P0-11 is mostly a <em>wiring</em> job, not a design job.</li>
+  <li><strong>Performance finding:</strong> full <code>npm test</code> wall time now exceeds 30s (89 test files under <code>test/runner/</code> alone); every harness verification run hit the cap. All observed suites pass, but the suite needs sharding or a smoke subset.</li>
+  <li><strong>Chunking verdict:</strong> too large for one session. Recommended: one session per P0, in order <strong>P0-10 &rarr; P0-12 &rarr; P0-11</strong> (P0-11 last because it is the widest sweep and benefits from the private-write helper landing first).</li>
+</ul>
+</div>
+
+<h2>2. Finding-by-finding verification</h2>
+
+<h3>P0-10 — Cached permissions &amp; recovery targets survive a root change <span class="badge b-confirmed">CONFIRMED</span></h3>
+<table>
+  <tr><th>Claim</th><th>Evidence (current code)</th></tr>
+  <tr><td>Decision-cache key omits root identity</td><td><code>src/runner/permissions.js</code> <code>_decisionKey()</code> (~lines 130&ndash;139): key = tool name + flag bits + normalized args. No cwd/worktree/root token anywhere in the key.</td></tr>
+  <tr><td>Worktree transitions don't clear decisions</td><td><code>src/runner/worktree-utils.js</code> <code>activateSlot()</code> / <code>deactivateToRepoRoot()</code> mutate the <em>same</em> ctx object (<code>ctx.cwd = entry.path</code>, <code>ctx.cwdRealpath = ...</code>). The per-ctx WeakMap cache therefore survives intact. <code>invalidateDecisionCache</code> is only ever called from <code>tool-registry.js</code> on specific write paths — never on root transitions.</td></tr>
+  <tr><td>undo_edit validates one path, writes another</td><td><code>src/runner/tools/undo-edit.js</code> (~lines 68&ndash;79): <code>confinePath(entry.path, ctx)</code> validates against the <em>current</em> root, then the restore writes <code>entry.absolute_path</code> — the absolute path recorded under the <em>old</em> root. Validation target and write target diverge.</td></tr>
+</table>
+<div class="callout">
+<strong>Blindspots beyond the assessment:</strong>
+<ul>
+  <li><code>safety.js</code> keeps a per-ctx <code>cachedRealpathSync</code> cache that is also never cleared on root transitions (lower risk — realpaths are root-independent — but stale after renames/moves inside a worktree swap).</li>
+  <li><code>test/runner/permission-decision-cache.test.js</code> exercises per-ctx isolation and flag changes but has <strong>no worktree/root-change case at all</strong> — the exact regression this P0 covers is untested.</li>
+</ul>
+</div>
+<p><strong>Recommended shape:</strong> add a monotonic <code>rootEpoch</code> on ctx; include it in <code>_decisionKey</code>; bump it in <code>activateSlot</code>/<code>deactivateToRepoRoot</code> (O(1), no cache walk). In <code>undo-edit.js</code>, make the confined path the single source of truth for the write target and treat <code>absolute_path</code> as advisory metadata only.</p>
+
+<h3>P0-11 — Raw model text bypasses centralized redaction <span class="badge b-confirmed">CONFIRMED</span></h3>
+<p>Sink inventory (grep-verified today):</p>
+<table>
+  <tr><th>Sink</th><th>Redacted?</th><th>Where</th></tr>
+  <tr><td>Tool results</td><td><span class="badge b-ok">yes</span></td><td><code>tool-registry.js</code> (scrub on result text)</td></tr>
+  <tr><td>Human log / transcript / archive export / hook payloads / trace-utils</td><td><span class="badge b-ok">yes</span></td><td><code>human-log.js</code>, <code>transcript.js</code>, <code>archive/run-exporter.js</code>, <code>hooks/hook-runner.js</code>, <code>trace-utils.js</code></td></tr>
+  <tr><td>Raw assistant text &rarr; stdout</td><td><span class="badge b-confirmed">no</span></td><td><code>run.js</code> emission block (~lines 132&ndash;137) — zero scrub/redact references in the whole file</td></tr>
+  <tr><td><code>--json</code> / <code>--stream-json</code> events</td><td><span class="badge b-confirmed">no</span></td><td>same <code>run.js</code> paths; contradicts CLAUDE.md Safety Rules (now corrected)</td></tr>
+  <tr><td>Streaming deltas (SSE)</td><td><span class="badge b-confirmed">no</span></td><td><code>model-client.js</code> — zero scrub/redact references</td></tr>
+  <tr><td>Tool <em>inputs</em> (model-authored)</td><td><span class="badge b-confirmed">no</span></td><td><code>tool-pipeline.js</code> — zero scrub/redact references</td></tr>
+  <tr><td>Persisted session messages / ledger prompt previews</td><td><span class="badge b-confirmed">no</span></td><td><code>session-store.js</code>, <code>session-ledger.js</code> — zero scrub/redact references (overlaps P0-12)</td></tr>
+</table>
+<div class="callout good">
+<strong>Key asset already in-tree:</strong> <code>safety.js</code> exports <code>scrubSecrets</code>, <code>scrubObject</code>, <code>scrubStableIdentifiers</code>, and <code>makeStreamingScrubber</code>. The streaming scrubber already handles the chunk-boundary windowing problem, so wiring it into the <code>model-client.js</code> delta callback and a single <code>run.js</code> emit chokepoint covers the live-output surface without new redaction design work.</div>
+<p><strong>Performance note:</strong> do <em>not</em> scrub the whole message array on every <code>session-store</code> debounce save (O(conversation) per save). Scrub once at message-append time, or persist through the same pre-scrubbed emit boundary.</p>
+
+<h3>P0-12 — Session/ledger artifacts not private by construction <span class="badge b-confirmed">CONFIRMED (one sub-item reclassified)</span></h3>
+<ul>
+  <li><strong>Global check:</strong> <code>grep</code> for <code>mode: 0o</code> / <code>0o600</code> / <code>0o700</code> / <code>chmod</code> across <code>src/runner</code> returns <strong>zero matches</strong>. Every artifact writer relies on process umask.</li>
+  <li><strong>21 writer files identified:</strong> session-store, session-ledger, transcript, human-log, 4&times; archive/*, recovery/run-manifest, tools/{file-write-utils, write-file, undo, apply-patch}, golden-eval, memory/auto-memory, memory-review, streaming-write, workspace-fingerprint, workspace-trust, worktree-utils, loop-autopsy.</li>
+  <li><strong>Reclassification:</strong> the manifest-despite-<code>--no-session-persistence</code> behavior is now intentional and documented in <code>run.js:333&ndash;338</code> (<code>syncRunManifest</code> powers <code>undo last-run</code>). Keep the behavior; give the manifest 0600/0700 modes and keep its content minimal (paths + hashes, no message text).</li>
+  <li><strong>Critical scoping rule:</strong> the private-mode helper must apply to <em>runner-internal</em> artifacts only. <code>tools/write-file.js</code> and <code>apply-patch.js</code> write <em>user project files</em> — forcing 0600 there would silently break user expectations. Two distinct write paths, on purpose.</li>
+  <li><strong>Test gap:</strong> session-store/ledger tests exist (<code>session-ledger.test.js</code>, <code>session-store-debounce.test.js</code>, etc.) but none assert file modes.</li>
+</ul>
+
+<h2>3. Global / performance observations</h2>
+<div class="card">
+<ul>
+  <li><strong>Test suite wall time:</strong> full <code>npm test</code> exceeds the 30s harness cap on every run; <code>test/runner/</code> alone holds 89 files. All observed suites pass. Recommend: a tagged smoke subset (&lt;10s) for inner-loop verification + sharded/parallel full run for handoff checks. This is a small, high-leverage P1.</li>
+  <li><strong>Cache-fix pattern:</strong> prefer epoch tokens over cache clears throughout (decision cache, realpath cache) — O(1), no lock/ordering concerns, and self-documenting in keys.</li>
+  <li><strong>Redaction throughput:</strong> centralizing at the emit chokepoint means every output byte flows through scrubber regexes once — acceptable; avoid double-scrubbing (results scrubbed in tool-registry, then again at emit). Consider a "already-scrubbed" marker or scrub only at the boundary and drop the inner call after migration.</li>
+  <li><strong>Ordering rationale (P0-10 &rarr; P0-12 &rarr; P0-11):</strong> P0-10 is small and self-contained (2 files + tests). P0-12 lands a <code>privateWrite</code> helper that P0-11's persistence sinks then reuse. P0-11 is the widest sweep and goes last with the most infrastructure already in place.</li>
+</ul>
+</div>
+
+<h2>4. Session-sized work packages</h2>
+<table>
+  <tr><th>Session</th><th>Package</th><th>Files</th><th>Exit criteria</th></tr>
+  <tr><td>A</td><td>P0-10: rootEpoch in decision key; bump on worktree transitions; undo-edit writes confined path</td><td><code>permissions.js</code>, <code>worktree-utils.js</code>, <code>tools/undo-edit.js</code>, + tests</td><td>New test: cached allow under root A does not auto-allow under root B; undo-edit restore target equals confined path; existing 89-file suite green.</td></tr>
+  <tr><td>B</td><td>P0-12: <code>privateWrite</code>/<code>ensurePrivateDir</code> helper (0600/0700) + adoption sweep over the 21 internal writers (excluding project-file tools)</td><td>new <code>private-fs.js</code> (or safety.js), 19 writer files</td><td>Mode-assertion tests on session/ledger/manifest/human-log; grep for naked <code>writeFileSync</code> in internal writers returns only project-file tools.</td></tr>
+  <tr><td>C</td><td>P0-11: central redaction boundary — wire <code>makeStreamingScrubber</code> into model-client deltas and run.js emit; scrub session/ledger at append time; drop redundant inner scrubs</td><td><code>run.js</code>, <code>model-client.js</code>, <code>tool-pipeline.js</code>, <code>session-store.js</code>, <code>session-ledger.js</code></td><td>Test: secret injected into mocked model stream never appears in stdout, --json, stream-json, session file, or ledger; chunk-boundary split-secret test passes.</td></tr>
+  <tr><td>D (P1)</td><td>Test-suite performance: smoke subset + sharding</td><td><code>package.json</code> scripts, test tags</td><td>Smoke &lt;10s; documented in CLAUDE.md Checks.</td></tr>
+</table>
+
+<h2>5. Corrections applied this session</h2>
+<ul>
+  <li><code>CLAUDE.md</code>: Safety Rules redaction line corrected to state the target invariant and the open P0-11 gap; pointer added to the active agent handoff.</li>
+  <li>New machine handoff: <code>docs/runner-p0-10-12-agent-handoff-2026-07-18.md</code>.</li>
+</ul>
+
+<p class="muted">End of review. No production code was modified in this session — evidence-gathering and documentation only.</p>
+
+</div>
+</body>
+</html>

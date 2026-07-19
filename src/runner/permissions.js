@@ -129,13 +129,18 @@ function _getDecisionCache(ctx) {
 
 function _decisionKey(toolName, args, ctx) {
   const flags = (ctx.acceptEdits ? 'A' : '') + (ctx.dontAsk ? 'D' : '') + (ctx.allowShell ? 'S' : '');
+  // P0-10: worktree enter/exit mutates ctx.cwd on the SAME ctx object, so a
+  // decision cached under one root would otherwise keep answering for a
+  // different root. rootEpoch is bumped on every root transition; keying on it
+  // retires all old-root entries in O(1) without walking the cache.
+  const epoch = 'E' + (ctx.rootEpoch || 0);
   let argsKey;
   try {
     argsKey = JSON.stringify(args || {});
   } catch {
     argsKey = '<unserializable>';
   }
-  return toolName + '|' + flags + '|' + argsKey;
+  return toolName + '|' + flags + '|' + epoch + '|' + argsKey;
 }
 
 function invalidateDecisionCache(ctx, paths) {
