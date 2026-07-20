@@ -647,6 +647,36 @@ async function run(options) {
     inputCap: budgetTracker.effectiveHardInput,
     outputCap: budgetTracker.effectiveHardOutput,
   });
+  // P1-10: settings children inherit (model, bridge, network, ceilings, correlation).
+  // Caller token is kept here for env forwarding only — never written into manifests.
+  ctx.childInherit = {
+    model: model || null,
+    effort: effort || null,
+    thinking: thinking || null,
+    bridgeUrl: bridgeUrl || null,
+    callerToken: callerToken || null,
+    hasCallerToken: !!callerToken,
+    noNetwork: !!noNetwork,
+    maxWallClockMs: typeof maxWallClockMs === 'number' ? maxWallClockMs : null,
+    maxCostUsd: typeof maxCostUsd === 'number' ? maxCostUsd : null,
+    temperature: typeof temperature === 'number' ? temperature : null,
+    traceLevel: normalizeTraceLevel(traceLevel),
+    parentRunId: runId,
+  };
+  ctx.runStartedAtMs = startedAt;
+  ctx.childManifests = [];
+  ctx.recordChildManifest = function recordChildManifest(manifest) {
+    appendLedger(ledger, hooks, 'child_spawn_completed', {
+      runId,
+      workerId: manifest.workerId,
+      state: manifest.state,
+      stopReason: manifest.stopReason,
+      usage: manifest.usage,
+      leaseId: manifest.leaseId,
+      inherited: manifest.inherited,
+      toolEffectCount: Array.isArray(manifest.toolEffects) ? manifest.toolEffects.length : 0,
+    });
+  };
   // reconcileChildUsage is called by spawn_agent after a child returns so the
   // parent's totalUsage and remaining leases stay consistent. Bound here so the
   // tool closes over the live totalUsage binding.
@@ -890,6 +920,10 @@ async function run(options) {
     if (ctx.budgetBroker && ctx.budgetBroker.hasIncompleteChildren()) {
       result.childUsageIncomplete = true;
       result.budgetBroker = ctx.budgetBroker.snapshot(result.usage);
+    }
+    // P1-10: every child spawn gets a manifest the parent can account for.
+    if (Array.isArray(ctx.childManifests) && ctx.childManifests.length > 0) {
+      result.childManifests = ctx.childManifests;
     }
 
     // Exactly one terminal output event per run.

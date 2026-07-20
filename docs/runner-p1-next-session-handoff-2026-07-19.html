@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Runner next-session handoff — post-P0 P1 package (2026-07-19)</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #171d24; --ink: #e6e1d7; --muted: #9aa4ad;
+    --accent: #d97757; --ok: #7fb069; --warn: #e0af68; --bad: #e06c75;
+    --line: #2a3138; --code-bg: #10151b;
+  }
+  body { margin: 0; font: 16px/1.6 -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  h1 { font-size: 1.65rem; border-bottom: 2px solid var(--accent); padding-bottom: .5rem; }
+  h2 { font-size: 1.25rem; margin-top: 2.2rem; color: var(--accent); }
+  h3 { font-size: 1.05rem; margin-top: 1.5rem; }
+  .muted { color: var(--muted); }
+  code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .86em; }
+  code { background: var(--code-bg); padding: .1em .35em; border-radius: 4px; border: 1px solid var(--line); }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: .9rem 1rem; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .92rem; }
+  th, td { border: 1px solid var(--line); padding: .5rem .65rem; text-align: left; vertical-align: top; }
+  th { background: var(--panel); }
+  .badge { display: inline-block; padding: .05rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
+  .b-ok { background: #23372a; color: var(--ok); border: 1px solid var(--ok); }
+  .b-open { background: #3a3226; color: var(--warn); border: 1px solid var(--warn); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.25rem; margin: 1rem 0; }
+  .callout { border-left: 4px solid var(--warn); background: var(--panel); padding: .75rem 1rem; border-radius: 0 8px 8px 0; margin: 1rem 0; }
+  .callout.good { border-left-color: var(--ok); }
+  a { color: var(--accent); }
+  ol.starter li { margin: .4rem 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Next-session handoff — post-P0 P1 package</h1>
+<p class="muted">Dated 2026-07-19 (evening). For Alan and any fresh coding agent. Agent twin:
+  <a href="runner-p1-next-session-handoff-2026-07-19.md">runner-p1-next-session-handoff-2026-07-19.md</a>.
+  Assessment: <a href="runner-runtime-concordance-assessment-2026-07-17.html">runner-runtime-concordance-assessment-2026-07-17.html</a>.
+</p>
+
+<div class="callout good">
+  <strong>Where you are:</strong> playground repo on <code>main</code>, not the canonical archive.
+  Folder must end with <code>claude-local-bridge-playground</code>. Origin must be the playground GitHub remote.
+</div>
+
+<h2>1. Startup preflight (do this first)</h2>
+<pre><code>pwd
+git rev-parse --show-toplevel
+git branch --show-current
+git remote -v
+git status --short
+git pull --ff-only origin main</code></pre>
+<p>Success looks like: path ends in <code>/Users/alanman/Developer/claude-local-bridge-playground</code>, branch <code>main</code>,
+  <code>origin</code> → <code>alankatanoisi/claude-local-bridge-playground</code>.</p>
+
+<h2>2. What is already done</h2>
+
+<h3>All P0 findings closed</h3>
+<p>P0-01 through P0-12, including the full P0-06 <code>apply_patch</code> pure-JS repair. Do not reopen unless a regression appears.</p>
+
+<h3>Post-P0 / P1 closed this weekend</h3>
+<table>
+  <thead><tr><th>ID</th><th>What it means in plain language</th><th>Key files</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge b-ok">P1-01</span></td><td>Plan mode inspects real files; proposed writes become real unified diffs you can apply later.</td><td><code>plan-proposals.js</code>, permissions, tool-pipeline</td></tr>
+    <tr><td><span class="badge b-ok">P1-02</span></td><td>Truncation / refusal are labeled honestly; streaming keeps <code>stop_reason</code>.</td><td><code>model-client.js</code>, <code>kernel/contract.js</code>, <code>run.js</code></td></tr>
+    <tr><td><span class="badge b-ok">P1-03</span></td><td>Bridge HTTP: 4xx fail once; 429/5xx retry with backoff.</td><td>model-client typed errors</td></tr>
+    <tr><td><span class="badge b-ok">P1-04</span></td><td>One shutdown path for success, failure, and Ctrl-C.</td><td><code>finalizeRun</code> in <code>run.js</code></td></tr>
+    <tr><td><span class="badge b-ok">WP2</span></td><td>Authority can only shrink mid-run, never grow past what you typed on the CLI.</td><td><code>authority.js</code></td></tr>
+    <tr><td><span class="badge b-ok">Docs gate</span></td><td><code>npm run check:docs</code> fails if README / command-builder / help drift from code.</td><td><code>scripts/check-runner-manifest.js</code></td></tr>
+    <tr><td><span class="badge b-ok">P1-05</span></td><td>Child agents lease token budget; they cannot each copy the same remainder.</td><td><code>budget-broker.js</code></td></tr>
+    <tr><td><span class="badge b-ok">P1-08</span></td><td>One recovery story: backups fail closed; creates can be undone; undo finds real timestamped backups.</td><td>write/edit/undo tools</td></tr>
+    <tr><td><span class="badge b-ok">P1-09</span></td><td><code>--continue</code> resumes a real session; broken transcript resume / stub repair are no longer advertised as working.</td><td>CLI + session-store</td></tr>
+    <tr><td><span class="badge b-ok">P1-10</span></td><td>Child agents inherit model / bridge / network / ceilings / trace; parent keeps a child manifest.</td><td><code>child-inherit.js</code></td></tr>
+  </tbody>
+</table>
+
+<h2>3. What P1-10 fixed (this session)</h2>
+<div class="card">
+  <p><strong>Before:</strong> a <code>spawn_agent</code> child often ran with a nearly empty command line — quiet log level, default model assumptions, no <code>--no-network</code>, no wall/cost ceilings, weak correlation. The parent saw a text summary and dropped rich usage/settings.</p>
+  <p><strong>After:</strong> the parent builds an <em>inherit bag</em> and the worker CLI gets the same model, effort, thinking, bridge URL, network guard, remaining wall-clock, cost ceiling, temperature, and trace level. Caller tokens move only through an environment variable (never printed on the command line). When the child finishes, the parent stores a <code>childManifest</code> (usage, stop reason, inherited ceilings, tool-effect summary) in the final result and ledger.</p>
+</div>
+
+<h2>4. Recommended next work</h2>
+<p>Prefer <strong>one</strong> open P1 per session:</p>
+<ol class="starter">
+  <li><span class="badge b-open">P1-11</span> Streaming redaction window / stable identifiers (pairs with P0-11 redaction boundary).</li>
+  <li><span class="badge b-open">P1-12</span> HTTPS bridge URLs vs HTTP-only model client.</li>
+  <li><span class="badge b-open">P1-14</span> Hooks trust: docs vs runtime.</li>
+  <li><span class="badge b-open">P1-07</span> Model capability matrix vs official Anthropic catalog (fetch official docs first).</li>
+</ol>
+<div class="callout">
+  <strong>Not yet:</strong> a full documentation rewrite. Day-to-day docs already moved with the code; the manifest check guards drift.
+  Save a rewrite pass for after another behavior package (or when Alan feels lost using the runner).
+</div>
+
+<h2>5. Invariants the next agent must not break</h2>
+<ul>
+  <li>Shell stays hidden unless <code>--allow-shell</code>. <code>--dont-ask</code> does not enable shell.</li>
+  <li>OAuth-only upstream auth; no API-key fallback; no OpenAI-compatible routes.</li>
+  <li>No restoring retired agent/capability profiles.</li>
+  <li>Children may only <em>narrow</em> authority and budgets relative to the parent.</li>
+  <li><code>--replay</code> / <code>--repair</code> stay experimental (<code>BRIDGE_RUNNER_EXPERIMENTAL=1</code>) until real E2E fixtures exist.</li>
+  <li>Bridge auth/proxy internals (<code>src/credentials.js</code>, <code>src/proxy.js</code>, <code>src/server.js</code>, interceptors) — leave alone unless transport is broken.</li>
+</ul>
+
+<h2>6. Checks before claiming done</h2>
+<pre><code>node --require ./test/setup.js --test \
+  test/runner/child-inherit.test.js \
+  test/runner/spawn-agent.test.js \
+  test/runner/budget-broker.test.js
+npm test
+npm run lint
+npm run check:docs
+npm run format:check</code></pre>
+
+<h2>7. Copy-paste starter for a fresh agent chat</h2>
+<pre><code>You are in /Users/alanman/Developer/claude-local-bridge-playground on main
+(origin = claude-local-bridge-playground). Read AGENTS.md + CLAUDE.md, run the
+startup preflight, pull --ff-only origin main, then read
+docs/runner-p1-next-session-handoff-2026-07-19.md and its HTML twin.
+
+All P0s and P1-01..05,08,09,10 (+ WP2, docs gate) are closed. Implement the
+next open P1 I name (default suggestion: P1-11). Do not rewrite all docs;
+do not touch bridge auth internals unless required for runner transport.
+End with folder/branch, files, checks, skipped, risks. Commit/push only if asked.</code></pre>
+
+<h2>8. Handoff fields for this session</h2>
+<table>
+  <tr><th>Folder / branch</th><td>playground <code>main</code></td></tr>
+  <tr><th>Primary new file</th><td><code>src/runner/child-inherit.js</code></td></tr>
+  <tr><th>Also touched</th><td><code>worker-runtime.js</code>, <code>tools/spawn-agent.js</code>, <code>run.js</code>, <code>coordinator.js</code>, tests, assessment annotation, this handoff pair</td></tr>
+  <tr><th>Skipped</th><td>Full docs rewrite; remaining open P1s</td></tr>
+  <tr><th>Known residual</th><td>Child <code>--max-cost-usd</code> still passes the parent's full cap (not remaining estimated USD). Wall-clock remainder is correct.</td></tr>
+</table>
+
+<p class="muted">Open this file in a browser from the repo: <code>docs/runner-p1-next-session-handoff-2026-07-19.html</code>.</p>
+
+</div>
+</body>
+</html>

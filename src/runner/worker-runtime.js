@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { narrowChildAuthority } = require('./authority');
+const { applyInheritToArgs, applyInheritToEnv } = require('./child-inherit');
 
 const DEFAULT_CHILD_TOOLS = Object.freeze([
   'list_files',
@@ -107,6 +108,8 @@ class WorkerRuntime {
     if (typeof spec.budgetRemaining?.output_tokens === 'number') {
       args.push('--budget-output-tokens', String(spec.budgetRemaining.output_tokens));
     }
+    // P1-10: propagate parent model/effort/trace/bridge/network/budget ceilings.
+    applyInheritToArgs(args, spec.inherit);
     args.push(spec.prompt);
 
     const record = {
@@ -115,12 +118,14 @@ class WorkerRuntime {
       state: WORKER_STATES.RUNNING,
       startedAt: Date.now(),
       spec,
+      inherit: spec.inherit || null,
     };
     this.workers.set(workerId, record);
 
     // P1-05: also pass remaining via env so child createBudgetTracker parentRemaining
     // stays consistent even if a future path omits the CLI flags.
-    const childEnv = {
+    // P1-10: correlation IDs + caller token (env only — never argv).
+    let childEnv = {
       ...process.env,
       BRIDGE_RUNNER_SPAWN_DEPTH: String(this.spawnDepth + 1),
       ...options.env,
@@ -134,6 +139,10 @@ class WorkerRuntime {
     if (spec.leaseId) {
       childEnv.BRIDGE_RUNNER_BUDGET_LEASE_ID = String(spec.leaseId);
     }
+    childEnv = applyInheritToEnv(childEnv, spec.inherit, {
+      workerId,
+      callerToken: options.callerToken || null,
+    });
 
     return new Promise((resolve) => {
       const child = this._spawn(process.execPath, args, {
@@ -185,6 +194,7 @@ class WorkerRuntime {
           usage,
           stopReason: parsed.stopReason || parsed.stop_reason || null,
           duration_ms: Date.now() - record.startedAt,
+          inherited: spec.inherit || null,
         };
 
         record.state = result.state;

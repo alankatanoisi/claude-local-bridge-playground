@@ -101,15 +101,34 @@ class Coordinator {
     if (phases.includes('research')) {
       this.eventBus.emit('phase', { phase: 'research', status: 'started' });
       if (input.useWorkers !== false) {
-        const workerResult = await this.workers.spawnWorker({
-          prompt:
-            'Research-only: list and read key files relevant to this objective. Do not edit. Objective: ' +
-            input.objective,
-          cwd: input.cwd,
-          phase: 'research',
-          allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks'],
-          maxSteps: 6,
-        });
+        const workerResult = await this.workers.spawnWorker(
+          {
+            prompt:
+              'Research-only: list and read key files relevant to this objective. Do not edit. Objective: ' +
+              input.objective,
+            cwd: input.cwd,
+            phase: 'research',
+            allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks'],
+            maxSteps: 6,
+            // P1-10: coordinator workers inherit the same model/bridge/network ceilings.
+            inherit: {
+              model: input.model || null,
+              effort: input.effort || null,
+              thinking: input.thinking || null,
+              bridgeUrl: input.bridgeUrl || null,
+              noNetwork: !!input.noNetwork,
+              maxWallClockMs: input.maxWallClockMs || null,
+              maxCostUsd: input.maxCostUsd || null,
+              traceLevel: input.traceLevel || null,
+              parentRunId: sessionId,
+              hasCallerToken: !!input.callerToken,
+            },
+          },
+          {
+            callerToken: input.callerToken || null,
+            parentCeiling: input.parentCeiling || null,
+          },
+        );
         artifacts.workerResults.push(workerResult);
         this.eventBus.emit('worker_finished', { workerId: workerResult.workerId, phase: 'research' });
       }
@@ -172,17 +191,35 @@ class Coordinator {
 
     if (phases.includes('verify') && kernelResult) {
       this.eventBus.emit('phase', { phase: 'verify', status: 'started' });
-      const verifyResult = await this.workers.spawnWorker({
-        prompt:
-          'Verify-only: inspect the repo state and confirm whether the objective appears satisfied. Read-only. Objective: ' +
-          input.objective +
-          '\nPrior result: ' +
-          (kernelResult.finalText || '').slice(0, 1500),
-        cwd: input.cwd,
-        phase: 'verify',
-        allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks'],
-        maxSteps: 4,
-      });
+      const verifyResult = await this.workers.spawnWorker(
+        {
+          prompt:
+            'Verify-only: inspect the repo state and confirm whether the objective appears satisfied. Read-only. Objective: ' +
+            input.objective +
+            '\nPrior result: ' +
+            (kernelResult.finalText || '').slice(0, 1500),
+          cwd: input.cwd,
+          phase: 'verify',
+          allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks'],
+          maxSteps: 4,
+          inherit: {
+            model: input.model || null,
+            effort: input.effort || null,
+            thinking: input.thinking || null,
+            bridgeUrl: input.bridgeUrl || null,
+            noNetwork: !!input.noNetwork,
+            maxWallClockMs: input.maxWallClockMs || null,
+            maxCostUsd: input.maxCostUsd || null,
+            traceLevel: input.traceLevel || null,
+            parentRunId: sessionId,
+            hasCallerToken: !!input.callerToken,
+          },
+        },
+        {
+          callerToken: input.callerToken || null,
+          parentCeiling: input.parentCeiling || null,
+        },
+      );
       artifacts.workerResults.push(verifyResult);
       this.eventBus.emit('phase', { phase: 'verify', status: 'completed' });
       artifacts.verification = verifyResult.summary;

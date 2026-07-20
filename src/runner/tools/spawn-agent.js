@@ -16,6 +16,8 @@ const DEFAULT_STEPS = 6;
 const MAX_PROMPT_CHARS = 8000;
 const MAX_SPAWNS_PER_RUN = 8;
 
+const { buildChildInheritSpec, buildChildManifest } = require('../child-inherit');
+
 const CHILD_READ_TOOLS = Object.freeze([
   'list_files',
   'read_file',
@@ -145,6 +147,15 @@ async function execute(args, ctx) {
         }
       : null;
 
+  // P1-10: compute remaining wall-clock at spawn time so the child cannot
+  // outlive the parent's --max-wall-clock-ms ceiling.
+  let remainingWall = null;
+  if (typeof ctx.childInherit?.maxWallClockMs === 'number' && ctx.childInherit.maxWallClockMs > 0) {
+    const started = ctx.runStartedAtMs || Date.now();
+    remainingWall = Math.max(1, ctx.childInherit.maxWallClockMs - (Date.now() - started));
+  }
+  const inherit = buildChildInheritSpec(ctx, { maxWallClockMs: remainingWall });
+
   let result;
   try {
     result = await runtime.spawnWorker(
@@ -156,6 +167,7 @@ async function execute(args, ctx) {
         allowedTools: [...CHILD_READ_TOOLS],
         budgetRemaining,
         leaseId: lease && lease.leaseId,
+        inherit,
       },
       {
         // Generic read-only children do not inherit shell/edit automation flags.
@@ -164,6 +176,8 @@ async function execute(args, ctx) {
         dontAsk: false,
         // WP2: the child's tools are additionally clamped to the parent ceiling.
         parentCeiling: ctx.authorityCeiling || null,
+        // P1-10: caller token via env only.
+        callerToken: ctx.childInherit && ctx.childInherit.callerToken ? ctx.childInherit.callerToken : null,
       },
     );
   } catch (err) {
@@ -173,6 +187,19 @@ async function execute(args, ctx) {
 
   releaseLease(ctx, lease, result.usage || null);
 
+  // P1-10: attach a complete child manifest to the parent run for accounting.
+  const manifest = buildChildManifest({
+    workerResult: result,
+    inherit,
+    leaseId: lease && lease.leaseId,
+    phase: 'subagent',
+  });
+  if (!ctx.childManifests) ctx.childManifests = [];
+  ctx.childManifests.push(manifest);
+  if (typeof ctx.recordChildManifest === 'function') {
+    ctx.recordChildManifest(manifest);
+  }
+
   const ok = result.state === 'completed';
   return {
     ok,
@@ -180,6 +207,7 @@ async function execute(args, ctx) {
     bytes: (result.finalText || '').length,
     usage: result.usage || null,
     leaseId: lease && lease.leaseId,
+    childManifest: manifest,
   };
 }
 
