@@ -421,7 +421,7 @@ Useful runner options:
 | `--plan`                                                 | Plan mode: real read-only inspection; writes become recorded proposal diffs              |
 | `--no-network`                                           | Best-effort HTTP/HTTPS proxy guard for shell; not hard network isolation                 |
 | `--system-prompt <s>`                                    | Override the default system prompt                                                       |
-| `--continue`                                             | Resume from the latest transcript in ~/.bridge-runner/logs/                              |
+| `--continue`                                             | Resume from the latest session checkpoint in `~/.bridge-runner/sessions/`                |
 | `--stream`                                               | Stream assistant text live while still preserving streamed tool inputs                   |
 | `--accept-edits`                                         | Auto-approve edit/write tools                                                            |
 | `--allow-shell`                                          | Expose bash; unsandboxed local-account authority (not cwd confinement)                   |
@@ -433,7 +433,7 @@ Useful runner options:
 | `--temperature <f>`                                      | Model temperature 0.0–1.0 (default: model default)                                       |
 | `--output-format <f>`                                    | Output style: `text`, `json`, or `stream-json`                                           |
 | `--transcript <path>`                                    | JSONL transcript path (default under `~/.bridge-runner/logs/`)                           |
-| `--resume <path>`                                        | Deprecated transcript resume; prefer session flags below                                 |
+| `--resume <path>`                                        | Deprecated — rejected. Use `--resume-session` with a session id/path                     |
 | `--session-id <id>` / `--session-path <p>`               | Canonical session store id or explicit state-file path                                   |
 | `--resume-session`                                       | Resume from the session store (needs `--session-id` or `--session-path`)                 |
 | `--new-session`                                          | Force a fresh session (ignore `--resume` / `--continue`)                                 |

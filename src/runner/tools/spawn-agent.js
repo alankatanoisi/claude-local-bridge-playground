@@ -5,6 +5,9 @@
  *
  * Reuses WorkerRuntime (subprocess) with a small read-only child capability
  * set. Blocked when spawnDepth > 0 so children cannot fork further.
+ *
+ * P1-05: child token budgets are leased from the parent broker, not copied.
+ * Actual child usage is reconciled into the parent totalUsage on return.
  */
 
 const MIN_STEPS = 1;
@@ -63,18 +66,32 @@ function ensureWorkerRuntime(ctx) {
   return ctx.workerRuntime;
 }
 
-function formatSpawnResult(result) {
+function formatSpawnResult(result, leaseNote) {
   const lines = [
     '[spawn_agent] state=' + result.state,
     'duration_ms=' + result.duration_ms,
     'exitCode=' + result.exitCode,
-    '',
-    result.finalText || result.summary || '(no output)',
   ];
+  if (leaseNote) lines.push(leaseNote);
+  if (result.usage) {
+    lines.push(
+      'child_usage input=' + (result.usage.input_tokens || 0) + ' output=' + (result.usage.output_tokens || 0),
+    );
+  }
+  lines.push('', result.finalText || result.summary || '(no output)');
   if (result.stderr && result.stderr.trim()) {
     lines.push('', '[stderr]', result.stderr.trim().slice(0, 1200));
   }
   return lines.join('\n');
+}
+
+function releaseLease(ctx, lease, actualUsage) {
+  if (!lease) return;
+  if (typeof ctx.reconcileChildUsage === 'function') {
+    ctx.reconcileChildUsage(lease.leaseId, actualUsage);
+  } else if (ctx.budgetBroker && lease.leaseId) {
+    ctx.budgetBroker.release(lease.leaseId, actualUsage);
+  }
 }
 
 async function execute(args, ctx) {
@@ -93,42 +110,76 @@ async function execute(args, ctx) {
     return { ok: false, text: 'spawn_agent limit reached for this run (' + MAX_SPAWNS_PER_RUN + ').' };
   }
 
+  // P1-05: lease from the parent broker before spawning. Without a broker
+  // (unit tests that inject no caps), fall back to copy-of-remainder.
+  let lease = null;
+  let leaseNote = null;
+  if (ctx.budgetBroker) {
+    const parentUsage =
+      typeof ctx.getParentUsage === 'function' ? ctx.getParentUsage() : { input_tokens: 0, output_tokens: 0 };
+    lease = ctx.budgetBroker.acquire(parentUsage);
+    if (!lease) {
+      return {
+        ok: false,
+        text: 'spawn_agent refused: parent token budget has no unleased remainder for a child.',
+      };
+    }
+    if (!lease.unconstrained) {
+      leaseNote =
+        'budget_lease id=' + lease.leaseId + ' input=' + lease.input_tokens + ' output=' + lease.output_tokens;
+    }
+  }
+
   const cwd = ctx.cwdRealpath || ctx.cwd;
   const runtime = ensureWorkerRuntime(ctx);
   const maxSteps = clampSteps(args.max_steps ?? DEFAULT_STEPS);
 
-  const budgetRemaining =
-    typeof ctx.budgetInputRemaining === 'number' || typeof ctx.budgetOutputRemaining === 'number'
+  const budgetRemaining = lease
+    ? lease.unconstrained
+      ? null
+      : { input_tokens: lease.input_tokens, output_tokens: lease.output_tokens }
+    : typeof ctx.budgetInputRemaining === 'number' || typeof ctx.budgetOutputRemaining === 'number'
       ? {
           input_tokens: ctx.budgetInputRemaining,
           output_tokens: ctx.budgetOutputRemaining,
         }
       : null;
 
-  const result = await runtime.spawnWorker(
-    {
-      prompt,
-      cwd,
-      maxSteps,
-      phase: 'subagent',
-      allowedTools: [...CHILD_READ_TOOLS],
-      budgetRemaining,
-    },
-    {
-      // Generic read-only children do not inherit shell/edit automation flags.
-      allowShell: false,
-      acceptEdits: false,
-      dontAsk: false,
-      // WP2: the child's tools are additionally clamped to the parent ceiling.
-      parentCeiling: ctx.authorityCeiling || null,
-    },
-  );
+  let result;
+  try {
+    result = await runtime.spawnWorker(
+      {
+        prompt,
+        cwd,
+        maxSteps,
+        phase: 'subagent',
+        allowedTools: [...CHILD_READ_TOOLS],
+        budgetRemaining,
+        leaseId: lease && lease.leaseId,
+      },
+      {
+        // Generic read-only children do not inherit shell/edit automation flags.
+        allowShell: false,
+        acceptEdits: false,
+        dontAsk: false,
+        // WP2: the child's tools are additionally clamped to the parent ceiling.
+        parentCeiling: ctx.authorityCeiling || null,
+      },
+    );
+  } catch (err) {
+    releaseLease(ctx, lease, null);
+    return { ok: false, text: 'spawn_agent failed to start child: ' + err.message };
+  }
+
+  releaseLease(ctx, lease, result.usage || null);
 
   const ok = result.state === 'completed';
   return {
     ok,
-    text: formatSpawnResult(result),
+    text: formatSpawnResult(result, leaseNote),
     bytes: (result.finalText || '').length,
+    usage: result.usage || null,
+    leaseId: lease && lease.leaseId,
   };
 }
 

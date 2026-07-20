@@ -221,6 +221,33 @@ function resolveSessionPath(options) {
   return null;
 }
 
+/**
+ * P1-09: locate the newest canonical session checkpoint under
+ * ~/.bridge-runner/sessions/*.state.json. Used by --continue so it resumes
+ * real session state instead of a transcript that run.js now rejects.
+ */
+function findLatestSessionPath(baseDir) {
+  const home = process.env.HOME || process.env.USERPROFILE || process.cwd();
+  const dir = baseDir || path.join(home, '.bridge-runner', 'sessions');
+  if (!fs.existsSync(dir)) return null;
+  let latest = null;
+  let latestMtime = -1;
+  for (const name of fs.readdirSync(dir)) {
+    if (!name.endsWith('.state.json')) continue;
+    const full = path.join(dir, name);
+    try {
+      const mtime = fs.statSync(full).mtimeMs;
+      if (mtime >= latestMtime) {
+        latestMtime = mtime;
+        latest = full;
+      }
+    } catch {
+      // skip unreadable entries
+    }
+  }
+  return latest;
+}
+
 module.exports = {
   SCHEMA_VERSION,
   SessionStore,
@@ -229,4 +256,5 @@ module.exports = {
   sessionPathFor,
   atomicWriteJson,
   resolveSessionPath,
+  findLatestSessionPath,
 };

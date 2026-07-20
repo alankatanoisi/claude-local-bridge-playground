@@ -354,6 +354,7 @@ function execute(args, ctx) {
     backup_path: backupPath,
     original_sha256: originalHash,
     new_sha256: newHash,
+    created: false,
   });
 
   return {

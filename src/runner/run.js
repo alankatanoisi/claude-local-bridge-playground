@@ -45,6 +45,7 @@ const { isArchiveEnabled, RunArchiveCollector } = require('./archive/collector')
 const { finalizeArchiveExport } = require('./archive/run-exporter');
 const { disposeSessions } = require('./lsp/lsp-session');
 const { createBudgetTracker } = require('./budget-tracker');
+const { createBudgetBroker } = require('./budget-broker');
 const { writeRunManifest } = require('./recovery/run-manifest');
 const { scrubDeepSecrets } = require('./redaction-boundary');
 const { normalizeEffort, resolveModelControls } = require('./model-capabilities');
@@ -640,6 +641,26 @@ async function run(options) {
     parentRemaining: inheritedParentBudget,
   });
   ctx.budgetTracker = budgetTracker;
+  // P1-05: lease broker so concurrent/sequential children cannot each copy the
+  // full remainder. Caps come from the effective hard limits after parent inherit.
+  ctx.budgetBroker = createBudgetBroker({
+    inputCap: budgetTracker.effectiveHardInput,
+    outputCap: budgetTracker.effectiveHardOutput,
+  });
+  // reconcileChildUsage is called by spawn_agent after a child returns so the
+  // parent's totalUsage and remaining leases stay consistent. Bound here so the
+  // tool closes over the live totalUsage binding.
+  ctx.getParentUsage = function getParentUsage() {
+    return totalUsage;
+  };
+  ctx.reconcileChildUsage = function reconcileChildUsage(leaseId, actualUsage) {
+    const outcome = ctx.budgetBroker.release(leaseId, actualUsage);
+    if (outcome.reconciled && outcome.usage) {
+      totalUsage = addUsage(totalUsage, outcome.usage);
+      syncBudgetRemaining(totalUsage);
+    }
+    return outcome;
+  };
   // Metadata the recovery manifest needs. Keyed by runId (always unique); the
   // session id is recorded too so `undo run <session-id>` can find this run.
   ctx.runManifestMeta = {
@@ -699,6 +720,14 @@ async function run(options) {
 
   function syncBudgetRemaining(totalUsage) {
     if (!budgetTracker) return;
+    // Prefer broker unleased remainder when present so active child leases are
+    // subtracted from what the next spawn may claim (P1-05).
+    if (ctx.budgetBroker) {
+      const remaining = ctx.budgetBroker.unleasedRemaining(totalUsage);
+      ctx.budgetInputRemaining = remaining.input_tokens;
+      ctx.budgetOutputRemaining = remaining.output_tokens;
+      return;
+    }
     const remaining = budgetTracker.remainingAfterUsage(totalUsage);
     ctx.budgetInputRemaining = remaining.input_tokens;
     ctx.budgetOutputRemaining = remaining.output_tokens;
@@ -855,6 +884,12 @@ async function run(options) {
     }
     if (ctx.plan && Array.isArray(ctx.planProposals) && ctx.planProposals.length > 0) {
       result.planProposals = ctx.planProposals;
+    }
+    // P1-05: surface incomplete child usage so operators know parent telemetry
+    // under-counts when a child returned without a parseable usage block.
+    if (ctx.budgetBroker && ctx.budgetBroker.hasIncompleteChildren()) {
+      result.childUsageIncomplete = true;
+      result.budgetBroker = ctx.budgetBroker.snapshot(result.usage);
     }
 
     // Exactly one terminal output event per run.

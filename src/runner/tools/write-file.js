@@ -75,12 +75,15 @@ function execute(args, ctx) {
   let originalHash = null;
 
   if (existed) {
+    // P1-08: fail closed on backup failure — same policy as edit_file / apply_patch.
+    // Continuing after a failed backup left write_file as the only writer that
+    // could mutate without a recoverable artifact.
     try {
       const original = fs.readFileSync(target);
       originalHash = sha256Text(original.toString('utf8'));
       backupPath = saveBackup(target, original, cwd);
-    } catch {
-      // Non-fatal: continue writing even if backup fails
+    } catch (err) {
+      return { ok: false, text: 'Backup failed before write; refusing to overwrite: ' + err.message };
     }
   }
 
@@ -97,6 +100,8 @@ function execute(args, ctx) {
     original_sha256: originalHash,
     new_sha256: sha256Text(content),
     tool: 'write_file',
+    // P1-08: mark creates so undo_edit / run-manifest can delete them.
+    created: !existed,
   });
 
   const bytes = Buffer.byteLength(content, 'utf8');

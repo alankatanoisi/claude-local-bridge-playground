@@ -84,6 +84,39 @@ function execute(args, ctx) {
   }
 
   if (!entry.backup_path) {
+    // P1-08: a create (no prior file) has no backup — undoing it means deleting
+    // the file the tool just created, matching run-manifest's delete action.
+    if (entry.created) {
+      const confined = safety.confinePath(ctx, entry.path);
+      if (!confined) {
+        return { ok: false, text: 'Undo target path escapes working directory: ' + entry.path };
+      }
+      if (entry.absolute_path && !samePath(entry.absolute_path, confined)) {
+        return {
+          ok: false,
+          text:
+            'Cannot undo create of ' +
+            entry.path +
+            ': the write was recorded at ' +
+            entry.absolute_path +
+            ' but that path now resolves to ' +
+            confined +
+            ' — the working root changed since the write. Return to the original root and retry.',
+        };
+      }
+      if (!fs.existsSync(confined)) {
+        return { ok: true, text: 'Create undo: ' + entry.path + ' is already absent.' };
+      }
+      try {
+        fs.unlinkSync(confined);
+        return {
+          ok: true,
+          text: 'Undid create of ' + entry.path + ' (file deleted).',
+        };
+      } catch (err) {
+        return { ok: false, text: 'Cannot delete created file ' + entry.path + ': ' + err.message };
+      }
+    }
     return {
       ok: false,
       text: 'Cannot undo ' + entry.path + ': no backup was needed for the original write.',

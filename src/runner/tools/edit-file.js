@@ -192,6 +192,7 @@ function execute(args, ctx) {
       original_sha256: currentHash,
       new_sha256: sha256Text(modified),
       tool: 'edit_file',
+      created: false,
     });
 
     return {

@@ -118,10 +118,27 @@ class WorkerRuntime {
     };
     this.workers.set(workerId, record);
 
+    // P1-05: also pass remaining via env so child createBudgetTracker parentRemaining
+    // stays consistent even if a future path omits the CLI flags.
+    const childEnv = {
+      ...process.env,
+      BRIDGE_RUNNER_SPAWN_DEPTH: String(this.spawnDepth + 1),
+      ...options.env,
+    };
+    if (typeof spec.budgetRemaining?.input_tokens === 'number') {
+      childEnv.BRIDGE_RUNNER_BUDGET_INPUT_REMAINING = String(spec.budgetRemaining.input_tokens);
+    }
+    if (typeof spec.budgetRemaining?.output_tokens === 'number') {
+      childEnv.BRIDGE_RUNNER_BUDGET_OUTPUT_REMAINING = String(spec.budgetRemaining.output_tokens);
+    }
+    if (spec.leaseId) {
+      childEnv.BRIDGE_RUNNER_BUDGET_LEASE_ID = String(spec.leaseId);
+    }
+
     return new Promise((resolve) => {
       const child = this._spawn(process.execPath, args, {
         cwd: spec.cwd,
-        env: { ...process.env, BRIDGE_RUNNER_SPAWN_DEPTH: String(this.spawnDepth + 1), ...options.env },
+        env: childEnv,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 
@@ -143,6 +160,16 @@ class WorkerRuntime {
         }
 
         const finalText = parsed.finalText || parsed.final_text || '';
+        // P1-05: surface child usage so the parent broker can reconcile it.
+        const usage =
+          parsed.usage && typeof parsed.usage === 'object'
+            ? {
+                input_tokens: parsed.usage.input_tokens || 0,
+                output_tokens: parsed.usage.output_tokens || 0,
+                cache_read_input_tokens: parsed.usage.cache_read_input_tokens || 0,
+                cache_creation_input_tokens: parsed.usage.cache_creation_input_tokens || 0,
+              }
+            : null;
         const result = {
           workerId,
           state: code === 0 ? WORKER_STATES.COMPLETED : WORKER_STATES.FAILED,
@@ -155,6 +182,8 @@ class WorkerRuntime {
           exitCode: code ?? 1,
           stderr: stderr.slice(0, 4000),
           events: parsed.events || [],
+          usage,
+          stopReason: parsed.stopReason || parsed.stop_reason || null,
           duration_ms: Date.now() - record.startedAt,
         };
 

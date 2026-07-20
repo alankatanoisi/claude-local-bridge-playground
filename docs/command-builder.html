@@ -897,16 +897,17 @@
 
                 <p class="subsection-title">Ledger utilities</p>
                 <div class="checks">
-                  <label class="check-label" id="replayRow" title="Re-run the session ledger's recorded tool calls without sending a new prompt. Used to verify that a past session replays correctly — a diagnostic tool, not a normal run.">
-                    <input type="checkbox" id="replayMode" /> Replay session ledger <code>--replay</code>
+                  <label class="check-label" id="replayRow" title="Experimental only. Requires BRIDGE_RUNNER_EXPERIMENTAL=1. Ledger event shapes are not yet aligned with the live runtime (P1-09).">
+                    <input type="checkbox" id="replayMode" disabled /> Replay session ledger <code>--replay</code> (experimental)
                   </label>
-                  <label class="check-label" id="repairRow" title="Analyze the session ledger and produce a repair plan. Used when a session has diverged or become corrupted. The runner shows the plan before making changes.">
-                    <input type="checkbox" id="repairMode" /> Repair session ledger <code>--repair</code>
+                  <label class="check-label" id="repairRow" title="Experimental only. Requires BRIDGE_RUNNER_EXPERIMENTAL=1. applyRepair is still a stub and will not mutate a session (P1-09).">
+                    <input type="checkbox" id="repairMode" disabled /> Repair session ledger <code>--repair</code> (experimental)
                   </label>
                 </div>
                 <div id="ledgerNote" class="warn-panel info">
-                  &#8505; <strong>Note:</strong> <code>--replay</code> and <code>--repair</code> need <code>--session-id</code> or
-                  <code>--session-path</code>. They exit without running a normal agent loop.
+                  &#8505; <strong>Note:</strong> <code>--replay</code> and <code>--repair</code> are gated behind
+                  <code>BRIDGE_RUNNER_EXPERIMENTAL=1</code> until end-to-end fixtures prove them. Prefer
+                  <code>--resume-session</code> or <code>local-bridge-undo</code> for supported recovery.
                 </div>
 
                 <div class="field">
@@ -961,7 +962,7 @@
 
                 <div class="checks" style="margin-top: 0.5rem">
                   <label class="check-label" id="continueRow" title="Automatically find and resume from the most recent transcript file. Like --resume but you don't have to find the file path yourself.">
-                    <input type="checkbox" id="continueFromLatest" /> Auto-resume from latest <code>--continue</code>
+                    <input type="checkbox" id="continueFromLatest" /> Auto-resume from latest session <code>--continue</code>
                   </label>
                 </div>
 

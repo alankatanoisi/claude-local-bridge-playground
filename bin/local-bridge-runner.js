@@ -51,7 +51,7 @@ Options:\n\
   --prompt-template <n> Prepend reusable prompt template: review, cleanup, explore, or a Markdown path\n\
   --template <n>        Alias for --prompt-template\n\
   --prompt-arg k=v      Fill a {{k}} placeholder in the prompt template (repeatable)\n\
-  --resume <path>      Resume from a transcript (appends new prompt to existing conversation)\n\
+  --resume <path>      DEPRECATED: transcript resume is rejected. Use --resume-session with a session id/path\n\
   --session-id <id>    Canonical session id (*.state.json under ~/.bridge-runner/sessions/)\n\
   --session-path <p>   Explicit path to session state JSON file\n\
   --resume-session     Resume from session store (--session-id or --session-path required)\n\
@@ -101,7 +101,7 @@ Options:\n\
   --temperature <f>    Model temperature 0.0–1.0 (default: model default, usually 1.0)\n\
   --confirm-timeout <ms> Auto-deny confirmation prompts after N ms (default: no timeout)\n\
   --log-level <level>  Stderr verbosity: quiet, normal, or verbose (default: normal)\n\
-  --continue           Resume from the latest transcript in ~/.bridge-runner/logs/\n\
+  --continue           Resume from the latest session checkpoint in ~/.bridge-runner/sessions/\n\
   --plan               Plan mode: real read-only inspection; writes are recorded as proposal diffs, never executed\n\
   --output-format <f>  Output style: text, json, or stream-json (default: text)\n\
   --stream             Stream model output live to terminal as it arrives\n\
@@ -114,7 +114,7 @@ Examples:\n\
   node bin/local-bridge-runner.js --cwd /path/to/project --include-file README.md "Review the README"\n\
   node bin/local-bridge-runner.js --stream "List and explain src/server.js"\n\
   node bin/local-bridge-runner.js --plan --allowed-tools list_files,read_file "Inspect before changing anything"\n\
-  node bin/local-bridge-runner.js --resume ~/.bridge-runner/logs/run.jsonl "Continue"\n\
+  node bin/local-bridge-runner.js --resume-session --session-id ses_… "Continue"\n\
   node bin/local-bridge-runner.js --accept-edits --allow-shell --dont-ask "Run npm test and fix"\n\
 \n\
 Beginner notes:\n\
@@ -272,6 +272,15 @@ async function main() {
   }
 
   if (args.values.replay) {
+    // P1-09: replay is experimental — event shapes are not yet aligned with the
+    // live ledger, so it must not be an accidental operator path.
+    if (process.env.BRIDGE_RUNNER_EXPERIMENTAL !== '1') {
+      console.error(
+        'Error: --replay is experimental and hidden until ledger fixtures land. ' +
+          'Set BRIDGE_RUNNER_EXPERIMENTAL=1 to opt in, or use --resume-session for real resume.',
+      );
+      process.exit(1);
+    }
     const { resolveSessionPath } = require('../src/runner/session-store');
     const { replayFromLedger } = require('../src/runner/replay-simulator');
     const sp = resolveSessionPath({ sessionPath: args.values['session-path'], sessionId: args.values['session-id'] });
@@ -284,6 +293,16 @@ async function main() {
   }
 
   if (args.values.repair) {
+    // P1-09: applyRepair is still a stub (always returns applied:false without
+    // mutation). Do not let operators think --repair will fix a session.
+    if (process.env.BRIDGE_RUNNER_EXPERIMENTAL !== '1') {
+      console.error(
+        'Error: --repair is experimental and not yet able to mutate a session. ' +
+          'Set BRIDGE_RUNNER_EXPERIMENTAL=1 to inspect the repair plan only, ' +
+          'or use --resume-session / local-bridge-undo for supported recovery.',
+      );
+      process.exit(1);
+    }
     const { resolveSessionPath } = require('../src/runner/session-store');
     const { planRepair, applyRepair } = require('../src/runner/ledger-repair');
     const sp = resolveSessionPath({ sessionPath: args.values['session-path'], sessionId: args.values['session-id'] });
@@ -292,6 +311,8 @@ async function main() {
       process.exit(1);
     }
     const plan = planRepair(sp);
+    // Still call apply with approved=false — the stub refuses mutation until a
+    // real apply path exists. Experimental opt-in only exposes the plan JSON.
     console.log(JSON.stringify(applyRepair(sp, plan.repairPlan, false), null, 2));
     process.exit(0);
   }
@@ -472,15 +493,23 @@ async function main() {
     process.exit(1);
   }
 
-  // If --resume is passed, use its value as the transcript path
+  // If --resume is passed, refuse at the CLI (P1-09). Transcript resume is
+  // rejected inside run.js anyway; failing here stops the operator from
+  // thinking --continue/--resume still work via JSONL logs.
   let resumePath = args.values.resume;
+  if (resumePath) {
+    console.error(
+      'Error: --resume <transcript> is deprecated and no longer accepted. ' +
+        'Use --resume-session with --session-id or --session-path ' +
+        '(or --continue to pick the latest session checkpoint).',
+    );
+    process.exit(1);
+  }
   const explicitTranscript = args.values.transcript;
 
   let transcriptPath;
   if (explicitTranscript) {
     transcriptPath = explicitTranscript;
-  } else if (resumePath) {
-    transcriptPath = resumePath;
   } else {
     const homeDir = process.env.HOME || process.env.USERPROFILE || process.cwd();
     const logDir = path.join(homeDir, '.bridge-runner', 'logs');
@@ -488,46 +517,36 @@ async function main() {
     transcriptPath = path.join(logDir, timestamp + '.jsonl');
   }
 
-  // --continue: find the latest transcript automatically
-  if (shouldContinue && !resumePath) {
-    const homeDir = process.env.HOME || process.env.USERPROFILE || process.cwd();
-    const logDir = path.join(homeDir, '.bridge-runner', 'logs');
-    try {
-      const files = fs
-        .readdirSync(logDir)
-        .filter((f) => f.endsWith('.jsonl'))
-        .sort();
-      if (files.length === 0) {
-        console.error('[runner] --continue: no transcripts found in ' + logDir + '. Starting a new session.');
-        resumePath = null;
-      } else {
-        resumePath = path.join(logDir, files[files.length - 1]);
-        transcriptPath = resumePath;
-        console.error('[runner] continuing from ' + resumePath);
-      }
-    } catch {
-      console.error('[runner] --continue: cannot access ' + logDir + '. Starting a new session.');
-      resumePath = null;
+  // --continue: resume the latest canonical session checkpoint (not a transcript).
+  if (shouldContinue) {
+    const { findLatestSessionPath } = require('../src/runner/session-store');
+    const latest = findLatestSessionPath();
+    if (!latest) {
+      console.error(
+        '[runner] --continue: no session checkpoints found in ~/.bridge-runner/sessions/. Starting a new session.',
+      );
+    } else if (!sessionPath && !sessionId) {
+      sessionPath = latest;
+      console.error('[runner] continuing from session ' + latest);
+    } else {
+      console.error('[runner] --continue ignored because --session-id/--session-path was already set.');
     }
   }
 
-  // When resuming, the transcript is reused; we append new events to it
+  // When resuming, the session store is the source of truth.
   let resume = false;
   if (newSession) {
     resume = false;
-    resumePath = null;
     if (!sessionId && !sessionPath) {
       const { makeSessionId } = require('../src/runner/session-store');
       sessionId = makeSessionId();
       console.error('[runner] new session id: ' + sessionId);
     }
-  } else if (resumeSession) {
+  } else if (resumeSession || (shouldContinue && sessionPath)) {
     if (!sessionId && !sessionPath) {
       console.error('Error: --resume-session requires --session-id or --session-path');
       process.exit(1);
     }
-    resume = true;
-  } else if (resumePath) {
     resume = true;
   }
 
