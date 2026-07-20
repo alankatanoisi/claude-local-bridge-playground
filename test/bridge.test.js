@@ -159,28 +159,39 @@ describe('credentials.buildAuthHeaders', () => {
     assert.ok(!headers['x-api-key']);
   });
 
-  it('uses the latest hardcoded Claude Code fallback fingerprint when no live capture exists', () => {
+  it('uses the hardcoded fallback fingerprint without request-specific state (P1-06)', () => {
     const { buildAuthHeaders } = require('../src/credentials');
     const headers = buildAuthHeaders(
       { liveFingerprint: null, sessionId: 'session-123' },
       { accessToken: 'tok-123', source: 'keychain' },
     );
 
+    // Stable client identity still replays.
     assert.equal(headers['user-agent'], 'claude-cli/2.1.203 (external, sdk-cli)');
     assert.equal(headers['x-stainless-package-version'], '0.94.0');
     assert.equal(headers['x-stainless-runtime-version'], 'v26.3.0');
-    assert.equal(headers['x-claude-code-session-id'], 'session-123');
-    assert.match(headers['anthropic-beta'], /context-1m-2025-08-07/);
-    assert.match(headers['anthropic-beta'], /fallback-credit-2026-06-01/);
+    // P1-06 containment: no session/retry/timeout fabrication, no
+    // request-shape beta opt-ins on unrelated requests.
+    assert.equal(headers['x-claude-code-session-id'], undefined);
+    assert.equal(headers['x-stainless-retry-count'], undefined);
+    assert.equal(headers['x-stainless-timeout'], undefined);
+    assert.doesNotMatch(headers['anthropic-beta'], /context-1m-/);
+    assert.doesNotMatch(headers['anthropic-beta'], /fallback-credit-/);
+    assert.match(headers['anthropic-beta'], /oauth-2025-04-20/);
   });
 
-  it('uses live fingerprint headers when available', () => {
+  it('replays only stable identity headers from the live fingerprint (P1-06)', () => {
     const { buildAuthHeaders } = require('../src/credentials');
     const ctx = {
       liveFingerprint: {
         'user-agent': 'claude-cli/2.2.0 (test)',
-        'anthropic-beta': 'test-beta-2026-01-01',
+        'anthropic-beta': 'test-beta-2026-01-01,context-1m-2025-08-07',
         'x-stainless-runtime': 'node',
+        // Request-specific captured state must not be replayed globally.
+        'x-claude-code-session-id': 'other-session',
+        'x-stainless-retry-count': '3',
+        'x-stainless-timeout': '600',
+        'x-anthropic-billing-header': 'billing-blob',
       },
     };
     const headers = buildAuthHeaders(ctx, { accessToken: 'tok-123', source: 'intercepted' });
@@ -188,6 +199,10 @@ describe('credentials.buildAuthHeaders', () => {
     assert.equal(headers['user-agent'], 'claude-cli/2.2.0 (test)');
     assert.equal(headers['anthropic-beta'], 'test-beta-2026-01-01');
     assert.equal(headers['x-stainless-runtime'], 'node');
+    assert.equal(headers['x-claude-code-session-id'], undefined);
+    assert.equal(headers['x-stainless-retry-count'], undefined);
+    assert.equal(headers['x-stainless-timeout'], undefined);
+    assert.equal(headers['x-anthropic-billing-header'], undefined);
   });
 });
 

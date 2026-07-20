@@ -1,5 +1,13 @@
 # Agent handoff — P1-11 closed, P1-12 halted (2026-07-20)
 
+> **RETIRED 2026-07-20 (later session):** this handoff is a historical snapshot from the
+> 429-interrupted session and its "still open" list is stale. P1-07, P1-12, P1-13, P1-14, and
+> P1-15 were closed and P1-06 was contained later on 2026-07-20. Do not use this file to plan
+> a session. Use
+> [`docs/runner-p2-next-session-handoff-2026-07-20.md`](./runner-p2-next-session-handoff-2026-07-20.md)
+> instead; per-finding status lives in the annotation cards of
+> [`docs/runner-runtime-concordance-assessment-2026-07-17.html`](./runner-runtime-concordance-assessment-2026-07-17.html).
+
 **Audience:** any coding agent starting a fresh session on this playground.
 **Previous handoff:** [`docs/runner-p1-next-session-handoff-2026-07-19.md`](./runner-p1-next-session-handoff-2026-07-19.md) (+ HTML twin)
 **Source assessment:** [`docs/runner-runtime-concordance-assessment-2026-07-17.html`](./runner-runtime-concordance-assessment-2026-07-17.html) (status annotation cards at top — P1-11 card added)

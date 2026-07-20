@@ -114,10 +114,7 @@ describe('P1-11 streaming redaction — split invariance', () => {
     const bodyLine = 'B'.repeat(60) + 'HUGEBODY' + '\n';
     const lines = Math.ceil((safety.STREAM_MAX_PEM_HOLD * 1.5) / bodyLine.length);
     const input =
-      '-----BEGIN RSA PRIVATE KEY-----\n' +
-      bodyLine.repeat(lines) +
-      '-----END RSA PRIVATE KEY-----\n' +
-      'after\n';
+      '-----BEGIN RSA PRIVATE KEY-----\n' + bodyLine.repeat(lines) + '-----END RSA PRIVATE KEY-----\n' + 'after\n';
     const a = streamWithSplits(input, []);
     assert.match(a, /\[REDACTED:private_key_block\]/);
     assert.ok(!a.includes('HUGEBODY'), 'oversized block content must never leak');

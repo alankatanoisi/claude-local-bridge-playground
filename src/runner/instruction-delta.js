@@ -145,9 +145,7 @@ function detectChange(cwd) {
   for (const change of changed) {
     // Each section names its source + hash so the delta is attributable
     // (P1-13 acceptance: every delta identifies its source and hash).
-    parts.push(
-      '## Instruction memory update (' + change.source + ' edited mid-session; now ' + change.hash + ')',
-    );
+    parts.push('## Instruction memory update (' + change.source + ' edited mid-session; now ' + change.hash + ')');
     if (change.added.length) {
       parts.push('### Added\n' + change.added.map((l) => '+ ' + l).join('\n'));
       allAdded.push(...change.added);

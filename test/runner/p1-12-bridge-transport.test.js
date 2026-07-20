@@ -43,7 +43,8 @@ describe('P1-12 protocol-aware bridge transport', () => {
     for (const bad of ['ftp://x/v1/messages', 'ws://x/v1/messages', 'file:///v1/messages']) {
       assert.throws(
         () => transportFor(new URL(bad)),
-        (err) => err instanceof BridgeUrlError && err.retryable === false && /http:\/\/ or https:\/\//.test(err.message),
+        (err) =>
+          err instanceof BridgeUrlError && err.retryable === false && /http:\/\/ or https:\/\//.test(err.message),
         bad,
       );
     }

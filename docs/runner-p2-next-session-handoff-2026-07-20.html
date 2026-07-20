@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Runner handoff — P1 complete, P2 next (2026-07-20)</title>
+<style>
+  :root { --ink: #1f2430; --muted: #5b6472; --line: #d9dee7; --accent: #0b5fa5; --warn-bg: #fff6e5; --warn-line: #e5c37a; --ok-bg: #eef7ee; --ok-line: #9ec89e; }
+  body { font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); max-width: 900px; margin: 2rem auto; padding: 0 1.25rem; }
+  h1 { font-size: 1.5rem; border-bottom: 2px solid var(--line); padding-bottom: .5rem; }
+  h2 { font-size: 1.2rem; margin-top: 2rem; }
+  code { background: #f1f3f7; border-radius: 4px; padding: .1em .35em; font-size: .9em; }
+  pre { background: #f1f3f7; border-radius: 8px; padding: 1rem; overflow-x: auto; font-size: .85em; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid var(--line); padding: .45rem .6rem; text-align: left; font-size: .92em; }
+  th { background: #f6f8fb; }
+  .callout { border: 1px solid var(--warn-line); background: var(--warn-bg); border-radius: 8px; padding: .75rem 1rem; margin: 1rem 0; }
+  .ok { border: 1px solid var(--ok-line); background: var(--ok-bg); border-radius: 8px; padding: .75rem 1rem; margin: 1rem 0; }
+  .muted { color: var(--muted); font-size: .9em; }
+  ol li, ul li { margin: .3rem 0; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<h1>Runner handoff — P1 package complete, P2 next (2026-07-20)</h1>
+<p class="muted">
+  Agent-facing twin: <a href="./runner-p2-next-session-handoff-2026-07-20.md">runner-p2-next-session-handoff-2026-07-20.md</a> ·
+  Status of record: <a href="./runner-runtime-concordance-assessment-2026-07-17.html">assessment annotation cards</a>
+</p>
+
+<div class="callout">
+  <strong>Retired doc notice:</strong> <code>docs/runner-p1-next-session-handoff-2026-07-20.md</code>
+  came from a 429-interrupted session and its "still open" list is stale. Plan from this page (and
+  its md twin) instead.
+</div>
+
+<h2>Where things stand</h2>
+<div class="ok">
+  <strong>P0:</strong> all twelve closed. <strong>P1:</strong> complete — P1-01…05 and P1-07…15
+  closed; <strong>P1-06 contained</strong> on 2026-07-20 (header classification + replay
+  sanitization in <code>src/fingerprint.js</code>, tests in
+  <code>test/p1-06-fingerprint-containment.test.js</code>). <strong>P2:</strong> 16 findings, not
+  started.
+</div>
+
+<h2>P1-06 residual (contained ≠ fully repaired)</h2>
+<ul>
+  <li>Pinned fallback metadata (Claude Code 2.1.203 / stainless 0.94.0, captured 2026-07-07) is stale; refreshing it needs a fresh sanitized live capture — do not guess versions.</li>
+  <li>A header-isolated 429/acceptance canary should confirm which headers the gateway actually requires before tightening further.</li>
+  <li><code>src/credentials.js</code> keeps a legacy fingerprint constant whose header fields are dead; cleanup is bridge-boundary work needing explicit sign-off.</li>
+</ul>
+
+<h2>Suggested P2 entry order</h2>
+<ol>
+  <li><strong>P2-15</strong> — extend docs checks beyond three bridge defaults (strengthens the drift gate first).</li>
+  <li><strong>P2-16</strong> — small diagnostics / CLI parsing defects.</li>
+  <li><strong>P2-01 → P2-03</strong> — tool-schema size, system-prompt honesty, bootstrap/loop context duplication.</li>
+  <li><strong>P2-14</strong> — context flags vs command-builder semantics (pair with the CLI slices above).</li>
+  <li><strong>P2-04…06</strong> — template defaults and consent expectations.</li>
+  <li><strong>P2-07…09</strong> — replay/extractor, agent-metadata imports, template runtime constraints.</li>
+  <li><strong>P2-10…13</strong> — skills loader, stale <code>.cursor</code> assets, ignored <code>.bridge-runner</code> primitives, extension-point contract.</li>
+</ol>
+<p class="muted">One or two findings per session; add a dated annotation card to the assessment when closing each.</p>
+
+<h2>Carried-forward traps</h2>
+<ul>
+  <li>No agent/capability profile restoration; no child authority widening; caller tokens via env only.</li>
+  <li><code>--dont-ask</code> never enables shell; <code>--replay</code>/<code>--repair</code> stay gated behind <code>BRIDGE_RUNNER_EXPERIMENTAL=1</code>.</li>
+  <li>Bridge boundary files (<code>credentials.js</code>, <code>proxy.js</code>, <code>server.js</code>, <code>interceptors/**</code>) need explicit need + advance notice.</li>
+  <li>Guardrail honesty posture: trust is a path-consent record; <code>--no-network</code> is best-effort — never invent sandbox features.</li>
+</ul>
+
+<h2>Verification before handoff</h2>
+<pre>npm test
+npm run lint
+npm run check:docs
+npm run format:check</pre>
+</body>
+</html>

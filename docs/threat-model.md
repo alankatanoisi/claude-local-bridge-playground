@@ -168,6 +168,15 @@ Before any tool runs, the runner checks whether `--cwd` has been explicitly trus
 
 **Effect:** Untrusted workspaces cannot read or write files — not even read-only tools. Hooks and auto-memory writes also require workspace trust plus `--trusted-workspace` where applicable.
 
+**What trust is — and is not (P1-15):** Workspace trust is a **consent record for a folder identity**, not a
+security scan. The stored fingerprint is derived from the resolved real path of `--cwd`, so renaming, moving, or
+symlink-swapping the folder produces a new identity and a fresh consent prompt. Trust does **not** hash, scan, or
+attest the folder's *contents*: files added or changed after consent are still covered by the original decision, and
+a hostile file inside a trusted folder is constrained only by the runtime guards above (deny matrix, confinement,
+shell policy), not by the trust record. Treat trust as "I chose to point tools at this folder," never as "this
+folder was verified safe." Similarly, `--no-network` is a best-effort proxy-environment guard and the shell policy
+is regex scanning — neither is OS-enforced sandboxing or hard egress prevention (see the shell row above).
+
 ## Permission severity
 
 | Severity          | Meaning                                             | Bypass                                                            |

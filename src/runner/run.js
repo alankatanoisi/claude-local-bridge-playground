@@ -614,7 +614,9 @@ async function run(options) {
         ? '; exec allowed (hooks.json trusted: true)'
         : '; exec DENIED (' + hookAuthority.reason + ')'
       : '';
-    const invalidNote = hookAuthority.invalidHookCount ? '; ' + hookAuthority.invalidHookCount + ' invalid entries dropped' : '';
+    const invalidNote = hookAuthority.invalidHookCount
+      ? '; ' + hookAuthority.invalidHookCount + ' invalid entries dropped'
+      : '';
     emitHint(
       'Hooks: ' +
         (hookAuthority.enabled ? 'enabled' : 'disabled (' + hookAuthority.reason + ')') +
@@ -1164,9 +1166,7 @@ async function run(options) {
     currentStep = step;
     hooks.dispatch('pre_model_request', { step, runId });
 
-    const instructionChange = watchedInstructionSources.length
-      ? instructionDelta.detectChange(ctx.cwdRealpath)
-      : null;
+    const instructionChange = watchedInstructionSources.length ? instructionDelta.detectChange(ctx.cwdRealpath) : null;
     if (instructionChange?.kind === 'small_diff') {
       messages.push({ role: 'user', content: instructionChange.deltaBlock });
       if (transcript)

@@ -42,16 +42,24 @@ P0-01…P0-12 are closed, including full P0-06 `apply_patch` repair. See assessm
 | P1-08 | Unified recovery / undo | `df679cc` — fail-closed backups; create-delete; timestamped undo |
 | P1-09 | Resume / replay / repair honesty | `df679cc` — session `--continue`; experimental gate |
 | **P1-10** | **Worker inherit + child manifests** | **this session** — `child-inherit.js` |
+| P1-11 | Split-invariant streaming redaction | `4087303` — line-aligned scrubber + bounded PEM fence parser (closed 2026-07-20) |
+| P1-07 | Model capability matrix | `ab9c36f` — `model-catalog.js` + `model-capabilities.js` preflight validation (closed 2026-07-20) |
+| P1-12 | HTTPS bridge URL support | `ab9c36f` — `model-client.js` picks http/https from URL scheme (closed 2026-07-20) |
+| P1-13 | Policy-derived instruction watching | `ab9c36f` — `watchedSourcesForPolicy` in `instruction-delta.js` (closed 2026-07-20) |
+| P1-14 | Single hook authority rule | `ab9c36f` — `evaluateHookAuthority` in `hook-dispatcher.js` (closed 2026-07-20) |
+| P1-15 | Guardrail honesty (trust / `--no-network`) | closed 2026-07-20 — wording alignment across threat-model/README/command-builder/help |
+| P1-06 | Fallback header replay containment | contained 2026-07-20 — stable-identity vs request-specific header classification in `src/fingerprint.js` (live + fallback paths); tests in `test/p1-06-fingerprint-containment.test.js`. Full repair (metadata refresh + 429 canary) still open |
 
 ### Still open (recommended next)
 
-Pick **one slice** per session unless Alan asks for a batch:
+> **Update 2026-07-20:** this section previously listed P1-11/12/14/07 as open — they are now
+> closed (see the table above). **The entire P1 package is now closed or contained.** The next
+> arc is the **P2 package** (16 findings, not started). See
+> `docs/runner-p2-next-session-handoff-2026-07-20.md` for the current entry order; the
+> assessment annotation in `docs/runner-runtime-concordance-assessment-2026-07-17.html` remains
+> the source of truth for per-finding status.
 
-1. **P1-11** — Streaming redaction boundary window / stable identifiers  
-2. **P1-12** — HTTPS bridge URL vs HTTP-only model client  
-3. **P1-14** — Hook execution trust: docs vs runtime  
-4. **P1-07** — Model/effort/thinking catalog lag (official Anthropic sources first)  
-5. Later: compatibility doctor, recovery/session completion polish, built-ins/templates/skills, then a **docs rewrite** of day-to-day surfaces only
+Later: compatibility doctor, recovery/session completion polish, built-ins/templates/skills, then a **docs rewrite** of day-to-day surfaces only
 
 Do **not** start a full docs rewrite yet — day-to-day docs were updated with the code, and `check:docs` now guards drift.
 
@@ -98,10 +106,10 @@ You are in /Users/alanman/Developer/claude-local-bridge-playground on main
 startup preflight, pull --ff-only origin main, then read
 docs/runner-p1-next-session-handoff-2026-07-19.md (and the HTML twin).
 
-All P0s and P1-01..05,08,09,10 (+ WP2, docs gate) are closed. Implement the
-next open P1 Alan names (default suggestion: P1-11). Do not rewrite all docs;
-do not touch bridge auth internals unless required for runner transport.
-End with folder/branch, files, checks, skipped, risks. Commit/push only if asked.
+STALE STARTER (2026-07-20): the whole P1 package is now closed or contained.
+Use docs/runner-p2-next-session-handoff-2026-07-20.md instead of this prompt.
+Do not rewrite all docs; do not touch bridge auth internals unless required
+for runner transport. End with folder/branch, files, checks, skipped, risks.
 ```
 
 ## Handoff fields

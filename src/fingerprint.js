@@ -16,20 +16,18 @@
 // ─────────────────────────────────────────────
 
 /**
- * Headers we want to capture from Claude Code's outgoing requests.
- * This is a strict whitelist — only these headers are captured and replayed.
- * No auth tokens, cookies, or internal headers can leak through.
+ * P1-06 containment (2026-07-20): captured headers are now classified into
+ * two groups so the bridge stops replaying one request's per-request state
+ * onto every later request.
  *
- * These are the values that Anthropic's gateway validates to identify
- * the client as a legitimate Claude Code instance.
+ * STABLE identity headers describe *which client* is talking (client
+ * version, SDK platform). They are safe to replay globally because they do
+ * not change per request within one Claude Code install.
  */
-const CAPTURED_HEADERS = new Set([
+const STABLE_IDENTITY_HEADERS = new Set([
   'user-agent',
   'anthropic-version',
-  'anthropic-beta',
-  'x-anthropic-billing-header',
   'x-app',
-  'x-claude-code-session-id',
   'accept',
   'content-type',
   // Stainless SDK headers (Anthropic SDK self-identification)
@@ -37,13 +35,61 @@ const CAPTURED_HEADERS = new Set([
   'x-stainless-lang',
   'x-stainless-os',
   'x-stainless-package-version',
-  'x-stainless-retry-count',
   'x-stainless-runtime',
   'x-stainless-runtime-version',
+]);
+
+/**
+ * REQUEST-SPECIFIC headers describe *one particular request or session*
+ * (which conversation it belonged to, how many retries it had, its timeout,
+ * billing annotations). Replaying these globally was the P1-06 finding:
+ * every bridge caller inherited another session's state. They are still
+ * captured (the billing header feeds getLiveSystemBlocks, and keeping the
+ * capture set stable helps debugging), but they are never replayed as raw
+ * headers on outgoing requests.
+ */
+const REQUEST_SPECIFIC_HEADERS = new Set([
+  'x-claude-code-session-id',
+  'x-anthropic-billing-header',
+  'x-stainless-retry-count',
   'x-stainless-timeout',
   'x-stainless-variant',
   'x-stainless-stream-helper',
 ]);
+
+/**
+ * `anthropic-beta` is mixed: some flags are stable client identity
+ * (claude-code, oauth) and some describe the *shape of one request*
+ * (context-1m marks a long-context request; fallback-credit is a billing
+ * behavior opt-in). Request-shape flags are stripped before replay so a
+ * small runner request is not mislabeled as, say, a 1M-context request.
+ * Prefix matching survives Anthropic rotating the date suffix.
+ */
+const REQUEST_SHAPE_BETA_PREFIXES = ['context-1m-', 'fallback-credit-'];
+
+/**
+ * Headers we want to capture from Claude Code's outgoing requests.
+ * This is a strict whitelist — only these headers are captured.
+ * No auth tokens, cookies, or internal headers can leak through.
+ * Replay is further restricted: see buildAdaptiveAuthHeaders.
+ */
+const CAPTURED_HEADERS = new Set([...STABLE_IDENTITY_HEADERS, ...REQUEST_SPECIFIC_HEADERS, 'anthropic-beta']);
+
+/**
+ * Drop request-shape beta flags from a comma-separated anthropic-beta list.
+ *
+ * @param {string} value - Raw anthropic-beta header value
+ * @returns {string|null} - Sanitized list, or null if nothing stable remains
+ */
+function sanitizeBetaList(value) {
+  if (typeof value !== 'string') return null;
+  const kept = value
+    .split(',')
+    .map((flag) => flag.trim())
+    .filter((flag) => flag.length > 0)
+    .filter((flag) => !REQUEST_SHAPE_BETA_PREFIXES.some((prefix) => flag.startsWith(prefix)));
+  return kept.length > 0 ? kept.join(',') : null;
+}
 
 /**
  * Extract a fingerprint from an intercepted request's headers.
@@ -126,34 +172,48 @@ function buildAdaptiveAuthHeaders(ctx, creds) {
   if (creds.accessToken) {
     headers['authorization'] = `Bearer ${creds.accessToken}`;
 
-    // Use live fingerprint if available
+    // Use live fingerprint if available.
+    // P1-06 containment: only STABLE identity headers are replayed.
+    // Request-specific captured values (session id, retry count, timeout,
+    // billing header, stream/variant markers) stay in ctx for diagnostics
+    // and system-block use, but must never ride along on other requests.
     const fp = ctx.liveFingerprint;
     if (fp) {
-      // Merge all captured headers
       for (const [key, value] of Object.entries(fp)) {
-        if (key !== 'endpoint') {
-          headers[key] = value;
+        // Skip non-header bookkeeping fields stored on the fingerprint.
+        if (key === 'endpoint' || key === 'messagesPath') continue;
+        if (REQUEST_SPECIFIC_HEADERS.has(key)) continue;
+        if (key === 'anthropic-beta') {
+          // Strip request-shape beta flags (e.g. context-1m) before replay.
+          const sanitized = sanitizeBetaList(value);
+          if (sanitized) headers[key] = sanitized;
+          continue;
         }
+        headers[key] = value;
       }
     } else {
       // Fall back to the latest known Claude Code header fingerprint.
-      // Captured from Claude Code 2.1.203 on 2026-07-07.
+      // Captured from Claude Code 2.1.203 on 2026-07-07. The pinned version
+      // metadata is stale relative to the currently installed CLI; refreshing
+      // it needs a live capture/canary and is tracked as P1-06 follow-up,
+      // not guessed here.
+      //
+      // P1-06 containment: the fallback no longer fabricates request-specific
+      // state (no session id, no retry-count, no timeout) and no longer opts
+      // every request into request-shape betas (context-1m, fallback-credit).
       headers['accept'] = 'application/json';
       headers['anthropic-beta'] =
-        'claude-code-20250219,oauth-2025-04-20,context-1m-2025-08-07,interleaved-thinking-2025-05-14,mid-conversation-system-2026-04-07,effort-2025-11-24,fallback-credit-2026-06-01';
+        'claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,mid-conversation-system-2026-04-07,effort-2025-11-24';
       headers['anthropic-dangerous-direct-browser-access'] = 'true';
       headers['user-agent'] = 'claude-cli/2.1.203 (external, sdk-cli)';
       headers['x-app'] = 'cli';
-      headers['x-claude-code-session-id'] = ctx.sessionId;
       headers['x-stainless-arch'] = 'arm64';
       headers['x-stainless-lang'] = 'js';
       headers['x-stainless-os'] = 'MacOS';
       headers['x-stainless-package-version'] = '0.94.0';
-      headers['x-stainless-retry-count'] = '0';
       headers['x-stainless-runtime'] = 'node';
       // This is Claude Code's captured runtime, not this bridge process's runtime.
       headers['x-stainless-runtime-version'] = 'v26.3.0';
-      headers['x-stainless-timeout'] = '600';
     }
   }
 
@@ -205,5 +265,9 @@ module.exports = {
   buildAdaptiveAuthHeaders,
   getLiveSystemBlocks,
   adaptiveMessagesPath,
+  sanitizeBetaList,
   CAPTURED_HEADERS,
+  STABLE_IDENTITY_HEADERS,
+  REQUEST_SPECIFIC_HEADERS,
+  REQUEST_SHAPE_BETA_PREFIXES,
 };

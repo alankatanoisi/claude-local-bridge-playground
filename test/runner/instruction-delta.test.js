@@ -126,10 +126,7 @@ describe('P1-13 policy-derived instruction sources', () => {
     fs.writeFileSync(path.join(cwd, 'CLAUDE.md'), 'c1\nc2\n');
     const r = delta.detectChange(cwd);
     assert.equal(r.kind, 'small_diff');
-    assert.deepEqual(
-      r.sources.map((s) => s.source).sort(),
-      ['AGENTS.md', 'CLAUDE.md'],
-    );
+    assert.deepEqual(r.sources.map((s) => s.source).sort(), ['AGENTS.md', 'CLAUDE.md']);
     assert.match(r.deltaBlock, /AGENTS\.md/);
     assert.match(r.deltaBlock, /CLAUDE\.md/);
   });

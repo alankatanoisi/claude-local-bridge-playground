@@ -740,7 +740,7 @@
                 <div class="checks">
                   <label class="check-label" title="When on, model responses appear word-by-word in real time instead of all at once. Helpful for watching the model think, but produces more terminal output."> <input type="checkbox" id="stream" /> Stream responses live <code>--stream</code> </label>
                   <label class="check-label" title="Show extra detail about each step — tool decisions, token counts, and timing. Useful for understanding what the runner is doing under the hood."> <input type="checkbox" id="verbose" /> Show detailed output <code>--verbose</code> </label>
-                  <label class="check-label" id="noNetworkRow" title="Block shell commands from making network requests. Only works when shell is enabled. A safety net so scripts can't reach the internet.">
+                  <label class="check-label" id="noNetworkRow" title="Best-effort guard: points the shell's HTTP/HTTPS proxy variables at a dead address so most curl/npm-style traffic fails. It is NOT hard network isolation — a command can unset the proxy vars or use raw sockets. Only works when shell is enabled.">
                     <input type="checkbox" id="noNetwork" /> Block network in shell <code>--no-network</code>
                   </label>
                   <label class="check-label is-muted-control" id="testWatchRow" title="After any file write, automatically run your project's test suite and feed results back to the model so it can fix failures. Requires --allow-shell because tests run in Terminal.">
@@ -923,7 +923,7 @@
                     <input type="checkbox" id="trustedWorkspace" title="Enable project-specific hooks from .bridge-runner/hooks.json (like pre-run and post-run scripts). Exec hooks also need &quot;trusted&quot;: true inside hooks.json. Only turn this on for projects you control — exec hooks run arbitrary code." /> Enable project hooks <code>--trusted-workspace</code>
                   </label>
                   <label class="check-label">
-                    <input type="checkbox" id="trustWorkspace" title="Pre-answer 'yes' to the first-time folder consent prompt. The runner normally asks once per new --cwd folder whether you trust it. This flag skips that prompt." /> Record folder consent <code>--trust-workspace</code>
+                    <input type="checkbox" id="trustWorkspace" title="Pre-answer 'yes' to the first-time folder consent prompt. The runner normally asks once per new --cwd folder whether you trust it. This flag skips that prompt. Trust is consent to this folder's path — the runner does not scan or certify what's inside the folder." /> Record folder consent <code>--trust-workspace</code>
                   </label>
                   <label class="check-label">
                     <input type="checkbox" id="chaosOk" title="Acknowledge the most dangerous flag combination: shell + auto-approve edits + no confirmation prompts. The runner blocks this by default because the model could run arbitrary commands with no human review." /> Allow risky combo <code>--chaos-ok</code>

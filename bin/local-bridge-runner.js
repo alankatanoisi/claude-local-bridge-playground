@@ -125,6 +125,7 @@ Beginner notes:\n\
   --accept-edits allows file changes. --allow-shell exposes unsandboxed local-account shell (not cwd confinement).\n\
   --dont-ask only skips prompts for tools you already enabled; it does not enable bash by itself.\n\
   --no-network is a best-effort proxy guard only; it is not hard network isolation.\n\
+  workspace trust records consent for a folder path; it does not scan or certify folder contents.\n\
   apply_patch is hidden by default; use --tools apply_patch only when patch-mode edits are needed.\n\
   redacted/full traces are local files that can contain prompts and source-code details.\n\
 ',
