@@ -74,3 +74,74 @@ describe('Ext-11 instruction-delta', () => {
     assert.ok(r.added.includes('new instructions'));
   });
 });
+
+describe('P1-13 policy-derived instruction sources', () => {
+  beforeEach(() => {
+    delta.reset();
+  });
+
+  it('watchedSourcesForPolicy maps context policy to watched files', () => {
+    // Full instruction docs → all project instruction files are watched.
+    assert.deepEqual(delta.watchedSourcesForPolicy({ includeInstructionDocs: true }), [
+      'AGENTS.md',
+      'CLAUDE.md',
+      'RUNNER.md',
+    ]);
+    // Repo-context CLAUDE.md only → only CLAUDE.md is watched.
+    assert.deepEqual(delta.watchedSourcesForPolicy({ includeClaudeMdInRepoContext: true }), ['CLAUDE.md']);
+    // Bare/minimal → nothing is watched.
+    assert.deepEqual(delta.watchedSourcesForPolicy({}), []);
+    assert.deepEqual(delta.watchedSourcesForPolicy(), []);
+  });
+
+  it('ignores CLAUDE.md edits when nothing is watched (bare/minimal context)', () => {
+    const cwd = tmp('bare');
+    fs.writeFileSync(path.join(cwd, 'CLAUDE.md'), 'v1\n');
+    delta.snapshot(cwd, []); // operator excluded instruction docs from context
+    fs.writeFileSync(path.join(cwd, 'CLAUDE.md'), 'injected mid-session\n');
+    assert.equal(delta.detectChange(cwd), null, 'excluded file must not alter the session');
+  });
+
+  it('watches AGENTS.md when instruction docs are part of context', () => {
+    const cwd = tmp('agents');
+    fs.writeFileSync(path.join(cwd, 'AGENTS.md'), 'rule one\n');
+    const sources = delta.watchedSourcesForPolicy({ includeInstructionDocs: true });
+    delta.snapshot(cwd, sources);
+    fs.writeFileSync(path.join(cwd, 'AGENTS.md'), 'rule one\nrule two\n');
+    const r = delta.detectChange(cwd);
+    assert.equal(r.kind, 'small_diff');
+    assert.ok(r.added.includes('rule two'));
+    assert.equal(r.sources.length, 1);
+    assert.equal(r.sources[0].source, 'AGENTS.md');
+    assert.match(r.sources[0].hash, /^[0-9a-f]{16}$/, 'delta carries the new content hash');
+    assert.match(r.deltaBlock, /AGENTS\.md/, 'delta block names its source file');
+  });
+
+  it('reports each changed source separately when multiple docs change', () => {
+    const cwd = tmp('multi');
+    fs.writeFileSync(path.join(cwd, 'AGENTS.md'), 'a1\n');
+    fs.writeFileSync(path.join(cwd, 'CLAUDE.md'), 'c1\n');
+    delta.snapshot(cwd, delta.watchedSourcesForPolicy({ includeInstructionDocs: true }));
+    fs.writeFileSync(path.join(cwd, 'AGENTS.md'), 'a1\na2\n');
+    fs.writeFileSync(path.join(cwd, 'CLAUDE.md'), 'c1\nc2\n');
+    const r = delta.detectChange(cwd);
+    assert.equal(r.kind, 'small_diff');
+    assert.deepEqual(
+      r.sources.map((s) => s.source).sort(),
+      ['AGENTS.md', 'CLAUDE.md'],
+    );
+    assert.match(r.deltaBlock, /AGENTS\.md/);
+    assert.match(r.deltaBlock, /CLAUDE\.md/);
+  });
+
+  it('large_rewrite result still identifies its sources', () => {
+    const cwd = tmp('largesrc');
+    fs.writeFileSync(path.join(cwd, 'CLAUDE.md'), 'short\n');
+    delta.snapshot(cwd, ['CLAUDE.md']);
+    fs.writeFileSync(path.join(cwd, 'CLAUDE.md'), 'huge content\n'.repeat(1000));
+    const r = delta.detectChange(cwd);
+    assert.equal(r.kind, 'large_rewrite');
+    assert.equal(r.sources[0].source, 'CLAUDE.md');
+    assert.match(r.sources[0].hash, /^[0-9a-f]{16}$/);
+  });
+});

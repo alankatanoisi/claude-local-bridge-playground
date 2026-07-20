@@ -18,7 +18,9 @@ const { resolveModelControls } = require('../src/runner/model-capabilities');
 const { applyPromptTemplates, resolvePromptTemplate, substituteParameters } = require('../src/runner/prompt-templates');
 const safety = require('../src/runner/safety');
 
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
+// P1-07: the default model is shared with the bridge through the versioned
+// model catalog so the two layers cannot drift apart.
+const { DEFAULT_MODEL } = require('../src/runner/model-catalog');
 const DEFAULT_MAX_TOKENS = 2000;
 const DEFAULT_MAX_STEPS = 16;
 
@@ -60,10 +62,10 @@ Options:\n\
   --fork-from <id>     Fork an existing session to a new session id/path\n\
   --task-scope         Task-scoped preset: tighter steps + compaction (see playbook)\n\
   --compact-each-turn  Aggressive compaction preset (compact-after-task UX)\n\
-  --effort <level>     Model effort: low, medium, high, xhigh, or max\n\
+  --effort <level>     Model effort: auto (omit), low, medium, high, xhigh, or max\n\
   --thinking <mode>    Adaptive thinking: auto, adaptive, or off (default: auto)\n\
   --auto-memory        Opt-in runner auto-memory in context (default off)\n\
-  --trusted-workspace  Enable hooks from .bridge-runner/hooks.json in cwd\n\
+  --trusted-workspace  Enable hooks from .bridge-runner/hooks.json in cwd (exec hooks also need \"trusted\": true in that file)\n\
   --trust-workspace    Record trust consent for cwd (required in CI/non-interactive)\n\
   --inherit-workspace-trust  Allow this run because a parent already validated cwd (do not write trust.json)\n\
   --chaos-ok           Allow risky flag combo: --allow-shell --accept-edits --dont-ask\n\

@@ -9,30 +9,27 @@
  * base input.
  */
 
+// P1-07: rates now come from the single versioned catalog (model-catalog.js)
+// so pricing, capabilities, and defaults cannot drift independently. Lookup
+// order: exact catalog entry, then family estimate, then generic default —
+// and the source of the number is always reported, never silent.
+const { pricingForModel, catalogEntryForModel, CATALOG_VERSION, DEFAULT_PRICING } = require('./model-catalog');
+
+// Back-compat shape for existing consumers/tests that index by model key.
 const PRICING_PER_MILLION = Object.freeze({
-  'claude-sonnet-4-6': { input: 3.0, output: 15.0, cache_read: 0.3, cache_write: 6.0 },
-  'claude-opus-4-6': { input: 15.0, output: 75.0, cache_read: 1.5, cache_write: 30.0 },
-  'claude-haiku-4-5': { input: 0.8, output: 4.0, cache_read: 0.08, cache_write: 1.6 },
-  default: { input: 3.0, output: 15.0, cache_read: 0.3, cache_write: 6.0 },
+  'claude-sonnet-4-6': catalogEntryForModel('claude-sonnet-4-6').pricing,
+  'claude-opus-4-6': catalogEntryForModel('claude-opus-4-6').pricing,
+  'claude-haiku-4-5': catalogEntryForModel('claude-haiku-4-5').pricing,
+  default: DEFAULT_PRICING,
 });
 
-// Resolve rates defensively so new/alias model names (e.g. a future
-// claude-opus-4-8) fall back to the right family instead of silently using the
-// generic default. Lookup order: exact key, then family prefix, then default.
-const FAMILY_PREFIXES = [
-  { prefix: 'claude-opus', key: 'claude-opus-4-6' },
-  { prefix: 'claude-sonnet', key: 'claude-sonnet-4-6' },
-  { prefix: 'claude-haiku', key: 'claude-haiku-4-5' },
-];
-
 function resolveRates(model) {
-  if (model && PRICING_PER_MILLION[model]) return PRICING_PER_MILLION[model];
-  if (typeof model === 'string') {
-    for (const { prefix, key } of FAMILY_PREFIXES) {
-      if (model.startsWith(prefix)) return PRICING_PER_MILLION[key];
-    }
-  }
-  return PRICING_PER_MILLION.default;
+  return pricingForModel(model).rates;
+}
+
+/** Rates plus provenance ('catalog' | 'family-estimate' | 'default-estimate'). */
+function resolveRatesDetailed(model) {
+  return { ...pricingForModel(model), catalogVersion: CATALOG_VERSION };
 }
 
 function estimateCostUsd(model, usage) {
@@ -67,6 +64,9 @@ function summarizeUsage(model, usage) {
   const totalInputTokens = inputTokens + cacheReadTokens + cacheCreationTokens;
   const costUsd = estimateCostUsd(model, u);
   const cacheReadShare = totalInputTokens > 0 ? cacheReadTokens / totalInputTokens : 0;
+  // P1-07: say where the rate came from so estimates are never mistaken for
+  // published per-model rates ('catalog' | 'family-estimate' | 'default-estimate').
+  const pricingSource = pricingForModel(model).source;
 
   const parts = ['in=' + inputTokens, 'out=' + outputTokens];
   if (cacheReadTokens) parts.push('cache_read=' + cacheReadTokens);
@@ -84,6 +84,7 @@ function summarizeUsage(model, usage) {
     totalInputTokens,
     costUsd,
     cacheReadShare,
+    pricingSource,
     oneLine,
   };
 }
@@ -91,6 +92,7 @@ function summarizeUsage(model, usage) {
 module.exports = {
   PRICING_PER_MILLION,
   resolveRates,
+  resolveRatesDetailed,
   estimateCostUsd,
   summarizeUsage,
 };

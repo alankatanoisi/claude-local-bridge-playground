@@ -15,13 +15,42 @@
  */
 
 const http = require('http');
+const https = require('https');
 const safety = require('./safety');
 
 const DEFAULT_BRIDGE_URL = 'http://127.0.0.1:11437/v1/messages';
 
-// Shared keep-alive agent so repeated requests to localhost reuse the same
-// TCP connection instead of paying a handshake penalty on every turn.
+// Shared keep-alive agents so repeated requests to the bridge reuse the same
+// TCP (or TLS) connection instead of paying a handshake penalty on every turn.
 const keepAliveAgent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+const keepAliveHttpsAgent = new https.Agent({ keepAlive: true, maxSockets: 1 });
+
+/**
+ * P1-12: the CLI accepts both http:// and https:// bridge URLs, so request
+ * creation must pick the matching transport instead of assuming HTTP. Any
+ * other scheme fails here with a typed, NON-retryable error — a wrong URL is
+ * deterministic and must not consume retry budget.
+ */
+class BridgeUrlError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'BridgeUrlError';
+    this.retryable = false;
+  }
+}
+
+/** Select { request, agent, defaultPort } for a parsed URL by protocol. */
+function transportFor(reqUrl) {
+  if (reqUrl.protocol === 'http:') {
+    return { request: http.request, agent: keepAliveAgent, defaultPort: 80 };
+  }
+  if (reqUrl.protocol === 'https:') {
+    return { request: https.request, agent: keepAliveHttpsAgent, defaultPort: 443 };
+  }
+  throw new BridgeUrlError(
+    "Unsupported bridge URL protocol '" + reqUrl.protocol + "' — the bridge URL must start with http:// or https://.",
+  );
+}
 
 class BridgeHttpError extends Error {
   constructor(statusCode, body, headers = {}) {
@@ -86,10 +115,13 @@ function post(body, bridgeUrl, opts = {}) {
   const bodyStr = JSON.stringify(body);
 
   return new Promise((resolve, reject) => {
+    // Throws inside the executor reject the promise, so a bad URL/protocol
+    // surfaces as a typed, non-retryable failure before any socket opens.
     const reqUrl = new URL(url);
+    const transport = transportFor(reqUrl);
     const options = {
       hostname: reqUrl.hostname,
-      port: reqUrl.port || 80,
+      port: reqUrl.port || transport.defaultPort,
       path: reqUrl.pathname + reqUrl.search,
       method: 'POST',
       headers: {
@@ -98,10 +130,10 @@ function post(body, bridgeUrl, opts = {}) {
         ...withCallerAuth(opts.headers, opts.callerToken),
       },
       timeout: 120000,
-      agent: keepAliveAgent,
+      agent: transport.agent,
     };
 
-    const req = http.request(options, (res) => {
+    const req = transport.request(options, (res) => {
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
       res.on('end', () => {
@@ -142,10 +174,12 @@ function postStream(body, cb, bridgeUrl, opts) {
   const options = { streamOutput: false, ...opts };
 
   return new Promise((resolve, reject) => {
+    // Same protocol-aware selection as post(): reject typed before any socket.
     const reqUrl = new URL(url);
+    const transport = transportFor(reqUrl);
     const reqOpts = {
       hostname: reqUrl.hostname,
-      port: reqUrl.port || 80,
+      port: reqUrl.port || transport.defaultPort,
       path: reqUrl.pathname + reqUrl.search,
       method: 'POST',
       headers: {
@@ -155,10 +189,10 @@ function postStream(body, cb, bridgeUrl, opts) {
         ...withCallerAuth(options.headers, options.callerToken),
       },
       timeout: 120000,
-      agent: keepAliveAgent,
+      agent: transport.agent,
     };
 
-    const req = http.request(reqOpts, (res) => {
+    const req = transport.request(reqOpts, (res) => {
       if (res.statusCode !== 200) {
         const chunks = [];
         res.on('data', (c) => chunks.push(c));
@@ -323,7 +357,9 @@ module.exports = {
   post,
   postStream,
   withCallerAuth,
+  transportFor,
   BridgeHttpError,
   BridgeNetworkError,
+  BridgeUrlError,
   parseRetryAfterSeconds,
 };

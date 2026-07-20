@@ -5,72 +5,32 @@
  *
  * Why this file exists:
  * Anthropic model IDs still pass through unchanged, so the upstream API remains
- * the source of truth for new models. However, a few known model families have
- * meaningfully different thinking rules. Catching those known mismatches here
+ * the source of truth for new models. However, known model families have
+ * meaningfully different effort/thinking rules. Catching known mismatches here
  * gives the user a clear local error instead of spending a request on a 400.
+ *
+ * P1-07: the rules now come from the single versioned catalog in
+ * `model-catalog.js` (shared with pricing and the default-model constant),
+ * `--effort auto` is a runner-local reset sentinel that omits the field, and
+ * unknown models produce an explicit warning instead of silent permissiveness.
  */
 
-const EFFORT_LEVELS = Object.freeze(['low', 'medium', 'high', 'xhigh', 'max']);
-const THINKING_MODES = Object.freeze(['auto', 'adaptive', 'off']);
-
-const STANDARD_EFFORT = Object.freeze(['low', 'medium', 'high', 'max']);
-const XHIGH_EFFORT = EFFORT_LEVELS;
-
-/**
- * Each rule describes only behavior that is stable and useful for request
- * validation. Date-suffixed model IDs still match because every expression
- * accepts either the end of the ID or another hyphen after the family name.
- */
-const MODEL_RULES = Object.freeze([
-  {
-    matches: /^claude-(?:fable|mythos)-5(?:$|-)/,
-    label: 'Claude Fable/Mythos 5',
-    effortLevels: XHIGH_EFFORT,
-    thinking: 'always-on',
-  },
-  {
-    matches: /^claude-mythos-preview(?:$|-)/,
-    label: 'Claude Mythos Preview',
-    effortLevels: STANDARD_EFFORT,
-    thinking: 'always-on',
-  },
-  {
-    matches: /^claude-sonnet-5(?:$|-)/,
-    label: 'Claude Sonnet 5',
-    effortLevels: XHIGH_EFFORT,
-    thinking: 'default-on',
-  },
-  {
-    matches: /^claude-opus-4-(?:8|7)(?:$|-)/,
-    label: 'Claude Opus 4.7/4.8',
-    effortLevels: XHIGH_EFFORT,
-    thinking: 'explicit-adaptive',
-  },
-  {
-    matches: /^claude-(?:opus|sonnet)-4-6(?:$|-)/,
-    label: 'Claude Opus/Sonnet 4.6',
-    effortLevels: STANDARD_EFFORT,
-    thinking: 'explicit-adaptive',
-  },
-  {
-    matches: /^claude-opus-4-5(?:$|-)/,
-    label: 'Claude Opus 4.5',
-    effortLevels: STANDARD_EFFORT,
-    thinking: 'manual-only',
-  },
-  {
-    matches: /^claude-(?:sonnet|haiku)-4-5(?:$|-)|^claude-3(?:$|-)/,
-    label: 'legacy Claude model',
-    effortLevels: null,
-    thinking: 'manual-or-none',
-  },
-]);
+const {
+  CATALOG_VERSION,
+  EFFORT_LEVELS,
+  EFFORT_AUTO,
+  THINKING_MODES,
+  catalogEntryForModel,
+} = require('./model-catalog');
 
 function normalizeEffort(effort) {
   if (!effort) return null;
   const level = String(effort).toLowerCase();
+  // 'auto' is runner-local: it means "send no output_config.effort at all" and
+  // is never forwarded upstream (the API has no such value).
+  if (level === EFFORT_AUTO) return null;
   if (!EFFORT_LEVELS.includes(level)) {
-    throw new Error('--effort must be one of: ' + EFFORT_LEVELS.join(', '));
+    throw new Error('--effort must be one of: ' + EFFORT_AUTO + ', ' + EFFORT_LEVELS.join(', '));
   }
   return level;
 }
@@ -84,18 +44,20 @@ function normalizeThinkingMode(thinking) {
 }
 
 function capabilityForModel(model) {
-  const modelId = String(model || '').toLowerCase();
-  const known = MODEL_RULES.find((rule) => rule.matches.test(modelId));
+  const known = catalogEntryForModel(model);
 
-  // Unknown/future model IDs remain permissive. An explicit adaptive request is
-  // forwarded, while auto/off avoid inventing a model capability we do not know.
-  return (
-    known || {
-      label: 'unknown or future model',
-      effortLevels: EFFORT_LEVELS,
-      thinking: 'unknown',
-    }
-  );
+  // Unknown/future model IDs remain permissive so new releases work day one.
+  // But permissiveness is REPORTED (known: false + catalogVersion), never
+  // silent — the caller surfaces a warning that local validation was skipped.
+  return known
+    ? { ...known, known: true, catalogVersion: CATALOG_VERSION }
+    : {
+        label: 'unknown or future model',
+        effortLevels: EFFORT_LEVELS,
+        thinking: 'unknown',
+        known: false,
+        catalogVersion: CATALOG_VERSION,
+      };
 }
 
 function validateEffortForModel(model, effort, capability) {
@@ -149,6 +111,8 @@ function thinkingConfigForModel(model, mode, capability) {
 
 /**
  * Resolve and validate both controls together before a model request is built.
+ * Returns warnings (e.g. unknown model → validation skipped) so callers can
+ * surface them; nothing here is allowed to fall back silently.
  */
 function resolveModelControls({ model, effort, thinking } = {}) {
   const normalizedEffort = normalizeEffort(effort);
@@ -157,10 +121,23 @@ function resolveModelControls({ model, effort, thinking } = {}) {
 
   validateEffortForModel(model, normalizedEffort, capability);
 
+  const warnings = [];
+  if (!capability.known) {
+    warnings.push(
+      "Model '" +
+        model +
+        "' is not in the local capability catalog (version " +
+        CATALOG_VERSION +
+        '); effort/thinking are forwarded without local validation — the API may reject unsupported combinations.',
+    );
+  }
+
   return {
     effort: normalizedEffort,
     thinkingMode,
     thinkingConfig: thinkingConfigForModel(model, thinkingMode, capability),
+    capability,
+    warnings,
   };
 }
 

@@ -599,10 +599,33 @@ async function run(options) {
   let compactionGeneration = sessionStore ? sessionStore.data().runner.compactionGeneration || 0 : 0;
   ctx.compactionGeneration = compactionGeneration;
   const hooks = new HookDispatcher(ctx.cwdRealpath, {
-    trustedWorkspace: !!options.trustedWorkspace,
+    // P1-14: hook opt-in comes only from the explicit --trusted-workspace CLI
+    // flag; exec hooks additionally require "trusted": true inside hooks.json.
+    hookOptIn: !!options.trustedWorkspace,
     workspaceTrusted: ctx.workspaceTrusted,
     ctx,
   });
+  // P1-14: surface the effective hook decision so the operator can see exactly
+  // why hooks will or will not run (no hidden boolean fallbacks).
+  const hookAuthority = hooks.describeAuthority();
+  if (hookAuthority.hookCount > 0 || hookAuthority.invalidHookCount > 0) {
+    const execNote = hookAuthority.execHookCount
+      ? hookAuthority.execEnabled
+        ? '; exec allowed (hooks.json trusted: true)'
+        : '; exec DENIED (' + hookAuthority.reason + ')'
+      : '';
+    const invalidNote = hookAuthority.invalidHookCount ? '; ' + hookAuthority.invalidHookCount + ' invalid entries dropped' : '';
+    emitHint(
+      'Hooks: ' +
+        (hookAuthority.enabled ? 'enabled' : 'disabled (' + hookAuthority.reason + ')') +
+        ' — ' +
+        hookAuthority.hookCount +
+        ' hooks' +
+        execNote +
+        invalidNote,
+      { quiet, verbose, stopReason: 'hook_authority' },
+    );
+  }
   if (ledger) {
     appendLedger(ledger, hooks, 'session_started', { runId, cwd: ctx.cwdRealpath });
     const pending = ledger.getPendingIntents();
@@ -1054,7 +1077,14 @@ async function run(options) {
     }
   }
 
-  instructionDelta.snapshot(ctx.cwdRealpath);
+  // P1-13: only context sources the effective policy actually injects may be
+  // watched for mid-session edits. Bare/minimal context watches nothing, so an
+  // excluded CLAUDE.md can never alter the running conversation.
+  const watchedInstructionSources = instructionDelta.watchedSourcesForPolicy(contextPolicy);
+  instructionDelta.snapshot(ctx.cwdRealpath, watchedInstructionSources);
+  // P1-13: record the declared instruction sources in the run manifest so an
+  // auditor can see exactly which files were allowed to alter this run.
+  if (ctx.runManifestMeta) ctx.runManifestMeta.instructionSources = watchedInstructionSources;
 
   const tools = pipeline.toolDefinitions();
   let system = resolveSystemPrompt(ctx, {
@@ -1070,6 +1100,11 @@ async function run(options) {
   // Resolve these together because valid effort and thinking settings depend
   // on the selected model family. This fails before the first HTTP request.
   const modelControls = resolveModelControls({ model, effort, thinking });
+  // P1-07: unknown-model permissiveness is reported, never silent — the local
+  // catalog skipped validation, so the API is the only guard against a 400.
+  for (const warning of modelControls.warnings || []) {
+    emitHint(warning, { quiet, verbose, stopReason: 'model_catalog_warning' });
+  }
 
   if (taskScope && !quiet && !plan) {
     console.error('[runner] tip: --task-scope runs work best with --plan for the first pass.');
@@ -1085,6 +1120,8 @@ async function run(options) {
       model,
       max_steps: steps,
       output_format: outputFormat,
+      // P1-13: which instruction docs may inject mid-session deltas this run.
+      instruction_sources: watchedInstructionSources,
       flags: {
         allow_shell: ctx.allowShell,
         accept_edits: ctx.acceptEdits,
@@ -1127,10 +1164,19 @@ async function run(options) {
     currentStep = step;
     hooks.dispatch('pre_model_request', { step, runId });
 
-    const instructionChange = instructionDelta.detectChange(ctx.cwdRealpath);
+    const instructionChange = watchedInstructionSources.length
+      ? instructionDelta.detectChange(ctx.cwdRealpath)
+      : null;
     if (instructionChange?.kind === 'small_diff') {
       messages.push({ role: 'user', content: instructionChange.deltaBlock });
-      if (transcript) transcript.append({ type: 'instruction_delta', step, kind: 'small_diff' });
+      if (transcript)
+        transcript.append({
+          type: 'instruction_delta',
+          step,
+          kind: 'small_diff',
+          // P1-13: every delta identifies its source file(s) and hash(es).
+          sources: instructionChange.sources,
+        });
     } else if (instructionChange?.kind === 'large_rewrite') {
       ctx.instructionMemory = loadInstructionMemory(ctx.cwdRealpath, {
         includeProjectDocs: contextPolicy.includeInstructionDocs,
@@ -1144,7 +1190,13 @@ async function run(options) {
         appendSystemPrompt,
         appendSystemPromptFile,
       });
-      if (transcript) transcript.append({ type: 'instruction_delta', step, kind: 'large_rewrite' });
+      if (transcript)
+        transcript.append({
+          type: 'instruction_delta',
+          step,
+          kind: 'large_rewrite',
+          sources: instructionChange.sources,
+        });
     }
 
     const compaction = applyCompactionLadder(messages, system, {

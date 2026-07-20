@@ -62,7 +62,7 @@
         },
         "claudeLocalBridge.defaultModel": {
           "type": "string",
-          "default": "claude-sonnet-4-5",
+          "default": "claude-sonnet-4-6",
           "description": "Default model to use when none is specified in the request"
         },
         "claudeLocalBridge.logRequests": {

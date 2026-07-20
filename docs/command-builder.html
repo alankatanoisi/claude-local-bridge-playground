@@ -920,7 +920,7 @@
                 </div>
                 <div class="checks" style="margin-top: 0.5rem">
                   <label class="check-label">
-                    <input type="checkbox" id="trustedWorkspace" title="Enable project-specific hooks from .bridge-runner/hooks/ (like pre-run and post-run scripts). Only turn this on for projects you control — hooks run arbitrary code." /> Enable project hooks <code>--trusted-workspace</code>
+                    <input type="checkbox" id="trustedWorkspace" title="Enable project-specific hooks from .bridge-runner/hooks.json (like pre-run and post-run scripts). Exec hooks also need &quot;trusted&quot;: true inside hooks.json. Only turn this on for projects you control — exec hooks run arbitrary code." /> Enable project hooks <code>--trusted-workspace</code>
                   </label>
                   <label class="check-label">
                     <input type="checkbox" id="trustWorkspace" title="Pre-answer 'yes' to the first-time folder consent prompt. The runner normally asks once per new --cwd folder whether you trust it. This flag skips that prompt." /> Record folder consent <code>--trust-workspace</code>
@@ -1732,7 +1732,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         if (plan.checked && (acceptEdits.checked || allowShell.checked))
           cautions.push('--plan dry-runs tools; accept-edits/shell flags still shape what the model sees.');
         if (trustedWorkspace.checked)
-          cautions.push('--trusted-workspace runs hooks from .bridge-runner/hooks.json in cwd.');
+          cautions.push('--trusted-workspace runs hooks from .bridge-runner/hooks.json in cwd (exec hooks also need "trusted": true in that file).');
         if (autoMemory.checked)
           cautions.push('--auto-memory injects opt-in runner memory into context (default off in runner).');
         if (getPromptTemplates().length)

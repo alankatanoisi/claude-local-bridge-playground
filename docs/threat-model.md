@@ -243,9 +243,17 @@ request `spawn_agent`. The hard-deny matrix remains independent and cannot be by
 
 Hooks can log lifecycle events or run trusted shell commands when `"action": "exec"` or `"run"` is set.
 
+One explicit authority rule (P1-14), enforced in `hook-dispatcher.js` and identical across CLI help,
+this document, and the command builder: hooks dispatch at all only when the workspace trust gate
+passed **and** the operator passed `--trusted-workspace` on the CLI. Executable (`exec`/`run`) hooks
+additionally require a strict-boolean `"trusted": true` inside `hooks.json`; a matched exec hook
+without it is recorded as **denied** (fail closed, visible in the hook log) rather than executed.
+Malformed hook entries are dropped with a recorded reason, and the effective decision is reported
+at session start.
+
 | Risk                                   | Mitigation                                                                         |
 | -------------------------------------- | ---------------------------------------------------------------------------------- |
-| Arbitrary command execution            | Requires workspace trust **and** `"trusted": true` in hooks.json                   |
+| Arbitrary command execution            | Requires workspace trust, `--trusted-workspace`, **and** `"trusted": true` in hooks.json |
 | Secret exfiltration via hook output    | Hook stdout/stderr pass through `scrubSecrets()` before logging                    |
 | Reading `.env` / keys via hook command | Same `scanShellCommand()` hard-deny patterns as `bash`                             |
 | Network egress                         | Hook env inherits scrubbed `buildSafeEnv()`; `--no-network` proxy guard applies    |

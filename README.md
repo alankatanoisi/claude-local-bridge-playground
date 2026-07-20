@@ -75,7 +75,7 @@ Defaults below are sourced from `package.json` (`contributes.configuration.prope
 | Setting                               | Default (from package.json) | Notes                                            |
 | ------------------------------------- | --------------------------- | ------------------------------------------------ |
 | `claudeLocalBridge.port`              | `11437`                     | Local bridge listens on `http://localhost:11437` |
-| `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-5`         | Used when requests omit `model`                  |
+| `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-6`         | Used when requests omit `model`                  |
 | `claudeLocalBridge.anthropicBaseUrl`  | `https://api.anthropic.com` | Upstream Anthropic endpoint                      |
 | `claudeLocalBridge.logRequests`       | `false`                     | Verbose request/response logging                 |
 | `claudeLocalBridge.logTimeZone`       | `local`                     | Output timestamps use the system timezone        |
@@ -147,7 +147,7 @@ Open **VS Code Settings** and search for `Claude Local Bridge`:
 | ------------------------------------- | --------------------------- | ----------------------------------------- |
 | `claudeLocalBridge.port`              | `11437`                     | HTTP server port                          |
 | `claudeLocalBridge.anthropicBaseUrl`  | `https://api.anthropic.com` | Override for staging                      |
-| `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-5`         | Default model when none is specified      |
+| `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-6`         | Default model when none is specified      |
 | `claudeLocalBridge.logRequests`       | `false`                     | Verbose request logging to Output channel |
 | `claudeLocalBridge.logTimeZone`       | `local`                     | `local`, `utc`, or an IANA timezone name  |
 | `claudeLocalBridge.requireCallerAuth` | `false`                     | Enforce Bearer token for incoming callers |
@@ -411,7 +411,7 @@ Useful runner options:
 | `--include-file <path>`                                  | Attach a bounded file from `--cwd` before the model call                                 |
 | `--prompt-template <name>` / `--template <name>`         | Prepend a reusable prompt template: review, cleanup, explore, or file                    |
 | `--prompt-arg key=value`                                 | Fill a `{{key}}` placeholder in the chosen prompt template (repeatable)                  |
-| `--effort <level>`                                       | Model effort: `low`, `medium`, `high`, `xhigh`, or `max`                                 |
+| `--effort <level>`                                       | Model effort: `auto` (omit), `low`, `medium`, `high`, `xhigh`, or `max`                  |
 | `--thinking <mode>`                                      | Model-aware adaptive thinking: `auto`, `adaptive`, or `off`                              |
 | `--human-log <path>`                                     | Write a plain text log of the prompt, tool results, and final answer                     |
 | `--trace-level <level>`                                  | Write correlated flight-recorder traces: summary, redacted, or full                      |
@@ -444,7 +444,7 @@ Useful runner options:
 | `--auto-memory`                                          | Opt-in runner auto-memory in context (default off)                                       |
 | `--review-memory`                                        | List pending memory promotions for approval, then exit                                   |
 | `--session-extract`                                      | Queue background session extraction after completion                                     |
-| `--trusted-workspace`                                    | Enable hooks from `.bridge-runner/hooks.json` in cwd                                     |
+| `--trusted-workspace`                                    | Enable hooks from `.bridge-runner/hooks.json` in cwd (exec hooks also need `"trusted": true` in that file) |
 | `--inherit-workspace-trust`                              | Child runs inherit a parent's validated cwd (no trust.json write)                        |
 | `--shell-timeout <ms>`                                   | Max time for shell commands (default 30000, cap 900000)                                  |
 | `--confirm-timeout <ms>`                                 | Auto-deny confirmation prompts after N ms (default: no timeout)                          |

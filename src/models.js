@@ -8,7 +8,9 @@
 // source of truth for current and future model names.
 // ─────────────────────────────────────────────
 
-const DEFAULT_MODEL = 'claude-sonnet-4-5';
+// P1-07: shared with the runner CLI through the versioned model catalog so the
+// bridge default and runner default cannot silently disagree.
+const { DEFAULT_MODEL } = require('./runner/model-catalog');
 
 /**
  * Resolve a model name for an Anthropic Messages request.
