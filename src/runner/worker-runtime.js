@@ -4,6 +4,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { narrowChildAuthority } = require('./authority');
 
 const DEFAULT_CHILD_TOOLS = Object.freeze([
   'list_files',
@@ -66,7 +67,18 @@ class WorkerRuntime {
   spawnWorker(spec, options = {}) {
     const workerId = makeWorkerId();
     const phase = spec.phase || 'research';
-    const allowedList = Array.isArray(spec.allowedTools) ? spec.allowedTools : [...DEFAULT_CHILD_TOOLS];
+    const requestedList = Array.isArray(spec.allowedTools) ? spec.allowedTools : [...DEFAULT_CHILD_TOOLS];
+
+    // WP2: intersect the child's requested authority with the parent's
+    // immutable ceiling (options.parentCeiling). Children may only narrow:
+    // requested flags AND parent flags; requested tools ∩ ceiling tools.
+    const authority = narrowChildAuthority(options.parentCeiling || null, {
+      allowShell: !!(requestedList.includes('bash') && options.allowShell),
+      acceptEdits: !!(spec.acceptEdits && options.acceptEdits),
+      dontAsk: !!(spec.dontAsk && options.dontAsk),
+      tools: requestedList,
+    });
+    const allowedList = authority.tools || requestedList;
     const allowed = allowedList.join(',');
 
     // Inherit this-run trust only — never --trust-workspace, which would write
@@ -86,11 +98,9 @@ class WorkerRuntime {
       '--inherit-workspace-trust',
     ];
 
-    // Children stay beneath the parent ceiling: only enable shell/edits when
-    // both the parent options and the child's explicit tool list allow it.
-    if (allowedList.includes('bash') && options.allowShell) args.push('--allow-shell');
-    if (spec.acceptEdits && options.acceptEdits) args.push('--accept-edits');
-    if (spec.dontAsk && options.dontAsk) args.push('--dont-ask');
+    if (authority.allowShell) args.push('--allow-shell');
+    if (authority.acceptEdits) args.push('--accept-edits');
+    if (authority.dontAsk) args.push('--dont-ask');
     if (typeof spec.budgetRemaining?.input_tokens === 'number') {
       args.push('--budget-input-tokens', String(spec.budgetRemaining.input_tokens));
     }

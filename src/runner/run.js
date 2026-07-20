@@ -11,7 +11,7 @@ const { Transcript } = require('./transcript');
 const confirm = require('./confirmation');
 const safety = require('./safety');
 const { HumanLog } = require('./human-log');
-const { STOP_REASONS } = require('./kernel/contract');
+const { STOP_REASONS, mapUpstreamStopReason } = require('./kernel/contract');
 const { SessionStore, resolveSessionPath } = require('./session-store');
 const { applyCompactionLadder, DEFAULT_POLICY } = require('./context-compactor');
 const { assertValidAnthropicMessages, toolUseIds } = require('./message-contract');
@@ -48,6 +48,7 @@ const { createBudgetTracker } = require('./budget-tracker');
 const { writeRunManifest } = require('./recovery/run-manifest');
 const { scrubDeepSecrets } = require('./redaction-boundary');
 const { normalizeEffort, resolveModelControls } = require('./model-capabilities');
+const { createAuthorityCeiling } = require('./authority');
 
 const DEFAULT_MAX_STEPS = 16;
 const MAX_CONSECUTIVE_TOOL_FAILURE_BATCHES = 3;
@@ -494,6 +495,10 @@ async function run(options) {
 
   ctx.allowedTools = computeAllowedTools(ctx);
 
+  // WP2: freeze the authority ceiling from the explicit CLI-derived flags
+  // before anything else runs. Downstream code can only narrow, never widen.
+  ctx.authorityCeiling = createAuthorityCeiling(ctx);
+
   // Trust bypass is opt-in via skipTrustGate (tests inject this). Do not treat
   // BRIDGE_RUNNER_TEST as a public production escape hatch (P0-08).
   if (!skipTrustGate) {
@@ -614,6 +619,12 @@ async function run(options) {
   const humanLog = humanLogPath ? new HumanLog(humanLogPath, { verbose, quiet }) : null;
   const output = makeOutput(outputFormat);
   const startedAt = Date.now();
+  // Declared before the finalizer closure so every terminal path (including
+  // resume failures and SIGINT) can report usage and tool history safely.
+  let totalUsage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+  const toolHistory = [];
+  let currentStep = 0;
+  let messages = null;
   const inheritedParentBudget =
     parentBudgetRemaining ||
     (process.env.BRIDGE_RUNNER_BUDGET_INPUT_REMAINING || process.env.BRIDGE_RUNNER_BUDGET_OUTPUT_REMAINING
@@ -800,21 +811,125 @@ async function run(options) {
     return result;
   }
 
-  let messages;
+  // ── P1-04: single idempotent terminal finalizer ──
+  // Every terminal outcome (success, refusal, truncation, bridge error, every
+  // budget, cycle, cancellation, abort, max steps) funnels through here so all
+  // enabled sinks observe one matching final record: terminal output event →
+  // output.finish → trace terminal event → transcript flush → session_end hook
+  // → run_stopped ledger event → autopsy → session persistence → exit code.
+  // Call sites keep their path-specific pre-work (hints, transcript error
+  // lines, human-log messages) and pass the terminal facts in `partial`.
+  let runFinalized = false;
+
+  function onSigint() {
+    const result = finalizeRun({
+      stopReason: STOP_REASONS.CANCELLED,
+      finalText: 'Cancelled by user (SIGINT).',
+      steps: currentStep,
+      usage: totalUsage,
+    });
+    process.exitCode = result && result.stopReason === STOP_REASONS.SUCCESS ? 0 : 130;
+    process.exit();
+  }
+  process.once('SIGINT', onSigint);
+
+  function finalizeRun(partial) {
+    if (runFinalized) return partial;
+    runFinalized = true;
+    process.removeListener('SIGINT', onSigint);
+
+    const stopReason = partial.stopReason || STOP_REASONS.SUCCESS;
+    const success = stopReason === STOP_REASONS.SUCCESS;
+    const stepCount = partial.steps ?? currentStep;
+    const result = {
+      stopReason,
+      finalText: partial.finalText || '',
+      steps: stepCount,
+      duration_ms: Date.now() - startedAt,
+      usage: partial.usage || totalUsage,
+      events: output.events,
+    };
+    if (partial.streamed) result.streamed = true;
+    if (partial.upstreamStopReason !== undefined && partial.upstreamStopReason !== null) {
+      result.upstreamStopReason = partial.upstreamStopReason;
+    }
+    if (ctx.plan && Array.isArray(ctx.planProposals) && ctx.planProposals.length > 0) {
+      result.planProposals = ctx.planProposals;
+    }
+
+    // Exactly one terminal output event per run.
+    if (success) {
+      output.emit('result', {
+        subtype: 'success',
+        duration_ms: result.duration_ms,
+        num_turns: stepCount,
+        usage: result.usage,
+        ...(result.upstreamStopReason ? { upstream_stop_reason: result.upstreamStopReason } : {}),
+      });
+    } else {
+      output.emit('error', {
+        message: result.finalText,
+        stop_reason: stopReason,
+        duration_ms: result.duration_ms,
+        num_turns: stepCount,
+        usage: result.usage,
+        ...(result.upstreamStopReason ? { upstream_stop_reason: result.upstreamStopReason } : {}),
+      });
+    }
+    output.finish(result);
+
+    if (trace) {
+      trace.append(success ? 'run_completed' : 'run_failed', {
+        run_id: runId,
+        ...traceRunResult(result),
+        ...(success ? {} : { stop_reason: stopReason }),
+      });
+    }
+    if (transcript) transcript.flush();
+    hooks.dispatch('session_end', { runId, stopReason });
+    if (ledger) appendLedger(ledger, hooks, 'run_stopped', { runId, stopReason });
+
+    const autopsy = buildAutopsy({
+      toolHistory,
+      stopReason,
+      steps: stepCount,
+      usage: result.usage,
+      duration_ms: result.duration_ms,
+    });
+    if (resolvedSessionPath) writeAutopsyFile(resolvedSessionPath, autopsy);
+    result.autopsy = autopsy;
+    if (success) maybeRunSessionExtract(sessionExtract, ctx, autopsy, resolvedSessionPath);
+
+    if (Array.isArray(messages)) {
+      persistSession(
+        sessionStore,
+        messages,
+        { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
+        !!noSessionPersistence,
+      );
+    } else {
+      syncRunManifest(ctx);
+    }
+
+    if (archiveCollector) {
+      if (success) archiveCollector.recordFinal(result.finalText || '');
+      else if (!partial.archiveErrorRecorded) archiveCollector.recordError(stepCount, result.finalText || '');
+    }
+
+    if (!success) process.exitCode = 1;
+    return completeRun(result);
+  }
+
   if (resume && sessionStore && sessionStore.exists()) {
     sessionStore.load();
     hydrateRunnerStateFromSession(ctx, sessionStore);
     const resumeCheck = assertResumeAllowed(sessionStore, { ackResumeRisk: !!ackResumeRisk });
     if (!resumeCheck.allowed) {
       emitHint(resumeCheck.message, { quiet, verbose, stopReason: 'resume_degraded' });
-      process.exitCode = 1;
-      return completeRun({
+      return finalizeRun({
         stopReason: STOP_REASONS.RESUME_FAILED,
         finalText: resumeCheck.message,
         steps: 0,
-        duration_ms: 0,
-        usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
-        events: [],
       });
     }
     messages = sessionStore.messages.length ? [...sessionStore.messages] : null;
@@ -825,14 +940,10 @@ async function run(options) {
         verbose,
         stopReason: STOP_REASONS.RESUME_FAILED,
       });
-      process.exitCode = 1;
-      return completeRun({
+      return finalizeRun({
         stopReason: STOP_REASONS.RESUME_FAILED,
         finalText: 'Could not resume: no valid ledger or session checkpoint.',
         steps: 0,
-        duration_ms: 0,
-        usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
-        events: [],
       });
     }
     messages.push(buildUserMessage(prompt, stdinText));
@@ -847,14 +958,10 @@ async function run(options) {
       verbose,
       stopReason: STOP_REASONS.RESUME_FAILED,
     });
-    process.exitCode = 1;
-    return completeRun({
+    return finalizeRun({
       stopReason: STOP_REASONS.RESUME_FAILED,
       finalText: 'Transcript resume is deprecated. Use session store.',
       steps: 0,
-      duration_ms: 0,
-      usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
-      events: [],
     });
   } else {
     const userEnvPrefix = [];
@@ -891,8 +998,6 @@ async function run(options) {
   });
   const repoContextBlock = buildRepoContextBlock(ctx, contextPolicy);
   const steps = maxSteps || DEFAULT_MAX_STEPS;
-  let totalUsage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
-  const toolHistory = [];
   // Resolve these together because valid effort and thinking settings depend
   // on the selected model family. This fails before the first HTTP request.
   const modelControls = resolveModelControls({ model, effort, thinking });
@@ -950,6 +1055,7 @@ async function run(options) {
   let bridgeRetryCount = 0;
 
   for (let step = 1; step <= steps; step++) {
+    currentStep = step;
     hooks.dispatch('pre_model_request', { step, runId });
 
     const instructionChange = instructionDelta.detectChange(ctx.cwdRealpath);
@@ -1035,25 +1141,7 @@ async function run(options) {
           message_count: cachedMessages.length,
         });
       }
-      output.emit('error', { message: msg, stop_reason: STOP_REASONS.MESSAGE_CONTRACT_ERROR });
-      hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.MESSAGE_CONTRACT_ERROR });
-      if (ledger) {
-        appendLedger(ledger, hooks, 'run_stopped', {
-          runId,
-          stopReason: STOP_REASONS.MESSAGE_CONTRACT_ERROR,
-        });
-      }
-      process.exitCode = 1;
-      const result = {
-        stopReason: STOP_REASONS.MESSAGE_CONTRACT_ERROR,
-        finalText: msg,
-        steps: step,
-        duration_ms: Date.now() - startedAt,
-        usage: totalUsage,
-        events: output.events,
-      };
-      output.finish(result);
-      return completeRun(result);
+      return finalizeRun({ stopReason: STOP_REASONS.MESSAGE_CONTRACT_ERROR, finalText: msg, steps: step });
     }
 
     const advisoryTokens = estimateTokensAdvisory(messages);
@@ -1139,19 +1227,12 @@ async function run(options) {
         if (delayMs > 0) await sleep(delayMs);
         continue;
       }
-      if (transcript) transcript.flush();
-      hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.BRIDGE_ERROR });
-      process.exitCode = 1;
-      const result = {
+      return finalizeRun({
         stopReason: STOP_REASONS.BRIDGE_ERROR,
         finalText: msg,
         steps: step,
-        duration_ms: Date.now() - startedAt,
-        usage: totalUsage,
-        events: output.events,
-      };
-      output.finish(result);
-      return completeRun(result);
+        archiveErrorRecorded: true,
+      });
     }
 
     bridgeRetryCount = 0;
@@ -1166,22 +1247,9 @@ async function run(options) {
     if (budgetStopAfterModel) {
       const { stop, message } = budgetStopAfterModel;
       emitHint(message, { quiet, verbose, stopReason: stop });
-      process.exitCode = 1;
       if (transcript) transcript.append({ type: 'error', step, message });
       if (humanLog) humanLog.writeError(message, { stopReason: stop });
-      const result = {
-        stopReason: stop,
-        finalText: message,
-        steps: step,
-        duration_ms: Date.now() - startedAt,
-        usage: totalUsage,
-        events: output.events,
-      };
-      output.emit('error', { message, duration_ms: result.duration_ms, num_turns: step, usage: totalUsage });
-      output.finish(result);
-      if (trace) trace.append('run_failed', { run_id: runId, ...traceRunResult(result), stop_reason: stop });
-      if (ledger) appendLedger(ledger, hooks, 'run_stopped', { runId, stopReason: stop });
-      return completeRun(result);
+      return finalizeRun({ stopReason: stop, finalText: message, steps: step });
     }
     if (trace) {
       trace.append('runner_model_response_received', {
@@ -1220,32 +1288,7 @@ async function run(options) {
         if (transcript) transcript.append({ type: 'error', step, message: msg });
         if (humanLog) humanLog.writeError(msg);
         console.error('[runner] ' + msg);
-        output.emit('error', { message: msg, duration_ms: Date.now() - startedAt, num_turns: step, usage: totalUsage });
-        output.finish({
-          finalText: msg,
-          steps: step,
-          duration_ms: Date.now() - startedAt,
-          usage: totalUsage,
-          events: output.events,
-        });
-        if (transcript) transcript.flush();
-        persistSession(
-          sessionStore,
-          messages,
-          { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
-          !!noSessionPersistence,
-        );
-        hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.CONTEXT_BUDGET_EXCEEDED });
-        process.exitCode = 1;
-        if (archiveCollector) archiveCollector.recordError(step, msg);
-        return completeRun({
-          stopReason: STOP_REASONS.CONTEXT_BUDGET_EXCEEDED,
-          finalText: msg,
-          steps: step,
-          duration_ms: Date.now() - startedAt,
-          usage: totalUsage,
-          events: output.events,
-        });
+        return finalizeRun({ stopReason: STOP_REASONS.CONTEXT_BUDGET_EXCEEDED, finalText: msg, steps: step });
       }
       if (contextTokens > maxContextTokens) {
         if (!quiet)
@@ -1293,74 +1336,41 @@ async function run(options) {
       if (transcript) transcript.append({ type: 'error', step, message: msg });
       if (humanLog) humanLog.writeError(msg);
       console.error('[runner] ' + msg);
-      output.emit('error', { message: msg, duration_ms: Date.now() - startedAt, num_turns: step, usage: totalUsage });
-      output.finish({
-        finalText: msg,
-        steps: step,
-        duration_ms: Date.now() - startedAt,
-        usage: totalUsage,
-        events: output.events,
-      });
-      if (transcript) transcript.flush();
-      persistSession(
-        sessionStore,
-        messages,
-        { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
-        !!noSessionPersistence,
-      );
-      hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.MAX_TOOL_CALLS_PER_TURN });
-      process.exitCode = 1;
-      if (archiveCollector) archiveCollector.recordError(step, msg);
-      return completeRun({
-        stopReason: STOP_REASONS.MAX_TOOL_CALLS_PER_TURN,
-        finalText: msg,
-        steps: step,
-        duration_ms: Date.now() - startedAt,
-        usage: totalUsage,
-        events: output.events,
-      });
+      return finalizeRun({ stopReason: STOP_REASONS.MAX_TOOL_CALLS_PER_TURN, finalText: msg, steps: step });
     }
 
     if (toolUses.length === 0) {
-      const result = {
+      // P1-02: a no-tool-use response is only a success when the upstream
+      // stop_reason says the model actually finished. Truncation (max_tokens)
+      // and refusal map to their own terminal reasons instead of masquerading
+      // as a completed answer.
+      const upstreamStopReason = response.stop_reason ?? null;
+      const mappedStop = mapUpstreamStopReason(upstreamStopReason);
+      if (mappedStop !== STOP_REASONS.SUCCESS) {
+        const msg =
+          mappedStop === STOP_REASONS.MODEL_MAX_TOKENS
+            ? 'Model output was truncated by max_tokens before completing. Increase --max-tokens and retry.' +
+              (text ? ' Partial output:\n\n' + text : '')
+            : 'Model declined to answer (upstream stop_reason "refusal").' + (text ? '\n\n' + text : '');
+        emitHint(msg.split('\n')[0], { quiet, verbose, stopReason: mappedStop });
+        if (transcript) transcript.append({ type: 'error', step, message: msg });
+        if (humanLog) humanLog.writeError(msg, { stopReason: mappedStop });
+        return finalizeRun({
+          stopReason: mappedStop,
+          finalText: msg,
+          steps: step,
+          upstreamStopReason,
+        });
+      }
+      if (transcript) transcript.writeFinal(text || '');
+      if (humanLog) humanLog.writeFinal(text || '');
+      return finalizeRun({
         stopReason: STOP_REASONS.SUCCESS,
         finalText: text,
         steps: step,
-        duration_ms: Date.now() - startedAt,
-        usage: totalUsage,
-        events: output.events,
         streamed: stream && outputFormat === 'text',
-      };
-      if (transcript) transcript.writeFinal(text || '');
-      if (humanLog) humanLog.writeFinal(text || '');
-      output.emit('result', {
-        subtype: 'success',
-        duration_ms: result.duration_ms,
-        num_turns: step,
-        usage: totalUsage,
+        upstreamStopReason,
       });
-      output.finish(result);
-      if (trace) trace.append('run_completed', { run_id: runId, ...traceRunResult(result) });
-      hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.SUCCESS });
-      if (ledger) appendLedger(ledger, hooks, 'run_stopped', { runId, stopReason: STOP_REASONS.SUCCESS });
-      const autopsy = buildAutopsy({
-        toolHistory,
-        stopReason: STOP_REASONS.SUCCESS,
-        steps: step,
-        usage: totalUsage,
-        duration_ms: result.duration_ms,
-      });
-      if (resolvedSessionPath) writeAutopsyFile(resolvedSessionPath, autopsy);
-      maybeRunSessionExtract(sessionExtract, ctx, autopsy, resolvedSessionPath);
-      result.autopsy = autopsy;
-      persistSession(
-        sessionStore,
-        messages,
-        { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
-        !!noSessionPersistence,
-      );
-      if (archiveCollector) archiveCollector.recordFinal(text || '');
-      return completeRun(result);
     }
 
     const turn = await pipeline.executeTurn(step, toolUses, {
@@ -1400,29 +1410,7 @@ async function run(options) {
     if (turn.aborted) {
       const { reason, message } = turn.aborted;
       emitHint(message, { quiet, verbose, stopReason: reason });
-      process.exitCode = 1;
-      if (archiveCollector) archiveCollector.recordError(step, message);
-      const result = {
-        stopReason: reason,
-        finalText: message,
-        steps: step,
-        duration_ms: Date.now() - startedAt,
-        usage: totalUsage,
-        events: output.events,
-      };
-      if (reason === STOP_REASONS.SEMANTIC_CYCLE_DETECTED) {
-        if (ledger) appendLedger(ledger, hooks, 'run_stopped', { runId, stopReason: reason });
-        const autopsy = buildAutopsy({
-          toolHistory,
-          stopReason: reason,
-          steps: step,
-          usage: totalUsage,
-          duration_ms: result.duration_ms,
-        });
-        if (resolvedSessionPath) writeAutopsyFile(resolvedSessionPath, autopsy);
-        result.autopsy = autopsy;
-      }
-      return completeRun(result);
+      return finalizeRun({ stopReason: reason, finalText: message, steps: step });
     }
     const resultMessage = { role: 'user', content: turn.toolResults };
     messages.push(resultMessage);
@@ -1461,25 +1449,7 @@ async function run(options) {
         const msg = 'Stopped safely after ' + turn.failureStreak + ' consecutive failed tool batches.';
         emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.TOOL_FAILURE_ESCALATION });
         if (humanLog) humanLog.writeError(msg, { stopReason: STOP_REASONS.TOOL_FAILURE_ESCALATION });
-        output.emit('error', { message: msg, stop_reason: STOP_REASONS.TOOL_FAILURE_ESCALATION });
-        hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.TOOL_FAILURE_ESCALATION });
-        if (ledger) {
-          appendLedger(ledger, hooks, 'run_stopped', {
-            runId,
-            stopReason: STOP_REASONS.TOOL_FAILURE_ESCALATION,
-          });
-        }
-        process.exitCode = 1;
-        const result = {
-          stopReason: STOP_REASONS.TOOL_FAILURE_ESCALATION,
-          finalText: msg,
-          steps: step,
-          duration_ms: Date.now() - startedAt,
-          usage: totalUsage,
-          events: output.events,
-        };
-        output.finish(result);
-        return completeRun(result);
+        return finalizeRun({ stopReason: STOP_REASONS.TOOL_FAILURE_ESCALATION, finalText: msg, steps: step });
       }
 
       const recoveryText =
@@ -1501,49 +1471,7 @@ async function run(options) {
   emitHint(msg, { quiet, verbose, stopReason: STOP_REASONS.MAX_STEPS });
   if (transcript) transcript.writeFinal(msg);
   if (humanLog) humanLog.writeError(msg, { stopReason: STOP_REASONS.MAX_STEPS });
-  output.emit('error', { message: msg, duration_ms: Date.now() - startedAt, num_turns: steps, usage: totalUsage });
-  output.finish({
-    finalText: msg,
-    steps,
-    duration_ms: Date.now() - startedAt,
-    usage: totalUsage,
-    events: output.events,
-  });
-  process.exitCode = 1;
-  if (trace)
-    trace.append('run_failed', {
-      run_id: runId,
-      final_text: trace.capture(msg),
-      steps,
-      duration_ms: Date.now() - startedAt,
-      usage: totalUsage,
-    });
-  hooks.dispatch('session_end', { runId, stopReason: STOP_REASONS.MAX_STEPS });
-  appendLedger(ledger, hooks, 'run_stopped', { runId, stopReason: STOP_REASONS.MAX_STEPS });
-  const autopsy = buildAutopsy({
-    toolHistory,
-    stopReason: STOP_REASONS.MAX_STEPS,
-    steps,
-    usage: totalUsage,
-    duration_ms: Date.now() - startedAt,
-  });
-  if (resolvedSessionPath) writeAutopsyFile(resolvedSessionPath, autopsy);
-  persistSession(
-    sessionStore,
-    messages,
-    { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
-    !!noSessionPersistence,
-  );
-  if (archiveCollector) archiveCollector.recordError(steps, msg);
-  return completeRun({
-    stopReason: STOP_REASONS.MAX_STEPS,
-    finalText: msg,
-    steps,
-    duration_ms: Date.now() - startedAt,
-    usage: totalUsage,
-    events: output.events,
-    autopsy,
-  });
+  return finalizeRun({ stopReason: STOP_REASONS.MAX_STEPS, finalText: msg, steps });
 }
 
 function bridgeTraceHeaders(trace, runId, turn) {

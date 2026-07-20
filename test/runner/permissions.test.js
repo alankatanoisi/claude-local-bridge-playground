@@ -143,11 +143,16 @@ describe('permissions — shell tool', () => {
 describe('permissions — plan mode', () => {
   const cwd = '/fake/project';
 
-  it('returns structured dry-run ask for read-only tools', () => {
+  it('allows read-only tools to execute for real (P1-01)', () => {
     const result = check('read_file', { path: 'src/server.js' }, { cwd, plan: true });
+    assert.equal(result.decision, 'allow');
+    assert.equal(result.mode, 'plan');
+  });
+
+  it('still asks (plan_only) for write tools', () => {
+    const result = check('write_file', { path: 'notes.txt', content: 'x' }, { cwd, plan: true });
     assert.equal(result.decision, 'ask');
     assert.ok(result.proposedAction.includes('(plan mode)'));
-    assert.ok(result.proposedAction.includes('read_file'));
   });
 
   it('still requires allowShell for shell tools', () => {

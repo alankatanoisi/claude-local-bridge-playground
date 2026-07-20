@@ -119,6 +119,8 @@ async function execute(args, ctx) {
       allowShell: false,
       acceptEdits: false,
       dontAsk: false,
+      // WP2: the child's tools are additionally clamped to the parent ceiling.
+      parentCeiling: ctx.authorityCeiling || null,
     },
   );
 

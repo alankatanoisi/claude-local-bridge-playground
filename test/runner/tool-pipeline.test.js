@@ -366,9 +366,9 @@ describe('tool pipeline — confirmation flow', () => {
 });
 
 describe('tool pipeline — plan mode', () => {
-  it('fabricates results without executing writes', async () => {
+  it('records proposed effects without executing writes (P1-01)', async () => {
     const tmpDir = freshDir('pipeline-plan-');
-    const { pipeline, confirm } = makePipeline({ cwd: tmpDir, plan: true });
+    const { pipeline, confirm, calls } = makePipeline({ cwd: tmpDir, plan: true });
 
     const turn = await pipeline.executeTurn(1, [
       { id: 'w1', name: 'write_file', input: { path: 'planned.txt', content: 'nope' } },
@@ -376,8 +376,45 @@ describe('tool pipeline — plan mode', () => {
 
     assert.equal(confirm.asked.length, 0, 'plan mode never prompts');
     assert.equal(turn.toolResults[0].is_error, false);
-    assert.ok(turn.toolResults[0].content.includes('Plan mode: would'));
+    assert.ok(turn.toolResults[0].content.includes('Plan mode: proposed new file recorded (NOT created)'));
+    assert.ok(turn.toolResults[0].content.includes('nope'), 'proposal shows the content that would be written');
     assert.equal(fs.existsSync(path.join(tmpDir, 'planned.txt')), false);
+    assert.ok(
+      calls.some((c) => c.sink === 'ledger' && c.type === 'plan_proposed_effect'),
+      'proposal is recorded in the ledger',
+    );
+  });
+
+  it('records an apply_patch-compatible diff for edit_file proposals', async () => {
+    const tmpDir = freshDir('pipeline-plandiff-');
+    fs.writeFileSync(path.join(tmpDir, 'notes.txt'), 'alpha\nbeta\ngamma\n');
+    const { pipeline } = makePipeline({ cwd: tmpDir, plan: true });
+
+    const turn = await pipeline.executeTurn(1, [
+      { id: 'e1', name: 'edit_file', input: { path: 'notes.txt', old_string: 'beta', new_string: 'BETA' } },
+    ]);
+
+    assert.equal(turn.toolResults[0].is_error, false);
+    const content = turn.toolResults[0].content;
+    assert.ok(content.includes('Plan mode: proposed edit recorded (NOT applied)'));
+    assert.ok(content.includes('@@'), 'includes a unified diff hunk header');
+    assert.ok(content.includes('-beta'));
+    assert.ok(content.includes('+BETA'));
+    assert.equal(fs.readFileSync(path.join(tmpDir, 'notes.txt'), 'utf8'), 'alpha\nbeta\ngamma\n');
+  });
+
+  it('surfaces an invalid proposal instead of pretending it would work', async () => {
+    const tmpDir = freshDir('pipeline-planbad-');
+    fs.writeFileSync(path.join(tmpDir, 'notes.txt'), 'alpha\n');
+    const { pipeline } = makePipeline({ cwd: tmpDir, plan: true });
+
+    const turn = await pipeline.executeTurn(1, [
+      { id: 'e1', name: 'edit_file', input: { path: 'notes.txt', old_string: 'missing', new_string: 'x' } },
+    ]);
+
+    assert.equal(turn.toolResults[0].is_error, true);
+    assert.ok(turn.toolResults[0].content.includes('Plan mode: proposal invalid'));
+    assert.ok(turn.toolResults[0].content.includes('old_string not found'));
   });
 
   it('plan + acceptEdits with multiple disjoint writes never executes (pre-pass stays off)', async () => {
@@ -391,7 +428,7 @@ describe('tool pipeline — plan mode', () => {
 
     assert.equal(fs.existsSync(path.join(tmpDir, 'a.txt')), false);
     assert.equal(fs.existsSync(path.join(tmpDir, 'b.txt')), false);
-    assert.ok(turn.toolResults.every((r) => r.content.includes('Plan mode: would')));
+    assert.ok(turn.toolResults.every((r) => r.content.includes('Plan mode: proposed new file recorded')));
     assert.ok(
       !calls.some((c) => c.sink === 'ledger' && c.type === 'tool_use_group'),
       'no parallel pre-pass group in plan mode',

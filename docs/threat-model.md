@@ -38,6 +38,33 @@ non-executable text under `docs/archive/runner-profiles/`. The CLI rejects the f
 silently run with different authority. Prompt customization remains available through prompt templates and explicit
 system-prompt files; authority remains controlled by explicit flags and `--tools`.
 
+## Monotonic authority ceiling (WP2)
+
+At run start the runner freezes an immutable **authority ceiling** from the explicit CLI flags
+(`src/runner/authority.js`): `allowShell`, `plan`, `noNetwork`, and the `--tools` allowlist. Every permission check
+clamps the live context to that ceiling, so a mid-run mutation of `ctx` (bug, hook, or hostile input) can **narrow**
+authority but never widen it:
+
+- Shell stays denied for the whole run unless `--allow-shell` was on the command line.
+- A run started with `--plan` can never leave plan mode, and effectful tools cannot be force-executed under it
+  (plan mode has no user-approval flow that could have consented).
+- `--no-network` can never be dropped mid-run.
+- Tools outside the `--tools` ceiling are hard-denied (`authority_ceiling` rule) regardless of later visibility changes.
+- Child runners spawned via `spawn_agent` receive the **intersection** of their requested authority and the parent
+  ceiling: flags AND-ed, tool lists intersected, and plan-ceiling parents never hand children `--accept-edits` or
+  `--dont-ask`.
+
+The one deliberate non-ceiling channel is per-action user confirmation: approving a single write in the terminal
+escalates that one permission check only. That is human consent, not an authority widening.
+
+## Plan mode records proposals, it does not simulate success
+
+Plan mode (`--plan`) executes read-only tools for real and **never** executes writes. Proposed file edits are
+materialized in memory with the same matching logic as the real tools and recorded as unified diffs
+(`plan_proposed_effect` ledger events plus the final result's `planProposals` list). A proposal that cannot be
+materialized (for example `old_string` not found) is reported as **invalid** rather than pretended to succeed, so a
+plan artifact reflects reality. Non-file effects (shell, worktree, orchestration) get honest one-line descriptions.
+
 ## Run-level recovery (`local-bridge-undo` CLI)
 
 The write tools already save a backup before every mutation and record it in the in-memory undo log. At run-exit the

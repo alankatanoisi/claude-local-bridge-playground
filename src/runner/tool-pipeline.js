@@ -5,7 +5,7 @@
  *
  * The deep module owning everything between "the model emitted tool_use
  * blocks" and "completed, recorded tool results exist": permission check,
- * confirmation, plan-mode fabrication, execution (via tool-registry),
+ * confirmation, plan-mode proposal recording, execution (via tool-registry),
  * failure-streak accounting, and the sink fan-out.
  *
  * Interface:
@@ -33,7 +33,7 @@
  * - Effect pairing: every tool use appends a ledger `tool_effect_intent`
  *   (fresh effectId) before execution and exactly one `tool_effect_result`
  *   with the same effectId after — including on throw, deny, plan-mode
- *   fabrication, and user denial. Read and write paths pair identically.
+ *   proposals, and user denial. Read and write paths pair identically.
  * - Per-tool sink order: ledger intent → pre_tool hook → tool_use event →
  *   tool_requested trace → tool_call transcript → execute → tool_result
  *   transcript → human log → tool_finished trace → archive → ledger result →
@@ -42,8 +42,9 @@
  *   write tools run serially in model-emitted order. Under accept-edits —
  *   and never in plan mode — disjoint-path write groups pre-execute in
  *   parallel while sinks still observe events in model-emitted order.
- * - Plan mode never executes a write: the pipeline fabricates
- *   `Plan mode: would <action>` results in one place.
+ * - Plan mode executes pure reads for real and never executes a write: the
+ *   pipeline records proposed effects (unified diffs for file writes, honest
+ *   `would <action>` descriptions otherwise) in one place (P1-01).
  * - The ledger is the critical sink: its failure aborts the turn (an effect
  *   that cannot be recorded would break crash recovery). Every other sink is
  *   best-effort: failures are reported to stderr and never alter results.
@@ -70,6 +71,7 @@ const { runIfEnabled, formatVerificationAppendix } = require('./test-watcher');
 const { buildToolResultContent } = require('./tool-result-content');
 const { createRepeatToolDetector, formatRepeatWarningNote } = require('./repeat-tool-detector');
 const { scrubDeepSecrets } = require('./redaction-boundary');
+const { buildPlanProposal } = require('./plan-proposals');
 
 // B3: path-disjoint detection over canonicalized paths. Two paths are
 // disjoint iff neither is identical to the other and neither is a
@@ -291,8 +293,31 @@ function createToolPipeline(deps = {}) {
     }
   }
 
-  function fabricatePlanResult(result) {
-    return { ok: true, text: 'Plan mode: would ' + result.proposedAction, permission: result.permission };
+  // P1-01: plan mode records real proposed effects instead of executing them.
+  // For file writes the proposal is materialized in memory with the same
+  // matching logic the real tool uses, and returned as a unified diff that
+  // apply_patch can apply verbatim later. Non-file effects keep the honest
+  // one-line "would <action>" description. Each proposal is also appended to
+  // the ledger and collected on ctx.planProposals for the run result.
+  function recordPlanProposal(step, tu, result) {
+    const proposal = buildPlanProposal(tu.name, tu.input || {}, ctx, result.proposedAction);
+    const entry = {
+      step,
+      tool: tu.name,
+      toolUseId: tu.id,
+      kind: proposal.kind,
+      path: (tu.input && tu.input.path) || null,
+      diff: proposal.diff || null,
+    };
+    if (!ctx.planProposals) ctx.planProposals = [];
+    ctx.planProposals.push(entry);
+    appendLedger('plan_proposed_effect', { runId, ...entry });
+    return {
+      ok: proposal.kind !== 'invalid',
+      text: proposal.text,
+      planProposal: entry,
+      permission: result.permission,
+    };
   }
 
   // Count failed *batches*, not individual calls. A four-tool parallel batch
@@ -368,7 +393,9 @@ function createToolPipeline(deps = {}) {
     for (const { toolUse: tu, result: rawResult } of readBatch) {
       let result = rawResult;
       if (result.needsConfirmation && ctx.plan) {
-        result = fabricatePlanResult(result);
+        // Read-only tools run for real in plan mode; this only fires for a
+        // read-category tool that still returned an ask (defense in depth).
+        result = recordPlanProposal(step, tu, result);
       }
       recordCompleted(step, tu, result, readEffectIds.get(tu.id));
       toolResults.push({
@@ -464,7 +491,7 @@ function createToolPipeline(deps = {}) {
             transcript.append({ type: 'tool_confirm', step, tool: tu.name, proposedAction: result.proposedAction }),
         );
         if (ctx.plan) {
-          result = fabricatePlanResult(result);
+          result = recordPlanProposal(step, tu, result);
         } else {
           const choice = await confirm.ask(result.proposedAction, ctx.confirmTimeout);
           bestEffort(

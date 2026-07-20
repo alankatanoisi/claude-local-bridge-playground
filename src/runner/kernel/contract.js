@@ -30,7 +30,23 @@ const STOP_REASONS = Object.freeze({
   PREDICTIVE_INPUT_TOKEN_BUDGET_EXCEEDED: 'predictive_input_token_budget_exceeded',
   PREDICTIVE_OUTPUT_TOKEN_BUDGET_EXCEEDED: 'predictive_output_token_budget_exceeded',
   RETRY_BUDGET_EXCEEDED: 'retry_budget_exceeded',
+  // P1-02: upstream terminal reasons that must not masquerade as success.
+  MODEL_MAX_TOKENS: 'model_max_tokens',
+  MODEL_REFUSAL: 'model_refusal',
 });
+
+/**
+ * P1-02: map the upstream Anthropic stop_reason of a no-tool-use response to
+ * the runner's terminal taxonomy. Unknown/absent reasons are treated as an
+ * ordinary end-of-turn so future upstream additions degrade gracefully —
+ * except explicitly truncation/refusal-shaped ones, which must never be
+ * reported as success.
+ */
+function mapUpstreamStopReason(upstream) {
+  if (upstream === 'max_tokens') return STOP_REASONS.MODEL_MAX_TOKENS;
+  if (upstream === 'refusal') return STOP_REASONS.MODEL_REFUSAL;
+  return STOP_REASONS.SUCCESS;
+}
 
 /** Subset emitted on stream-json / automation surfaces. */
 const KERNEL_EVENT_TYPES = Object.freeze([
@@ -156,4 +172,5 @@ module.exports = {
   emptyUsage,
   normalizeKernelResult,
   isStopReason,
+  mapUpstreamStopReason,
 };

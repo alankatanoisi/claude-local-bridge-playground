@@ -83,6 +83,69 @@ function buildDiffPreview(lines, matchLine, oldStr, newStr) {
   return diff.join('\n');
 }
 
+/**
+ * Pure in-memory materialization of an edit_file request. Shared between the
+ * real execute() below and plan mode's proposal recorder, so plan-mode diffs
+ * always use the exact same matching semantics as a real edit (P1-01).
+ *
+ * Returns { ok: true, modified, matchIndex, count } or { ok: false, error }.
+ */
+function materializeEdit(original, args) {
+  const oldStr = args.old_string;
+
+  if (!oldStr) {
+    return { ok: false, error: 'old_string must not be empty.' };
+  }
+
+  // Count occurrences of old_string — must match exactly once (unless replace_all)
+  let idx = 0;
+  let count = 0;
+  let matchIndex = -1;
+  while (idx < original.length) {
+    const found = original.indexOf(oldStr, idx);
+    if (found === -1) break;
+    count++;
+    matchIndex = found;
+    idx = found + 1;
+  }
+
+  if (count === 0) {
+    return {
+      ok: false,
+      error:
+        'old_string not found in file. Make sure you are using the exact text from the file, including whitespace.',
+    };
+  }
+
+  if (count > 1 && !args.replace_all) {
+    // Find the line numbers of each match to help the user narrow down
+    const lineNumbers = [];
+    let searchFrom = 0;
+    while (searchFrom < original.length) {
+      const found = original.indexOf(oldStr, searchFrom);
+      if (found === -1) break;
+      const lineNum = original.slice(0, found).split('\n').length;
+      lineNumbers.push(lineNum);
+      searchFrom = found + 1;
+    }
+    return {
+      ok: false,
+      error:
+        'old_string matched ' +
+        count +
+        ' times in the file. Include more surrounding context to make it unique. ' +
+        'Matches found at lines: ' +
+        lineNumbers.join(', '),
+    };
+  }
+
+  const modified = args.replace_all
+    ? original.split(oldStr).join(args.new_string)
+    : original.slice(0, matchIndex) + args.new_string + original.slice(matchIndex + oldStr.length);
+
+  return { ok: true, modified, matchIndex, count };
+}
+
 function execute(args, ctx) {
   const cwd = ctx.cwd || process.cwd();
   const target = path.resolve(cwd, args.path);
@@ -92,10 +155,6 @@ function execute(args, ctx) {
     const original = fs.readFileSync(target, 'utf8');
     const oldStr = args.old_string;
     const currentHash = sha256Text(original);
-
-    if (!oldStr) {
-      return { ok: false, text: 'old_string must not be empty.' };
-    }
 
     if (args.expected_sha256 && args.expected_sha256 !== currentHash) {
       return {
@@ -111,56 +170,16 @@ function execute(args, ctx) {
       };
     }
 
-    // Count occurrences of old_string — must match exactly once
-    let idx = 0;
-    let count = 0;
-    let matchIndex = -1;
-    while (idx < original.length) {
-      const found = original.indexOf(oldStr, idx);
-      if (found === -1) break;
-      count++;
-      matchIndex = found;
-      idx = found + 1;
+    const materialized = materializeEdit(original, args);
+    if (!materialized.ok) {
+      return { ok: false, text: materialized.error };
     }
-
-    if (count === 0) {
-      return {
-        ok: false,
-        text: 'old_string not found in file. Make sure you are using the exact text from the file, including whitespace.',
-      };
-    }
-
-    if (count > 1 && !args.replace_all) {
-      // Find the line numbers of each match to help the user narrow down
-      const lineNumbers = [];
-      let searchFrom = 0;
-      while (searchFrom < original.length) {
-        const found = original.indexOf(oldStr, searchFrom);
-        if (found === -1) break;
-        const lineNum = original.slice(0, found).split('\n').length;
-        lineNumbers.push(lineNum);
-        searchFrom = found + 1;
-      }
-      return {
-        ok: false,
-        text:
-          'old_string matched ' +
-          count +
-          ' times in the file. Include more surrounding context to make it unique. ' +
-          'Matches found at lines: ' +
-          lineNumbers.join(', '),
-      };
-    }
+    const { modified, matchIndex, count } = materialized;
 
     // Build a diff preview for the user
     const lines = original.split('\n');
     const matchLine = original.slice(0, matchIndex).split('\n').length - 1;
     const diff = buildDiffPreview(lines, matchLine, oldStr, args.new_string);
-
-    // Apply the edit
-    const modified = args.replace_all
-      ? original.split(oldStr).join(args.new_string)
-      : original.slice(0, matchIndex) + args.new_string + original.slice(matchIndex + oldStr.length);
 
     // Save backup before writing
     const backupPath = saveBackup(target, original, cwd);
@@ -193,4 +212,4 @@ function execute(args, ctx) {
   }
 }
 
-module.exports = { definition, execute, meta: { name: 'edit_file', category: 'write' } };
+module.exports = { definition, execute, materializeEdit, meta: { name: 'edit_file', category: 'write' } };

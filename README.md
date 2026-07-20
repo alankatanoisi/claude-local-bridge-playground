@@ -418,7 +418,7 @@ Useful runner options:
 | `--trace-path <path>`                                    | Choose the runner trace JSONL path; bridge trace path is correlated                      |
 | `--bridge-url <url>`                                     | Override local bridge endpoint/root; also reads `BRIDGE_RUNNER_BRIDGE_URL`               |
 | `--caller-token <token>`                                 | Local bridge caller-auth token; can also use `BRIDGE_CALLER_TOKEN` env                   |
-| `--plan`                                                 | Plan mode: describe actions instead of executing them                                    |
+| `--plan`                                                 | Plan mode: real read-only inspection; writes become recorded proposal diffs              |
 | `--no-network`                                           | Best-effort HTTP/HTTPS proxy guard for shell; not hard network isolation                 |
 | `--system-prompt <s>`                                    | Override the default system prompt                                                       |
 | `--continue`                                             | Resume from the latest transcript in ~/.bridge-runner/logs/                              |
@@ -428,6 +428,30 @@ Useful runner options:
 | `--enable-lsp`                                           | Expose `lsp_query` (requires a language server on PATH)                                  |
 | `--test-watch`                                           | After successful writes, auto-run detected tests (requires `--allow-shell`)              |
 | `--no-archive`                                           | Skip per-turn archive export to `~/.bridge-runner/archive/`                              |
+| `--model <name>`                                         | Model name (defaults to the runner's built-in default)                                   |
+| `--max-tokens <n>`                                       | Max output tokens per model request                                                      |
+| `--temperature <f>`                                      | Model temperature 0.0–1.0 (default: model default)                                       |
+| `--output-format <f>`                                    | Output style: `text`, `json`, or `stream-json`                                           |
+| `--transcript <path>`                                    | JSONL transcript path (default under `~/.bridge-runner/logs/`)                           |
+| `--resume <path>`                                        | Deprecated transcript resume; prefer session flags below                                 |
+| `--session-id <id>` / `--session-path <p>`               | Canonical session store id or explicit state-file path                                   |
+| `--resume-session`                                       | Resume from the session store (needs `--session-id` or `--session-path`)                 |
+| `--new-session`                                          | Force a fresh session (ignore `--resume` / `--continue`)                                 |
+| `--ack-resume-risk`                                      | Allow resume even when session health is degraded                                        |
+| `--fork-from <id>`                                       | Fork an existing session into a new session id/path                                      |
+| `--task-scope`                                           | Task-scoped preset: tighter steps and compaction                                         |
+| `--compact-each-turn`                                    | Aggressive compaction preset (compact-after-task UX)                                     |
+| `--auto-memory`                                          | Opt-in runner auto-memory in context (default off)                                       |
+| `--review-memory`                                        | List pending memory promotions for approval, then exit                                   |
+| `--session-extract`                                      | Queue background session extraction after completion                                     |
+| `--trusted-workspace`                                    | Enable hooks from `.bridge-runner/hooks.json` in cwd                                     |
+| `--inherit-workspace-trust`                              | Child runs inherit a parent's validated cwd (no trust.json write)                        |
+| `--shell-timeout <ms>`                                   | Max time for shell commands (default 30000, cap 900000)                                  |
+| `--confirm-timeout <ms>`                                 | Auto-deny confirmation prompts after N ms (default: no timeout)                          |
+| `--max-wall-clock-ms <n>`                                | Stop the run after N milliseconds                                                        |
+| `--max-context-tokens <n>`                               | Warn when total tokens exceed the budget; halt at 2x budget                              |
+| `--max-tool-calls-per-turn <n>`                          | Cap tool calls per model response; halt if exceeded                                      |
+| `--help`                                                 | Show CLI usage                                                                           |
 
 Open [docs/command-builder.html](./docs/command-builder.html) in your browser if you prefer a form that builds these
 commands for you. See [docs/runner-expansion-roadmap.md](./docs/runner-expansion-roadmap.md) for a categorized plan to

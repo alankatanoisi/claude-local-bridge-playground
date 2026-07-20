@@ -102,7 +102,7 @@ Options:\n\
   --confirm-timeout <ms> Auto-deny confirmation prompts after N ms (default: no timeout)\n\
   --log-level <level>  Stderr verbosity: quiet, normal, or verbose (default: normal)\n\
   --continue           Resume from the latest transcript in ~/.bridge-runner/logs/\n\
-  --plan               Plan mode: describe actions instead of executing them\n\
+  --plan               Plan mode: real read-only inspection; writes are recorded as proposal diffs, never executed\n\
   --output-format <f>  Output style: text, json, or stream-json (default: text)\n\
   --stream             Stream model output live to terminal as it arrives\n\
   --verbose            Print step-by-step progress to stderr\n\
@@ -637,7 +637,9 @@ function printRuntimeTips(options) {
 
   console.error('[runner] target project folder: ' + options.cwd);
   if (options.plan) {
-    console.error('[runner] tip: plan mode inspects first and returns dry-run tool results for proposed actions.');
+    console.error(
+      '[runner] tip: plan mode runs read-only tools for real and records writes as proposal diffs (nothing executes).',
+    );
   } else if (!options.acceptEdits && !options.allowShell) {
     console.error('[runner] tip: this starts conservatively; edits ask for approval and bash stays hidden.');
   }

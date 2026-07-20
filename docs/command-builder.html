@@ -568,7 +568,7 @@
             <div class="presets" id="presets">
               <button class="preset-btn" data-preset="minimal" title="List top-level files and summarize the repo. Read-only, bare context, 8 steps. The safest starting point.">Minimal look-around</button>
               <button class="preset-btn" data-preset="readonly" title="Read README and runner entry point, explain the loop. Read-only with verbose output, 10 steps.">Read-only exploration</button>
-              <button class="preset-btn" data-preset="plan" title="Propose a small improvement without writing any files. Plan mode — the model describes actions instead of executing them. 10 steps.">Plan first (dry run)</button>
+              <button class="preset-btn" data-preset="plan" title="Propose a small improvement without writing any files. Plan mode — read-only tools run for real; writes become recorded proposal diffs. 10 steps.">Plan first (dry run)</button>
               <button class="preset-btn" data-preset="confirm" title="Make a small edit, but the runner asks you in Terminal before each file change. 12 steps.">Edit with confirmation</button>
               <button class="preset-btn" data-preset="auto" title="Fix a typo or wording issue with auto-approved file changes. No shell access, 16 steps.">Auto-approve edits</button>
               <button class="preset-btn" data-preset="verify" title="Make an improvement, then auto-run tests via --test-watch to verify. Enables shell. 20 steps.">Verify after edits</button>
@@ -586,7 +586,7 @@
               <label for="permissionStyle" title="Controls the runner's write and shell permissions. 'Look only' is safest — the model can read but never change files. Each level adds more power and more risk.">What may the runner do?</label>
               <select id="permissionStyle">
                 <option value="look-only">Look only — read files, no writes</option>
-                <option value="plan-first">Plan first — describe changes, dry-run tools</option>
+                <option value="plan-first">Plan first — real reads, writes become proposal diffs</option>
                 <option value="edit-ask" selected>Edit — ask before each file change</option>
                 <option value="edit-auto">Edit — auto-approve file changes (no shell)</option>
                 <option value="edit-shell">Edit + shell — auto edits and bash (risky)</option>
@@ -609,7 +609,7 @@
               <strong>not</strong> confined to it; <code>--no-network</code> is best-effort only.
             </div>
             <div id="planNote" class="note" style="display: none">
-              &#8505; <strong>Plan mode:</strong> the model describes actions instead of executing writes and shell commands.
+              &#8505; <strong>Plan mode:</strong> read-only tools run for real; proposed writes are recorded as unified diffs and never executed.
             </div>
 
             <div class="row" style="margin-top: 0.75rem">
@@ -1355,7 +1355,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
 
       const PERMISSION_STYLE_HINTS = {
         'look-only': 'Read-only tools only. Safest way to explore a repo.',
-        'plan-first': 'The model describes what it would do without writing files or running shell.',
+        'plan-first': 'Reads run for real; proposed writes are recorded as diffs, never executed.',
         'edit-ask': 'Default — you confirm each file change in Terminal.',
         'edit-auto': 'Skips write confirmations. Shell stays off.',
         'edit-shell': 'Auto-edits plus bash. Enables --chaos-ok. Use only when you need tests or npm.',

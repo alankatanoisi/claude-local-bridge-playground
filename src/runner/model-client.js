@@ -201,11 +201,21 @@ function postStream(body, cb, bridgeUrl, opts) {
                 id: event.message.id,
                 role: event.message.role,
                 type: event.message.type,
+                // Rarely present at start; message_delta below usually fills these.
+                stop_reason: event.message.stop_reason ?? null,
+                stop_sequence: event.message.stop_sequence ?? null,
               };
               usage = { ...usage, ...(event.message.usage || {}) };
             }
-            if (event.type === 'message_delta' && event.usage) {
-              usage = { ...usage, ...event.usage };
+            if (event.type === 'message_delta') {
+              // P1-02: the terminal metadata for a streamed message arrives on
+              // message_delta. Preserve it so streaming and buffered responses
+              // expose identical stop_reason / stop_sequence / usage.
+              if (event.delta) {
+                if (event.delta.stop_reason !== undefined) messageMeta.stop_reason = event.delta.stop_reason;
+                if (event.delta.stop_sequence !== undefined) messageMeta.stop_sequence = event.delta.stop_sequence;
+              }
+              if (event.usage) usage = { ...usage, ...event.usage };
             }
             if (event.type === 'content_block_start' && typeof event.index === 'number' && event.content_block) {
               fullContent[event.index] = event.content_block;

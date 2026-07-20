@@ -548,7 +548,9 @@ describe('agent loop — write/edit', () => {
       assert.equal(fs.existsSync(plannedPath), false);
       const lastMessage = secondRequest.messages[secondRequest.messages.length - 1];
       assert.equal(lastMessage.role, 'user');
-      assert.ok(lastMessage.content[0].content.includes('Plan mode: would'));
+      // P1-01: plan mode records the proposed new file instead of a vague "would".
+      assert.ok(lastMessage.content[0].content.includes('Plan mode: proposed new file recorded (NOT created)'));
+      assert.ok(lastMessage.content[0].content.includes('should not be written'));
       assert.ok(logged.includes('Plan captured'));
     } finally {
       console.log = originalLog;

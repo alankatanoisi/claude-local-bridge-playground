@@ -10,6 +10,7 @@ const safety = require('./safety');
 const { CATEGORIES } = require('./tool-catalog');
 const { normalizeSlot, inspectWorktreeStatus } = require('./worktree-utils');
 const { SHELL_AUTHORITY_SHORT } = require('./shell-policy');
+const { effectiveFlags, toolAboveCeiling } = require('./authority');
 
 const MODES = {
   default: {
@@ -44,8 +45,11 @@ const MODES = {
     orchestration: 'allow',
     worktree: 'allow',
   },
+  // P1-01: plan mode executes pure reads for real so the plan is informed by
+  // actual repository state. Every effectful category stays plan_only (the
+  // pipeline turns those asks into recorded proposals, never executions).
   plan: {
-    'read-only': 'plan_only',
+    'read-only': 'allow',
     write: 'plan_only',
     shell: 'plan_only',
     recovery: 'plan_only',
@@ -91,7 +95,9 @@ function isBlockedDir(basename) {
 }
 
 function activeMode(ctx) {
-  if (ctx.plan) return 'plan';
+  // WP2: the authority ceiling makes plan a one-way restriction — a run that
+  // started with --plan stays in plan mode even if ctx.plan is mutated later.
+  if (effectiveFlags(ctx).plan) return 'plan';
   if (ctx.acceptEdits && ctx.dontAsk) return 'acceptEditsAndDontAsk';
   if (ctx.dontAsk) return 'dontAsk';
   if (ctx.acceptEdits) return 'acceptEdits';
@@ -199,6 +205,24 @@ function _checkUncached(toolName, args, ctx) {
   const mode = activeMode(ctx);
   const category = CATEGORIES[toolName];
   const requestedPath = args && args.path;
+  // WP2: flags clamped to the immutable per-run authority ceiling. A mid-run
+  // mutation of ctx.allowShell / ctx.noNetwork / ctx.plan can narrow but never
+  // widen what the operator selected on the command line.
+  const eff = effectiveFlags(ctx);
+
+  if (toolAboveCeiling(toolName, ctx)) {
+    return enrichDecision(
+      { decision: 'deny', reason: "Tool '" + toolName + "' exceeds the run's authority ceiling (--tools)." },
+      {
+        category: category || 'unknown',
+        mode,
+        ruleId: 'authority_ceiling',
+        matchedGuards: ['authority_ceiling'],
+        severity: 'hard_deny',
+        explanation: 'The CLI --tools allowlist is an immutable ceiling; nothing mid-run can expose tools above it.',
+      },
+    );
+  }
 
   if (requestedPath) {
     const confined = safety.confinePath(ctx, requestedPath);
@@ -268,7 +292,7 @@ function _checkUncached(toolName, args, ctx) {
           },
         );
       }
-      if (issue.kind === 'network_command' && ctx.noNetwork) {
+      if (issue.kind === 'network_command' && eff.noNetwork) {
         return enrichDecision(
           { decision: 'deny', reason: 'Network command blocked under --no-network: ' + args.command.slice(0, 80) },
           {
@@ -304,7 +328,7 @@ function _checkUncached(toolName, args, ctx) {
     );
   }
 
-  if (category === 'shell' && !ctx.allowShell) {
+  if (category === 'shell' && !eff.allowShell) {
     return enrichDecision(
       { decision: 'deny', reason: 'Shell commands are disabled. Use --allow-shell to enable.' },
       {

@@ -50,8 +50,9 @@
  * All three return Promises. Synchronous callers should `await`.
  */
 
-const { TOOLS, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS, QUARANTINED_TOOLS } = require('./tool-catalog');
+const { TOOLS, CATEGORIES, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS, QUARANTINED_TOOLS } = require('./tool-catalog');
 const { isToolVisible } = require('./tool-visibility');
+const { planCeilingBlocksForce } = require('./authority');
 const permissions = require('./permissions');
 const safety = require('./safety');
 const { normalizeToolResult, resolveToolName } = require('./tool-envelope');
@@ -271,6 +272,16 @@ async function executeForce(toolName, args, ctx, toolUseId) {
 
   if (!isOfferedThisTurn(canonical, ctx)) {
     return denyNotOffered(toolName, canonical, resolved.aliasUsed);
+  }
+
+  // WP2: a run whose authority ceiling has plan=true has no user-approval
+  // flow, so nothing may legitimately force-execute an effectful tool. This
+  // closes the historical gap where executeForce bypassed plan-mode handling.
+  if (planCeilingBlocksForce(canonical, CATEGORIES[canonical], ctx)) {
+    return {
+      ok: false,
+      text: 'Plan mode: effectful tools cannot be force-executed (authority ceiling).',
+    };
   }
 
   const perm = permissions.check(canonical, args, { ...ctx, acceptEdits: true, dontAsk: true });

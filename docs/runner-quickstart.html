@@ -1010,10 +1010,13 @@ node bin/local-bridge-coordinator.js \
       <section>
         <h2>Plan mode</h2>
         <p>
-          Pass <code>--plan</code> to make the runner describe what it <em>would</em> do instead of actually doing it.
-          In plan mode, all write and shell tools return dry-run messages like
-          <em>"Plan mode: would Write src/app.js"</em>. Read tools still execute normally so the model can inspect the
-          project.
+          Pass <code>--plan</code> to make the runner propose changes instead of making them. Read-only tools run for
+          real so the model can inspect the actual project, and proposed file writes are materialized in memory and
+          recorded as unified diffs — the same format <code>apply_patch</code> accepts — without touching the file
+          system. Non-file effects (shell, worktree, orchestration) still return honest one-line
+          <em>"Plan mode: would &hellip;"</em> descriptions. Each recorded proposal also lands in the run ledger as a
+          <code>plan_proposed_effect</code> event and in the final result's <code>planProposals</code> list, so a plan
+          run produces an artifact you can review and later apply verbatim.
         </p>
         <pre><code>node bin/local-bridge-runner.js \
   --plan \
