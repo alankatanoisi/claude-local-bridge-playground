@@ -373,40 +373,137 @@ function scrubObject(value, scrubFn = scrubSecrets, options = {}, parentKey = nu
 }
 
 // ---------------------------------------------------------------------------
-// makeStreamingScrubber — sliding-window scrubber for chunked tool outputs
+// makeStreamingScrubber — line-aligned scrubber for chunked outputs (P1-11)
 // ---------------------------------------------------------------------------
 
-const STREAM_SCRUB_WINDOW = 4096;
+// Memory bounds. A single line with no newline is flushed in fixed-size slabs
+// once it exceeds STREAM_MAX_LINE_HOLD; an unterminated private-key block is
+// redacted fail-closed once it exceeds STREAM_MAX_PEM_HOLD.
+const STREAM_MAX_LINE_HOLD = 64 * 1024;
+const STREAM_MAX_PEM_HOLD = 256 * 1024;
+
+// Fence markers for multi-line private-key blocks. Kept in sync with the
+// private-key entry in SECRET_PATTERNS above.
+const PEM_BEGIN_MARKER = /-----BEGIN (?:RSA|OPENSSH|EC|DSA|PGP) PRIVATE KEY-----/;
+const PEM_END_MARKER = /-----END (?:RSA|OPENSSH|EC|DSA|PGP) PRIVATE KEY-----/;
 
 /**
- * Create a streaming scrubber that emits scrubbed chunks while holding a
- * trailing window in case a secret straddles a chunk boundary. push() returns
- * the scrubbed prefix safe to emit; end() returns whatever's left.
+ * Create a streaming scrubber whose output is *split-invariant*: for a given
+ * total input, the concatenated output of push()/end() is identical no matter
+ * where the chunk boundaries fall (P1-11 acceptance criterion).
  *
- * Correctness depends on no secret pattern matching more than
- * STREAM_SCRUB_WINDOW bytes — true for the current SECRET_PATTERNS, which
- * top out a few hundred chars for PEM blocks.
+ * How it works (replaces the old fixed 4KB trailing window, which could emit
+ * half of a secret before the rest of it arrived):
+ *
+ *   1. Line alignment — complete lines are scrubbed and emitted as whole
+ *      units; the trailing incomplete line is held until its newline (or
+ *      end()) arrives. Every single-line pattern (API keys, JWTs, labeled
+ *      stable identifiers, SECRET=... assignments) therefore sees the whole
+ *      line at once, regardless of chunking.
+ *   2. Bounded PEM parser — a `-----BEGIN ... PRIVATE KEY-----` fence with no
+ *      END on the same line switches to a hold state that buffers the block
+ *      (up to STREAM_MAX_PEM_HOLD) until the END fence closes it, then runs
+ *      the buffered scrubber so the replacement marker matches non-streaming
+ *      sinks exactly. Oversized blocks are redacted fail-closed: the marker
+ *      is emitted and further block content is dropped until the END fence.
+ *   3. Bounded memory — a pathological line longer than STREAM_MAX_LINE_HOLD
+ *      is flushed in deterministic fixed-size slabs measured from the line
+ *      start, so cut points depend on content, not chunk arrival.
+ *
+ * push() returns the scrubbed text safe to emit now; end() flushes the rest.
  */
 function makeStreamingScrubber() {
-  let buffer = '';
+  let partialLine = ''; // trailing bytes that have not seen a newline yet
+  let inPem = false; // inside an unterminated private-key block
+  let pemHold = ''; // buffered block content while inPem
+  let pemOverflowed = false; // block exceeded cap: marker emitted, now dropping
+
   function scrubFull(text) {
-    // Use the full scrubSecrets path (patterns + label-aware stable ids) so
-    // streaming sinks match buffered sinks.
+    // Full scrubSecrets path (patterns + label-aware stable ids) so streaming
+    // sinks match buffered sinks.
     return scrubSecrets(text);
   }
+
+  // Consume one complete line (newline included) or a forced slab; return
+  // whatever is safe to emit for it.
+  function consume(piece) {
+    if (inPem) {
+      if (pemOverflowed) {
+        // Marker already emitted; drop content until the END fence closes.
+        const endMatch = piece.match(PEM_END_MARKER);
+        if (endMatch) {
+          inPem = false;
+          pemOverflowed = false;
+          return scrubFull(piece.slice(endMatch.index + endMatch[0].length));
+        }
+        return '';
+      }
+      pemHold += piece;
+      if (PEM_END_MARKER.test(piece)) {
+        // Whole block collected — buffered scrub replaces it with the same
+        // [REDACTED:private_key_block] marker non-streaming sinks produce.
+        const out = scrubFull(pemHold);
+        inPem = false;
+        pemHold = '';
+        return out;
+      }
+      if (pemHold.length > STREAM_MAX_PEM_HOLD) {
+        // Fail closed rather than grow without bound.
+        pemHold = '';
+        pemOverflowed = true;
+        return '[REDACTED:private_key_block]';
+      }
+      return '';
+    }
+
+    const beginMatch = piece.match(PEM_BEGIN_MARKER);
+    if (beginMatch && !PEM_END_MARKER.test(piece.slice(beginMatch.index))) {
+      // Unterminated BEGIN fence: emit what precedes it, hold the rest.
+      const before = piece.slice(0, beginMatch.index);
+      inPem = true;
+      pemHold = piece.slice(beginMatch.index);
+      return before ? scrubFull(before) : '';
+    }
+    return scrubFull(piece);
+  }
+
   return {
     push(chunk) {
       if (!chunk) return '';
-      buffer += chunk;
-      if (buffer.length <= STREAM_SCRUB_WINDOW) return '';
-      const safeEnd = buffer.length - STREAM_SCRUB_WINDOW;
-      const head = buffer.slice(0, safeEnd);
-      buffer = buffer.slice(safeEnd);
-      return scrubFull(head);
+      let out = '';
+      partialLine += chunk;
+      // Walk newlines with a cursor instead of re-slicing the buffer per
+      // line, so one large push stays O(n).
+      let start = 0;
+      let nl;
+      while ((nl = partialLine.indexOf('\n', start)) !== -1) {
+        out += consume(partialLine.slice(start, nl + 1));
+        start = nl + 1;
+      }
+      if (start > 0) partialLine = partialLine.slice(start);
+      // Bound memory for a single enormous line: flush deterministic slabs
+      // measured from the line start (chunk-arrival independent).
+      while (partialLine.length > STREAM_MAX_LINE_HOLD) {
+        const slab = partialLine.slice(0, STREAM_MAX_LINE_HOLD);
+        partialLine = partialLine.slice(STREAM_MAX_LINE_HOLD);
+        out += consume(slab);
+      }
+      return out;
     },
     end() {
-      const out = scrubFull(buffer);
-      buffer = '';
+      let out;
+      if (inPem) {
+        // Unterminated block at stream end: match buffered behavior, which
+        // only redacts BEGIN..END pairs. Overflowed blocks stay dropped
+        // (marker was already emitted) — fail closed.
+        out = pemOverflowed ? '' : scrubFull(pemHold + partialLine);
+      } else {
+        out = scrubFull(partialLine);
+      }
+      partialLine = '';
+      pemHold = '';
+      inPem = false;
+      pemOverflowed = false;
       return out;
     },
   };
@@ -515,7 +612,8 @@ module.exports = {
   cachedRealpathSync,
   invalidateRealpathCache,
   makeStreamingScrubber,
-  STREAM_SCRUB_WINDOW,
+  STREAM_MAX_LINE_HOLD,
+  STREAM_MAX_PEM_HOLD,
   SYSTEM_DIRS,
   BLOCKED_DIRS,
   DENY_MATRIX_PATTERNS,

@@ -193,6 +193,11 @@ sink fan-out (P0-11):
 - Ledger payloads at append time
 - Transcript logs, human logs, archives, traces (existing scrubbers)
 
+The streaming scrubber is **split-invariant** (P1-11): output depends only on total content, never on
+where chunk boundaries fall. Complete lines are scrubbed as whole units, multi-line private-key
+blocks are held by a bounded fence parser (oversized blocks are redacted fail-closed), and memory is
+bounded even for pathological single-line output.
+
 Runner-owned artifacts under `.bridge-runner/` and `~/.bridge-runner/` are also **private by
 construction** (dirs `0700`, files `0600`; P0-12). `--no-session-persistence` disables resume
 checkpoints (`*.state.json`) only — recovery manifests and diagnostics may still write.
