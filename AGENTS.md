@@ -211,8 +211,13 @@ This section is for Cloud Agents running in a headless Linux VM (not Alan's Mac)
 - Prefer compact in-UI explanations for runner flags (hover/"what does this do"/glossary) over relying on long docs alone; Alan learns mainly by doing.
 - When drafting multi-step plans for this repo, write them as HTML rather than Markdown.
 - When resolving mutually exclusive or risky command-builder choices, grey out or warn without resetting unrelated toggles the user already set.
+- Prefer strengthening runner plan-mode so plans are usable without Alan manually spelling out every proposed step; skip a separate HTML plan doc on an implementation turn when he says to.
+- Creative expansion beyond a written slice is welcome when it stays inside minimalism and deterministic-control invariants.
+- After a runtime slice lands, prefer keep-building over a broad docs refresh unless Alan asks for docs or CLI/behavior changed enough to require it.
+- At P0/P1 chunk stop points, prefer annotated concordance/roadmap updates plus a dedicated agent-facing handoff (not only chat summary); commit/push/sync when he asks in the same turn.
 
 ## Learned Workspace Facts
 
 - A sibling Codex lab lives at `/Users/alanman/Developer/codex-local-bridge-playground`; keep that work separate from this Claude playground unless Alan explicitly asks to cross-apply.
 - Local runner session artifacts often live under `~/.bridge-runner`; prefer a unified transcript/index layout when changing logging rather than inventing a second parallel scheme.
+- Runtime concordance / P0–P1 remediation status is tracked in dated docs under `docs/` (assessment HTML plus agent-facing handoffs); annotate those when closing items rather than inventing a parallel tracker.

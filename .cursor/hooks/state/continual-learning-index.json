@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAtMs": 1784391500942,
+  "updatedAtMs": 1784523924964,
   "transcripts": {
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/0120b864-f449-45aa-882b-52a81cc26610/0120b864-f449-45aa-882b-52a81cc26610.jsonl": {
       "mtimeMs": 1781229979175.791
@@ -15,13 +15,13 @@
       "mtimeMs": 1783457704165.809
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/4e37209b-000b-4e87-ad03-4571041f76c7/4e37209b-000b-4e87-ad03-4571041f76c7.jsonl": {
-      "mtimeMs": 1779846582749.8418
+      "mtimeMs": 1779846582749.842
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/4e37209b-000b-4e87-ad03-4571041f76c7/subagents/0a95b1d1-16e9-4b67-ab92-e74b4e26c0f7.jsonl": {
       "mtimeMs": 1779843041428.119
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/4e37209b-000b-4e87-ad03-4571041f76c7/subagents/0d7fa567-428d-48e3-b22d-9f3f19cafa89.jsonl": {
-      "mtimeMs": 1779843540342.2988
+      "mtimeMs": 1779843540342.299
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/4e37209b-000b-4e87-ad03-4571041f76c7/subagents/1b17dfc5-847a-43c9-a3ff-48daeb551486.jsonl": {
       "mtimeMs": 1779842873822.3396
@@ -33,13 +33,13 @@
       "mtimeMs": 1779511505782.734
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/4e37209b-000b-4e87-ad03-4571041f76c7/subagents/3bc398b2-a47a-463d-a860-668fa82240f2.jsonl": {
-      "mtimeMs": 1779780129768.6636
+      "mtimeMs": 1779780129768.6633
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/4e37209b-000b-4e87-ad03-4571041f76c7/subagents/3eb1ae26-c37e-4458-a36e-e9ebd1d512c9.jsonl": {
       "mtimeMs": 1779511153616.618
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/4e37209b-000b-4e87-ad03-4571041f76c7/subagents/61f93c31-96d2-4d1a-bb14-0eed5a64bd5c.jsonl": {
-      "mtimeMs": 1779845830739.3044
+      "mtimeMs": 1779845830739.3042
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/4e37209b-000b-4e87-ad03-4571041f76c7/subagents/647000d8-3096-4ad8-8e01-8c50222a9a49.jsonl": {
       "mtimeMs": 1779616056126.6943
@@ -54,10 +54,10 @@
       "mtimeMs": 1779511759634.3171
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/4e37209b-000b-4e87-ad03-4571041f76c7/subagents/de730331-6298-4bad-a5e2-cea222ecfaa8.jsonl": {
-      "mtimeMs": 1779780156135.6858
+      "mtimeMs": 1779780156135.686
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/4e37209b-000b-4e87-ad03-4571041f76c7/subagents/eb30f1b0-4a24-4a94-923c-cd16650b9517.jsonl": {
-      "mtimeMs": 1779616057495.65
+      "mtimeMs": 1779616057495.6501
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/4e37209b-000b-4e87-ad03-4571041f76c7/subagents/fe997c40-88b0-4b3c-ac67-6ac9cf8abef4.jsonl": {
       "mtimeMs": 1779616047491.9436
@@ -69,7 +69,7 @@
       "mtimeMs": 1782586159960.5488
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/68b4799a-103d-4c1b-943e-1b077cd4de18/subagents/c8a580cc-47be-4351-b000-82cfb6b04037.jsonl": {
-      "mtimeMs": 1782586192076.3796
+      "mtimeMs": 1782586192076.38
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/9d029a9d-25dd-4555-9e9b-de35dbeb214d/9d029a9d-25dd-4555-9e9b-de35dbeb214d.jsonl": {
       "mtimeMs": 1779851448552.508
@@ -81,13 +81,25 @@
       "mtimeMs": 1779846426092.0447
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/da8df1f4-6c45-4003-9710-a8f7a4589da0/da8df1f4-6c45-4003-9710-a8f7a4589da0.jsonl": {
-      "mtimeMs": 1784391391559.9907
+      "mtimeMs": 1784523727269.3496
+    },
+    "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/da8df1f4-6c45-4003-9710-a8f7a4589da0/subagents/0a992504-e809-4f89-8976-bc8a967b82cd.jsonl": {
+      "mtimeMs": 1784523749814.1829
+    },
+    "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/da8df1f4-6c45-4003-9710-a8f7a4589da0/subagents/2ec7e900-9c94-4b73-93cb-58ea7e8715b6.jsonl": {
+      "mtimeMs": 1784521076921.2185
+    },
+    "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/da8df1f4-6c45-4003-9710-a8f7a4589da0/subagents/382eef71-eda6-4777-8f30-390855049000.jsonl": {
+      "mtimeMs": 1784482037265.5608
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/da8df1f4-6c45-4003-9710-a8f7a4589da0/subagents/675cfef9-1ecc-4eec-a314-c80344aee458.jsonl": {
       "mtimeMs": 1784389593634.262
     },
+    "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/da8df1f4-6c45-4003-9710-a8f7a4589da0/subagents/bab36fa6-a83f-4882-9d9b-e3ba9eb94edb.jsonl": {
+      "mtimeMs": 1784482014357.0312
+    },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/da8df1f4-6c45-4003-9710-a8f7a4589da0/subagents/e98c5e55-2dc8-4e5b-b3e7-1d9846542835.jsonl": {
-      "mtimeMs": 1784391417728.8774
+      "mtimeMs": 1784391503331.3748
     },
     "/Users/alanman/.cursor/projects/Users-alanman-Developer-claude-local-bridge-playground/agent-transcripts/dc38202c-6be4-4391-a08b-d4d352ce11e9/dc38202c-6be4-4391-a08b-d4d352ce11e9.jsonl": {
       "mtimeMs": 1779781926590.0725
