@@ -207,6 +207,8 @@ This section is for Cloud Agents running in a headless Linux VM (not Alan's Mac)
 
 ## Learned User Preferences
 
+These preferences are **universal for this repo**: every agent surface that reads this file or `CLAUDE.md` should follow them (Cursor, Claude Code, Codex, cloud agents). Cursor continual-learning usually updates this block first; when that happens, mirror the same bullets into `CLAUDE.md` so Claude-specific sessions stay aligned.
+
 - Treat `docs/command-builder.html` as the primary day-to-day runner UX; keep it lean, and update it when runner CLI flags or capabilities change.
 - Prefer compact in-UI explanations for runner flags (hover/"what does this do"/glossary) over relying on long docs alone; Alan learns mainly by doing.
 - When drafting multi-step plans for this repo, write them as HTML rather than Markdown.
@@ -215,8 +217,12 @@ This section is for Cloud Agents running in a headless Linux VM (not Alan's Mac)
 - Creative expansion beyond a written slice is welcome when it stays inside minimalism and deterministic-control invariants.
 - After a runtime slice lands, prefer keep-building over a broad docs refresh unless Alan asks for docs or CLI/behavior changed enough to require it.
 - At P0/P1 chunk stop points, prefer annotated concordance/roadmap updates plus a dedicated agent-facing handoff (not only chat summary); commit/push/sync when he asks in the same turn.
+- Technical guardrails and safety checks are not disrespect: Alan owns goal-level and executive decisions; agents own developer-intelligence guardrails (cwd/branch checks, risky-flag warnings, refuse unsafe shortcuts).
+- Prefer over-explaining Terminal/Git/app ownership (Terminal vs VS Code vs Cursor vs GitHub browser) over assuming Alan already knows the workflow.
 
 ## Learned Workspace Facts
+
+Keep this block mirrored in `CLAUDE.md` whenever it changes.
 
 - A sibling Codex lab lives at `/Users/alanman/Developer/codex-local-bridge-playground`; keep that work separate from this Claude playground unless Alan explicitly asks to cross-apply.
 - Local runner session artifacts often live under `~/.bridge-runner`; prefer a unified transcript/index layout when changing logging rather than inventing a second parallel scheme.

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Claude-specific instructions for this repository. Read `AGENTS.md` first; it contains the shared beginner-first workflow and safety rules.
+Claude-specific instructions for this repository. Read `AGENTS.md` first; it contains the shared beginner-first workflow and safety rules. The **Learned User Preferences** and **Learned Workspace Facts** blocks below must stay mirrored with `AGENTS.md` so Claude Code and Cursor see the same Alan preferences.
 
 ## Which Clone Is This?
 
@@ -189,6 +189,29 @@ When changing runner behavior or CLI options, update:
 - `docs/runner-quickstart.html`
 - `docs/command-builder.html`
 - `docs/threat-model.md` when safety behavior changes
+
+## Learned User Preferences
+
+These preferences are **universal for this repo** (same content as `AGENTS.md`). Follow them in Claude Code sessions too; do not treat them as Cursor-only memory. When continual-learning updates `AGENTS.md`, keep this block in sync.
+
+- Treat `docs/command-builder.html` as the primary day-to-day runner UX; keep it lean, and update it when runner CLI flags or capabilities change.
+- Prefer compact in-UI explanations for runner flags (hover/"what does this do"/glossary) over relying on long docs alone; Alan learns mainly by doing.
+- When drafting multi-step plans for this repo, write them as HTML rather than Markdown.
+- When resolving mutually exclusive or risky command-builder choices, grey out or warn without resetting unrelated toggles the user already set.
+- Prefer strengthening runner plan-mode so plans are usable without Alan manually spelling out every proposed step; skip a separate HTML plan doc on an implementation turn when he says to.
+- Creative expansion beyond a written slice is welcome when it stays inside minimalism and deterministic-control invariants.
+- After a runtime slice lands, prefer keep-building over a broad docs refresh unless Alan asks for docs or CLI/behavior changed enough to require it.
+- At P0/P1 chunk stop points, prefer annotated concordance/roadmap updates plus a dedicated agent-facing handoff (not only chat summary); commit/push/sync when he asks in the same turn.
+- Technical guardrails and safety checks are not disrespect: Alan owns goal-level and executive decisions; agents own developer-intelligence guardrails (cwd/branch checks, risky-flag warnings, refuse unsafe shortcuts).
+- Prefer over-explaining Terminal/Git/app ownership (Terminal vs VS Code vs Cursor vs GitHub browser) over assuming Alan already knows the workflow.
+
+## Learned Workspace Facts
+
+Same content as `AGENTS.md` — keep mirrored.
+
+- A sibling Codex lab lives at `/Users/alanman/Developer/codex-local-bridge-playground`; keep that work separate from this Claude playground unless Alan explicitly asks to cross-apply.
+- Local runner session artifacts often live under `~/.bridge-runner`; prefer a unified transcript/index layout when changing logging rather than inventing a second parallel scheme.
+- Runtime concordance / P0–P1 remediation status is tracked in dated docs under `docs/` (assessment HTML plus agent-facing handoffs); annotate those when closing items rather than inventing a parallel tracker.
 
 ## Handoff
 
