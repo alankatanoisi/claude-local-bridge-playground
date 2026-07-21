@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Runner forensics — the four P2-15 runs of 2026-07-20</title>
+<style>
+/* ── Palette roles (reference dataviz palette; light + dark selected, not flipped) ── */
+:root {
+  color-scheme: light;
+  --page:        #f9f9f7;
+  --surface-1:   #fcfcfb;
+  --text-primary:#0b0b0b;
+  --text-secondary:#52514e;
+  --muted:       #898781;
+  --grid:        #e1e0d9;
+  --baseline:    #c3c2b7;
+  --border:      rgba(11,11,11,0.10);
+  --series-1:    #2a78d6;  /* blue — read/explore steps */
+  --series-2:    #eb6834;  /* orange — write steps */
+  --status-critical: #d03b3b;
+  --status-warning:  #fab219;
+  --status-good:     #0ca30c;
+  --wash:        #f0efec;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page:        #0d0d0d;
+    --surface-1:   #1a1a19;
+    --text-primary:#ffffff;
+    --text-secondary:#c3c2b7;
+    --muted:       #898781;
+    --grid:        #2c2c2a;
+    --baseline:    #383835;
+    --border:      rgba(255,255,255,0.10);
+    --series-1:    #3987e5;
+    --series-2:    #d95926;
+    --status-critical: #d03b3b;
+    --status-warning:  #fab219;
+    --status-good:     #0ca30c;
+    --wash:        #383835;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--page); color: var(--text-primary);
+  font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 1060px; margin: 0 auto; padding: 32px 20px 80px; }
+h1 { font-size: 27px; line-height: 1.25; margin: 0 0 6px; }
+h2 { font-size: 20px; margin: 44px 0 10px; padding-top: 18px; border-top: 1px solid var(--grid); }
+h3 { font-size: 16px; margin: 24px 0 8px; }
+p, li { color: var(--text-primary); }
+.sub { color: var(--text-secondary); }
+.small { font-size: 13px; color: var(--muted); }
+code { font: 12.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--wash); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+a { color: var(--series-1); }
+table { border-collapse: collapse; width: 100%; margin: 12px 0 6px; font-size: 13.5px; }
+th { text-align: left; color: var(--text-secondary); font-weight: 600; border-bottom: 1px solid var(--baseline); padding: 6px 10px 6px 0; }
+td { border-bottom: 1px solid var(--grid); padding: 6px 10px 6px 0; vertical-align: top; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tilerow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 18px 0 6px; }
+.tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.tile .v { font-size: 26px; font-weight: 700; line-height: 1.15; }
+.tile .l { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+.tile .d { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.callout { border-left: 4px solid var(--series-1); background: var(--surface-1); border-radius: 8px; padding: 12px 16px; margin: 14px 0; }
+.callout.warn { border-left-color: var(--status-warning); }
+.callout.crit { border-left-color: var(--status-critical); }
+.defs { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 6px 18px; margin: 12px 0; }
+.defs dt { font-weight: 650; margin-top: 10px; }
+.defs dd { margin: 2px 0 8px 0; color: var(--text-secondary); }
+.chart-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; padding: 18px 18px 10px; margin: 16px 0; }
+.chart-title { font-weight: 650; font-size: 14.5px; }
+.chart-sub { font-size: 12.5px; color: var(--text-secondary); margin: 2px 0 8px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-secondary); margin: 4px 0 6px; }
+.legend .chip { display: inline-flex; align-items: center; gap: 6px; }
+.legend .sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+svg text { font: 11px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--muted); }
+svg .dl { fill: var(--text-secondary); font-weight: 600; }
+#tooltip {
+  position: fixed; pointer-events: none; z-index: 50; display: none;
+  background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 11px; font-size: 12.5px; line-height: 1.45;
+  box-shadow: 0 6px 24px rgba(0,0,0,.18); max-width: 300px;
+}
+details { margin: 8px 0 16px; }
+summary { cursor: pointer; color: var(--text-secondary); font-size: 13px; }
+.footer { margin-top: 48px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--grid); padding-top: 14px; }
+.tag { display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; border-radius: 999px; padding: 2px 8px; }
+.tag.crit { color: #fff; background: var(--status-critical); }
+.tag.good { color: #fff; background: var(--status-good); }
+.tag.warn { color: #5b4300; background: var(--status-warning); }
+@media (prefers-color-scheme: dark) { .tag.warn { color: #1a1a19; } }
+</style>
+</head>
+<body>
+<div id="tooltip"></div>
+<main>
+
+<h1>Runner forensics: the four P2-15 runs</h1>
+<p class="sub">2026-07-20 evening · task: <em>“Implement P2-15 (docs drift gate)”</em> · one Fable&nbsp;5 run and three Opus&nbsp;4.8 runs through the local bridge (<code>localhost:11437</code>).
+This report reconstructs what actually happened — permissions, performance, errors, and cost — from the runner’s own artifacts, for evaluating the runner while learning it.</p>
+
+<div class="tilerow">
+  <div class="tile"><div class="v">4</div><div class="l">runs attempted</div><div class="d">1 upstream-error death, 1 killed by operator, 1 truncation death, 1 finished-by-budget</div></div>
+  <div class="tile"><div class="v">$18.08</div><div class="l">recorded spend</div><div class="d">+ one run with <em>no cost record at all</em> (killed mid-flight)</div></div>
+  <div class="tile"><div class="v">103</div><div class="l">tool calls executed</div><div class="d">88 reads/searches · 3 writes · 0 denied · 0 asked a human</div></div>
+  <div class="tile"><div class="v">13</div><div class="l">bridge failures</div><div class="d">11 × HTTP 500 (empty body) · 2 × 120-second timeout</div></div>
+  <div class="tile"><div class="v">2.56M</div><div class="l">tokens billed</div><div class="d">73% of them cache <em>reads</em> — re-serving your own context</div></div>
+</div>
+
+<div class="callout">
+<strong>The one-paragraph story.</strong> All four runs faced the same intermittent upstream failure (empty-body <code>500 internal_error</code> from Anthropic, in bursts).
+Run&nbsp;1 (Fable) died because three failures landed <em>consecutively</em> and exhausted the retry budget of 2 — after 6.6 minutes of pure reading, zero writes.
+Run&nbsp;2 (Opus) sailed through a clean window but died the moment it tried to write code, because the default 2,000-token output cap truncated its first big file write.
+Run&nbsp;3 (Opus, cap raised) absorbed <em>five</em> 500s with retries, wrote the actual code in steps 24–26, and was then stopped by the <code>--max-cost-usd 10</code> circuit breaker while tidying up.
+Permissions never once intervened: every one of the 103 tool calls was auto-allowed by the <code>accept-edits</code> mode policy.
+</div>
+
+<h2 id="how-to-read">1 · How to read a run (the vocabulary)</h2>
+<p>The runner is a loop. Each cycle is a <strong>step</strong>:</p>
+<p><code>your prompt → model request → model replies (text + tool calls) → runner executes tools locally → results go back → next step</code></p>
+<dl class="defs">
+  <dt>step</dt><dd>One model request. A step either succeeds (the model replied) or errors (the bridge/model call failed). Retries after an error consume <em>new</em> step numbers — that is why error steps and tool steps interleave below.</dd>
+  <dt>tool call</dt><dd>The model asking the runner to do something locally (<code>read_file</code>, <code>search_text</code>, <code>edit_file</code>…). Several can happen in one step.</dd>
+  <dt>permission decision</dt><dd>Before executing any tool, the runner’s policy engine records: category (read-only / write), the active mode, which rule decided, and the decision (allow / ask / deny). Every decision is archived per call.</dd>
+  <dt>compaction (“clip”)</dt><dd>When the conversation grows too big, the runner compresses older messages. Recorded in the ledger with an estimated token count.</dd>
+  <dt>wait time (in the charts)</dt><dd>Seconds from “previous step’s tools finished” to “this step’s tools started” — i.e. model thinking + network + any failed attempts in between. Local tool execution itself was never slower than 0.67&nbsp;s all night, so <em>waiting on the model is essentially all of the elapsed time</em>.</dd>
+</dl>
+
+<h2 id="glance">2 · The four runs at a glance</h2>
+<table>
+<thead><tr><th>Run</th><th>Model</th><th>Ended by</th><th class="num">Steps</th><th class="num">Tool calls</th><th class="num">Writes</th><th class="num">Duration</th><th class="num">Cost</th></tr></thead>
+<tbody>
+<tr><td><strong>fable-run-1</strong><br><span class="small">…fable-5-xhigh-run-1</span></td><td>claude-fable-5</td><td><span class="tag crit">bridge_error</span> retry budget exhausted (500, timeout, timeout)</td><td class="num">27</td><td class="num">34</td><td class="num">0</td><td class="num">6 m 36 s</td><td class="num">$5.12</td></tr>
+<tr><td><strong>opus-run-1</strong><br><span class="small">…opus-4-8-xhigh-run-1</span></td><td>claude-opus-4-8</td><td><span class="tag warn">killed</span> operator stop (launched without <code>--capabilities edits</code>)</td><td class="num">8</td><td class="num">15</td><td class="num">0</td><td class="num">~27 s+</td><td class="num">no record</td></tr>
+<tr><td><strong>opus-run-2</strong><br><span class="small">…opus-4-8-xhigh-run-2</span></td><td>claude-opus-4-8</td><td><span class="tag crit">model_max_tokens</span> output truncated mid-write at the 2,000-token default cap</td><td class="num">8</td><td class="num">14</td><td class="num">0</td><td class="num">53 s</td><td class="num">$2.91</td></tr>
+<tr><td><strong>opus-run-3</strong><br><span class="small">…opus-4-8-xhigh-run-3</span></td><td>claude-opus-4-8</td><td><span class="tag good">cost_budget_exceeded</span> breaker at $10 — <em>after</em> the real work landed</td><td class="num">30</td><td class="num">40</td><td class="num">3</td><td class="num">5 m 33 s</td><td class="num">$10.05</td></tr>
+</tbody>
+</table>
+<p class="small">Flags common to all: <code>--effort xhigh --thinking auto --accept-edits</code>, no shell. Run 3 added <code>--max-tokens 16000 --max-steps 40 --max-cost-usd 10 --capabilities edits,recovery</code>.
+“No record” for opus-run-1 is itself a finding — see §7.</p>
+
+<h2 id="fable">3 · Run 1 (Fable 5): six minutes of reading, then the storm wins</h2>
+<p>Fable spent all 27 steps exploring the repo — 34 tool calls, all read-only (<code>read_file</code>&nbsp;×18, <code>search_text</code>&nbsp;×12, <code>list_files</code>&nbsp;×4), zero edits.
+From step 14 the upstream started flapping. Single failures were absorbed (retry, next step succeeds), but the run only survives while failures come one or two at a time: the retry budget is <strong>2 consecutive</strong>. At steps 25→26→27 came a 500, then two 120-second timeouts back-to-back — budget spent, run over. The two timeouts alone are 4 of the 6.6 minutes.</p>
+
+<div class="chart-card">
+  <div class="chart-title">Fable run — wait before each step’s tools ran</div>
+  <div class="chart-sub">Bar height = seconds waited (model + network + any failed attempt just before). ✕ marks a failed request; the two 120 s bars are the fatal timeouts. Hover any column for detail.</div>
+  <div class="legend">
+    <span class="chip"><span class="sw" style="background:var(--series-1)"></span>successful step (all read-only)</span>
+    <span class="chip"><span class="sw" style="background:var(--status-critical)"></span>✕ failed request (HTTP 500 / timeout)</span>
+  </div>
+  <div id="chart-fable"></div>
+  <details><summary>Table view of this chart</summary><div id="table-fable"></div></details>
+</div>
+
+<div class="callout crit">
+<strong>Why it died here and not earlier:</strong> the 500s at 14, 16, 18, 20–21 and 25 each recovered because a success reset the retry counter. The fatal pattern was three transient failures with no success in between (25, 26, 27). A retry budget of 2 is one bad minute away from any long run failing — worth an experiment (see §8).
+</div>
+<p class="small">Error bars for the quick 500s are drawn at a nominal height with ✕ because the archive does not time individual failures — their real duration is folded into the next blue bar’s wait. The 120 s timeout bars are exact (the client timeout is fixed).</p>
+
+<h2 id="run3">4 · Run 3 (Opus 4.8): the storm again — but this time the loop wins</h2>
+<p>Same task, same evening, five more 500s (two of them before the very first reply). Every burst stayed ≤ 2 deep, so retries absorbed all of them.
+The shape of the run is classic agent behavior: fast reads for ~3.5 minutes, then three big pauses — 65 s and 2 × 30 s — where <code>xhigh</code>-effort Opus composed the actual code, delivered as three <code>edit_file</code> calls (steps 24–26, orange). The cost breaker then ended the run at step 30 while it was updating its task checklist. The work survived: those three edits are what passed <code>npm run check:docs</code> and shipped as commit <code>fc60801</code>.</p>
+
+<div class="chart-card">
+  <div class="chart-title">Opus run 3 — wait before each step’s tools ran</div>
+  <div class="chart-sub">Same encoding as above; orange bars are the steps whose tools <em>wrote files</em>. Budget stop marked at step 30.</div>
+  <div class="legend">
+    <span class="chip"><span class="sw" style="background:var(--series-1)"></span>read / search step</span>
+    <span class="chip"><span class="sw" style="background:var(--series-2)"></span>write step (<code>edit_file</code>)</span>
+    <span class="chip"><span class="sw" style="background:var(--status-critical)"></span>✕ failed request (HTTP 500)</span>
+  </div>
+  <div id="chart-run3"></div>
+  <details><summary>Table view of this chart</summary><div id="table-run3"></div></details>
+</div>
+
+<div class="callout">
+<strong>The long pauses are the product, not a problem.</strong> The 65 s wait at step 21 and the ~30 s waits at 24–25 are the model reasoning at <code>xhigh</code> effort before committing 175 lines of new gate code. Cheap fast steps read; expensive slow steps write. If you ever see the <em>opposite</em> (long waits producing more reads), suspect wheel-spinning.
+</div>
+
+<h2 id="deaths">5 · The two short runs — each one a lesson</h2>
+<h3>opus-run-2 · death by output cap <span class="tag crit">model_max_tokens</span></h3>
+<p>Seven steps of brisk reading (median wait 3.4 s — Opus explores ~2× faster than Fable did on the same repo), then at step 8 the model began emitting its first big file write. The runner’s default is <code>--max-tokens 2000</code> <em>per response</em>; a 175-line script doesn’t fit. The response was cut mid-tool-call and the runner — correctly — refuses to act on a truncated write rather than risk applying half a file. Cost of the lesson: $2.91.</p>
+<p class="small">Rule of thumb going forward: any run that is expected to <em>create</em> files needs both <code>--capabilities edits</code> (to have write tools at all) <strong>and</strong> a raised <code>--max-tokens</code> (so the write fits in one response).</p>
+
+<h3>opus-run-1 · death by operator kill — and an observability gap</h3>
+<p>This run was launched without <code>--capabilities edits</code> (write tools not offered), spotted within seconds via the runner’s own preflight tip, and killed. It did 15 read-only tool calls in ~27 s first. Because the process was stopped with a signal, it never reached its shutdown path — so it wrote <strong>no archive folder, no catalog row, no autopsy, and no usage/cost record</strong>. Only the ledger and session state survived (they are appended live). Its API spend happened but is invisible to every local accounting surface. See §7.</p>
+
+<h2 id="permissions">6 · Permissions: what fired, and what never got tested</h2>
+<p>Every archived tool call carries a full permission verdict. Across all three archived runs the record is remarkably uniform:</p>
+<table>
+<thead><tr><th>Decision</th><th>Rule</th><th>Category</th><th>Mode</th><th>Severity</th><th class="num">Count</th></tr></thead>
+<tbody>
+<tr><td><span class="tag good">allow</span></td><td><code>mode_policy</code></td><td>read-only</td><td><code>acceptEdits</code></td><td><code>bypassable_ask</code></td><td class="num">85</td></tr>
+<tr><td><span class="tag good">allow</span></td><td><code>mode_policy</code></td><td>write</td><td><code>acceptEdits</code></td><td><code>bypassable_ask</code></td><td class="num">3</td></tr>
+</tbody>
+</table>
+<p>Reading that row: the <em>category</em> is what the tool inherently is; <em>severity</em> <code>bypassable_ask</code> means “this would normally ask a human, but the current mode may bypass it”; and <code>mode_policy</code> means the blanket mode made the decision — no guard, no deny-matrix entry, no per-tool rule was ever consulted. Explanation string on every one: <em>“Allowed by current permission mode.”</em></p>
+<div class="callout warn">
+<strong>What this means for your evaluation:</strong> tonight exercised exactly <em>one</em> cell of the permission matrix (acceptEdits ⇒ allow-everything-offered). Zero confirmations, zero denials, zero guard hits, zero loop warnings. The deny matrix (<code>.env</code>, keys, path escapes), the confirmation flow, and <code>plan</code> mode are all still <em>untested by real traffic</em>. The experiments in §8 are designed to light those cells up one at a time.
+</div>
+<p class="small">Also true and worth knowing: with <code>--accept-edits</code>, nothing in the system prompt tells the <em>model</em> its writes are unreviewed — the guardrail is purely runner-side. The forked prompt-audit of these runs suggested a short “harness contract” in the prompt (output cap, step/cost budgets, who reviews writes); see §8, experiment E.</p>
+
+<h2 id="perf">7 · Performance, tokens, and where the money went</h2>
+<h3>Latency</h3>
+<table>
+<thead><tr><th>Run</th><th class="num">Median wait/step</th><th class="num">Max wait</th><th class="num">Worst local tool exec</th></tr></thead>
+<tbody>
+<tr><td>fable-run-1</td><td class="num">6.5 s</td><td class="num">27.5 s</td><td class="num">0.67 s</td></tr>
+<tr><td>opus-run-1 (killed)</td><td class="num">3.2 s</td><td class="num">6.7 s</td><td class="num">0.03 s</td></tr>
+<tr><td>opus-run-2</td><td class="num">3.4 s</td><td class="num">7.8 s</td><td class="num">0.03 s</td></tr>
+<tr><td>opus-run-3</td><td class="num">5.9 s</td><td class="num">65.2 s</td><td class="num">0.43 s</td></tr>
+</tbody>
+</table>
+<p>Local tools are effectively free (worst case sub-second). <em>All</em> perceived slowness is model + network. Fable’s median was ~2× Opus’s for the same exploration work; Opus’s tail (65 s) is deliberate <code>xhigh</code> reasoning before writes, not a stall.</p>
+
+<h3>Token economics</h3>
+<table>
+<thead><tr><th>Run</th><th class="num">Fresh input</th><th class="num">Output</th><th class="num">Cache write</th><th class="num">Cache read</th><th class="num">Cache-read share</th><th class="num">Cost</th></tr></thead>
+<tbody>
+<tr><td>fable-run-1</td><td class="num">61,093</td><td class="num">3,374</td><td class="num">105,618</td><td class="num">524,171</td><td class="num">75.5%</td><td class="num">$5.12</td></tr>
+<tr><td>opus-run-2</td><td class="num">62,784</td><td class="num">3,377</td><td class="num">51,293</td><td class="num">114,466</td><td class="num">49.4%</td><td class="num">$2.91</td></tr>
+<tr><td>opus-run-3</td><td class="num">101,809</td><td class="num">23,980</td><td class="num">156,883</td><td class="num">1,346,675</td><td class="num">82.4%</td><td class="num">$10.05</td></tr>
+</tbody>
+</table>
+<p>The dominant line item is <strong>cache reads</strong>: every step re-serves the whole conversation-so-far from cache (cheap per token, but the volume compounds — 30 steps × a growing context ≈ 1.35M tokens in run 3). Retries after 500s re-send it all again. This is why a flaky upstream is not just annoying but <em>expensive</em>: run 3’s five absorbed failures each re-billed a full cache read of the entire context.</p>
+<p>Compaction (“clip”) fired 4× in fable-run-1 (steps 13–20) and 4× in opus-run-3 (steps 15–19), each trimming an estimated 27k–47k tokens — that is the runner actively fighting the context balloon mid-run. It works, but note both clusters coincide with the runs’ heaviest reading phases.</p>
+
+<h3>Cost per run</h3>
+<div class="chart-card">
+  <div class="chart-title">Recorded cost per run (USD)</div>
+  <div class="chart-sub">Single measure, one hue. opus-run-1 has no bar because a killed process writes no usage record — its real spend is unknown.</div>
+  <div id="chart-cost"></div>
+  <details><summary>Table view of this chart</summary><div id="table-cost"></div></details>
+</div>
+
+<h2 id="artifacts">8 · Where the evidence lives (and the three gaps found)</h2>
+<table>
+<thead><tr><th>Artifact</th><th>Path</th><th>What it’s good for</th><th>Written</th></tr></thead>
+<tbody>
+<tr><td>Archive (per-turn JSON)</td><td><code>~/.bridge-runner/archive/runs/&lt;runId&gt;/</code></td><td>Every turn’s content incl. full permission verdicts, tool args, result sizes</td><td>flushed at run end</td></tr>
+<tr><td>Catalog index</td><td><code>~/.bridge-runner/archive/index/catalog.jsonl</code></td><td>One row per run: stop reason, steps, duration, cost — the “list of everything”</td><td>at run end</td></tr>
+<tr><td>Sessions index</td><td><code>~/.bridge-runner/archive/index/sessions.index.json</code></td><td>sessionId → runIds mapping</td><td>at run end</td></tr>
+<tr><td>Ledger</td><td><code>~/.bridge-runner/sessions/&lt;sid&gt;.ledger.jsonl</code></td><td><strong>Real per-event timestamps</strong> — the only source of true step timing; effect intents/results, compactions</td><td>live, append-only</td></tr>
+<tr><td>Session state</td><td><code>~/.bridge-runner/sessions/&lt;sid&gt;.state.json</code></td><td>Full message history for resume</td><td>live</td></tr>
+<tr><td>Autopsy</td><td><code>~/.bridge-runner/sessions/&lt;sid&gt;.autopsy.json</code></td><td>Stop reason, usage, tool count, cycle detection</td><td>at run end</td></tr>
+<tr><td>Transcript</td><td><code>~/.bridge-runner/logs/&lt;ts&gt;.jsonl</code></td><td>Human-ish event stream (request/error/usage per step)</td><td>live</td></tr>
+<tr><td>Flight recorder (trace)</td><td><code>~/.bridge-runner/traces/</code></td><td>Bridge boundary detail incl. <code>x-request-id</code> — <em>was OFF for all four runs</em></td><td>only with <code>--trace-level</code></td></tr>
+</tbody>
+</table>
+<p><strong>Gap 1 — archive timestamps lie about timing.</strong> Every turn file in an archived run carries the flush-time, not the event time (all of fable’s 62 turns say 01:46:20). Timing truth lives only in the ledger. Fine once you know; a trap if you don’t.</p>
+<p><strong>Gap 2 — killed runs are financially invisible.</strong> Archive, catalog, autopsy and the usage line are all end-of-run writes; a SIGKILL leaves only ledger + state, and no cost anywhere. If you evaluate spend from the catalog alone you will undercount.</p>
+<p><strong>Gap 3 — no <code>x-request-id</code> on errors.</strong> The 500s were empty-bodied; the one identifier Anthropic could act on (the request id header) is captured by the trace layer, which was off, and the runner’s error line doesn’t include it. Turning on <code>--trace-level summary</code> during flaky periods costs little and makes failures reportable.</p>
+
+<h2 id="next">9 · Suggested next experiments (one knob at a time)</h2>
+<table>
+<thead><tr><th></th><th>Experiment</th><th>What it tests</th><th>How</th></tr></thead>
+<tbody>
+<tr><td>A</td><td>Same task, <strong>default permission mode</strong> (drop <code>--accept-edits</code>)</td><td>The confirmation flow you have never seen fire — writes should pause and ask</td><td>re-run a small write task without <code>--accept-edits</code>; watch for the ask prompt; check how <code>ask</code> is archived</td></tr>
+<tr><td>B</td><td>Ask the runner to read <code>.env</code> or <code>~/.ssh</code> (in a scratch project!)</td><td>The deny matrix — should refuse with a guard rule, not <code>mode_policy</code></td><td>plant a dummy <code>.env</code>; prompt “read .env”; confirm a <code>deny</code> decision appears in the archive</td></tr>
+<tr><td>C</td><td><code>--plan</code> mode on a write task</td><td>Plan mode’s promise: exploration allowed, mutation blocked</td><td>same P2-16-sized task with <code>--permission-mode plan</code></td></tr>
+<tr><td>D</td><td><code>--trace-level summary</code> during the next flaky window</td><td>Captures upstream status + <code>x-request-id</code> per request boundary</td><td>flip the flag; grep the trace for <code>status_code</code> on failures</td></tr>
+<tr><td>E</td><td>A 10-line “harness contract” in the prompt</td><td>Whether telling the model its own limits (output cap, budgets, unreviewed writes, who runs checks) prevents run-2-style deaths</td><td><code>--append-system-prompt</code> with caps stated; rerun a write-heavy task at <code>--max-tokens 2000</code> deliberately and see if it splits its writes</td></tr>
+<tr><td>F</td><td>Retry budget stress opinion</td><td>Whether <code>MAX_BRIDGE_RETRIES = 2</code> is too thin for real evenings like this one</td><td>discuss raising to 3–4 with jittered backoff, or a per-run cumulative-failure breaker — code change, so decide deliberately</td></tr>
+</tbody>
+</table>
+
+<div class="footer">
+Sources: archive runs <code>1e3a8159…</code> (fable-run-1), <code>c363e85b…</code> (opus-run-2), <code>033e8dda…</code> (opus-run-3); ledgers &amp; autopsies under <code>~/.bridge-runner/sessions/runner-p2-15-*</code>; transcripts of 2026-07-21T01:39Z / 03:21Z / 03:22Z.
+Timing derives from ledger timestamps (wait = gap between consecutive tool batches; includes failed attempts). Costs are the runner’s catalog-pricing estimates. Quick-500 durations are not individually recorded; timeout bars are exact by definition.
+Report generated 2026-07-20 by the operator session that shipped commit <code>fc60801</code>. Charts use the reference dataviz palette (validated light + dark); every chart has a table view.
+</div>
+</main>
+
+<script>
+// ── Data (extracted from ledgers + archives; see footer for provenance) ──────
+const FABLE = {
+  steps: 27,
+  ok: {1:2.49,2:2.5,3:3.14,4:2.08,5:8.34,6:2.57,7:5.63,8:4.64,9:5.32,10:9.26,11:6.53,12:4.7,13:8.77,15:10.42,17:14.83,19:11.64,22:27.53,23:7.2,24:11.47},
+  tools: {1:2,2:3,3:2,4:2,5:2,6:2,7:3,8:1,9:1,10:2,11:2,12:1,13:1,15:2,17:1,19:2,22:1,23:2,24:2},
+  err: {14:"HTTP 500 (empty body)",16:"HTTP 500 (empty body)",18:"HTTP 500 (empty body)",20:"HTTP 500 (empty body)",21:"HTTP 500 (empty body)",25:"HTTP 500 (empty body)",26:"timeout after 120 s",27:"timeout after 120 s"},
+  timeoutSteps: [26,27]
+};
+const RUN3 = {
+  steps: 30,
+  ok: {3:5.88,4:4.22,5:4.05,6:4.19,7:3.76,8:4.38,9:2.99,10:4.51,11:43.24,12:3.93,13:3.73,14:11.77,15:4.29,16:13.54,17:4.84,18:3.61,19:12.55,20:7.29,21:65.21,24:30.47,25:30.72,26:15.25,27:6.42,29:22.68},
+  tools: {3:2,4:3,5:3,6:2,7:2,8:2,9:1,10:1,11:2,12:1,13:1,14:2,15:1,16:2,17:1,18:1,19:3,20:3,21:2,24:1,25:1,26:1,27:1,29:1},
+  writes: [24,25,26],
+  err: {1:"HTTP 500 (empty body)",2:"HTTP 500 (empty body)",22:"HTTP 500 (empty body)",23:"HTTP 500 (empty body)",28:"HTTP 500 (empty body)"},
+  stop: {step:30, label:"cost breaker $10"}
+};
+const COST = [
+  {run:"fable-run-1", cost:5.12},
+  {run:"opus-run-1", cost:null},
+  {run:"opus-run-2", cost:2.91},
+  {run:"opus-run-3", cost:10.05},
+];
+
+const tt = document.getElementById('tooltip');
+function showTT(html, ev){ tt.innerHTML = html; tt.style.display='block'; moveTT(ev); }
+function moveTT(ev){
+  const pad=14, w=tt.offsetWidth, h=tt.offsetHeight;
+  let x=ev.clientX+pad, y=ev.clientY+pad;
+  if (x+w>window.innerWidth-8) x=ev.clientX-w-pad;
+  if (y+h>window.innerHeight-8) y=ev.clientY-h-pad;
+  tt.style.left=x+'px'; tt.style.top=y+'px';
+}
+function hideTT(){ tt.style.display='none'; }
+
+// Rounded-top bar path (data-end rounded, baseline square — per mark spec).
+function barPath(x,y,w,h,r){
+  r=Math.min(r,w/2,h);
+  return `M${x},${y+h} L${x},${y+r} Q${x},${y} ${x+r},${y} L${x+w-r},${y} Q${x+w},${y} ${x+w},${y+r} L${x+w},${y+h} Z`;
+}
+const SVGNS='http://www.w3.org/2000/svg';
+function el(name, attrs, parent){
+  const n=document.createElementNS(SVGNS,name);
+  for(const k in attrs) n.setAttribute(k,attrs[k]);
+  if(parent) parent.appendChild(n);
+  return n;
+}
+
+// Step chart: bars for waits, ✕ markers for errors, optional write coloring.
+function stepChart(mountId, data, opts){
+  const W=1000, H=250, m={t:16,r:12,b:34,l:44};
+  const iw=W-m.l-m.r, ih=H-m.t-m.b;
+  const maxV=Math.max(...Object.values(data.ok), ...(data.timeoutSteps?[120]:[0]), 1);
+  const yMax=Math.ceil(maxV/20)*20;
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,width:'100%',role:'img','aria-label':'per-step wait time bar chart'});
+  const slot=iw/data.steps, bw=Math.min(slot*0.62, 26);
+  const y=v=>m.t+ih-(v/yMax)*ih;
+  // gridlines + y ticks
+  for(let v=0; v<=yMax; v+=yMax/4){
+    el('line',{x1:m.l,x2:W-m.r,y1:y(v),y2:y(v),stroke:'var(--grid)','stroke-width':1},svg);
+    const t=el('text',{x:m.l-6,y:y(v)+4,'text-anchor':'end'},svg); t.textContent=v+'s';
+  }
+  // baseline
+  el('line',{x1:m.l,x2:W-m.r,y1:y(0),y2:y(0),stroke:'var(--baseline)','stroke-width':1.5},svg);
+  for(let s=1;s<=data.steps;s++){
+    const cx=m.l+(s-0.5)*slot;
+    const isErr=data.err&&data.err[s];
+    const isTimeout=(data.timeoutSteps||[]).includes(s);
+    const isWrite=(data.writes||[]).includes(s);
+    let label=null, barH=null, fill=null;
+    if(isTimeout){ barH=120; fill='var(--status-critical)'; }
+    else if(isErr){ barH=null; fill='var(--status-critical)'; }
+    else if(data.ok[s]!=null){ barH=data.ok[s]; fill=isWrite?'var(--series-2)':'var(--series-1)'; }
+    if(barH!=null){
+      el('path',{d:barPath(cx-bw/2,y(barH),bw,y(0)-y(barH),4),fill,style:'fill:'+fill},svg);
+    }
+    if(isErr && !isTimeout){
+      // ✕ marker just above the baseline for quick failures (no height claimed)
+      const t=el('text',{x:cx,y:y(0)-5,'text-anchor':'middle'},svg);
+      t.setAttribute('style','fill:var(--status-critical);font-weight:800;font-size:12px');
+      t.textContent='✕';
+    }
+    // direct labels only on notable bars; timeouts merge the ✕ into the label
+    if(barH!=null && (barH>=25 || isTimeout)){
+      const t=el('text',{x:cx,y:y(barH)-8,'text-anchor':'middle','class':'dl'},svg);
+      if(isTimeout){ t.setAttribute('style','fill:var(--status-critical);font-weight:700'); t.textContent='✕ 120s'; }
+      else t.textContent=Math.round(barH)+'s';
+    }
+    // x tick label (every step for <=30 slots)
+    const xt=el('text',{x:cx,y:H-m.b+16,'text-anchor':'middle'},svg); xt.textContent=s;
+    // stop marker
+    if(data.stop && data.stop.step===s){
+      el('line',{x1:cx,x2:cx,y1:m.t,y2:y(0),stroke:'var(--status-warning)','stroke-width':2,'stroke-dasharray':'4 3'},svg);
+      const t=el('text',{x:cx-6,y:m.t+10,'text-anchor':'end'},svg);
+      t.setAttribute('style','fill:var(--text-secondary);font-weight:600');
+      t.textContent=data.stop.label;
+    }
+    // hover hit target: full column
+    const hit=el('rect',{x:cx-slot/2,y:m.t,width:slot,height:ih,fill:'transparent'},svg);
+    const parts=[`<strong>step ${s}</strong>`];
+    if(isErr) parts.push(`✕ failed: ${data.err[s]}`);
+    if(barH!=null && !isTimeout) parts.push(`waited ${barH}s before tools ran`);
+    if(isTimeout) parts.push(`waited the full 120 s client timeout`);
+    if(data.tools&&data.tools[s]) parts.push(`${data.tools[s]} tool call${data.tools[s]>1?'s':''}${isWrite?' — WRITE (edit_file)':' (read-only)'}`);
+    if(isErr&&!isTimeout) parts.push(`<span style="color:var(--muted)">quick-fail duration not individually recorded; it is folded into the next bar’s wait</span>`);
+    hit.addEventListener('mousemove',ev=>showTT(parts.join('<br>'),ev));
+    hit.addEventListener('mouseleave',hideTT);
+  }
+  // axis titles
+  const yt=el('text',{x:m.l,y:m.t-4},svg); yt.textContent='wait (s)';
+  document.getElementById(mountId).appendChild(svg);
+  // table view
+  if(opts&&opts.tableId){
+    let rows='<table><thead><tr><th class="num">Step</th><th>Result</th><th class="num">Wait (s)</th><th class="num">Tool calls</th></tr></thead><tbody>';
+    for(let s=1;s<=data.steps;s++){
+      const isErr=data.err&&data.err[s];
+      const isTimeout=(data.timeoutSteps||[]).includes(s);
+      const isWrite=(data.writes||[]).includes(s);
+      const res=isErr?('✕ '+data.err[s]):(data.stop&&data.stop.step===s?data.stop.label:(isWrite?'ok — write':'ok — read'));
+      const wait=isTimeout?120:(data.ok[s]!=null?data.ok[s]:'—');
+      rows+=`<tr><td class="num">${s}</td><td>${res}</td><td class="num">${wait}</td><td class="num">${(data.tools&&data.tools[s])||0}</td></tr>`;
+    }
+    rows+='</tbody></table>';
+    document.getElementById(opts.tableId).innerHTML=rows;
+  }
+}
+
+stepChart('chart-fable', FABLE, {tableId:'table-fable'});
+stepChart('chart-run3', RUN3, {tableId:'table-run3'});
+
+// Cost chart: horizontal bars, single hue, honest gap for the unrecorded run.
+(function(){
+  const W=1000,rowH=44,m={t:8,r:120,b:26,l:120};
+  const H=m.t+COST.length*rowH+m.b;
+  const iw=W-m.l-m.r;
+  const maxV=12;
+  const svg=el('svg',{viewBox:`0 0 ${W} ${H}`,width:'100%',role:'img','aria-label':'cost per run bar chart'});
+  const x=v=>m.l+(v/maxV)*iw;
+  for(let v=0;v<=maxV;v+=3){
+    el('line',{x1:x(v),x2:x(v),y1:m.t,y2:H-m.b,stroke:'var(--grid)','stroke-width':1},svg);
+    const t=el('text',{x:x(v),y:H-6,'text-anchor':'middle'},svg); t.textContent='$'+v;
+  }
+  el('line',{x1:x(0),x2:x(0),y1:m.t,y2:H-m.b,stroke:'var(--baseline)','stroke-width':1.5},svg);
+  COST.forEach((d,i)=>{
+    const cy=m.t+i*rowH+rowH/2;
+    const t=el('text',{x:m.l-8,y:cy+4,'text-anchor':'end'},svg);
+    t.setAttribute('style','fill:var(--text-secondary);font-weight:600;font-size:12px');
+    t.textContent=d.run;
+    if(d.cost==null){
+      const nt=el('text',{x:x(0)+8,y:cy+4},svg);
+      nt.setAttribute('style','fill:var(--muted);font-style:italic');
+      nt.textContent='no record — killed before shutdown accounting ran';
+    } else {
+      const bw2=18, bx=x(0), bwid=x(d.cost)-x(0);
+      // horizontal bar with rounded data end (right), square at baseline (left)
+      const r=4, xx=bx, yy=cy-bw2/2, hh=bw2, ww=Math.max(bwid,r);
+      const p=`M${xx},${yy} L${xx+ww-r},${yy} Q${xx+ww},${yy} ${xx+ww},${yy+r} L${xx+ww},${yy+hh-r} Q${xx+ww},${yy+hh} ${xx+ww-r},${yy+hh} L${xx},${yy+hh} Z`;
+      el('path',{d:p,style:'fill:var(--series-1)'},svg);
+      const vt=el('text',{x:x(d.cost)+8,y:cy+4,'class':'dl'},svg);
+      vt.textContent='$'+d.cost.toFixed(2);
+      const hit=el('rect',{x:m.l,y:cy-rowH/2,width:iw,height:rowH,fill:'transparent'},svg);
+      hit.addEventListener('mousemove',ev=>showTT(`<strong>${d.run}</strong><br>$${d.cost.toFixed(2)} estimated (catalog pricing)`,ev));
+      hit.addEventListener('mouseleave',hideTT);
+    }
+  });
+  document.getElementById('chart-cost').appendChild(svg);
+  let rows='<table><thead><tr><th>Run</th><th class="num">Cost (USD)</th></tr></thead><tbody>';
+  COST.forEach(d=>{rows+=`<tr><td>${d.run}</td><td class="num">${d.cost==null?'no record':'$'+d.cost.toFixed(2)}</td></tr>`;});
+  rows+='</tbody></table>';
+  document.getElementById('table-cost').innerHTML=rows;
+})();
+</script>
+</body>
+</html>
