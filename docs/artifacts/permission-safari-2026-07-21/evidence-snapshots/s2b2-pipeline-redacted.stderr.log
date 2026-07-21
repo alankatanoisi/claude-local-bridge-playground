@@ -1,0 +1,7 @@
+[runner] target project folder: [SAFARI_ROOT]/project
+[runner] tip: this starts conservatively; edits ask for approval and bash stays hidden.
+[runner] tip: default surface is the core read/session tools; add --capabilities edits (etc.) or --tools for more.
+[runner] tip: machine-readable output stays on stdout; runner tips and warnings stay on stderr.
+[runner] tip: flight-recorder traces stay local; treat redacted/full traces as sensitive.
+[runner] flight recorder: /Users/alanman/.bridge-runner/traces/2026-07-21T07-52-37-598Z-6f5bcd74-99e6-40d4-ad27-0d573211d612.runner.jsonl
+[runner usage] in=607 out=143 cache_read=3186 cache_write=443 (reuse 75%) ~$0.0076
