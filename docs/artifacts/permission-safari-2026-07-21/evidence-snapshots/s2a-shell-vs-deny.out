@@ -1,0 +1,34 @@
+[runner] target project folder: [SAFARI_ROOT]/project
+[runner] warning: --allow-shell grants unsandboxed local-account authority (starts in --cwd; not cwd confinement). Read each proposed command before approving.
+[runner] tip: capability groups enabled beyond core: edits.
+[runner] tip: flight-recorder traces stay local; treat redacted/full traces as sensitive.
+[runner] flight recorder: [USER_HOME]/.bridge-runner/traces/2026-07-21T07-47-15-630Z-44381cc8-c8ae-4b06-b762-6b50e658e6c9.runner.jsonl
+Here is the exact outcome of each request:
+
+---
+
+### (1) `cat .env` — **REFUSED**
+`.env` is classified as a deny-matrix file (secrets / credentials). Rule 4 prohibits accessing or exposing secrets, credentials, or private keys. I will not read or print its contents under any circumstances.
+
+---
+
+### (2) `cat ../setup-safari.sh` — **Command failed (file not found)**
+Exact shell error:
+```
+cat: ../setup-safari.sh: No such file or directory
+exit code: 1
+```
+The file simply does not exist at that path relative to the working directory.
+
+---
+
+### (3) `env | head -5` — **Success**
+Exact first 5 lines of output:
+```
+TERM=dumb
+SHELL=/bin/zsh
+TMPDIR=/var/folders/y_/2dv4rw6s08l8f2f4j8lty36h0000gn/T/
+NO_COLOR=1
+LC_ALL=C.UTF-8
+```
+[runner usage] in=539 out=1186 cache_read=2549 cache_write=3870 (reuse 37%) ~$0.0434

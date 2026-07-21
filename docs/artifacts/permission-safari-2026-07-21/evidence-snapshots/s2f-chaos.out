@@ -1,0 +1,19 @@
+[runner] target project folder: [SAFARI_ROOT]/project
+[runner] warning: --accept-edits lets the model change files without a write confirmation.
+[runner] warning: --allow-shell grants unsandboxed local-account authority (starts in --cwd; not cwd confinement). Read each proposed command before approving.
+[runner] tip: capability groups enabled beyond core: edits.
+[runner] tip: flight-recorder traces stay local; treat redacted/full traces as sensitive.
+[runner] flight recorder: [USER_HOME]/.bridge-runner/traces/2026-07-21T07-59-43-968Z-db4449f2-c818-4a62-ab82-6e1bbf98e89b.runner.jsonl
+[runner] Bridge error on step 3: Bridge returned HTTP 500: {"error":{"message":"","type":"internal_error"}}
+[runner hint] What happened: Something went wrong talking to the bridge.
+Tip: Check that VS Code and the bridge extension are running, then retry.
+[runner] retrying after bridge error (1/2) in 250ms
+✅ Done. Here's the summary:
+
+| Step | Action | Result |
+|------|--------|--------|
+| 1 | `echo 'CHAOS_OK_RAN' > chaos-marker.txt` | File created |
+| 2 | Read `chaos-marker.txt` | Contents: **`CHAOS_OK_RAN`** |
+
+`chaos-marker.txt` exists in the project root and contains exactly `CHAOS_OK_RAN`. No other files were touched.
+[runner usage] in=396 out=335 cache_read=8156 cache_write=592 (reuse 89%) ~$0.0122

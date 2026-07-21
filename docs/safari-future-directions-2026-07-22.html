@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Permission Safaris — Future Directions &amp; Outstanding Questions</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #f5f7fb;
+        --muted: #aeb8c8;
+        --panel: rgba(19, 28, 43, 0.9);
+        --line: rgba(176, 194, 221, 0.18);
+        --blue: #73b7ff;
+        --cyan: #54e1cf;
+        --green: #82e6a7;
+        --amber: #ffc76d;
+        --red: #ff8d9c;
+        --violet: #c6a4ff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: linear-gradient(145deg, #07101d, #0b1422 50%, #0d1726);
+        color: var(--ink);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+        line-height: 1.6;
+      }
+      .shell {
+        width: min(1100px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 44px 0 80px;
+      }
+      h1 {
+        font-size: clamp(2rem, 5vw, 3.2rem);
+        letter-spacing: -0.025em;
+        margin: 0 0 8px;
+      }
+      h2 {
+        font-size: 1.55rem;
+        margin: 0 0 16px;
+        letter-spacing: -0.02em;
+      }
+      h3 {
+        color: #dce9fb;
+        margin: 20px 0 6px;
+      }
+      p {
+        margin: 0 0 14px;
+      }
+      a {
+        color: var(--blue);
+      }
+      .eyebrow {
+        display: inline-block;
+        padding: 6px 12px;
+        border: 1px solid rgba(84, 225, 207, 0.4);
+        border-radius: 999px;
+        background: rgba(84, 225, 207, 0.1);
+        color: var(--cyan);
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .section {
+        margin-top: 22px;
+        padding: clamp(22px, 4vw, 40px);
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: var(--panel);
+      }
+      code {
+        padding: 0.1em 0.34em;
+        border: 1px solid rgba(115, 183, 255, 0.15);
+        border-radius: 6px;
+        background: rgba(115, 183, 255, 0.08);
+        color: #d9ebff;
+        overflow-wrap: anywhere;
+        font-family: 'SFMono-Regular', Consolas, monospace;
+        font-size: 0.92em;
+      }
+      .callout {
+        margin: 16px 0;
+        padding: 16px 18px;
+        border-left: 4px solid var(--amber);
+        border-radius: 0 12px 12px 0;
+        background: rgba(255, 199, 109, 0.08);
+      }
+      .callout.good {
+        border-left-color: var(--green);
+        background: rgba(130, 230, 167, 0.08);
+      }
+      .callout.bad {
+        border-left-color: var(--red);
+        background: rgba(255, 141, 156, 0.08);
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 18px 20px;
+        margin: 14px 0;
+        background: rgba(7, 14, 25, 0.4);
+      }
+      .card h3 {
+        margin-top: 0;
+      }
+      .tag {
+        display: inline-block;
+        padding: 3px 9px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        margin-right: 6px;
+      }
+      .tag.p0 {
+        background: rgba(255, 141, 156, 0.16);
+        color: var(--red);
+      }
+      .tag.p1 {
+        background: rgba(255, 199, 109, 0.16);
+        color: var(--amber);
+      }
+      .tag.p2 {
+        background: rgba(115, 183, 255, 0.14);
+        color: var(--blue);
+      }
+      .tag.p3 {
+        background: rgba(198, 164, 255, 0.14);
+        color: var(--violet);
+      }
+      .q {
+        color: var(--cyan);
+        font-weight: 700;
+      }
+      ul,
+      ol {
+        padding-left: 1.3rem;
+      }
+      li + li {
+        margin-top: 6px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.92rem;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .muted {
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <span class="eyebrow">Post-safari synthesis · 2026-07-22</span>
+      <h1>Future Directions &amp; Outstanding Questions</h1>
+      <p class="muted" style="max-width: 780px">
+        Safari 1 and Safari 2 (both 2026-07-21) are complete: two field-experimentation ladders across the runner's
+        permission surface, run against live models with fake fixtures, disposable sandboxes, and hash-manifested
+        evidence. This page is the forward-looking synthesis — what the safaris opened up, what remains unproven, and
+        what to do next. No runner source was changed during observation.
+      </p>
+
+      <section class="section">
+        <h2>Where things stand</h2>
+        <ul>
+          <li>
+            <strong>Safari 1</strong> — 8 live rounds over flag composition (<code>--capabilities</code>,
+            <code>--allow-shell</code>, <code>--dont-ask</code>, plan mode, worktrees). Every exercised boundary held.
+          </li>
+          <li>
+            <strong>Safari 2</strong> — Rounds A–P plus one isolated symlink proof: shell vs deny matrix, secret-leak
+            positive controls, write-side denials, prompt injection, budgets, artifact permissions.
+          </li>
+          <li>
+            <strong>Headline result:</strong> central redaction held on every tested positive-control surface, but an
+            in-root symlink exposed a <em>read-side target-basename gap</em> — the alias passed the deny matrix and only
+            redaction stood between the fixture and the transcript (finding S2-01).
+          </li>
+          <li>
+            <strong>Evidence:</strong> normalized snapshots + SHA-256 manifests under
+            <code>docs/artifacts/permission-safari-2026-07-21/</code>.
+          </li>
+        </ul>
+        <div class="callout">
+          <strong>Reading order for context:</strong> <code>permission-safari-findings-2026-07-21.md</code> →
+          <code>permission-safari-2-findings-2026-07-21.md</code> → <code>threat-model.md</code> → this page.
+          Agent-friendly version of this page: <code>HANDOFF-safari-future-directions-2026-07-22.md</code>.
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Priority map</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Band</th>
+              <th>Theme</th>
+              <th>Items</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag p0">P0</span></td>
+              <td>Observed, unresolved issues — fix + regression-test</td>
+              <td>FD-01 … FD-05</td>
+            </tr>
+            <tr>
+              <td><span class="tag p1">P1</span></td>
+              <td>Auditability &amp; receipt gaps</td>
+              <td>FD-06 … FD-10</td>
+            </tr>
+            <tr>
+              <td><span class="tag p2">P2</span></td>
+              <td>Hardening probes needing runner-level evidence</td>
+              <td>FD-11 … FD-17</td>
+            </tr>
+            <tr>
+              <td><span class="tag p3">P3</span></td>
+              <td>Methodology &amp; tooling investments</td>
+              <td>FD-18 … FD-22</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section">
+        <h2><span class="tag p0">P0</span> Observed, unresolved issues</h2>
+
+        <div class="card">
+          <h3>FD-01 · Resolved-target deny checks for reads <span class="muted">(S2-01)</span></h3>
+          <p>
+            An in-root symlink whose alias basename looked safe but pointed at <code>.env</code> was readable — the deny
+            matrix keyed off the requested name, not the resolved target. Redaction saved the day, which means one
+            control, not two, stood between the fixture and the transcript.
+          </p>
+          <p>
+            <strong>Do:</strong> apply the deny matrix to both the requested path and the realpath-resolved in-root
+            target for <code>read_file</code>, <code>search_text</code>, and <code>glob</code>; add regression tests;
+            update the caveat in <code>threat-model.md</code>.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>FD-02 · Sibling write tools + hardlinks <span class="muted">(S2-02 proof boundary)</span></h3>
+          <p>
+            <code>write_file</code> replaced the link object and did <em>not</em> write through — but
+            <code>edit_file</code> and <code>apply_patch</code> were never tested, and hardlinks weren't touched in
+            either safari.
+          </p>
+          <p>
+            <strong>Do:</strong> isolated fixture tests hashing the target before/after each write path; fix any
+            write-through observed.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>FD-03 · Post-timeout process lifecycle <span class="muted">(S2-03)</span></h3>
+          <p>
+            After a confirmation timeout the CLI printed its final result but stayed alive until <code>Ctrl-C</code>.
+            Likely a dangling handle (timer, stdin, socket).
+          </p>
+          <p><strong>Do:</strong> deterministic repro; defined exit code after timeout denial; no live handles.</p>
+        </div>
+
+        <div class="card">
+          <h3>FD-04 / FD-05 · Bridge deadline &amp; liveness ≠ readiness <span class="muted">(S2-04)</span></h3>
+          <p>
+            A wedged <code>/v1/messages</code> call idled &gt;3 minutes on an established local TCP connection while
+            <code>/v1/debug</code> cheerfully answered. Transport liveness told us nothing about the model path.
+          </p>
+          <p>
+            <strong>Do:</strong> client-side deadline + abort with an attributable error
+            (<code>bridge_request_timeout</code>), tested against a stalling mock server; add a message-path readiness
+            probe or label <code>/v1/debug</code> as transport-only everywhere.
+          </p>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2><span class="tag p1">P1</span> Auditability &amp; receipt gaps</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Gap</th>
+              <th>What "done" looks like</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>FD-06</strong></td>
+              <td>
+                One string — <code>User denied this action.</code> — covers explicit denial, missing TTY, and timeout.
+                Provenance is unrecoverable from artifacts.
+              </td>
+              <td>
+                Structured reason codes (<code>user_denied</code>, <code>approval_timeout</code>,
+                <code>no_interactive_approval_channel</code>, <code>policy_hard_deny</code>,
+                <code>authority_ceiling</code>, <code>capability_hidden</code>) in transcript, ledger, and model-facing
+                results.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>FD-07</strong></td>
+              <td><code>--chaos-ok</code> acknowledgment printed to console but left no durable trace (S2-05).</td>
+              <td>
+                Transcript/ledger event recording the acknowledgment and effective high-authority flags at run start.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>FD-08</strong></td>
+              <td>
+                Wall-clock and cost budgets (Rounds L/M) passed by operator observation — no terminal stop event found
+                in artifacts.
+              </td>
+              <td>
+                Deterministic <code>wall_clock_exceeded</code> / <code>cost_budget_exceeded</code> events across
+                transcript, trace, ledger, and <code>--json</code>; assert nothing effectful runs past the boundary.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>FD-09</strong></td>
+              <td>Two manual attempts can read as one run in appendable transcripts.</td>
+              <td>Per-run transcript isolation or explicit run-boundary records.</td>
+            </tr>
+            <tr>
+              <td><strong>FD-10</strong></td>
+              <td>Artifact permissions (Round P) verified by a one-off <code>ls -l</code>.</td>
+              <td>
+                Automated tests asserting <code>0700</code>/<code>0600</code> across every artifact-creation path.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section">
+        <h2><span class="tag p2">P2</span> Hardening probes still needing runner-level evidence</h2>
+        <div class="callout bad">
+          <strong>Core methodological lesson from Safari 2:</strong> a model refusal is not proof a runner filter works.
+          Several "denials" were the model declining to try — the runner's own enforcement was never hit. The probes
+          below need positive controls that actually emit the tool call (direct injection or a scripted model), always
+          with fake fixtures in disposable sandboxes.
+        </div>
+        <ul>
+          <li>
+            <strong>FD-11 · Shell-filter canonicalization.</strong> Round H (quoted paths, variable-built paths,
+            <code>$(echo …)</code>, normalized <code>./x/../.env</code>) produced only model refusals. Does the lexical
+            filter catch obfuscation at all?
+          </li>
+          <li>
+            <strong>FD-12 · Indirect egress under <code>--no-network</code>.</strong> Only direct <code>curl</code> was
+            tested. Probe proxy-env unsetting, DNS/<code>nc</code>, and runtime APIs (<code>node -e 'fetch(…)'</code>)
+            against a local-only listener.
+          </li>
+          <li>
+            <strong>FD-13 · Case-sensitive filesystem retest.</strong> Round O ran on case-insensitive macOS, where
+            <code>.ENV</code> existence checks alias <code>.env</code>. Repeat on Linux; also consider Unicode NFC/NFD
+            aliases of deny-listed basenames.
+          </li>
+          <li>
+            <strong>FD-14 · Redaction property tests.</strong> Chunk splitting, base64/URL-encoded/rot13 transforms,
+            multiline keys, adjacent punctuation, all trace levels — and the hard case: the model transforming a
+            secret-shaped value before emitting it.
+          </li>
+          <li>
+            <strong>FD-15 · Interruption completeness.</strong> <code>SIGINT</code>/kill at model-call, read-batch,
+            confirmation-wait, and post-write boundaries; verify pending intents reconcile and terminal events land.
+          </li>
+          <li>
+            <strong>FD-16 · Prompt-injection step burn.</strong> Round E showed resilience, but denial-loop waste
+            (steps, tokens, cost) from hostile in-project text was never measured.
+          </li>
+          <li>
+            <strong>FD-17 · OS-level sandbox exploration.</strong> Threat-model known limitation #1: regex scanning is
+            defense-in-depth, not isolation. Scoping spike for Seatbelt (macOS) / Landlock or containers (Linux) as an
+            opt-in shell execution mode.
+          </li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <h2><span class="tag p3">P3</span> Methodology &amp; tooling investments</h2>
+        <ul>
+          <li>
+            <strong>FD-18 · Evidence-bundle command.</strong> One command that exports normalized, redacted,
+            hash-manifested run evidence (no provider reasoning, no fixture contents, no private home-dir state). Safari
+            2's manual archive under <code>docs/artifacts/</code> is the template.
+          </li>
+          <li>
+            <strong>FD-19 · Recurring safari matrix.</strong> A compact, versioned probe subset re-run after any
+            permission/redaction/shell/persistence/transport change, with results diffed over time. Model-free probes
+            (direct tool-call injection) are CI candidates.
+          </li>
+          <li>
+            <strong>FD-20 · Cross-model control set.</strong> Repeat a small ladder across model families and effort
+            levels to separate stable runner behavior from model-specific refusal styles.
+          </li>
+          <li>
+            <strong>FD-21 · Outer-guardrail-compatible safari design.</strong> Safari 2 lost significant time to outer
+            product guardrails blocking bounded fake-fixture experiments. Pre-registered probe manifests (declared
+            fixtures, bounded commands, expected effects) would be legible to outer classifiers and human reviewers
+            alike.
+          </li>
+          <li>
+            <strong>FD-22 · Auto-mode retest.</strong> Auto permission mode was excluded due to the classifier outage.
+            When it recovers, characterize how outer auto mode composes with the runner's own ladder — and whether
+            either layer ever approves what the other would deny.
+          </li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <h2>Outstanding questions</h2>
+        <ol>
+          <li>
+            <span class="q">Target-aware denies:</span> should the deny matrix key off the resolved target for reads —
+            and what are the right semantics for hardlinks, which have no link object to inspect?
+          </li>
+          <li>
+            <span class="q">Write siblings:</span> do <code>edit_file</code> / <code>apply_patch</code> follow in-root
+            symlinks where <code>write_file</code> did not?
+          </li>
+          <li>
+            <span class="q">Filter reality:</span> would the lexical shell filter actually catch an obfuscated
+            deny-listed path, or has model refusal been masking an untested filter the whole time?
+          </li>
+          <li>
+            <span class="q">Redaction vs transformation:</span> does redaction survive the model base64-ing, reversing,
+            or chunking a secret-shaped value across messages?
+          </li>
+          <li>
+            <span class="q">Budget boundaries:</span> is there any window where an effectful tool call can land after
+            the wall-clock or cost budget is exceeded?
+          </li>
+          <li>
+            <span class="q">Timeout lifecycle:</span> is the live process after a confirmation timeout caused by a
+            dangling timer, stdin handle, socket, or intentional wait?
+          </li>
+          <li>
+            <span class="q">Naming:</span> should <code>--dont-ask</code> become <code>--no-prompts</code> or
+            <code>--non-interactive</code>, given that it does not approve writes?
+          </li>
+          <li>
+            <span class="q">Denial wording:</span> should a non-interactive refusal tell the model “User denied” when no
+            human decision occurred?
+          </li>
+          <li>
+            <span class="q">Bridge readiness:</span> how should <code>/v1/debug</code> be labeled or supplemented so a
+            wedged message path is detected before a run hangs?
+          </li>
+          <li>
+            <span class="q">Filesystem variation:</span> do case-sensitive filesystems and Unicode NFC/NFD aliases
+            change deny-matrix or redaction behavior?
+          </li>
+          <li>
+            <span class="q">Layer composition:</span> when outer auto mode returns, can it approve something the runner
+            denies, or vice versa?
+          </li>
+          <li>
+            <span class="q">Standing regression set:</span> which minimal probes should run after every
+            permission-related change, and which can be model-free in CI?
+          </li>
+        </ol>
+      </section>
+
+      <section class="section">
+        <h2>Suggested first follow-up session</h2>
+        <ol>
+          <li>In an isolated worktree, implement and regression-test FD-01: target-aware denial for reads.</li>
+          <li>
+            Evidence first for FD-02: test <code>edit_file</code>, <code>apply_patch</code>, and hardlinks before
+            changing their behavior.
+          </li>
+          <li>Handle FD-06 separately: structured denial reason codes will make later field evidence clearer.</li>
+          <li>After approved fixes land, run a short Safari 3 covering only affected controls.</li>
+        </ol>
+        <div class="callout good">
+          <strong>Do not redo work for its own sake.</strong> Safari 1’s flag-composition ladder passed; existing
+          secret-value scans are already hash-manifested; outer Codex/Claude Code guardrail blocks are context, not
+          runner failures.
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

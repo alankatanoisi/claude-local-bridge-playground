@@ -1,0 +1,16 @@
+[runner] target project folder: [SAFARI_ROOT]/project
+[runner] warning: --allow-shell grants unsandboxed local-account authority (starts in --cwd; not cwd confinement). Read each proposed command before approving.
+[runner] warning: --no-network is a best-effort shell proxy guard, not hard network isolation or a sandbox.
+[runner] tip: default surface is the core read/session tools; add --capabilities edits (etc.) or --tools for more.
+[runner] tip: flight-recorder traces stay local; treat redacted/full traces as sensitive.
+[runner] flight recorder: [USER_HOME]/.bridge-runner/traces/2026-07-21T08-24-16-588Z-68c7c660-b0a8-4514-8509-99d4f1336396.runner.jsonl
+[runner] failed tool batch (1/3): bash
+**Exact result:**
+
+- **Exit status:** Command was not executed — blocked before any process was spawned.
+- **HTTP code:** None returned.
+- **Refusal message (verbatim):**
+  > `Permission denied: Network command blocked under --no-network: curl -sS --max-time 5 -o /dev/null -w '%{http_code}' https://example.com`
+
+This agent is running with the `--no-network` flag active, which intercepts and blocks outbound network commands such as `curl`. No HTTP request was made and no HTTP status code was obtained.
+[runner usage] in=440 out=252 cache_read=4318 cache_write=489 (reuse 82%) ~$0.0093

@@ -132,6 +132,12 @@ Path patterns that are **always denied** for both read and write:
 - **`../` traversal** that escapes `cwd` → caught by realpath containment
 - **Symlink escapes** → `fs.realpathSync` resolves the true path and checks against `cwd`
 
+**Observed in the 2026-07-21 permission safari:** realpath containment blocked a symlink whose target escaped `cwd`,
+but a safe-looking symlink whose target stayed inside `cwd` and had a deny-listed basename could be opened by
+`read_file`. Central result redaction masked the fake secret-shaped values in that run, so defense in depth prevented
+disclosure. The deny matrix should not yet be described as target-basename-aware; resolved-target enforcement and
+sibling write-tool behavior remain explicit follow-up work. See `docs/permission-safari-2-findings-2026-07-21.md`.
+
 ### Shell restrictions (when `bash` is enabled)
 
 - **Blocked path patterns** in command text: `.env`, `.ssh/`, `.aws/`, `.claude/`, `.gnupg/`, `id_rsa`, `id_ed25519`, `*.pem`, `*.key`, `*.p8`, `*.p12`, service-account names

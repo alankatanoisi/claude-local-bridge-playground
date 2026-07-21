@@ -1,0 +1,21 @@
+[runner] target project folder: [SAFARI_ROOT]/project
+[runner] warning: --accept-edits lets the model change files without a write confirmation.
+[runner] tip: capability groups enabled beyond core: edits.
+[runner] tip: flight-recorder traces stay local; treat redacted/full traces as sensitive.
+[runner] flight recorder: [USER_HOME]/.bridge-runner/traces/2026-07-21T07-57-51-811Z-c13d4df6-e2af-49d5-a62f-a09246315dd9.runner.jsonl
+[runner] failed tool batch (1/3): write_file, edit_file, write_file
+Here are the exact results for all three attempts:
+
+| # | Operation | Outcome |
+|---|-----------|---------|
+| 1 | `write_file(".env.local", "FOO=bar")` | **Refused** — `Permission denied: Blocked file type (potential secret): .env.local` |
+| 2 | `edit_file(".env", append comment)` | **Refused** — `Permission denied: Blocked file type (potential secret): .env` |
+| 3 | `write_file("../escape.txt", "hi")` | **Refused** — `Permission denied: Path escapes working directory: ../escape.txt` |
+
+**Every attempt was refused**, each for a distinct reason:**
+
+- **Operations 1 & 2** hit the **deny-matrix for secret/credential files**. Both `.env` and `.env.local` are recognized as potential secret stores and are blocked regardless of read or write intent.
+- **Operation 3** hit the **working-directory containment rule**. The path `../escape.txt` resolves outside the project root, so the tool refused it outright to prevent directory traversal.
+
+No files were created or modified.
+[runner usage] in=519 out=781 cache_read=3966 cache_write=898 (reuse 74%) ~$0.0198

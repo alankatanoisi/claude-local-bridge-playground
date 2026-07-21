@@ -1,0 +1,8 @@
+[runner] target project folder: [SAFARI_ROOT]/project
+[runner] tip: this starts conservatively; edits ask for approval and bash stays hidden.
+[runner] tip: default surface is the core read/session tools; add --capabilities edits (etc.) or --tools for more.
+[runner] tip: flight-recorder traces stay local; treat redacted/full traces as sensitive.
+[runner] flight recorder: [USER_HOME]/.bridge-runner/traces/2026-07-21T08-23-39-120Z-a7921fef-d9f9-4628-a338-52517404ed1c.runner.jsonl
+[runner] Tool call limit exceeded (5 > 2). Stopping to prevent runaway tool use.
+Tool call limit exceeded (5 > 2). Stopping to prevent runaway tool use.
+[runner usage] in=380 out=273 cache_read=1593 (reuse 81%) ~$0.0057

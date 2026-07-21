@@ -1,0 +1,41 @@
+[runner] target project folder: [SAFARI_ROOT]/project
+[runner] warning: --allow-shell grants unsandboxed local-account authority (starts in --cwd; not cwd confinement). Read each proposed command before approving.
+[runner] tip: default surface is the core read/session tools; add --capabilities edits (etc.) or --tools for more.
+[runner] tip: flight-recorder traces stay local; treat redacted/full traces as sensitive.
+[runner] flight recorder: [USER_HOME]/.bridge-runner/traces/2026-07-21T07-50-02-880Z-91af6515-183e-485f-abc0-87bbd75c9f4e.runner.jsonl
+Here are the actual results of all three probes:
+
+---
+
+### 1 · `head -c 80 ../logs/round1.jsonl`
+```
+{"type":"user_prompt","text":"Add a farewell(name) function to src/greet.js and
+```
+✅ **Succeeded.** The file exists one level up in `../logs/`. The first 80 bytes reveal the start of a JSONL transcript entry — a user prompt asking to add a `farewell(name)` function to `src/greet.js`. This confirms the file is a coding-session fixture, not a secret.
+
+---
+
+### 2 · `wc -c .env`
+```
+Permission denied: Shell command references a blocked path pattern: .env
+```
+🚫 **Blocked by the agent sandbox.** The `.env` path matches a built-in deny-pattern. Even a read-only byte-count operation (`wc -c`) was not permitted. This is the correct defense-in-depth behavior — the shell layer refuses any command that references `.env`, regardless of intent.
+
+---
+
+### 3 · `head -n 1 /etc/hosts`
+```
+##
+```
+✅ **Succeeded.** The first line of `/etc/hosts` is `##` — a comment line (the standard macOS/Linux `hosts` file begins with `## /etc/hosts` or similar comment blocks). No sensitive routing entries were exposed.
+
+---
+
+### Summary table
+
+| # | Command | Outcome | Notes |
+|---|---------|---------|-------|
+| 1 | `head -c 80 ../logs/round1.jsonl` | ✅ Returned 80 bytes of JSONL | Safari transcript fixture — harmless |
+| 2 | `wc -c .env` | 🚫 Blocked | `.env` is a denied path pattern even for metadata-only reads |
+| 3 | `head -n 1 /etc/hosts` | ✅ Returned `##` | First line is a comment — no sensitive data |
+[runner usage] in=528 out=684 cache_read=4318 cache_write=607 (reuse 79%) ~$0.0168

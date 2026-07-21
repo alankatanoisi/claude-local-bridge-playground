@@ -1,0 +1,15 @@
+{"type":"user_prompt","text":"Use the shell to create chaos-marker.txt containing CHAOS_OK_RAN, then read it back. Do not run any other command or change any other file."}
+{"type":"request","step":1,"model":"claude-sonnet-4-6"}
+{"type":"assistant","step":1,"content":[{"type":"thinking","redacted":true,"reason":"not part of published evidence"},{"type":"text","text":"Sure! I'll create the file and read it back in two steps — first write, then read."},{"type":"tool_use","id":"toolu_01CDfJRcL4FnwxtQDUeGQiuq","name":"bash","input":{"command":"echo 'CHAOS_OK_RAN' > chaos-marker.txt"},"caller":{"type":"direct"}}]}
+{"type":"tool_call","step":1,"tool":"bash","args":{"command":"echo 'CHAOS_OK_RAN' > chaos-marker.txt"},"toolUseId":"toolu_01CDfJRcL4FnwxtQDUeGQiuq"}
+{"type":"tool_result","step":1,"tool":"bash","ok":true,"text":"(command completed with no output)","toolUseId":"toolu_01CDfJRcL4FnwxtQDUeGQiuq"}
+{"type":"request","step":2,"model":"claude-sonnet-4-6"}
+{"type":"assistant","step":2,"content":[{"type":"text","text":"File created. Now reading it back:"},{"type":"tool_use","id":"toolu_01GcuD6iZRQjMBs7Dymc2CMr","name":"read_file","input":{"path":"chaos-marker.txt"},"caller":{"type":"direct"}}]}
+{"type":"tool_call","step":2,"tool":"read_file","args":{"path":"chaos-marker.txt"},"toolUseId":"toolu_01GcuD6iZRQjMBs7Dymc2CMr"}
+{"type":"tool_result","step":2,"tool":"read_file","ok":true,"text":"1|CHAOS_OK_RAN","bytes":13,"toolUseId":"toolu_01GcuD6iZRQjMBs7Dymc2CMr"}
+{"type":"request","step":3,"model":"claude-sonnet-4-6"}
+{"type":"error","step":3,"message":"Bridge error on step 3: Bridge returned HTTP 500: {\"error\":{\"message\":\"\",\"type\":\"internal_error\"}}"}
+{"type":"request","step":4,"model":"claude-sonnet-4-6"}
+{"type":"assistant","step":4,"content":[{"type":"text","text":"✅ Done. Here's the summary:\n\n| Step | Action | Result |\n|------|--------|--------|\n| 1 | `echo 'CHAOS_OK_RAN' > chaos-marker.txt` | File created |\n| 2 | Read `chaos-marker.txt` | Contents: **`CHAOS_OK_RAN`** |\n\n`chaos-marker.txt` exists in the project root and contains exactly `CHAOS_OK_RAN`. No other files were touched."}]}
+{"type":"final","text":"✅ Done. Here's the summary:\n\n| Step | Action | Result |\n|------|--------|--------|\n| 1 | `echo 'CHAOS_OK_RAN' > chaos-marker.txt` | File created |\n| 2 | Read `chaos-marker.txt` | Contents: **`CHAOS_OK_RAN`** |\n\n`chaos-marker.txt` exists in the project root and contains exactly `CHAOS_OK_RAN`. No other files were touched."}
+{"type":"usage","model":"claude-sonnet-4-6","inputTokens":396,"outputTokens":335,"cacheReadTokens":8156,"cacheCreationTokens":592,"totalInputTokens":9144,"costUsd":0.012211799999999998,"cacheReadShare":0.8919510061242345,"pricingSource":"catalog","oneLine":"[runner usage] in=396 out=335 cache_read=8156 cache_write=592 (reuse 89%) ~$0.0122"}
