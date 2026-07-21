@@ -1,0 +1,149 @@
+# Handoff: Permission Safari — Bridge Runner Experimentation
+
+Date: 2026-07-20 (evening session)
+Repo: `/Users/alanman/Developer/claude-local-bridge-playground` (playground clone, branch `main`)
+Author: previous Claude Code session (Fable 5), continuing an earlier Sonnet 5 session that died on classifier errors.
+
+---
+
+## Who the user is (read this first)
+
+Alan is a strong systems thinker but a true programming/terminal novice. Follow the Novice-First
+Rules in the repo's `CLAUDE.md`: over-explain, define jargon once, say where every command runs and
+what success looks like.
+
+**Critical for this session: Alan is worried about approval fatigue.** He ended the last session
+because too many permission prompts were piling up. Mitigations the next agent MUST use:
+
+- Batch shell work into few, larger calls (or write a script with the Write tool to the scratchpad,
+  then run it once). Scratchpad writes don't prompt.
+- Prefer read-only tools (Read) over shell `cat`/`ls` where possible.
+- Do NOT run diagnostics speculatively; each Bash call costs Alan an approval decision.
+- **Avoid auto permission mode tonight** — the auto-mode safety classifier (`claude-opus-4-8`) had an
+  outage on 2026-07-20 and blocks ALL shell commands when down. Two sessions died to this. Normal
+  (default) mode with manual approvals works.
+
+## Mission: what the safari is
+
+An experimentation ladder ("safari") exercising the **bridge runner's permission machinery** in an
+isolated sandbox — observing how the local agent loop behaves at each permission boundary. This is
+learning/verification work, not feature work. No repo code changes are expected; the deliverable is
+a findings write-up.
+
+### Round ladder (planned, none executed yet)
+
+All rounds run the runner from the repo root, pointed at the sandbox via `--cwd`, with `--bare`
+(minimal context = cheap) and small `--max-steps`. Default model comes from the model catalog
+(`src/runner/model-catalog.js`); previous session used `claude-sonnet-5`.
+
+1. **Round 1 — confirmation flow (fail-closed).** Default permission mode, `--capabilities edits`,
+   no `--accept-edits`, small write task (e.g. "add a farewell function to src/greet.js").
+   Expectation (confirmed by code recon): with no TTY, `src/runner/confirmation.js`
+   `openTerminalInput()` returns null and non-interactive callers are **denied instead of hanging**.
+   Observe how the denial is recorded in the transcript and whether the model recovers gracefully.
+2. **Round 2 — plan mode.** Same task with `--plan`: real read-only inspection; writes recorded as
+   proposal diffs, never executed. Verify the proposal artifacts.
+3. **Round 3 — deny matrix.** Ask the runner to read `.env`, `secrets/fake_private_key.pem`, and try
+   a `../` path escape. Expect denials from `src/runner/safety.js` and redaction in transcripts.
+   (All sandbox secrets are FAKE props — obviously-bogus values, safe to display.)
+4. **Round 4 — boundary flags.** `--accept-edits` (writes proceed without confirmation), then
+   `--dont-ask` alone (verify shell stays hidden — `--dont-ask` must NOT enable shell by itself,
+   a core safety invariant from CLAUDE.md).
+5. **Write-up** of findings.
+
+### Sandbox (already built, ready to use)
+
+```
+/private/tmp/claude-501/-Users-alanman-Developer-claude-local-bridge-playground/f262cc60-63eb-4120-8464-7f9250ee5791/scratchpad/permission-safari/
+  project/README.md
+  project/src/greet.js                    <- trivial module for edit tasks
+  project/.env                            <- FAKE secrets (deny-matrix prop)
+  project/secrets/fake_private_key.pem    <- FAKE key (deny-matrix prop)
+```
+
+Rebuild script if needed: `setup-safari.sh` in the same scratchpad directory. An older sandbox from
+the dead Sonnet session exists under scratchpad session id `cf823abc-…` — ignore it.
+
+## THE BLOCKER: bridge is up but not healthy
+
+The runner needs the local bridge (`POST /v1/messages`). Diagnostic state as of handoff:
+
+| Port | Held by | Probe result |
+|---|---|---|
+| 11437 | `Code Helper (Plugin)` PID 78066 (VS Code extension host, ~3h uptime) | TCP connects, then broken pipe / connection refused (curl exit 55, then 7) |
+| 11438 | plain `node` PID 1466 (old process, **unidentified** — was about to check when session ended) | empty reply (curl exit 52) |
+| 11439 | same PID 78066 | connect then timeout (curl exit 28) |
+
+Probes used `GET /v1/debug` (the caller-auth-exempt route per `src/server.js:204`). No port gives a
+valid HTTP response. Interpretation: the extension host holds two bridge instances (extension
+restarted at some point; port-retry logic in `startServer` binds base 11437 then +1 per retry) and
+is **wedged** — sockets accepted but requests never serviced.
+
+Extension installed: `alankatanoisi.claude-local-bridge-1.0.0` in `~/.vscode/extensions` (this is
+the canonical build, installed globally; the playground repo is the same codebase being iterated on).
+
+### Recommended unblock (do this first)
+
+1. Ask Alan to reload the VS Code window: **Cmd+Shift+P → "Developer: Reload Window"**. Warn him
+   this restarts the whole extension host (including Claude Code — which is exactly why this handoff
+   doc exists). Fully quitting and reopening VS Code is an equally good, more familiar option.
+2. After reload, verify in ONE batched command:
+   `lsof -iTCP:11437 -sTCP:LISTEN -P; curl -s --max-time 5 http://127.0.0.1:11437/v1/debug; echo exit=$?`
+   Success = a JSON response (even an error JSON is fine — it proves HTTP is being serviced).
+3. If `/v1/debug` responds, do a real end-to-end check with a tiny POST to `/v1/messages` or just
+   run safari Round 1 directly (`--max-steps` small keeps cost low).
+4. Note: the bridge may require a caller token (`requireCallerAuth` in `src/server.js`); the runner
+   reads `BRIDGE_CALLER_TOKEN` env or `--caller-token`. Check `claudeLocalBridge` settings in VS Code
+   settings.json if auth errors appear. Do NOT log or echo real tokens — redact.
+5. Optional cleanup: identify `node` PID 1466 on 11438 (`ps -p 1466 -o command`) before assuming it
+   is safe to ignore. Do not kill it without Alan's sign-off.
+
+### Example Round 1 command (run from repo root, after bridge is healthy)
+
+```bash
+SAFARI=/private/tmp/claude-501/-Users-alanman-Developer-claude-local-bridge-playground/f262cc60-63eb-4120-8464-7f9250ee5791/scratchpad/permission-safari
+node bin/local-bridge-runner.js \
+  --cwd "$SAFARI/project" \
+  --bare \
+  --capabilities edits \
+  --max-steps 6 \
+  --transcript "$SAFARI/logs/round1.jsonl" \
+  --trace-level summary \
+  "Add a farewell(name) function to src/greet.js and export it."
+```
+
+(If the bridge landed on a non-default port, add `--bridge-url http://127.0.0.1:<port>`.)
+
+## Environment facts already verified (don't re-derive)
+
+- Disk: healthy, 24 GB free (the 950 MB crisis from the earlier session self-resolved via macOS
+  snapshot purge). No cleanup decision pending.
+- No hanging `local-bridge-runner` OS processes. The "hanging sessions" were UI-level chat sessions.
+- Repo state: clean `main` except untracked `conversation-2026-07-20-222252-safari-experimentation.txt`
+  (an exported transcript of the dead Sonnet session — keep, don't commit unless asked).
+- Runner flag surface confirmed from `bin/local-bridge-runner.js` help: `--permission-mode
+  default|plan|accept-edits|dont-ask|accept-edits-dont-ask|auto`, `--capabilities` groups (write
+  tools are NOT in the seven-tool safe-core default; need `edits`), `--bare`, `--confirm-timeout`.
+- Code recon done: `confirmation.js` fails closed without a TTY; plan-mode gating lives in
+  `src/runner/tool-pipeline.js` (~lines 395, 461).
+
+## Suggested skills
+
+- `diagnose` — if the bridge is still unhealthy after the window reload, use the disciplined
+  reproduce→minimise loop instead of ad-hoc curl poking (fewer, better-chosen commands = less
+  approval fatigue).
+- `fewer-permission-prompts` — Alan's stated pain point; offer to run it once real work resumes so
+  common read-only commands stop prompting.
+- `run` — for launching/verifying the bridge or runner app surfaces if needed.
+- `anthropic-platform-expert` / `anthropic-official` — only if questions about Anthropic APIs,
+  Claude Code behavior, or policy come up (per repo CLAUDE.md, use official sources).
+- `handoff` — if this session also has to stop early, regenerate this doc rather than losing state.
+
+## Safety invariants to respect (from repo CLAUDE.md — non-negotiable)
+
+- Don't touch bridge/auth/proxy internals (`src/credentials.js`, `src/proxy.js`, `src/server.js`,
+  `src/interceptors/**`) unless explicitly asked; this session is runner-observation only.
+- Keep transport invariants: OAuth-only upstream, no API-key fallbacks, no OpenAI routes.
+- Redact any real tokens in anything shown or written; the sandbox's fake secrets are safe.
+- End every work session with the standard handoff fields: folder/branch, files changed, checks run,
+  skipped items, risks.
