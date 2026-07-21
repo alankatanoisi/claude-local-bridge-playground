@@ -301,17 +301,22 @@ node bin/local-bridge-prompts.js show review          # metadata + body for one 
 node bin/local-bridge-prompts.js validate             # lint every template; non-zero exit on errors
 ```
 
-The model-facing tool surface is framed as four capability groups:
+The model-facing tool surface is organized as capability groups. **Only the `core` group is offered by
+default** (the small-core direction); every other group is an explicit opt-in via `--capabilities <groups>`
+or its dedicated flag:
 
-- **Read:** `list_files`, `read_file` (text + images/PDF), `search_text`, `glob`, `git_status`, `lsp_query` (opt-in)
-- **Session:** `manage_tasks` — in-session checklist stored in the session file
-- **Clarification:** `ask_user_question` — structured multiple-choice prompts (TTY required; fail closed in workers/`--dont-ask`)
-- **Orchestration:** `spawn_agent` — delegate a subtask to a child agent (top-level only; asks by default)
-- **Worktree:** `enter_worktree`, `exit_worktree`, `list_worktrees` — parallel git worktree slots per run
-- **Skills:** `run_skill` — load a skill document body by name (read-only)
-- **Write:** `edit_file`, `write_file`
-- **Recovery:** `undo`, `undo_edit`
-- **Shell:** `bash`, `manage_shell_jobs` — hidden unless `--allow-shell` is set; unsandboxed local-account authority (starts in `--cwd`, not a cwd jail)
+- **core** (always on): `list_files`, `read_file` (text + images/PDF), `search_text`, `glob`, `git_status`, `manage_tasks` (in-session checklist), `ask_user_question` (structured multiple-choice prompts; TTY required, fail closed in workers/`--dont-ask`)
+- **edits** (`--capabilities edits`): `edit_file`, `write_file` — writes still ask for confirmation unless `--accept-edits`
+- **recovery** (`--capabilities recovery`): `undo`, `undo_edit`
+- **agents** (`--capabilities agents`): `spawn_agent` — delegate a subtask to a child agent (top-level only; asks by default)
+- **worktrees** (`--capabilities worktrees`): `enter_worktree`, `exit_worktree`, `list_worktrees` — parallel git worktree slots per run
+- **skills** (`--capabilities skills`): `run_skill` — load a skill document body by name (read-only)
+- **lsp** (`--capabilities lsp` or `--enable-lsp`): `lsp_query`
+- **shell** (`--allow-shell` **only** — never via `--capabilities`): `bash`, `manage_shell_jobs` — unsandboxed local-account authority (starts in `--cwd`, not a cwd jail)
+
+Groups combine with a comma: `--capabilities edits,recovery`. Unknown names fail at startup with the valid
+list. The `--tools` exact allowlist still overrides group selection for power users (hard gates like
+`--allow-shell` still apply).
 
 `apply_patch` is **hidden by default** (advanced patch mode). After the P0-06 repair it
 applies unified diffs in pure JavaScript — no shell, full hunk validation before write,
@@ -392,66 +397,67 @@ and `"trusted": true` in the hooks config; hook commands are scanned by the same
 
 Useful runner options:
 
-| Option                                                   | Purpose                                                                                                    |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `--cwd <path>`                                           | Target project folder the tools can inspect or edit                                                        |
-| `--bare`                                                 | Minimal context: no instruction docs, repo block, or skills                                                |
-| `--include-instruction-docs`                             | Opt in to AGENTS.md / CLAUDE.md instruction hierarchy                                                      |
-| `--include-repo-context`                                 | Opt in to session repo-context block (cwd/git fingerprint)                                                 |
-| `--include-claude-md`                                    | Include CLAUDE.md in repo-context (needs `--include-repo-context`)                                         |
-| `--include-repo-map`                                     | Opt in to repo map inside repo-context                                                                     |
-| `--include-skills`                                       | Opt in to skills listing in the system prompt                                                              |
-| `--permission-mode <m>`                                  | default, plan, accept-edits, dont-ask, accept-edits-dont-ask, auto                                         |
-| `--tools <list>`                                         | Expose only these tools (e.g. include `apply_patch` to opt into advanced patch mode)                       |
-| `--append-system-prompt` / `--append-system-prompt-file` | Add text after the default system prompt                                                                   |
-| `--system-prompt-file`                                   | Replace default system prompt with a file                                                                  |
-| `--exclude-dynamic-system-prompt-sections`               | Put cwd/git fingerprint in the first user message instead                                                  |
-| `--no-session-persistence`                               | Disable resume checkpoints (\*.state.json); manifests/ledger/diagnostics may still write                   |
-| `--allowed-tools <list>`                                 | Same as `--tools` (legacy name)                                                                            |
-| `--include-file <path>`                                  | Attach a bounded file from `--cwd` before the model call                                                   |
-| `--prompt-template <name>` / `--template <name>`         | Prepend a reusable prompt template: review, cleanup, explore, or file                                      |
-| `--prompt-arg key=value`                                 | Fill a `{{key}}` placeholder in the chosen prompt template (repeatable)                                    |
-| `--effort <level>`                                       | Model effort: `auto` (omit), `low`, `medium`, `high`, `xhigh`, or `max`                                    |
-| `--thinking <mode>`                                      | Model-aware adaptive thinking: `auto`, `adaptive`, or `off`                                                |
-| `--human-log <path>`                                     | Write a plain text log of the prompt, tool results, and final answer                                       |
-| `--trace-level <level>`                                  | Write correlated flight-recorder traces: summary, redacted, or full                                        |
-| `--trace-path <path>`                                    | Choose the runner trace JSONL path; bridge trace path is correlated                                        |
-| `--bridge-url <url>`                                     | Override local bridge endpoint/root; also reads `BRIDGE_RUNNER_BRIDGE_URL`                                 |
-| `--caller-token <token>`                                 | Local bridge caller-auth token; can also use `BRIDGE_CALLER_TOKEN` env                                     |
-| `--plan`                                                 | Plan mode: real read-only inspection; writes become recorded proposal diffs                                |
-| `--no-network`                                           | Best-effort HTTP/HTTPS proxy guard for shell; not hard network isolation                                   |
-| `--system-prompt <s>`                                    | Override the default system prompt                                                                         |
-| `--continue`                                             | Resume from the latest session checkpoint in `~/.bridge-runner/sessions/`                                  |
-| `--stream`                                               | Stream assistant text live while still preserving streamed tool inputs                                     |
-| `--accept-edits`                                         | Auto-approve edit/write tools                                                                              |
-| `--allow-shell`                                          | Expose bash; unsandboxed local-account authority (not cwd confinement)                                     |
-| `--enable-lsp`                                           | Expose `lsp_query` (requires a language server on PATH)                                                    |
-| `--test-watch`                                           | After successful writes, auto-run detected tests (requires `--allow-shell`)                                |
-| `--no-archive`                                           | Skip per-turn archive export to `~/.bridge-runner/archive/`                                                |
-| `--model <name>`                                         | Model name (defaults to the runner's built-in default)                                                     |
-| `--max-tokens <n>`                                       | Max output tokens per model request                                                                        |
-| `--temperature <f>`                                      | Model temperature 0.0–1.0 (default: model default)                                                         |
-| `--output-format <f>`                                    | Output style: `text`, `json`, or `stream-json`                                                             |
-| `--transcript <path>`                                    | JSONL transcript path (default under `~/.bridge-runner/logs/`)                                             |
-| `--resume <path>`                                        | Deprecated — rejected. Use `--resume-session` with a session id/path                                       |
-| `--session-id <id>` / `--session-path <p>`               | Canonical session store id or explicit state-file path                                                     |
-| `--resume-session`                                       | Resume from the session store (needs `--session-id` or `--session-path`)                                   |
-| `--new-session`                                          | Force a fresh session (ignore `--resume` / `--continue`)                                                   |
-| `--ack-resume-risk`                                      | Allow resume even when session health is degraded                                                          |
-| `--fork-from <id>`                                       | Fork an existing session into a new session id/path                                                        |
-| `--task-scope`                                           | Task-scoped preset: tighter steps and compaction                                                           |
-| `--compact-each-turn`                                    | Aggressive compaction preset (compact-after-task UX)                                                       |
-| `--auto-memory`                                          | Opt-in runner auto-memory in context (default off)                                                         |
-| `--review-memory`                                        | List pending memory promotions for approval, then exit                                                     |
-| `--session-extract`                                      | Queue background session extraction after completion                                                       |
-| `--trusted-workspace`                                    | Enable hooks from `.bridge-runner/hooks.json` in cwd (exec hooks also need `"trusted": true` in that file) |
-| `--inherit-workspace-trust`                              | Child runs inherit a parent's validated cwd (no trust.json write)                                          |
-| `--shell-timeout <ms>`                                   | Max time for shell commands (default 30000, cap 900000)                                                    |
-| `--confirm-timeout <ms>`                                 | Auto-deny confirmation prompts after N ms (default: no timeout)                                            |
-| `--max-wall-clock-ms <n>`                                | Stop the run after N milliseconds                                                                          |
-| `--max-context-tokens <n>`                               | Warn when total tokens exceed the budget; halt at 2x budget                                                |
-| `--max-tool-calls-per-turn <n>`                          | Cap tool calls per model response; halt if exceeded                                                        |
-| `--help`                                                 | Show CLI usage                                                                                             |
+| Option                                                   | Purpose                                                                                                                                        |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--cwd <path>`                                           | Target project folder the tools can inspect or edit                                                                                            |
+| `--bare`                                                 | Minimal context: no instruction docs, repo block, or skills                                                                                    |
+| `--include-instruction-docs`                             | Opt in to AGENTS.md / CLAUDE.md instruction hierarchy                                                                                          |
+| `--include-repo-context`                                 | Opt in to session repo-context block (cwd/git fingerprint)                                                                                     |
+| `--include-claude-md`                                    | Include CLAUDE.md in repo-context (needs `--include-repo-context`)                                                                             |
+| `--include-repo-map`                                     | Opt in to repo map inside repo-context                                                                                                         |
+| `--include-skills`                                       | Opt in to skills listing in the system prompt                                                                                                  |
+| `--permission-mode <m>`                                  | default, plan, accept-edits, dont-ask, accept-edits-dont-ask, auto                                                                             |
+| `--tools <list>`                                         | Expose only these tools (e.g. include `apply_patch` to opt into advanced patch mode)                                                           |
+| `--capabilities <groups>`                                | Enable optional tool groups beyond the default core: `edits`, `recovery`, `agents`, `worktrees`, `skills`, `lsp` (shell needs `--allow-shell`) |
+| `--append-system-prompt` / `--append-system-prompt-file` | Add text after the default system prompt                                                                                                       |
+| `--system-prompt-file`                                   | Replace default system prompt with a file                                                                                                      |
+| `--exclude-dynamic-system-prompt-sections`               | Put cwd/git fingerprint in the first user message instead                                                                                      |
+| `--no-session-persistence`                               | Disable resume checkpoints (\*.state.json); manifests/ledger/diagnostics may still write                                                       |
+| `--allowed-tools <list>`                                 | Same as `--tools` (legacy name)                                                                                                                |
+| `--include-file <path>`                                  | Attach a bounded file from `--cwd` before the model call                                                                                       |
+| `--prompt-template <name>` / `--template <name>`         | Prepend a reusable prompt template: review, cleanup, explore, or file                                                                          |
+| `--prompt-arg key=value`                                 | Fill a `{{key}}` placeholder in the chosen prompt template (repeatable)                                                                        |
+| `--effort <level>`                                       | Model effort: `auto` (omit), `low`, `medium`, `high`, `xhigh`, or `max`                                                                        |
+| `--thinking <mode>`                                      | Model-aware adaptive thinking: `auto`, `adaptive`, or `off`                                                                                    |
+| `--human-log <path>`                                     | Write a plain text log of the prompt, tool results, and final answer                                                                           |
+| `--trace-level <level>`                                  | Write correlated flight-recorder traces: summary, redacted, or full                                                                            |
+| `--trace-path <path>`                                    | Choose the runner trace JSONL path; bridge trace path is correlated                                                                            |
+| `--bridge-url <url>`                                     | Override local bridge endpoint/root; also reads `BRIDGE_RUNNER_BRIDGE_URL`                                                                     |
+| `--caller-token <token>`                                 | Local bridge caller-auth token; can also use `BRIDGE_CALLER_TOKEN` env                                                                         |
+| `--plan`                                                 | Plan mode: real read-only inspection; writes become recorded proposal diffs                                                                    |
+| `--no-network`                                           | Best-effort HTTP/HTTPS proxy guard for shell; not hard network isolation                                                                       |
+| `--system-prompt <s>`                                    | Override the default system prompt                                                                                                             |
+| `--continue`                                             | Resume from the latest session checkpoint in `~/.bridge-runner/sessions/`                                                                      |
+| `--stream`                                               | Stream assistant text live while still preserving streamed tool inputs                                                                         |
+| `--accept-edits`                                         | Auto-approve edit/write tools                                                                                                                  |
+| `--allow-shell`                                          | Expose bash; unsandboxed local-account authority (not cwd confinement)                                                                         |
+| `--enable-lsp`                                           | Expose `lsp_query` (requires a language server on PATH)                                                                                        |
+| `--test-watch`                                           | After successful writes, auto-run detected tests (requires `--allow-shell`)                                                                    |
+| `--no-archive`                                           | Skip per-turn archive export to `~/.bridge-runner/archive/`                                                                                    |
+| `--model <name>`                                         | Model name (defaults to the runner's built-in default)                                                                                         |
+| `--max-tokens <n>`                                       | Max output tokens per model request                                                                                                            |
+| `--temperature <f>`                                      | Model temperature 0.0–1.0 (default: model default)                                                                                             |
+| `--output-format <f>`                                    | Output style: `text`, `json`, or `stream-json`                                                                                                 |
+| `--transcript <path>`                                    | JSONL transcript path (default under `~/.bridge-runner/logs/`)                                                                                 |
+| `--resume <path>`                                        | Deprecated — rejected. Use `--resume-session` with a session id/path                                                                           |
+| `--session-id <id>` / `--session-path <p>`               | Canonical session store id or explicit state-file path                                                                                         |
+| `--resume-session`                                       | Resume from the session store (needs `--session-id` or `--session-path`)                                                                       |
+| `--new-session`                                          | Force a fresh session (ignore `--resume` / `--continue`)                                                                                       |
+| `--ack-resume-risk`                                      | Allow resume even when session health is degraded                                                                                              |
+| `--fork-from <id>`                                       | Fork an existing session into a new session id/path                                                                                            |
+| `--task-scope`                                           | Task-scoped preset: tighter steps and compaction                                                                                               |
+| `--compact-each-turn`                                    | Aggressive compaction preset (compact-after-task UX)                                                                                           |
+| `--auto-memory`                                          | Opt-in runner auto-memory in context (default off)                                                                                             |
+| `--review-memory`                                        | List pending memory promotions for approval, then exit                                                                                         |
+| `--session-extract`                                      | Queue background session extraction after completion                                                                                           |
+| `--trusted-workspace`                                    | Enable hooks from `.bridge-runner/hooks.json` in cwd (exec hooks also need `"trusted": true` in that file)                                     |
+| `--inherit-workspace-trust`                              | Child runs inherit a parent's validated cwd (no trust.json write)                                                                              |
+| `--shell-timeout <ms>`                                   | Max time for shell commands (default 30000, cap 900000)                                                                                        |
+| `--confirm-timeout <ms>`                                 | Auto-deny confirmation prompts after N ms (default: no timeout)                                                                                |
+| `--max-wall-clock-ms <n>`                                | Stop the run after N milliseconds                                                                                                              |
+| `--max-context-tokens <n>`                               | Warn when total tokens exceed the budget; halt at 2x budget                                                                                    |
+| `--max-tool-calls-per-turn <n>`                          | Cap tool calls per model response; halt if exceeded                                                                                            |
+| `--help`                                                 | Show CLI usage                                                                                                                                 |
 
 Open [docs/command-builder.html](./docs/command-builder.html) in your browser if you prefer a form that builds these
 commands for you. See [docs/runner-expansion-roadmap.md](./docs/runner-expansion-roadmap.md) for a categorized plan to
@@ -532,8 +538,11 @@ with the code change so reviewers can see the regression approval explicitly.
 
 ### Explicit tool authority
 
-Tool visibility is controlled by ordinary feature flags and the optional `--tools` allowlist. There is no profile
-layer. Hidden capabilities such as shell still require their dedicated opt-in even when named in `--tools`.
+Tool visibility is controlled by capability groups (`core` by default, others via `--capabilities`), ordinary
+feature flags, and the optional `--tools` allowlist. There is no profile layer. Hidden capabilities such as
+shell still require their dedicated opt-in even when named in `--tools`, and the system prompt's capability
+prose is generated from the same visibility function as the offered tool definitions, so the prompt cannot
+advertise a tool that is not actually available on the run (P2-02).
 
 **Guardrails, not isolation.** Workspace trust is a consent record for a folder _path_ — it never scans, hashes,
 or certifies the folder's _contents_, and files added after you trust a folder are still covered by that consent.

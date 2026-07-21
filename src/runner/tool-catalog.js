@@ -91,6 +91,73 @@ function buildCatalog(modules) {
 
 const { TOOLS, CATEGORIES, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS, QUARANTINED_TOOLS } = buildCatalog(TOOL_MODULES);
 
+/**
+ * P2-01 (2026-07-20): capability groups — the runner's opt-in surface.
+ *
+ * `core` is the only group offered on a no-flag run (the "small core" from
+ * AGENTS.md). Every other group must be switched on explicitly:
+ *
+ *   - edits / recovery / agents / worktrees / skills / lsp → `--capabilities`
+ *   - lsp is also enabled by the older `--enable-lsp` flag
+ *   - shell → `--allow-shell` ONLY (never via --capabilities; the scary
+ *     consent flag must stay singular)
+ *   - apply_patch belongs to `edits` but stays hidden-by-default; only an
+ *     exact `--tools apply_patch` allowlist exposes it
+ *
+ * Insertion order here is the order group lines appear in the system prompt.
+ * The self-check below fails loudly if a tool is missing from the map or
+ * listed twice, so adding a tool without picking its group breaks the build
+ * instead of silently widening the default surface.
+ */
+const CAPABILITY_GROUPS = Object.freeze({
+  core: Object.freeze([
+    'list_files',
+    'read_file',
+    'search_text',
+    'glob',
+    'git_status',
+    'manage_tasks',
+    'ask_user_question',
+  ]),
+  edits: Object.freeze(['edit_file', 'write_file', 'apply_patch']),
+  recovery: Object.freeze(['undo', 'undo_edit']),
+  agents: Object.freeze(['spawn_agent']),
+  worktrees: Object.freeze(['enter_worktree', 'exit_worktree', 'list_worktrees']),
+  skills: Object.freeze(['run_skill']),
+  lsp: Object.freeze(['lsp_query']),
+  shell: Object.freeze(['bash', 'manage_shell_jobs']),
+});
+
+// Reverse map: tool name → group name, with exactly-one-group validation.
+function buildGroupIndex(groups, tools) {
+  const TOOL_GROUPS = {};
+  for (const [group, names] of Object.entries(groups)) {
+    for (const name of names) {
+      if (!tools[name]) {
+        throw new Error('tool-catalog: capability group "' + group + '" names unknown tool "' + name + '"');
+      }
+      if (TOOL_GROUPS[name]) {
+        throw new Error(
+          'tool-catalog: tool "' + name + '" is in two capability groups: ' + TOOL_GROUPS[name] + ', ' + group,
+        );
+      }
+      TOOL_GROUPS[name] = group;
+    }
+  }
+  for (const name of Object.keys(tools)) {
+    if (!TOOL_GROUPS[name]) {
+      throw new Error('tool-catalog: tool "' + name + '" is not assigned to any capability group');
+    }
+  }
+  return TOOL_GROUPS;
+}
+
+const TOOL_GROUPS = buildGroupIndex(CAPABILITY_GROUPS, TOOLS);
+
+// Groups a user may name in --capabilities. `core` is always on (naming it is
+// harmless but pointless); `shell` is deliberately excluded — see above.
+const OPTIONAL_CAPABILITIES = Object.freeze(['edits', 'recovery', 'agents', 'worktrees', 'skills', 'lsp']);
+
 module.exports = {
   TOOLS,
   CATEGORIES,
@@ -100,4 +167,8 @@ module.exports = {
   VALID_CATEGORIES,
   buildCatalog,
   TOOL_MODULES,
+  CAPABILITY_GROUPS,
+  TOOL_GROUPS,
+  OPTIONAL_CAPABILITIES,
+  buildGroupIndex,
 };

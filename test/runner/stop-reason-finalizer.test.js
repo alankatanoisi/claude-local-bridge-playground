@@ -141,7 +141,8 @@ describe('run loop — single terminal finalizer (P1-04)', () => {
       { content: [{ type: 'text', text: 'Plan complete.' }], stop_reason: 'end_turn' },
     ]);
     const cwd = freshDir();
-    const result = await quietRun({ prompt: 'plan it', cwd, maxSteps: 3, plan: true });
+    // P2-01: write tools are an explicit opt-in
+    const result = await quietRun({ prompt: 'plan it', cwd, maxSteps: 3, plan: true, capabilities: ['edits'] });
     assert.equal(result.stopReason, STOP_REASONS.SUCCESS);
     assert.ok(Array.isArray(result.planProposals));
     assert.equal(result.planProposals.length, 1);

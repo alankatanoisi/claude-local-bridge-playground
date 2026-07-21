@@ -12,9 +12,19 @@ describe('spawn_agent tool', () => {
     assert.ok(!defs.some((d) => d.name === 'spawn_agent'));
   });
 
-  it('is visible at spawnDepth 0', () => {
-    const defs = getDefinitions({ spawnDepth: 0, cwd: '/tmp', cwdRealpath: '/tmp' });
+  it('is visible at spawnDepth 0 when the agents capability is enabled (P2-01)', () => {
+    const defs = getDefinitions({
+      spawnDepth: 0,
+      cwd: '/tmp',
+      cwdRealpath: '/tmp',
+      enabledCapabilities: new Set(['agents']),
+    });
     assert.ok(defs.some((d) => d.name === 'spawn_agent'));
+  });
+
+  it('is hidden by default without the agents capability (P2-01)', () => {
+    const defs = getDefinitions({ spawnDepth: 0, cwd: '/tmp', cwdRealpath: '/tmp' });
+    assert.ok(!defs.some((d) => d.name === 'spawn_agent'));
   });
 
   it('rejects spawn at depth > 0', async () => {

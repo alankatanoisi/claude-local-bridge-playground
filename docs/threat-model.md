@@ -19,6 +19,13 @@ in the Claude Local Bridge Output log. That token is a local debug door code, no
 
 ## What the model can touch
 
+**Default surface is the seven-tool core (P2-01, 2026-07-20).** A no-flag run offers only `list_files`,
+`read_file`, `search_text`, `glob`, `git_status`, `manage_tasks`, and `ask_user_question`. Every other
+category below requires an explicit opt-in: `--capabilities edits,recovery,agents,worktrees,skills,lsp`,
+`--allow-shell` for shell (never via `--capabilities`), `--tools apply_patch` for advanced patch mode, or a
+`--tools` exact allowlist. The system prompt's capability prose is generated from the same visibility
+function as the offered definitions, so the prompt cannot advertise a hidden tool (P2-02).
+
 | Category          | Tools                                                                       | Scope                                                                                                                                                                                                                                                                                                                                                               |
 | ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Read**          | `list_files`, `read_file`, `search_text`, `glob`, `git_status`, `lsp_query` | Text reads are path-confined. `read_file` also supports images/PDF as multimodal blocks (size caps; logs redact base64). `lsp_query` is opt-in (`--enable-lsp`) and spawns a local language-server subprocess.                                                                                                                                                      |

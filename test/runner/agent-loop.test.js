@@ -542,6 +542,7 @@ describe('agent loop — write/edit', () => {
         maxSteps: 3,
         plan: true,
         acceptEdits: true,
+        capabilities: ['edits'], // P2-01: write tools are an explicit opt-in
         transcriptPath: path.join(tmpDir, 'plan-mode.jsonl'),
       });
 

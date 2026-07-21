@@ -23,6 +23,7 @@ const path = require('node:path');
 
 const root = process.cwd();
 const { TOOLS, CATEGORIES, DEFAULT_HIDDEN_TOOLS } = require(path.join(root, 'src/runner/tool-catalog.js'));
+const { isToolVisible } = require(path.join(root, 'src/runner/tool-visibility.js'));
 
 const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
 const builderHtml = fs.readFileSync(path.join(root, 'docs', 'command-builder.html'), 'utf8');
@@ -84,9 +85,9 @@ if (!cliFlags || cliFlags.length === 0) {
 // ── 3. Command-builder default tool list vs runtime ──
 
 // The builder hard-codes DEFAULT_TOOL_NAMES; it must equal the runtime's
-// default-visible set (catalog minus hidden minus dynamically gated tools).
-const DYNAMICALLY_HIDDEN = new Set(['bash', 'manage_shell_jobs', 'lsp_query']);
-const runtimeDefaults = toolNames.filter((n) => !DEFAULT_HIDDEN_TOOLS.has(n) && !DYNAMICALLY_HIDDEN.has(n)).sort();
+// no-flag default surface, computed by the runtime's own visibility function
+// with an empty ctx (P2-01: the seven-tool core, no opt-ins).
+const runtimeDefaults = toolNames.filter((n) => isToolVisible(n, {})).sort();
 
 const builderConstMatch = builderHtml.match(/const\s+DEFAULT_TOOL_NAMES\s*=\s*\[([^\]]*)\]/s);
 if (!builderConstMatch) {

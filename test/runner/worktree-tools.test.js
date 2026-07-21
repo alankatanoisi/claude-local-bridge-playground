@@ -23,12 +23,22 @@ function tmpRepo() {
 }
 
 describe('worktree tools — visibility', () => {
-  it('enter/exit/list worktree are visible at top level', () => {
-    const defs = getDefinitions({ spawnDepth: 0, cwd: '/tmp', cwdRealpath: '/tmp' });
+  it('enter/exit/list worktree are visible with the worktrees capability (P2-01)', () => {
+    const defs = getDefinitions({
+      spawnDepth: 0,
+      cwd: '/tmp',
+      cwdRealpath: '/tmp',
+      enabledCapabilities: new Set(['worktrees']),
+    });
     const names = defs.map((d) => d.name);
     assert.ok(names.includes('enter_worktree'));
     assert.ok(names.includes('exit_worktree'));
     assert.ok(names.includes('list_worktrees'));
+  });
+
+  it('worktree tools are hidden by default (P2-01)', () => {
+    const names = getDefinitions({ spawnDepth: 0, cwd: '/tmp', cwdRealpath: '/tmp' }).map((d) => d.name);
+    assert.ok(!names.includes('enter_worktree'));
   });
 });
 

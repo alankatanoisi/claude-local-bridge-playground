@@ -31,7 +31,7 @@ const {
   formatTaskScopeEndTip,
   RECOMMENDATIONS,
 } = require('./session-health');
-const { computeAllowedTools } = require('./tool-visibility');
+const { computeAllowedTools, normalizeCapabilityList } = require('./tool-visibility');
 const {
   JsonlTrace,
   bodySummary,
@@ -468,10 +468,16 @@ async function run(options) {
     noSessionPersistence,
     testWatch,
     enableLsp,
+    capabilities,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
   const exposedToolsList = normalizeExposedToolsList(options.exposedTools) || normalizeExposedToolsList(allowedTools);
+
+  // P2-01: optional capability groups (edits, recovery, agents, worktrees,
+  // skills, lsp). Accepts a Set, array, or comma-separated string; throws on
+  // unknown names or an attempt to enable shell without --allow-shell.
+  const enabledCapabilities = normalizeCapabilityList(capabilities);
 
   const ctx = {
     cwd: cwd || process.cwd(),
@@ -484,6 +490,7 @@ async function run(options) {
     confirmTimeout: typeof confirmTimeout === 'number' && confirmTimeout > 0 ? confirmTimeout : null,
     _cliToolAllowlist: exposedToolsList ? new Set(exposedToolsList) : null,
     allowedTools: null,
+    enabledCapabilities,
     contextPolicy,
     undoLog: [],
     tasks: [],

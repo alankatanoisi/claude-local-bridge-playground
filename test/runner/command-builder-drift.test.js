@@ -19,17 +19,13 @@ const fs = require('fs');
 
 // ── Runtime facts (single source of truth) ──
 
-const { TOOLS, DEFAULT_HIDDEN_TOOLS } = require('../../src/runner/tool-catalog');
+const { TOOLS } = require('../../src/runner/tool-catalog');
+const { isToolVisible } = require('../../src/runner/tool-visibility');
 const { EFFORT_LEVELS, THINKING_MODES } = require('../../src/runner/model-capabilities');
 
-// The runtime hides some tools dynamically (not at catalog level):
-//   bash, manage_shell_jobs → hidden unless --allow-shell
-//   lsp_query → hidden unless --enable-lsp
-const DYNAMICALLY_HIDDEN = new Set(['bash', 'manage_shell_jobs', 'lsp_query']);
-
-const RUNTIME_DEFAULT_TOOLS = Object.keys(TOOLS).filter(
-  (name) => !DEFAULT_HIDDEN_TOOLS.has(name) && !DYNAMICALLY_HIDDEN.has(name),
-);
+// P2-01: the no-flag default surface comes straight from the runtime's own
+// visibility function (empty ctx = no opt-ins), not a re-implemented filter.
+const RUNTIME_DEFAULT_TOOLS = Object.keys(TOOLS).filter((name) => isToolVisible(name, {}));
 
 // ── Helpers: extract facts from the builder HTML ──
 

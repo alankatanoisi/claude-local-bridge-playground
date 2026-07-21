@@ -108,28 +108,20 @@ function silencedStderr(fn) {
 describe('tool pipeline — toolDefinitions', () => {
   const tmpDir = freshDir('pipeline-defs-');
 
-  it('exposes exactly the default tool set — bash and apply_patch hidden', () => {
+  it('exposes exactly the default tool set — the seven-tool core (P2-01)', () => {
     const { pipeline } = makePipeline({ cwd: tmpDir });
     const names = pipeline.toolDefinitions().map((d) => d.name);
     // The default-exposed set is a contract: the model sees these and only
-    // these unless --allow-shell or --allowed-tools changes the surface.
+    // these unless --capabilities, --allow-shell, or --allowed-tools changes
+    // the surface (P2-01 small-core default).
     assert.deepEqual([...names].sort(), [
       'ask_user_question',
-      'edit_file',
-      'enter_worktree',
-      'exit_worktree',
       'git_status',
       'glob',
       'list_files',
-      'list_worktrees',
       'manage_tasks',
       'read_file',
-      'run_skill',
       'search_text',
-      'spawn_agent',
-      'undo',
-      'undo_edit',
-      'write_file',
     ]);
     assert.ok(!names.includes('bash'), 'bash hidden without allowShell');
     assert.ok(!names.includes('manage_shell_jobs'), 'manage_shell_jobs hidden without allowShell');

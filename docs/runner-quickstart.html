@@ -446,8 +446,9 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
       <section>
         <h2>Available tools</h2>
         <p>
-          The runner exposes read tools by default and can also expose guarded edit and shell tools when you enable
-          them.
+          The runner exposes only the seven-tool core by default (read + session tools). Everything else is an
+          explicit opt-in: <code>--capabilities edits,recovery,agents,worktrees,skills,lsp</code> for tool groups,
+          <code>--allow-shell</code> for shell, <code>--tools</code> for an exact list.
         </p>
         <div class="tool-grid">
           <div class="tool-card">
@@ -528,8 +529,9 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
           <div class="tool-card">
             <h4>edit_file / write_file / apply_patch</h4>
             <p>
-              Mutating tools for exact replacements, full writes, and (opt-in) patch-based changes.
-              <code>apply_patch</code> is hidden unless you pass <code>--tools apply_patch</code>. Writes are atomic,
+              Mutating tools for exact replacements, full writes, and (opt-in) patch-based changes. Hidden unless
+              you pass <code>--capabilities edits</code> (or a <code>--tools</code> list).
+              <code>apply_patch</code> additionally needs <code>--tools apply_patch</code>. Writes are atomic,
               edits can use a SHA-256 guard, and they ask for confirmation unless you pass
               <code>--accept-edits</code>.
             </p>
@@ -802,8 +804,13 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             </tr>
             <tr>
               <td><code>--tools &lt;list&gt;</code></td>
-              <td>all</td>
+              <td>core group</td>
               <td>Expose only listed tools (alias: <code>--allowed-tools</code>)</td>
+            </tr>
+            <tr>
+              <td><code>--capabilities &lt;groups&gt;</code></td>
+              <td>core only</td>
+              <td>Enable optional tool groups: edits, recovery, agents, worktrees, skills, lsp (shell needs <code>--allow-shell</code>)</td>
             </tr>
             <tr>
               <td><code>--system-prompt &lt;text&gt;</code></td>

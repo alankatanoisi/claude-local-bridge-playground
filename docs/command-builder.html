@@ -1018,9 +1018,10 @@
                   >
                 </h2>
                 <p style="font-size: 0.78rem; color: var(--muted); margin-bottom: 0.6rem">
-                  The runner defaults to read, write, and recovery tools. Shell is hidden until
-                  <code>--allow-shell</code>. <code>apply_patch</code> is advanced patch mode and is hidden unless you
-                  opt in here.
+                  The runner defaults to the core read/session tools only. Checking tools outside the core emits
+                  <code>--capabilities</code> (whole groups) or <code>--tools</code> (partial picks). Shell is hidden
+                  until <code>--allow-shell</code>. <code>apply_patch</code> is advanced patch mode and is hidden
+                  unless you opt in here.
                 </p>
                 <div class="checks" id="toolChoices">
                   <div class="capability-group">Read</div>
@@ -1059,41 +1060,41 @@
                   </label>
                   <div class="capability-group">Orchestration</div>
                   <label class="check-label tool-choice" title="Let the model delegate a subtask to a child agent that runs independently. The child inherits permissions and tools. Only the top-level model can spawn agents — children cannot spawn further.">
-                    <input type="checkbox" value="spawn_agent" checked />
+                    <input type="checkbox" value="spawn_agent" />
                     <span><strong>spawn_agent</strong><small>Delegate to a child agent (top-level only)</small></span>
                   </label>
                   <label class="check-label tool-choice" title="Create and enter a git worktree — a separate checkout on its own branch. Edits happen there instead of your main branch, so you can review and merge (or discard) safely.">
-                    <input type="checkbox" value="enter_worktree" checked />
+                    <input type="checkbox" value="enter_worktree" />
                     <span><strong>enter_worktree</strong><small>Isolate edits on a git worktree branch</small></span>
                   </label>
                   <label class="check-label tool-choice" title="Leave the current worktree and return tools to the main working directory. Can optionally delete the worktree branch, or leave it for you to review and merge later.">
-                    <input type="checkbox" value="exit_worktree" checked />
+                    <input type="checkbox" value="exit_worktree" />
                     <span><strong>exit_worktree</strong><small>Leave worktree, optionally clean up</small></span>
                   </label>
                   <label class="check-label tool-choice" title="List all active worktree slots and any orphaned worktree directories left behind by previous runs. Useful for cleanup and seeing what branches exist.">
-                    <input type="checkbox" value="list_worktrees" checked />
+                    <input type="checkbox" value="list_worktrees" />
                     <span><strong>list_worktrees</strong><small>List active slots and orphan worktree dirs</small></span>
                   </label>
                   <label class="check-label tool-choice" title="Load a skill document by name from .bridge-runner/skills/. Skills are structured instructions that teach the model specialized workflows — like how to do a code review or run a migration.">
-                    <input type="checkbox" value="run_skill" checked />
+                    <input type="checkbox" value="run_skill" />
                     <span><strong>run_skill</strong><small>Load a skill document body by name</small></span>
                   </label>
                   <div class="capability-group">Write</div>
                   <label class="check-label tool-choice" title="Replace an exact piece of text in a file with new text. The safest write tool — it only changes what it explicitly matches, so accidental edits are unlikely. Needs --accept-edits or confirmation.">
-                    <input type="checkbox" value="edit_file" checked />
+                    <input type="checkbox" value="edit_file" />
                     <span><strong>edit_file</strong><small>Exact text replacement</small></span>
                   </label>
                   <label class="check-label tool-choice" title="Create a new file or completely overwrite an existing file. More powerful than edit_file because it replaces the entire file. Needs --accept-edits or confirmation.">
-                    <input type="checkbox" value="write_file" checked />
+                    <input type="checkbox" value="write_file" />
                     <span><strong>write_file</strong><small>Create or replace a file</small></span>
                   </label>
                   <div class="capability-group">Recovery</div>
                   <label class="check-label tool-choice" title="Restore a file to its state before the runner modified it. The runner keeps backups of every file it touches, so this is always safe. Your safety net for bad edits.">
-                    <input type="checkbox" value="undo" checked />
+                    <input type="checkbox" value="undo" />
                     <span><strong>undo</strong><small>Restore backup</small></span>
                   </label>
                   <label class="check-label tool-choice" title="Undo a specific edit_file operation by its id. More precise than undo — it reverses one particular change instead of restoring the entire file to its pre-run state.">
-                    <input type="checkbox" value="undo_edit" checked />
+                    <input type="checkbox" value="undo_edit" />
                     <span><strong>undo_edit</strong><small>Undo one tool edit</small></span>
                   </label>
                   <div class="capability-group">Advanced write</div>
@@ -1335,6 +1336,21 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
 
       const PLAYGROUND = '/Users/alanman/Developer/claude-local-bridge-playground';
       const READ_TOOL_NAMES = ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'ask_user_question'];
+      const EDIT_STYLE_TOOL_NAMES = [
+        'list_files',
+        'read_file',
+        'search_text',
+        'glob',
+        'git_status',
+        'manage_tasks',
+        'ask_user_question',
+        'edit_file',
+        'write_file',
+        'undo',
+        'undo_edit',
+      ];
+      // P2-01: the runner's no-flag default is the seven-tool core. Other
+      // groups are explicit opt-ins emitted as --capabilities below.
       const DEFAULT_TOOL_NAMES = [
         'list_files',
         'read_file',
@@ -1343,16 +1359,17 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         'git_status',
         'manage_tasks',
         'ask_user_question',
-        'spawn_agent',
-        'enter_worktree',
-        'list_worktrees',
-        'exit_worktree',
-        'run_skill',
-        'edit_file',
-        'write_file',
-        'undo',
-        'undo_edit',
       ];
+      // Optional capability groups (must mirror CAPABILITY_GROUPS in
+      // src/runner/tool-catalog.js). apply_patch is hidden-by-default inside
+      // edits and only ever emitted via --tools.
+      const CAPABILITY_GROUPS = {
+        edits: ['edit_file', 'write_file'],
+        recovery: ['undo', 'undo_edit'],
+        agents: ['spawn_agent'],
+        worktrees: ['enter_worktree', 'exit_worktree', 'list_worktrees'],
+        skills: ['run_skill'],
+      };
 
       const PERMISSION_STYLE_HINTS = {
         'look-only': 'Read-only tools only. Safest way to explore a repo.',
@@ -1380,6 +1397,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           allowShell: false,
           chaosOk: false,
           noNetwork: false,
+          applyTools: true,
+          tools: EDIT_STYLE_TOOL_NAMES,
         },
         'edit-ask': {
           plan: false,
@@ -1388,6 +1407,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           allowShell: false,
           chaosOk: false,
           noNetwork: false,
+          applyTools: true,
+          tools: EDIT_STYLE_TOOL_NAMES,
         },
         'edit-auto': {
           plan: false,
@@ -1396,6 +1417,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           allowShell: false,
           chaosOk: false,
           noNetwork: false,
+          applyTools: true,
+          tools: EDIT_STYLE_TOOL_NAMES,
         },
         'edit-shell': {
           plan: false,
@@ -1404,6 +1427,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           allowShell: true,
           chaosOk: true,
           noNetwork: true,
+          applyTools: true,
+          tools: EDIT_STYLE_TOOL_NAMES,
         },
       };
 
@@ -1554,15 +1579,32 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         if (confirmTimeout.value.trim()) parts.push('--confirm-timeout ' + confirmTimeout.value.trim());
         if (logLevel.value) parts.push('--log-level ' + logLevel.value);
         const selectedTools = getSelectedTools();
-        const exposedDefaults = allowShell.checked
+        const gatedDefaults = allowShell.checked
           ? enableLsp.checked
             ? [...DEFAULT_TOOL_NAMES, 'bash', 'manage_shell_jobs', 'lsp_query']
             : [...DEFAULT_TOOL_NAMES, 'bash', 'manage_shell_jobs']
           : enableLsp.checked
             ? [...DEFAULT_TOOL_NAMES, 'lsp_query']
             : DEFAULT_TOOL_NAMES;
-        if (!sameTools(selectedTools, exposedDefaults)) {
-          parts.push('--tools ' + shellQuote(selectedTools.join(',') || 'none'));
+        if (!sameTools(selectedTools, gatedDefaults)) {
+          // Prefer --capabilities when the selection is exactly the gated
+          // defaults plus whole optional groups; fall back to --tools for
+          // partial group selections (P2-01).
+          const extra = selectedTools.filter((name) => !gatedDefaults.includes(name));
+          const missingDefault = gatedDefaults.filter((name) => !selectedTools.includes(name));
+          const wholeGroups = [];
+          let leftovers = [...extra];
+          for (const [group, members] of Object.entries(CAPABILITY_GROUPS)) {
+            if (members.every((name) => leftovers.includes(name))) {
+              wholeGroups.push(group);
+              leftovers = leftovers.filter((name) => !members.includes(name));
+            }
+          }
+          if (missingDefault.length === 0 && leftovers.length === 0 && wholeGroups.length > 0) {
+            parts.push('--capabilities ' + wholeGroups.join(','));
+          } else {
+            parts.push('--tools ' + shellQuote(selectedTools.join(',') || 'none'));
+          }
         }
         if (stream.checked) parts.push('--stream');
         if (verbose.checked) parts.push('--verbose');

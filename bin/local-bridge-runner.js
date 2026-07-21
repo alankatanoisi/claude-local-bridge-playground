@@ -85,6 +85,7 @@ Options:\n\
   --exclude-dynamic-system-prompt-sections  Put cwd/git fingerprint in first user message\n\
   --permission-mode <m>   default | plan | accept-edits | dont-ask | accept-edits-dont-ask | auto\n\
   --tools <names>         Comma-separated tools to expose; include apply_patch to opt into patch mode\n\
+  --capabilities <groups> Enable optional tool groups beyond the default core: edits, recovery, agents, worktrees, skills, lsp (shell needs --allow-shell)\n\
   --no-session-persistence    Disable resume checkpoints (*.state.json); manifests/ledger/diagnostics may still write\n\
   --review-memory       List pending memory promotions for approval\n\
   --session-extract     Run background session extraction after completion\n\
@@ -186,6 +187,7 @@ async function main() {
         'exclude-dynamic-system-prompt-sections': { type: 'boolean' },
         'permission-mode': { type: 'string' },
         tools: { type: 'string' },
+        capabilities: { type: 'string' },
         'no-session-persistence': { type: 'boolean' },
         replay: { type: 'boolean' },
         repair: { type: 'boolean' },
@@ -423,6 +425,20 @@ async function main() {
         .filter(Boolean)
     : null;
 
+  // P2-01: validate --capabilities up front so a typo fails at startup with a
+  // clear message instead of silently running with the wrong tool surface.
+  const capabilitiesRaw = args.values.capabilities;
+  let capabilityGroups = null;
+  if (capabilitiesRaw) {
+    const { normalizeCapabilityList } = require('../src/runner/tool-visibility');
+    try {
+      capabilityGroups = [...normalizeCapabilityList(capabilitiesRaw)];
+    } catch (err) {
+      console.error('Error: ' + err.message);
+      process.exit(1);
+    }
+  }
+
   // --continue: find the latest transcript in ~/.bridge-runner/logs/
   const shouldContinue = !!args.values.continue;
   const newSession = !!args.values['new-session'];
@@ -579,6 +595,7 @@ async function main() {
     noNetwork,
     exposedTools,
     allowedTools: exposedTools,
+    capabilities: capabilityGroups,
     outputFormat,
     traceLevel,
     bridgeUrl,
@@ -615,6 +632,7 @@ async function main() {
     confirmTimeout,
     exposedTools,
     allowedTools: exposedTools,
+    capabilities: capabilityGroups,
     maxContextTokens,
     maxToolCallsPerTurn,
     sessionId,
@@ -689,6 +707,13 @@ function printRuntimeTips(options) {
   }
   if (options.allowedTools) {
     console.error('[runner] tip: only these tools are visible: ' + options.allowedTools.join(', ') + '.');
+  } else if (options.capabilities && options.capabilities.length > 0) {
+    // P2-01 preflight visibility: say which opt-in groups are on this run.
+    console.error('[runner] tip: capability groups enabled beyond core: ' + options.capabilities.join(', ') + '.');
+  } else {
+    console.error(
+      '[runner] tip: default surface is the core read/session tools; add --capabilities edits (etc.) or --tools for more.',
+    );
   }
   if (options.outputFormat !== 'text') {
     console.error('[runner] tip: machine-readable output stays on stdout; runner tips and warnings stay on stderr.');

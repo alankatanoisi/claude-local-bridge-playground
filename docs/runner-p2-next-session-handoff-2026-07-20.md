@@ -30,7 +30,13 @@ git pull --ff-only origin main
 
 - **P0:** all twelve closed (P0-01…P0-12).
 - **P1:** package complete — P1-01…P1-05, P1-07…P1-15 closed; **P1-06 contained** (see residual below).
-- **P2:** 16 findings, **not started**. This is the next arc.
+- **P2:** **P2-01 and P2-02 closed 2026-07-20** (seven-tool safe-core default + `--capabilities` opt-in
+  groups; prompt capability prose generated from the same visibility function as the offered tools —
+  see the assessment annotation cards and `test/runner/p2-01-02-tool-surface.test.js`).
+  **Still open: P2-03…P2-16.**
+- Known pre-existing failure (not P2 work): `test/runner/effort-passthrough.test.js` "injects small
+  CLAUDE.md delta on a later turn after an edit" fails at HEAD since before the P1-06 commit — needs an
+  owner (instruction-delta feature).
 
 ### P1-06 residual (contained, not fully repaired)
 
@@ -55,10 +61,10 @@ Still open for **full repair** (needs live access, not doable offline):
 Status of record is the assessment; this is only a suggested order. One or two findings per
 session; annotate the assessment card grid when closing.
 
-1. **P2-15** — docs checks cover only three bridge defaults, not runner truth (small; strengthens the drift gate all later work relies on).
-2. **P2-16** — small diagnostics and CLI parsing defects (small, standalone).
-3. **P2-01** — default model tool schema larger than small-core direction.
-4. **P2-02** — system prompt advertises capability groups not actually exposed.
+1. ~~**P2-01** — default model tool schema larger than small-core direction.~~ **Closed 2026-07-20.**
+2. ~~**P2-02** — system prompt advertises capability groups not actually exposed.~~ **Closed 2026-07-20.**
+3. **P2-15** — docs checks cover only three bridge defaults, not runner truth (small; strengthens the drift gate all later work relies on).
+4. **P2-16** — small diagnostics and CLI parsing defects (small, standalone).
 5. **P2-03** — bootstrap builds context the main loop partially rebuilds or ignores.
 6. **P2-14** — context flags / command-builder descriptions vs runtime semantics (pairs naturally with P2-01…03 CLI changes; update `docs/command-builder.html` in the same slice).
 7. **P2-04 / P2-05 / P2-06** — explore/plan/implement/verify/test/bench template defaults and consent expectations.

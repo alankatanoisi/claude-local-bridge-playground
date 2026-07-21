@@ -11,36 +11,54 @@ const { loadInstructionMemory } = require('./memory/instruction-memory');
 const { buildAutoMemorySection, isAutoMemoryEnabled } = require('./memory/auto-memory');
 const { buildSkillsIndex } = require('./skills/skills-index');
 const { buildToolSummarySection, capSkillListing, applyContextBudget } = require('./context-budget');
+const { isToolVisible } = require('./tool-visibility');
 const { buildRepoMap } = require('./repo-map');
 const { DEFAULT_POLICY } = require('./context-policy');
 
 function toolFlag(ctxOrAllowShell, name) {
-  if (typeof ctxOrAllowShell === 'boolean') return name === 'bash' ? ctxOrAllowShell : false;
+  // Legacy boolean signature meant "allowShell?" — map it to a minimal ctx so
+  // it now means the honest default surface (core, plus shell when true).
+  if (typeof ctxOrAllowShell === 'boolean') return isToolVisible(name, { allowShell: ctxOrAllowShell });
   if (!ctxOrAllowShell) return false;
-  if (name === 'bash') return !!ctxOrAllowShell.allowShell;
-  if (ctxOrAllowShell.allowedTools) return ctxOrAllowShell.allowedTools.has(name);
-  return false;
+  // P2-02: defer to the same visibility function the API tools array uses.
+  // (The old hand-rolled check reported `--tools bash` as shell-enabled even
+  // without --allow-shell, so prompt prose could drift from the offer.)
+  return isToolVisible(name, ctxOrAllowShell);
 }
 
+// Long-form descriptions for the non-progressive prompt. Only lines whose
+// tool is actually visible on this run are emitted (P2-02).
+const FULL_TOOL_DESCRIPTIONS = [
+  ['list_files', 'List files and directories under a relative path.'],
+  ['read_file', 'Read the contents of a file by relative path.'],
+  ['search_text', 'Search for a text pattern inside the project (case-insensitive).'],
+  ['glob', 'Find files by glob pattern (e.g. **/*.js).'],
+  ['git_status', 'Show the current git status (short format).'],
+  ['manage_tasks', 'Update the in-session task checklist.'],
+  ['ask_user_question', 'Ask the operator a structured multiple-choice question.'],
+  ['edit_file', 'Replace old_string with new_string in a file. The old_string must match exactly once.'],
+  ['write_file', 'Create or overwrite a file with full content. A backup is saved.'],
+  ['apply_patch', 'Apply a unified diff patch to a file. A backup is saved.'],
+  ['undo', 'List available backups or restore a file from a previous backup. Use this to recover from mistakes.'],
+  ['undo_edit', 'Undo an edit_file or write_file call from the current run by tool_use_id or path.'],
+  ['run_skill', 'Load a skill document body by name (read-only).'],
+  ['spawn_agent', 'Delegate a subtask to a child agent (isolated context).'],
+  ['enter_worktree', 'Create an isolated git worktree and switch into it.'],
+  ['exit_worktree', 'Leave the active worktree and restore the original cwd.'],
+  ['list_worktrees', 'List active worktree slots and orphan worktree directories.'],
+  ['lsp_query', 'Language-server queries (definition, references, hover, diagnostics).'],
+  ['manage_shell_jobs', 'Start/list/poll/kill background shell jobs.'],
+  [
+    'bash',
+    'Run a shell command (starts in project folder; unsandboxed local-account authority, not cwd confinement; timeout + output limits apply).',
+  ],
+];
+
 function buildFullToolSection(ctxOrAllowShell) {
-  const allowShell = toolFlag(ctxOrAllowShell, 'bash');
-  const includeApplyPatch = toolFlag(ctxOrAllowShell, 'apply_patch');
   let prompt = '## Available tools\n\n';
-  prompt += '- list_files: List files and directories under a relative path.\n';
-  prompt += '- read_file: Read the contents of a file by relative path.\n';
-  prompt += '- search_text: Search for a text pattern inside the project (case-insensitive).\n';
-  prompt += '- git_status: Show the current git status (short format).\n';
-  prompt += '- edit_file: Replace old_string with new_string in a file. The old_string must match exactly once.\n';
-  prompt += '- write_file: Create or overwrite a file with full content. A backup is saved.\n';
-  if (includeApplyPatch) {
-    prompt += '- apply_patch: Apply a unified diff patch to a file. A backup is saved.\n';
-  }
-  prompt +=
-    '- undo: List available backups or restore a file from a previous backup. Use this to recover from mistakes.\n';
-  prompt += '- undo_edit: Undo an edit_file or write_file call from the current run by tool_use_id or path.\n';
-  if (allowShell) {
-    prompt +=
-      '- bash: Run a shell command (starts in project folder; unsandboxed local-account authority, not cwd confinement; timeout + output limits apply).\n';
+  for (const [name, description] of FULL_TOOL_DESCRIPTIONS) {
+    if (!toolFlag(ctxOrAllowShell, name)) continue;
+    prompt += '- ' + name + ': ' + description + '\n';
   }
   return prompt;
 }

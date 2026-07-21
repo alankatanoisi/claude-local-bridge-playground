@@ -11,6 +11,7 @@
 
 const crypto = require('crypto');
 const { isToolVisible } = require('./tool-visibility');
+const { CAPABILITY_GROUPS } = require('./tool-catalog');
 
 const DEFAULT_CONTEXT_BUDGET_CHARS = 32_000;
 const SKILL_ENTRY_MAX_CHARS = 250;
@@ -23,11 +24,17 @@ let dynamicCacheKey = null;
 
 function _toolRegistryHash(ctx) {
   const allowShell = ctx && ctx.allowShell ? '1' : '0';
+  const enableLsp = ctx && ctx.enableLsp ? '1' : '0';
+  // P2-01: the capability set changes the offered surface, so it must change
+  // the cache key — otherwise a 7-tool run could reuse a cached prompt that
+  // still advertises an opted-in surface (or vice versa).
+  const capabilities =
+    ctx && ctx.enabledCapabilities instanceof Set ? [...ctx.enabledCapabilities].sort().join(',') : '';
   const allowed = ctx && ctx.allowedTools ? [...ctx.allowedTools].sort().join(',') : '*';
   const names = Object.keys(TOOL_SUMMARIES).sort().join(',');
   return crypto
     .createHash('sha1')
-    .update(allowShell + '|' + allowed + '|' + names)
+    .update(allowShell + '|' + enableLsp + '|' + capabilities + '|' + allowed + '|' + names)
     .digest('hex')
     .slice(0, 8);
 }
@@ -102,19 +109,30 @@ const TOOL_SUMMARIES = Object.freeze({
   bash: 'Run a shell command (starts in --cwd; unsandboxed local-account authority, not cwd confinement)',
 });
 
+// Display labels for capability-group prompt lines. Keys must match
+// CAPABILITY_GROUPS in tool-catalog.js (the lint below is the drift guard).
+const GROUP_LABELS = Object.freeze({
+  core: 'Core (read + session)',
+  edits: 'Edits',
+  recovery: 'Recovery',
+  agents: 'Agents',
+  worktrees: 'Worktrees',
+  skills: 'Skills',
+  lsp: 'LSP',
+  shell: 'Shell',
+});
+
+/**
+ * P2-02: capability prose is *generated* from the same isToolVisible() the
+ * API tools array uses, so the prompt can never advertise a group or tool
+ * that is not actually offered on this run (and never omits one that is).
+ */
 function buildToolSummarySection(ctx) {
   const lines = ['## Capability groups\n'];
-  lines.push('- Read: list_files, read_file, search_text, glob, git_status');
-  lines.push('- Session: manage_tasks');
-  lines.push('- Orchestration: spawn_agent');
-  lines.push('- Worktree: enter_worktree, exit_worktree, list_worktrees');
-  lines.push('- Write: edit_file, write_file');
-  if (ctx && ctx.allowedTools && ctx.allowedTools.has('apply_patch')) {
-    lines.push('- Advanced write: apply_patch');
-  }
-  lines.push('- Recovery: undo, undo_edit');
-  if (ctx && ctx.allowShell) {
-    lines.push('- Shell: bash, manage_shell_jobs');
+  for (const [group, members] of Object.entries(CAPABILITY_GROUPS)) {
+    const visible = members.filter((name) => isToolVisible(name, ctx));
+    if (visible.length === 0) continue;
+    lines.push('- ' + (GROUP_LABELS[group] || group) + ': ' + visible.join(', '));
   }
   lines.push('\n## Available tools (summaries)\n');
   for (const [name, summary] of Object.entries(TOOL_SUMMARIES)) {
