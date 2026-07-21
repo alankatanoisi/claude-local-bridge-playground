@@ -496,6 +496,14 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             </p>
           </div>
           <div class="tool-card">
+            <h4>ask_user_question</h4>
+            <p>
+              Ask the human operator a structured multiple-choice question before proceeding. Part of the seven-tool
+              core. Requires an interactive terminal; it fails closed in child workers, <code>--dont-ask</code> runs,
+              and other non-interactive environments.
+            </p>
+          </div>
+          <div class="tool-card">
             <h4>spawn_agent</h4>
             <p>
               Delegate a focused subtask to a child agent with its own context. Uses built-in or file agents via

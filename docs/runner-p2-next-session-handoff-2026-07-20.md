@@ -33,7 +33,10 @@ git pull --ff-only origin main
 - **P2:** **P2-01 and P2-02 closed 2026-07-20** (seven-tool safe-core default + `--capabilities` opt-in
   groups; prompt capability prose generated from the same visibility function as the offered tools —
   see the assessment annotation cards and `test/runner/p2-01-02-tool-surface.test.js`).
-  **Still open: P2-03…P2-16.**
+  **P2-15 closed 2026-07-20** (docs drift gate now derives model/effort/thinking/template/tool
+  expectations from the runtime modules — see the assessment card; gate authored via a
+  bridge-runner session on `claude-opus-4-8`).
+  **Still open: P2-03…P2-14, P2-16.**
 - Known pre-existing failure (not P2 work): `test/runner/effort-passthrough.test.js` "injects small
   CLAUDE.md delta on a later turn after an edit" fails at HEAD since before the P1-06 commit — needs an
   owner (instruction-delta feature).
@@ -63,7 +66,7 @@ session; annotate the assessment card grid when closing.
 
 1. ~~**P2-01** — default model tool schema larger than small-core direction.~~ **Closed 2026-07-20.**
 2. ~~**P2-02** — system prompt advertises capability groups not actually exposed.~~ **Closed 2026-07-20.**
-3. **P2-15** — docs checks cover only three bridge defaults, not runner truth (small; strengthens the drift gate all later work relies on).
+3. ~~**P2-15** — docs checks cover only three bridge defaults, not runner truth.~~ **Closed 2026-07-20.**
 4. **P2-16** — small diagnostics and CLI parsing defects (small, standalone).
 5. **P2-03** — bootstrap builds context the main loop partially rebuilds or ignores.
 6. **P2-14** — context flags / command-builder descriptions vs runtime semantics (pairs naturally with P2-01…03 CLI changes; update `docs/command-builder.html` in the same slice).
@@ -104,7 +107,7 @@ startup preflight, pull --ff-only origin main, then read
 docs/runner-p2-next-session-handoff-2026-07-20.md (and the HTML twin).
 
 Work the next unclaimed P2 item(s) from the suggested entry order (start with
-P2-15 unless told otherwise). Keep slices small: code + focused tests + a dated
+P2-16 unless told otherwise). Keep slices small: code + focused tests + a dated
 annotation card in docs/runner-runtime-concordance-assessment-2026-07-17.html.
 Do not rewrite all docs; do not touch bridge auth internals unless required for
 runner transport (and say so first). End with folder/branch, files, checks,

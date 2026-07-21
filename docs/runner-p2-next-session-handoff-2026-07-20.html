@@ -52,11 +52,13 @@
 
 <h2>Suggested P2 entry order</h2>
 <p><strong>Closed 2026-07-20:</strong> P2-01 (seven-tool safe-core default + <code>--capabilities</code> opt-in
-groups) and P2-02 (prompt capability prose generated from the same visibility function as the offered tools).
+groups), P2-02 (prompt capability prose generated from the same visibility function as the offered tools), and
+P2-15 (docs drift gate derives model/effort/thinking/template/tool expectations from the runtime modules;
+gate authored via a bridge-runner session on <code>claude-opus-4-8</code>).
 See the assessment annotation cards and <code>test/runner/p2-01-02-tool-surface.test.js</code>. Still open:
-P2-03…P2-16.</p>
+P2-03…P2-14, P2-16.</p>
 <ol>
-  <li><strong>P2-15</strong> — extend docs checks beyond three bridge defaults (strengthens the drift gate first).</li>
+  <li><strong><s>P2-15</s></strong> — extend docs checks beyond three bridge defaults. <strong>Closed 2026-07-20.</strong></li>
   <li><strong>P2-16</strong> — small diagnostics / CLI parsing defects.</li>
   <li><strong>P2-03</strong> — bootstrap/loop context duplication (P2-01/02 in this line are closed).</li>
   <li><strong>P2-14</strong> — context flags vs command-builder semantics (pair with the CLI slices above).</li>
