@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Compaction &amp; Context-Management Audit — Bridge Runner (2026-07-26)</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a23;
+    --panel2: #1e2230;
+    --ink: #e7e9ee;
+    --muted: #9aa3b2;
+    --line: #2c3242;
+    --acc: #7aa2f7;
+    --ok: #7bd88f;
+    --warn: #e0af68;
+    --bad: #f7768e;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 24px 96px; }
+  header.title { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 32px; }
+  h1 { font-size: 30px; line-height: 1.25; margin: 0 0 8px; letter-spacing: -0.01em; }
+  h2 { font-size: 22px; margin: 44px 0 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  h3 { font-size: 17px; margin: 28px 0 8px; }
+  h4 { font-size: 15px; margin: 18px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  p, li { color: var(--ink); }
+  .sub { color: var(--muted); font-size: 14px; }
+  code, kbd { font-family: var(--mono); font-size: 13px; background: var(--panel2); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; }
+  pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.55; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; }
+  tbody tr:hover { background: #ffffff08; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin: 18px 0; }
+  .verdict { border-left: 4px solid var(--warn); }
+  .pill { display: inline-block; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; }
+  .s1 { background: #f7768e22; color: var(--bad); border: 1px solid #f7768e55; }
+  .s2 { background: #e0af6822; color: var(--warn); border: 1px solid #e0af6855; }
+  .s3 { background: #7aa2f722; color: var(--acc); border: 1px solid #7aa2f755; }
+  .good { background: #7bd88f22; color: var(--ok); border: 1px solid #7bd88f55; }
+  .finding { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: 8px; padding: 16px 18px; margin: 16px 0; }
+  .finding.s1b { border-left-color: var(--bad); }
+  .finding.s2b { border-left-color: var(--warn); }
+  .finding.s3b { border-left-color: var(--acc); }
+  .finding h3 { margin-top: 0; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .ev { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+  ul.tight { margin: 8px 0; padding-left: 22px; }
+  ul.tight li { margin: 3px 0; }
+  .kv { display: grid; grid-template-columns: 190px 1fr; gap: 6px 16px; font-size: 14px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; }
+  .toc { columns: 2; column-gap: 32px; font-size: 14px; }
+  .toc a { color: var(--acc); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  figure { margin: 20px 0; }
+  figcaption { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .num { font-variant-numeric: tabular-nums; }
+  .footnote { color: var(--muted); font-size: 13px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid2, .toc { grid-template-columns: 1fr; columns: 1; } .kv { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="title">
+  <div class="sub">Bridge Runner · runtime audit</div>
+  <h1>Compaction &amp; context-management behaviour under max-settings</h1>
+  <p class="sub">
+    Scope: <code>src/runner/context-compactor.js</code>, <code>src/runner/context-budget.js</code>,
+    the turn loop in <code>src/runner/run.js</code>, presets in <code>bin/local-bridge-runner.js</code>,
+    and <code>src/runner/session-health.js</code>.<br />
+    Scenario modelled: high <code>--max-steps</code>, high <code>--max-tokens</code>, a large initial prompt, and
+    repeated large file reads.<br />
+    Date: 2026-07-26 · Method: static read of the shipped code paths, arithmetic simulation of the trigger
+    conditions, cross-checked against the recorded run in
+    <code>docs/postmortems/2026-07-11-compaction-tool-pairing-postmortem.md</code>.
+  </p>
+</header>
+
+<div class="panel verdict">
+  <h3 style="margin-top:0">Verdict</h3>
+  <p><strong>Your instinct is correct, but the mechanism is not the one the knobs suggest.</strong>
+  The <code>warnTokens: 80_000</code> / <code>haltTokens: 160_000</code> numbers look conservative against a
+  200k-token window, and reading only those two lines suggests compaction is late, not early. In practice the
+  runner degrades its own working memory much earlier than those numbers imply, for three independent reasons:</p>
+  <ul class="tight">
+    <li><strong>The <code>clip</code> stage is not gated on token pressure at all.</strong> Once the history reaches
+      24 messages (~step 12), every tool result over 12,000 chars is truncated — including the result produced on the
+      immediately preceding turn, which the model has not yet used.</li>
+    <li><strong>At the <em>warn</em> tier the ladder already runs the lossy stages.</strong> Crossing 80k estimated
+      tokens replaces every tool result older than the last 6 semantic exchanges with a stub, and can trigger full
+      extractive summarisation. The effective memory horizon becomes
+      <code>preserveRecentTurns = 6</code> regardless of how much real window remains.</li>
+    <li><strong>The trigger metric measures the wrong thing.</strong> <code>estimateTokens()</code> counts only
+      message text at chars/4 — no system prompt, no tool schemas, no repo-context block, no
+      <code>thinking</code> blocks, and array-form <code>tool_result</code> content collapses to the 15 characters of
+      <code>"[object Object]"</code>. Meanwhile the API returns exact usage every turn and the ladder never looks at it.</li>
+  </ul>
+  <p>Two further defects make the damage worse than necessary: compaction output is <strong>persisted</strong> to the
+  session store (so resume inherits the lobotomy), and the <code>ghost</code> stage mutates the system prompt tail
+  <em>every turn</em>, which <strong>destroys prompt caching</strong> exactly when the context is largest — which in
+  turn inflates cumulative <code>input_tokens</code> and can trip the misnamed
+  <code>--max-context-tokens</code> "2x" halt.</p>
+  <p class="sub">Net: the loss is real, it starts earlier than intended, it is irreversible, and it is
+  cache-hostile. Nine of the fourteen findings below are fixable without touching the ladder's architecture.</p>
+</div>
+
+<h2 id="toc">Contents</h2>
+<div class="toc">
+  <p><a href="#today">1. What the runner does today</a><br />
+  <a href="#sim">2. Runtime simulation under max settings</a><br />
+  <a href="#findings">3. Findings (F1–F14)</a><br />
+  <a href="#good">4. What is already right</a><br />
+  <a href="#recs">5. Recommendations (R1–R13)</a><br />
+  <a href="#policy">6. Proposed default policy</a><br />
+  <a href="#tests">7. Test gaps to close</a><br />
+  <a href="#today-levers">8. Operator levers available now</a></p>
+</div>
+
+<h2 id="today">1. What the runner does today</h2>
+
+<h3>1.1 Call site</h3>
+<p>Compaction runs once per turn, at the top of the loop, immediately before the request is built
+(<span class="ev">run.js:1209–1244</span>):</p>
+<pre><code>const compaction = applyCompactionLadder(messages, system, {
+  ...DEFAULT_POLICY, ...(compactionPolicy || {}), compactionGeneration,
+});
+...
+messages = compaction.messages;              // ← in-memory history is replaced
+const systemForRequest = compaction.system;  // ← ghost block appended here</code></pre>
+<p>There is no post-tool-result check, so a single oversized tool result is only handled on the
+<em>next</em> turn.</p>
+
+<h3>1.2 Default policy</h3>
+<table>
+  <thead><tr><th>Knob</th><th>Default</th><th>Effect</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr><td><code>warnTokens</code></td><td class="num">80,000</td><td>Enables snip + cost-aware drop + ghost</td><td class="ev">compactor.js:18</td></tr>
+    <tr><td><code>haltTokens</code></td><td class="num">160,000</td><td>Forces summarize</td><td class="ev">compactor.js:19</td></tr>
+    <tr><td><code>maxToolResultChars</code></td><td class="num">12,000</td><td>Clip cap per tool result (~3k tokens)</td><td class="ev">compactor.js:21</td></tr>
+    <tr><td><code>snipAfterMessages</code></td><td class="num">24</td><td>Also the <em>ladder entry</em> gate (see F1)</td><td class="ev">compactor.js:23, :273</td></tr>
+    <tr><td><code>ghostAfterMessages</code></td><td class="num">40</td><td>With warn: summarize at ≥44 messages</td><td class="ev">compactor.js:25, :324</td></tr>
+    <tr><td><code>preserveRecentTurns</code></td><td class="num">6</td><td>Semantic exchanges kept verbatim</td><td class="ev">compactor.js:27</td></tr>
+    <tr><td><code>snipOnMessageCount</code></td><td>false</td><td>Deliberately opt-in (good)</td><td class="ev">compactor.js:33</td></tr>
+    <tr><td><code>ghostOnMessageCount</code></td><td>false</td><td>Deliberately opt-in (good)</td><td class="ev">compactor.js:34</td></tr>
+  </tbody>
+</table>
+
+<h3>1.3 Actual stage gates</h3>
+<table>
+  <thead><tr><th>Stage</th><th>Fires when</th><th>Loss</th></tr></thead>
+  <tbody>
+    <tr><td><code>clip</code></td>
+        <td><em>ladder entered</em> — i.e. <code>tokens ≥ warn</code> <strong>OR</strong> <code>messages.length ≥ 24</code>. No further gate.</td>
+        <td>Truncates <em>any</em> tool result &gt; 12k chars, at any age, including the newest.</td></tr>
+    <tr><td><code>snip</code></td><td><code>tokens ≥ warn</code> (or opt-in message count)</td>
+        <td>Replaces every tool result ≥ 200 chars older than the last 6 exchanges with a stub.</td></tr>
+    <tr><td><code>cost</code></td><td>same gate as snip</td>
+        <td>Stubs reads whose path was later written. Genuinely cheap loss.</td></tr>
+    <tr><td><code>ghost</code></td><td><code>tokens ≥ warn</code> OR any lossy stage applied</td>
+        <td>No message loss, but appends a mutable block to the system prompt tail every turn.</td></tr>
+    <tr><td><code>summarize</code></td>
+        <td><code>tokens ≥ halt</code> <strong>OR</strong> (<code>tokens ≥ warn</code> AND <code>messages.length ≥ 44</code>)</td>
+        <td>Collapses everything before the last 6 exchanges into ≤30 fragments of ≤120 chars.</td></tr>
+  </tbody>
+</table>
+<p class="footnote">Reading order matters: <span class="ev">compactor.js:273</span> is an early-<em>return</em>
+guard requiring <em>both</em> "under warn" and "under 24 messages". Message count alone therefore still opens the
+door for <code>clip</code>, even though <code>snipOnMessageCount</code> / <code>ghostOnMessageCount</code> were
+explicitly defaulted off to prevent message-count-driven compaction.</p>
+
+<h2 id="sim">2. Runtime simulation under max settings</h2>
+
+<h3>Scenario A — heavy reads (the common case for this repo)</h3>
+<p>Assume <code>--max-steps 60</code>, a 20k-char initial prompt, and one ~40k-char read/search result per step
+(<code>read_file</code> defaults to <code>max_bytes: 50000</code>, <span class="ev">tools/read-file.js:16</span>;
+the ingestion summarizer only intervenes above 64,000 bytes, <span class="ev">tool-result-summarizers.js:14</span>).</p>
+<table>
+  <thead><tr><th>Step</th><th>Est. tokens (messages only)</th><th>Real request (≈ +15k system+tools)</th><th>Window use of 200k</th><th>Ladder action</th></tr></thead>
+  <tbody>
+    <tr><td class="num">1–7</td><td class="num">5k → 72k</td><td class="num">20k → 87k</td><td class="num">10% → 44%</td><td>none</td></tr>
+    <tr><td class="num">8</td><td class="num">~82k</td><td class="num">~97k</td><td class="num">≈49%</td><td><strong>clip + snip + cost + ghost.</strong> All seven prior reads truncated to 12k, then everything before the last 6 exchanges stubbed. History drops to ≈20k tokens.</td></tr>
+    <tr><td class="num">9–15</td><td class="num">20k → 80k</td><td class="num">35k → 95k</td><td class="num">18% → 48%</td><td>regrows</td></tr>
+    <tr><td class="num">16</td><td class="num">~82k</td><td class="num">~97k</td><td class="num">≈49%</td><td><strong>snip again</strong> (generation +1 or +2)</td></tr>
+    <tr><td class="num">17–60</td><td colspan="4">Sawtooth repeats every ~7–8 steps. Steady state: the model never holds more than 6 exchanges of evidence, while ~50% of the context window sits unused.</td></tr>
+  </tbody>
+</table>
+
+<figure>
+<svg viewBox="0 0 900 240" width="100%" height="240" role="img" aria-label="Sawtooth context occupancy chart">
+  <rect x="0" y="0" width="900" height="240" fill="#171a23" stroke="#2c3242" rx="8"/>
+  <line x1="60" y1="200" x2="870" y2="200" stroke="#2c3242"/>
+  <line x1="60" y1="20" x2="60" y2="200" stroke="#2c3242"/>
+  <line x1="60" y1="40" x2="870" y2="40" stroke="#f7768e" stroke-dasharray="5 5" opacity=".7"/>
+  <text x="700" y="34" fill="#f7768e" font-size="12" font-family="monospace">model window 200k</text>
+  <line x1="60" y1="104" x2="870" y2="104" stroke="#e0af68" stroke-dasharray="5 5" opacity=".8"/>
+  <text x="700" y="98" fill="#e0af68" font-size="12" font-family="monospace">warnTokens 80k</text>
+  <line x1="60" y1="72" x2="870" y2="72" stroke="#7aa2f7" stroke-dasharray="2 6" opacity=".6"/>
+  <text x="640" y="66" fill="#7aa2f7" font-size="12" font-family="monospace">headroom never used (~50%)</text>
+  <polyline fill="none" stroke="#7bd88f" stroke-width="2.5"
+    points="60,196 100,168 140,144 180,124 220,110 250,104 250,176 290,160 330,144 370,128 410,112 440,104 440,176 480,160 520,146 560,130 600,114 630,104 630,176 670,160 710,146 750,130 790,114 820,104 820,176 860,164"/>
+  <text x="66" y="216" fill="#9aa3b2" font-size="11" font-family="monospace">step 1</text>
+  <text x="236" y="216" fill="#9aa3b2" font-size="11" font-family="monospace">8</text>
+  <text x="426" y="216" fill="#9aa3b2" font-size="11" font-family="monospace">16</text>
+  <text x="616" y="216" fill="#9aa3b2" font-size="11" font-family="monospace">24</text>
+  <text x="806" y="216" fill="#9aa3b2" font-size="11" font-family="monospace">32</text>
+  <text x="14" y="106" fill="#9aa3b2" font-size="11" font-family="monospace">80k</text>
+  <text x="14" y="44" fill="#9aa3b2" font-size="11" font-family="monospace">200k</text>
+</svg>
+<figcaption>Scenario A: each drop is a snip/clip event that stubs everything outside the 6-exchange window.
+Roughly half the model's context window is structurally unreachable because the trigger is an absolute
+message-only estimate, not window occupancy.</figcaption>
+</figure>
+
+<h3>Scenario B — many small turns (matches the recorded incident)</h3>
+<p>With small tool results, tokens stay well under 80k but message count climbs at 2/step. The 24-message gate
+opens at step ~12 and <code>clip</code> becomes the only stage that fires — which is exactly what the
+2026-07-11 run recorded: <em>"39 <code>clip</code>-only records from steps 13–51"</em>, then full summarisation at
+step 52 once both warn and the 44-message condition were met
+(<span class="ev">postmortems/2026-07-11…md:183, :151</span>). That recorded run is direct empirical
+confirmation of the entry-gate arithmetic above.</p>
+
+<h2 id="findings">3. Findings</h2>
+
+<div class="finding s1b">
+  <h3><span class="pill s1">S1</span> F1 — <code>clip</code> has no pressure gate and no recency exemption</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">context-compactor.js:273 (entry guard), :284 (clip runs unconditionally), :64–92 (no cutoff argument)</dd>
+    <dt>Behaviour</dt><dd>From 24 messages onward, every <code>tool_result</code> above 12,000 chars is truncated on every turn — including the result returned by the previous turn's tool call, before the model has acted on it.</dd>
+    <dt>Impact</dt><dd>A 50KB <code>read_file</code> becomes ~12KB one turn later. The model reasons about a file it can no longer see, or re-reads it, burning steps. This is the single largest contributor to "lobotomised early".</dd>
+  </dl>
+</div>
+
+<div class="finding s1b">
+  <h3><span class="pill s1">S1</span> F2 — the lossy stages run at the <em>warn</em> tier, not the halt tier</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">:291 <code>shouldSnip = overWarnTokens || …</code>, :324 <code>overHaltTokens || (overWarnTokens &amp;&amp; messages.length &gt;= ghostAfterMessages + 4)</code></dd>
+    <dt>Behaviour</dt><dd>"Warn" is a misnomer: at 80k estimated tokens the runner immediately performs irreversible stubbing, and with ≥44 messages it performs full extractive summarisation without ever reaching <code>haltTokens</code>.</dd>
+    <dt>Impact</dt><dd>Summarisation — the most destructive stage — happens at ~49% real window occupancy. A three-tier ladder collapses into a two-tier one in practice.</dd>
+  </dl>
+</div>
+
+<div class="finding s1b">
+  <h3><span class="pill s1">S1</span> F3 — the original task statement and the task checklist are not anchored</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">:230–256 <code>summarizeOldTurns</code> slices from index 0; :239 truncates each head message to 120 chars. <code>run.js:339–344</code> persists <code>tasks</code>/<code>activeTaskIds</code> to the session store, but no code path re-injects them into the prompt (<code>context-budget.js:76–86</code> dynamic tail is an empty seam).</dd>
+    <dt>Behaviour</dt><dd>After summarisation the user's actual request survives as its first 120 characters, and the <code>manage_tasks</code> checklist survives only as whatever <code>tool_result</code> text happens to be in the preserved tail.</dd>
+    <dt>Impact</dt><dd>Classic post-compaction drift: correct-looking work on the wrong objective. The runner's own roadmap lists "verify post-compaction continuity (active task IDs + safety rules persist)" as an unmet item.</dd>
+  </dl>
+</div>
+
+<div class="finding s1b">
+  <h3><span class="pill s1">S1</span> F4 — summaries are recursively re-truncated (compounding amnesia)</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">:254 emits the summary as <code>{ role:'user', content: &lt;string&gt; }</code>; on the next pass :239 treats it as head content and slices it to <code>120</code> chars.</dd>
+    <dt>Behaviour</dt><dd>Second summarisation reduces the entire first summary to a 120-character fragment. Third reduces it again. Nothing marks a summary block as non-summarisable.</dd>
+    <dt>Impact</dt><dd>On a long run the accumulated project knowledge decays geometrically. This is the difference between "compressed" and "lobotomised".</dd>
+  </dl>
+</div>
+
+<div class="finding s1b">
+  <h3><span class="pill s1">S1</span> F5 — the trigger metric is not the quantity that matters</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">:39–62 <code>estimateBlockChars</code>/<code>estimateTokens</code></dd>
+    <dt>Undercounts</dt><dd>
+      <ul class="tight">
+        <li>System prompt excluded (budget up to <code>DEFAULT_CONTEXT_BUDGET_CHARS = 32_000</code>, <span class="ev">context-budget.js:16</span>).</li>
+        <li>Tool schemas excluded (~20 full JSON schemas, several thousand tokens).</li>
+        <li><code>repoContextBlock</code> excluded (<span class="ev">run.js:1107</span>, prepended as a system block at <span class="ev">run.js:163–173</span>).</li>
+        <li><code>thinking</code> blocks counted as <strong>zero</strong> — they carry neither <code>.text</code>, <code>.content</code>, nor <code>.input</code>. With <code>--thinking</code> the estimate can be off by tens of thousands of tokens.</li>
+        <li>Array-form <code>tool_result</code> content (multimodal/image reads) becomes <code>String([{…}])</code> → <code>"[object Object]"</code> → 15 chars, while <code>clipToolResults</code> correctly uses <code>stringifyToolResultContent</code> for the same data (:70). The two functions disagree about the same bytes.</li>
+      </ul>
+    </dd>
+    <dt>Also</dt><dd>A second, independent estimator exists with different constants — <code>estimateTokensAdvisory</code> divides by 2 or 3.5 and <code>JSON.stringify</code>s the whole history every turn (<span class="ev">loop-autopsy.js:55–69</span>).</dd>
+    <dt>Impact</dt><dd>Thresholds are uncalibrated in both directions: too aggressive relative to the window, too permissive relative to real request size. Neither number can be reasoned about by an operator.</dd>
+  </dl>
+</div>
+
+<div class="finding s1b">
+  <h3><span class="pill s1">S1</span> F6 — authoritative usage from the API is never fed back</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">run.js:1373 <code>totalUsage = addUsage(totalUsage, response.usage)</code> — exact <code>input_tokens</code>, <code>cache_read_input_tokens</code>, <code>cache_creation_input_tokens</code> are available every turn and are used only for cost/budget accounting, never to calibrate or drive the ladder.</dd>
+    <dt>Impact</dt><dd>The runner guesses at a number it is being told exactly. A single-line EWMA calibration of chars→tokens would make every threshold meaningful.</dd>
+  </dl>
+</div>
+
+<div class="finding s1b">
+  <h3><span class="pill s1">S1</span> F7 — compaction destroys prompt caching precisely when context is largest</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">:200–228 ghost block text embeds <code>gen=N</code> and a rotating "last 20 tool_use ids" sample; :318 appends it to the system array every compacting turn; <code>run.js:175–179</code> <code>markLastBlock()</code> puts the runner's system <code>cache_control</code> breakpoint on that <em>mutating</em> block.</dd>
+    <dt>Behaviour</dt><dd>Anthropic caching requires an exact prefix match up to the breakpoint. Because the system tail changes each turn, the system breakpoint misses — and so do the tools breakpoint and the message-prefix breakpoint that follow it (<code>run.js:181–186</code>). Summarisation additionally rewrites <code>messages[0]</code>, invalidating the entire transcript prefix.</dd>
+    <dt>Impact</dt><dd>Every turn in the long phase pays full uncached input price instead of ~0.1x cache-read price. The stage that exists to reduce token cost multiplies it, and inflates cumulative <code>input_tokens</code> — which feeds F8.</dd>
+  </dl>
+</div>
+
+<div class="finding s2b">
+  <h3><span class="pill s2">S2</span> F8 — <code>--max-context-tokens</code> measures cumulative spend, not context, and does not configure the compactor</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">bin:418 parses the flag; run.js:1410 <code>contextTokens = totalUsage.input_tokens + totalUsage.output_tokens</code> (cumulative across all turns); run.js:1411 halts at <code>2 ×</code>; the value is never passed into <code>applyCompactionLadder</code> (run.js:1209).</dd>
+    <dt>Behaviour</dt><dd>Help text says "Warn when total tokens exceed budget; halt at 2x budget" (bin:102) but the command builder and README present it as a context control. Combined with F7, a long run inflates cumulative input and hits a hard stop labelled <code>CONTEXT_BUDGET_EXCEEDED</code> that has nothing to do with context occupancy.</dd>
+    <dt>Impact</dt><dd>Operators tune the wrong dial; when it fires, the stop reason misdiagnoses the run. Flagged in the 2026-07-11 postmortem (recommendation 3) and still open.</dd>
+  </dl>
+</div>
+
+<div class="finding s2b">
+  <h3><span class="pill s2">S2</span> F9 — compaction is destructive to persisted session state</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">run.js:1243 <code>messages = compaction.messages</code> → run.js:1435–1441 <code>persistSession(sessionStore, messages, …)</code> → <code>sessionStore.setMessages(messages)</code> (run.js:337).</dd>
+    <dt>Behaviour</dt><dd>Clipped bodies (and, on any successful turn, the summarised collapse) are written into the session file. <code>--resume-session</code> / <code>--fork-from</code> inherit the compacted history. The full tool text still exists in the transcript JSONL, but nothing rehydrates from it.</dd>
+    <dt>Impact</dt><dd>Loss is permanent across sessions, not just within the run. The 2026-07-11 note that "the session store was not poisoned" refers to message <em>structure</em>; content loss was already persisted.</dd>
+  </dl>
+</div>
+
+<div class="finding s2b">
+  <h3><span class="pill s2">S2</span> F10 — <code>compactionGeneration</code> conflates "compressed" with "unhealthy"</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">:321 and :330 each add +1 per turn; <code>session-health.js:17</code> <code>MAX_COMPACTION_GENERATION = 5</code>; :50–52 marks the session degraded; <code>assertResumeAllowed</code> then blocks resume without <code>--ack-resume-risk</code>.</dd>
+    <dt>Behaviour</dt><dd>Three consecutive compacting turns (ghost fires every turn while over warn) are enough to exceed 5. Any healthy long run therefore ends up flagged degraded.</dd>
+    <dt>Impact</dt><dd>Health signal becomes noise; operators learn to pass <code>--ack-resume-risk</code> reflexively, which is exactly when it should mean something. It also thrashes the dynamic prompt-cache key (<code>context-budget.js:48–50</code>).</dd>
+  </dl>
+</div>
+
+<div class="finding s2b">
+  <h3><span class="pill s2">S2</span> F11 — no preservation priority; the ghost block tells the model nothing actionable</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">:102–122 snip treats every result ≥200 chars identically; :200–218 the ghost block lists <code>tool_use</code> ids.</dd>
+    <dt>Behaviour</dt><dd>An error message, a diff that was applied, and an incidental directory listing are all stubbed with equal enthusiasm. The recovery hint the model receives is a list of opaque ids it cannot re-fetch by.</dd>
+    <dt>Impact</dt><dd>The model keeps its narrative (assistant text is never compacted) but loses its evidence — the ideal setup for confident hallucination. Ghost should carry <em>paths, tool names, and one-line outcomes</em>, which are directly re-fetchable.</dd>
+  </dl>
+</div>
+
+<div class="finding s2b">
+  <h3><span class="pill s2">S2</span> F12 — two inconsistent truncation caps in one pipeline, and no post-tool check</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">tool-result-summarizers.js:14 <code>DEFAULT_SUMMARIZE_THRESHOLD = 64_000</code> bytes at ingestion (tool-aware, head/tail preserving) vs compactor.js:21 <code>maxToolResultChars = 12_000</code> one turn later (blind prefix slice).</dd>
+    <dt>Behaviour</dt><dd>Bytes are admitted generously by the good, tool-aware summarizer, then cut by the naive one. The ladder only runs pre-request, so an oversized batch of results is never trimmed until the next turn.</dd>
+    <dt>Impact</dt><dd>Wasted work, and the surviving 12k is a prefix rather than the semantically useful head+tail the ingestion summarizer would have produced.</dd>
+  </dl>
+</div>
+
+<div class="finding s3b">
+  <h3><span class="pill s3">S3</span> F13 — presets are aggressive and are recommended routinely</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">bin:485–496 <code>--task-scope</code> → warn 40k / halt 80k / clip 8k / snipAfter 12 / message-count triggers ON / <code>maxSteps = 8</code>; bin:497–508 <code>--compact-each-turn</code> → warn 20k / halt 40k / clip 4k / snipAfter 6. <code>session-health.js:97</code> and <code>:105</code> recommend <code>--task-scope</code> in the standard "next task" tips.</dd>
+    <dt>Impact</dt><dd>Reasonable as explicit opt-ins for narrow tasks; harmful if an operator carries them into a long investigation. <code>--compact-each-turn</code> with a 4k clip cap means the model effectively never sees a whole file.</dd>
+  </dl>
+</div>
+
+<div class="finding s3b">
+  <h3><span class="pill s3">S3</span> F14 — the repeat-read nudge fights compaction-forced re-reads</h3>
+  <dl class="kv">
+    <dt>Evidence</dt><dd class="ev">repeat-tool-detector.js:16–17 threshold 3 / window 12; :51–57 the injected note says "Use the current result … or move to edit/write once you have enough context."</dd>
+    <dt>Behaviour</dt><dd>The detector correctly re-arms per <code>compactionGeneration</code> (:89–91) — good design — but the message does not acknowledge that the previous result was <em>deleted by the runner</em>.</dd>
+    <dt>Impact</dt><dd>Mild: nudges the model away from a re-read that compaction made necessary.</dd>
+  </dl>
+</div>
+
+<h2 id="good">4. What is already right</h2>
+<ul class="tight">
+  <li><span class="pill good">good</span> <strong>Tool-pair integrity.</strong> <code>groupSemanticExchanges</code>
+    (<span class="ev">message-contract.js:163–194</span>) guarantees compaction cuts only at exchange boundaries, and
+    <code>assertValidAnthropicMessages</code> validates the exact outbound payload
+    (<span class="ev">run.js:1257–1273</span>). The 2026-07-11 root cause is properly closed at the boundary, not papered over.</li>
+  <li><span class="pill good">good</span> <strong><code>clip</code> is now byte-bounded and idempotent</strong>
+    (<span class="ev">compactor.js:79–87</span>, plus a regression test) — the "39 clip records" telemetry noise is fixed.</li>
+  <li><span class="pill good">good</span> <strong>Message-count-only snip/ghost are off by default</strong> with an
+    explicit rationale comment (<span class="ev">compactor.js:28–34</span>) and a regression test asserting no
+    compaction under low token pressure. The same reasoning simply was not applied to <code>clip</code> (F1).</li>
+  <li><span class="pill good">good</span> <strong>Cost-aware stale-read drop</strong>
+    (<span class="ev">compactor.js:153–198</span>) is a genuinely well-designed stage: it drops bytes that are
+    provably useless (reads superseded by later writes to the same path) before touching useful ones.</li>
+  <li><span class="pill good">good</span> <strong>Observability exists.</strong> <code>compaction</code> events,
+    <code>compaction_applied</code> ledger entries, and beginner hints are already wired
+    (<span class="ev">run.js:1221–1242</span>) — the plumbing for the metrics recommended below is in place.</li>
+  <li><span class="pill good">good</span> <strong>Tool-aware ingestion summarizers</strong>
+    (<span class="ev">tool-result-summarizers.js</span>) run <em>after</em> secret scrubbing and preserve head+tail —
+    the right shape for lossy compression. They are simply under-used relative to blind clipping.</li>
+</ul>
+
+<h2 id="recs">5. Recommendations</h2>
+
+<h3>Tier 1 — stop the early lobotomy (small, surgical, high payoff)</h3>
+
+<h4>R1 · Gate <code>clip</code> on pressure and exempt the recent window</h4>
+<p>Two changes in <code>context-compactor.js</code>. First, do not let message count alone open the ladder for
+<code>clip</code>; second, give <code>clipToolResults</code> a cutoff and an age-graduated budget.</p>
+<pre><code>// :284 — was: unconditional
+const shouldClip = overWarnTokens || (p.clipOnMessageCount &amp;&amp; overSnipMessageCount);
+if (shouldClip) {
+  const clip = clipToolResults(current, {
+    recentChars: p.maxToolResultCharsRecent, // 32_000
+    olderChars: p.maxToolResultChars,        // 12_000
+    cutoff: preservedTailCutoff(current, p.preserveRecentTurns),
+  });
+  …
+}</code></pre>
+<p>Rule to encode: <em>never truncate a tool result inside <code>preserveRecentTurns</code></em>. The model must be
+able to finish using what it just fetched.</p>
+
+<h4>R2 · Make thresholds window-relative and measured</h4>
+<p>Replace absolute <code>warnTokens</code>/<code>haltTokens</code> with fractions of the model's real context
+window (from <code>model-catalog.js</code>), computed over the <em>whole request</em>:</p>
+<pre><code>function estimateRequestTokens({ system, tools, messages, calibration }) { … }
+
+// derived policy
+const W = modelContextWindow;      // e.g. 200_000
+softTokens = 0.60 * W;             // cheap stages only: cost-aware drop, clip of OLD results
+firmTokens = 0.75 * W;             // snip old tool results, ghost marker
+hardTokens = 0.85 * W;             // summarize (last resort)</code></pre>
+<p>Also fix <code>estimateBlockChars</code>: count <code>thinking</code>/<code>signature</code>, and use
+<code>stringifyToolResultContent</code> for array content so the estimator and the clipper agree.</p>
+
+<h4>R3 · Move <code>summarize</code> behind the hard tier only</h4>
+<p>Delete the <code>(overWarnTokens &amp;&amp; messages.length &gt;= ghostAfterMessages + 4)</code> clause at
+<span class="ev">:324</span>. Summarisation should require real window pressure, never a message count.</p>
+
+<h4>R4 · Calibrate against real usage</h4>
+<pre><code>// after run.js:1373
+const realInput = (response.usage.input_tokens || 0) + (response.usage.cache_read_input_tokens || 0);
+calibration.update(lastRequestChars / Math.max(1, realInput));  // EWMA chars-per-token
+occupancy = realInput / modelContextWindow;                      // authoritative trigger
+</code></pre>
+<p>Use <em>observed occupancy</em> as the primary trigger and the char estimate only as a forward prediction for the
+turn being built. This alone converts the whole ladder from guesswork to control.</p>
+
+<h3>Tier 2 — make the loss survivable</h3>
+
+<h4>R5 · Pin a session anchor that survives every stage</h4>
+<p>A bounded, always-present block containing: the original user request (verbatim, up to ~2k chars), the current
+<code>manage_tasks</code> checklist, files written this run, the last error, and the active plan path. The seam
+already exists — <code>getCachedDynamicTail</code>/<code>setCachedDynamicTail</code>
+(<span class="ev">context-budget.js:76–86</span>) is documented as reserved for exactly this and is currently empty.
+<code>ctx.tasks</code> is already persisted (<span class="ev">run.js:338–344</span>); it just needs rendering.</p>
+
+<h4>R6 · Make summaries append-only and non-recursive</h4>
+<pre><code>// session-scoped, never re-truncated
+summaryLedger.push({ gen, span: [startStep, endStep], text: bounded(entry, 1_500) });
+// render as ONE tagged block; skip blocks tagged compaction:summarize when building a new summary</code></pre>
+<p>Tag the emitted block (e.g. <code>{ _compactionSummary: true }</code>) and have
+<code>summarizeOldTurns</code> pass it through untouched instead of slicing it to 120 chars.</p>
+
+<h4>R7 · Non-destructive compaction + rehydration</h4>
+<p>Keep two views: <code>rawMessages</code> (persisted, source of truth) and the compacted projection that is sent.
+Persist the compaction <em>plan</em>, not its output. Then add a cheap recovery path so a stub is a pointer rather
+than a hole — either a <code>rehydrate(tool_use_id)</code> tool reading from the transcript JSONL, or at minimum
+make snip stubs name the tool and arguments needed to reproduce the result.</p>
+
+<h4>R8 · Rewrite the ghost block to be actionable</h4>
+<p>Replace the <code>tool_use</code> id sample with: paths read, paths written, tools used, and one-line outcomes,
+plus an explicit statement of which results were emptied. Regenerate its text only when the generation actually
+changes (see R9) so it is cache-stable.</p>
+
+<h3>Tier 3 — cost, honesty, hygiene</h3>
+
+<h4>R9 · Protect the cache breakpoints</h4>
+<p>Invariant to add and test: <em>content before a <code>cache_control</code> breakpoint must not change on a turn
+where the underlying inputs did not change.</em> Concretely — move the ghost/anchor block out of the system array
+(append it to the newest user message instead, which is already past the stable-prefix breakpoint at
+<span class="ev">run.js:230–240</span>), or keep it in system but place the breakpoint <em>before</em> it. Also
+decouple ghost regeneration from per-turn id sampling.</p>
+
+<h4>R10 · Split the two token metrics and rename</h4>
+<table>
+  <thead><tr><th>Flag</th><th>Means</th><th>Action</th></tr></thead>
+  <tbody>
+    <tr><td><code>--max-total-tokens</code></td><td>cumulative spend across the run (today's behaviour)</td><td>new name; keep <code>--max-context-tokens</code> as a deprecated alias</td></tr>
+    <tr><td><code>--max-context-tokens</code></td><td>per-request occupancy ceiling</td><td>feed into the ladder as <code>hardTokens</code>; compare against real <code>input_tokens + cache_read_input_tokens</code></td></tr>
+    <tr><td><code>--compaction-warn/-halt/-clip</code></td><td>direct ladder knobs</td><td>expose them; today only the two coarse presets can change policy</td></tr>
+  </tbody>
+</table>
+<p>Update <code>bin</code> help, <code>README.md</code>, <code>docs/runner-quickstart.html</code>, and
+<code>docs/command-builder.html</code> together — the postmortem's recommendation 3 is still outstanding.</p>
+
+<h4>R11 · Decouple health from compaction generation</h4>
+<p>Count only irreversible stages (<code>snip</code>, <code>summarize</code>) toward generation; <code>ghost</code>
+is a marker, not damage. Degrade the session on "≥2 full summarisations" or "summarised with unresolved task IDs",
+not on a counter that a healthy 40-step run trips by design.</p>
+
+<h4>R12 · One truncation authority, and a reactive post-tool check</h4>
+<p>Let the tool-aware ingestion summarizers own byte reduction (head+tail, per-tool semantics) and align their
+threshold with the compaction cap so bytes are cut once. Run a bounded ladder pass immediately after tool results
+are appended, so an oversized batch never survives into a request.</p>
+
+<h4>R13 · Report compaction honestly</h4>
+<p>Extend the existing <code>compaction_applied</code> event with <code>tokensBefore</code>,
+<code>tokensAfter</code>, <code>bytesDropped</code>, <code>resultsStubbed</code>, <code>anchorsPinned</code>,
+<code>occupancyBefore/After</code>, and add a verbose per-turn line:
+<code>context 118k/200k (59%) · cache read 104k · stages: cost</code>. Today an operator cannot tell a 5% clip from
+a 95% amnesia event — both print "Compaction applied".</p>
+
+<h2 id="policy">6. Proposed default policy</h2>
+<table>
+  <thead><tr><th>Knob</th><th>Today</th><th>Proposed</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>trigger metric</td><td>message chars / 4</td><td>observed <code>input_tokens</code> + calibrated forward estimate of full request</td><td>F5, F6</td></tr>
+    <tr><td>soft tier</td><td>—</td><td>0.60 × window (120k @200k) → cost-aware drop + clip of <em>old</em> results only</td><td>F1, F2</td></tr>
+    <tr><td>firm tier</td><td>warn 80k → snip + ghost</td><td>0.75 × window (150k) → snip old results, ghost marker</td><td>F2</td></tr>
+    <tr><td>hard tier</td><td>halt 160k, or warn + 44 msgs</td><td>0.85 × window (170k) → summarize, hard tier only</td><td>F2, F3</td></tr>
+    <tr><td>clip cap (recent window)</td><td>12,000 chars, no exemption</td><td><strong>never clip</strong> inside <code>preserveRecentTurns</code></td><td>F1</td></tr>
+    <tr><td>clip cap (older)</td><td>12,000</td><td>32,000 at soft, 12,000 at firm, 4,000 at hard</td><td>graduated loss</td></tr>
+    <tr><td><code>preserveRecentTurns</code></td><td>6</td><td>8</td><td>tool-heavy turns consume the window fast</td></tr>
+    <tr><td>anchor block</td><td>none</td><td>~4,000 chars, always present, never compacted</td><td>F3, F4</td></tr>
+    <tr><td>summary handling</td><td>re-truncated to 120 chars each pass</td><td>append-only ledger, ≤1,500 chars/entry, immune to re-summarisation</td><td>F4</td></tr>
+    <tr><td>message-count triggers</td><td>off for snip/ghost, <strong>on for clip</strong></td><td>off for all stages</td><td>F1</td></tr>
+    <tr><td>generation accounting</td><td>+1 per ghost, +1 per summarize</td><td>+1 per irreversible stage only</td><td>F10</td></tr>
+  </tbody>
+</table>
+<p class="footnote">Net effect in Scenario A: first lossy action moves from step ~8 at 49% occupancy to step ~22 at
+75% occupancy, the working-memory floor rises from 6 exchanges to "8 exchanges + anchor + append-only summary
+ledger", and the prompt cache keeps hitting throughout.</p>
+
+<h2 id="tests">7. Test gaps to close</h2>
+<table>
+  <thead><tr><th>Test</th><th>Asserts</th></tr></thead>
+  <tbody>
+    <tr><td><code>no clip inside preserved window</code></td><td>A 40k-char result in the newest exchange is byte-identical after a ladder pass at 30% occupancy.</td></tr>
+    <tr><td><code>anchor survives N compactions</code></td><td>Original request text + active task IDs present after 3 consecutive summarisations.</td></tr>
+    <tr><td><code>summary is not re-summarised</code></td><td>Summary block byte-length is non-decreasing across passes.</td></tr>
+    <tr><td><code>estimator vs. real usage</code></td><td>Recorded-usage fixture: estimate within ±20% of <code>input_tokens</code>, including a <code>thinking</code>-block case and an array-content <code>tool_result</code> case.</td></tr>
+    <tr><td><code>cache prefix stability</code></td><td>Two consecutive compacted turns produce an identical serialised prefix up to each <code>cache_control</code> breakpoint when inputs are unchanged.</td></tr>
+    <tr><td><code>persisted history is raw</code></td><td>After a clipping turn, <code>sessionStore.data().messages</code> still contains full tool text (or a resolvable pointer).</td></tr>
+    <tr><td><code>generation accounting</code></td><td>10 ghost-only turns do not mark the session degraded.</td></tr>
+    <tr><td><code>60-step soak</code></td><td>Simulated max-settings run: assert summarisation count ≤1 and that occupancy stays within 0.55–0.85 of the window.</td></tr>
+  </tbody>
+</table>
+<p class="footnote">Watch for false greens of the kind the 2026-07-11 postmortem identified: assert the
+<em>invariant named in the test title</em>, not a weaker proxy.</p>
+
+<h2 id="today-levers">8. Operator levers available now (no code change)</h2>
+<ul class="tight">
+  <li><strong>Do not use <code>--task-scope</code> or <code>--compact-each-turn</code> for long investigations.</strong>
+    They cut warn to 40k/20k and the clip cap to 8k/4k and switch message-count triggers on.</li>
+  <li><strong>Keep individual tool results under 12,000 chars</strong> so <code>clip</code> is a no-op: use
+    <code>read_file</code> with <code>offset</code>/<code>limit</code>/<code>max_bytes</code>, and
+    <code>search_text</code> with a narrow <code>path</code>. Paradoxically, many small reads survive better than
+    one big one.</li>
+  <li><strong>Push exploration into <code>spawn_agent</code></strong> — the child burns its own context and returns
+    a summary, keeping the parent below the warn tier.</li>
+  <li><strong>Checkpoint findings to disk</strong> (<code>write_file</code> to a notes file) and keep
+    <code>manage_tasks</code> current. Anything on disk survives compaction; anything only in the transcript does not.</li>
+  <li><strong>Set <code>BRIDGE_RUNNER_SUMMARIZE_THRESHOLD</code></strong> to control ingestion-side truncation with
+    the tool-aware summarizers rather than relying on blind clipping later.</li>
+  <li><strong>Treat a <code>compaction: snip</code> or <code>summarize</code> event as a checkpoint signal</strong>:
+    the run is now operating on 6 exchanges of evidence. Finish the current sub-task and start a fresh session with a
+    written handoff rather than pushing on.</li>
+</ul>
+
+<div class="panel">
+  <h3 style="margin-top:0">Suggested sequencing</h3>
+  <ol class="tight">
+    <li><strong>Session 1 (unblocks the symptom):</strong> R1 + R3 + the <code>estimateBlockChars</code> fixes from
+      R2. Small diffs in one file, plus two tests. This alone moves first loss from step ~8 to step ~20+.</li>
+    <li><strong>Session 2 (makes loss survivable):</strong> R5 anchor block + R6 append-only summaries.</li>
+    <li><strong>Session 3 (control loop):</strong> R2 window-relative tiers + R4 usage calibration + R13 telemetry.</li>
+    <li><strong>Session 4 (cost + honesty):</strong> R9 cache invariant, R10 flag split and docs, R11 health decoupling.</li>
+    <li><strong>Session 5 (structural):</strong> R7 non-destructive persistence + rehydration, R12 single truncation
+      authority and reactive post-tool pass.</li>
+  </ol>
+</div>
+
+<p class="footnote" style="margin-top:40px">
+  Findings are derived from static reading of the current code plus arithmetic on the trigger conditions; the
+  Scenario A/B timelines are simulations, not captured runs, though Scenario B matches the recorded step 13–51
+  <code>clip</code>-only sequence and step-52 summarisation in the 2026-07-11 incident. No files other than this
+  report were modified.
+</p>
+
+</div>
+</body>
+</html>

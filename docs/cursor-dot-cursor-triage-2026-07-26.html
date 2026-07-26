@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>.cursor/ triage — Cursor instruction layer (2026-07-26)</title>
+<style>
+  :root {
+    --bg:#fbfaf8; --surface:#fff; --surface-2:#f4f2ee; --ink:#1c1b19; --ink-soft:#55524d;
+    --ink-faint:#86817a; --rule:#e2ded7; --accent:#8a4b2a; --accent-soft:#f6ece5;
+    --ok:#2f6b45; --ok-soft:#e8f2ec; --warn:#8a6d1f; --warn-soft:#f8f1dc;
+    --bad:#97331f; --bad-soft:#fbeae6; --info:#2c5578; --info-soft:#e8eff5;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#17161a; --surface:#1f1e23; --surface-2:#26252b; --ink:#ece9e4; --ink-soft:#b5afa6;
+      --ink-faint:#8b857c; --rule:#35333a; --accent:#d99b6c; --accent-soft:#2c2320;
+      --ok:#7dc79b; --ok-soft:#1c2a22; --warn:#ddbc63; --warn-soft:#2b2618;
+      --bad:#e89078; --bad-soft:#2e1e1a; --info:#8fb6d8; --info-soft:#1c242c;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:64rem;margin:0 auto;padding:2.5rem 1.5rem 6rem}
+  header.doc{border-bottom:2px solid var(--rule);padding-bottom:1.5rem;margin-bottom:2rem}
+  .eyebrow{font:600 .72rem/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem}
+  h1{font-size:2rem;line-height:1.15;margin:0 0 .6rem;letter-spacing:-.02em}
+  .sub{color:var(--ink-soft);font-size:1.05rem;margin:0}
+  .meta{display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;margin-top:1.25rem;font-size:.85rem;color:var(--ink-faint)}
+  .meta b{color:var(--ink-soft);font-weight:600}
+  h2{font-size:1.3rem;margin:3rem 0 1rem;padding-top:.5rem;border-top:1px solid var(--rule);letter-spacing:-.01em}
+  h2 .num{color:var(--ink-faint);font:400 1rem var(--mono);margin-right:.5rem}
+  h3{font-size:1.02rem;margin:1.75rem 0 .6rem}
+  p{margin:.85rem 0}
+  ul,ol{margin:.5rem 0 1rem;padding-left:1.35rem}
+  li{margin:.35rem 0}
+  code{font:.86em var(--mono);background:var(--surface-2);padding:.12em .38em;border-radius:4px;border:1px solid var(--rule)}
+  pre{background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:1rem 1.1rem;overflow:auto;font:.82rem/1.5 var(--mono)}
+  table{width:100%;border-collapse:collapse;font-size:.92rem;margin:1rem 0 1.5rem;background:var(--surface)}
+  th,td{text-align:left;vertical-align:top;padding:.55rem .65rem;border:1px solid var(--rule)}
+  th{background:var(--surface-2);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft)}
+  .pill{display:inline-block;font:600 .72rem/1 var(--mono);padding:.28em .55em;border-radius:999px;letter-spacing:.02em}
+  .current{background:var(--ok-soft);color:var(--ok)}
+  .harmful{background:var(--bad-soft);color:var(--bad)}
+  .historical{background:var(--warn-soft);color:var(--warn)}
+  .update{background:var(--info-soft);color:var(--info)}
+  .junk{background:var(--surface-2);color:var(--ink-faint)}
+  .callout{border:1px solid var(--rule);border-left:4px solid var(--accent);background:var(--accent-soft);padding:1rem 1.15rem;border-radius:0 8px 8px 0;margin:1.25rem 0}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft)}
+  .callout.ok{border-left-color:var(--ok);background:var(--ok-soft)}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft)}
+  .decisions li strong{display:inline-block;min-width:7.5rem}
+  .actions li{margin:.7rem 0}
+  .footer{margin-top:3rem;padding-top:1.25rem;border-top:2px solid var(--rule);font-size:.9rem;color:var(--ink-soft)}
+  a{color:var(--info)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="doc">
+  <div class="eyebrow">Cursor-only · playground · triage</div>
+  <h1>.cursor/ instruction-layer triage</h1>
+  <p class="sub">Interactive audit with Alan. Goal: stop live Cursor primitives from teaching retired runner concepts, keep authentic May history, and put Cursor on the same footing as Claude Code / Codex about current repo status.</p>
+  <div class="meta">
+    <span><b>Date</b> 2026-07-26</span>
+    <span><b>Folder</b> <code>claude-local-bridge-playground</code></span>
+    <span><b>Branch</b> <code>main</code></span>
+    <span><b>Brief</b> <code>HANDOFF-CURSOR-dot-cursor-audit-2026-07-25.md</code></span>
+    <span><b>Status</b> awaiting Alan approval before any junk / rewrite</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="num">1</span>Verdict in one paragraph</h2>
+  <p>Of the 20 files under <code>.cursor/</code>, <strong>two live primitives actively prescribe retired <code>--agent</code> flags</strong> (the <code>runner-command-builder</code> skill + agent). Alan confirmed those never worked in practice and should be junked — without touching <code>docs/command-builder.html</code>. Keep and refresh only the two Anthropic skills. Mark the four May/July plans as historical via an in-file status header. Leave continual-learning state and the three plugins alone. Add a small always-on Cursor rule so every Cursor session shares the same current reality as <code>AGENTS.md</code> / safari handoffs.</p>
+</section>
+
+<section>
+  <h2><span class="num">2</span>Alan's decisions (locked this session)</h2>
+  <ol class="decisions">
+    <li><strong>Keep + refresh:</strong> <code>anthropic-official</code>, <code>anthropic-platform-expert</code> (and their bundled resources).</li>
+    <li><strong>Junk:</strong> <code>oauth-evidence</code>, <code>lab-integrator</code>, <code>parity-archivist</code>, <code>observability-scribe</code>, <code>runner-command-builder</code> skill, and <code>runner-command-builder</code> agent. <em>Not</em> <code>docs/command-builder.html</code>.</li>
+    <li><strong>History marking:</strong> status header <em>inside</em> each <code>.cursor/plans/*.plan.md</code> file (option A).</li>
+    <li><strong>Continual-learning:</strong> keep active; leave state JSON as machinery (no hand-edit).</li>
+    <li><strong>Plugins:</strong> keep <code>agent-compatibility</code>, <code>compound-engineering</code>, <code>mintlify-cursor-plugin</code>.</li>
+    <li><strong>Shared footing:</strong> yes — <code>.cursor/</code> must gain an explicit pointer to current shared docs/status so multi-agent work stays aligned.</li>
+  </ol>
+  <div class="callout ok">
+    <strong>Important clarification:</strong> junking Cursor's skill/agent named <code>runner-command-builder</code> does <em>not</em> remove the HTML command builder at <code>docs/command-builder.html</code>. That HTML remains the primary day-to-day runner UX.
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">3</span>Triage table (all 20 files)</h2>
+  <table>
+    <thead>
+      <tr><th>Path</th><th>Bucket</th><th>Evidence</th><th>Proposed action</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>.cursor/settings.json</code></td>
+        <td><span class="pill current">CURRENT</span></td>
+        <td>Enables 3 plugins Alan wants kept.</td>
+        <td>Leave alone.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/rules/anthropic-primary-sources.mdc</code></td>
+        <td><span class="pill update">NEEDS-UPDATE</span></td>
+        <td>Policy still correct (official WebFetch first). Mentions sibling skills; should also point at shared status docs.</td>
+        <td>Light patch: drop dead skill names; link shared-context rule / AGENTS.md.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/skills/anthropic-official/SKILL.md</code></td>
+        <td><span class="pill update">NEEDS-UPDATE</span></td>
+        <td>May 28. Official-first posture still good. Still routes to junked lanes (<code>parity-archivist</code>, <code>oauth-evidence</code>) and May “parity” framing.</td>
+        <td>Recency refresh (keep live).</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/skills/anthropic-official/sources.md</code></td>
+        <td><span class="pill update">NEEDS-UPDATE</span></td>
+        <td>URL tiers still useful; access dates / examples stale relative to current docs work.</td>
+        <td>Refresh with skill.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/skills/anthropic-official/surfaces.md</code></td>
+        <td><span class="pill update">NEEDS-UPDATE</span></td>
+        <td>Surface picker still relevant; needs playground-current wording.</td>
+        <td>Refresh with skill.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/skills/anthropic-platform-expert/SKILL.md</code></td>
+        <td><span class="pill update">NEEDS-UPDATE</span></td>
+        <td>May 28. OAuth-only invariants still correct. “North star: parity lab-notes” and runner-command-builder cross-links are stale instructional noise.</td>
+        <td>Recency refresh (keep live).</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/agents/runner-command-builder.md</code></td>
+        <td><span class="pill harmful">STALE-HARMFUL</span></td>
+        <td>Live agent. Explicitly teaches <code>--agent explore|implement|…</code> (retired). Alan: never worked; junk.</td>
+        <td><strong>Junk</strong> (git rm).</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/skills/runner-command-builder/SKILL.md</code></td>
+        <td><span class="pill harmful">STALE-HARMFUL</span></td>
+        <td>Live skill. Example uses <code>--agent implement</code>. Alan: never worked; junk.</td>
+        <td><strong>Junk</strong> directory.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/skills/parity-archivist/SKILL.md</code></td>
+        <td><span class="pill junk">JUNK (Alan)</span></td>
+        <td>Era-specific “parity” lane; Alan not keeping.</td>
+        <td>Junk directory.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/skills/oauth-evidence/SKILL.md</code></td>
+        <td><span class="pill junk">JUNK (Alan)</span></td>
+        <td>May demo/runbook lane; Alan not keeping.</td>
+        <td>Junk directory.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/skills/lab-integrator/SKILL.md</code></td>
+        <td><span class="pill junk">JUNK (Alan)</span></td>
+        <td>Weekly lab-notes rollup lane; Alan not keeping.</td>
+        <td>Junk directory.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/skills/observability-scribe/SKILL.md</code></td>
+        <td><span class="pill junk">JUNK (Alan)</span></td>
+        <td>Stream-json contract lane; Alan not keeping.</td>
+        <td>Junk directory.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/plans/harness_hardening_roadmap_*.plan.md</code></td>
+        <td><span class="pill historical">STALE-HISTORICAL</span></td>
+        <td>Accurate May roadmap record; mentions <code>--agent</code> as a then-goal, not a live instruction today.</td>
+        <td>Add historical status header; do not rewrite body.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/plans/beyond_perf_parity_lab-notes_*.plan.md</code></td>
+        <td><span class="pill historical">STALE-HISTORICAL</span></td>
+        <td>Accurate May parity-lab-notes plan; historical framing.</td>
+        <td>Status header only.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/plans/runner-top-agent-roadmap_*.plan.md</code></td>
+        <td><span class="pill historical">STALE-HISTORICAL</span></td>
+        <td>May kernel/coordinator roadmap; historical.</td>
+        <td>Status header only.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/plans/phase_3_critique_*.plan.md</code></td>
+        <td><span class="pill historical">STALE-HISTORICAL</span></td>
+        <td>July 10 critique (Codex/Fable Phase 3); historical; do not “update to present.”</td>
+        <td>Status header only.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/hooks/state/continual-learning.json</code></td>
+        <td><span class="pill current">CURRENT</span></td>
+        <td>Live hook machinery; Alan keeping hook active.</td>
+        <td>Do not hand-edit.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/hooks/state/continual-learning-index.json</code></td>
+        <td><span class="pill current">CURRENT</span></td>
+        <td>Transcript processing notebook; dirty from today’s run.</td>
+        <td>Leave; optional later commit with other work.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/.DS_Store</code></td>
+        <td><span class="pill junk">JUNK</span></td>
+        <td>macOS Finder metadata; already gitignored pattern but still tracked.</td>
+        <td>Remove from tracking.</td>
+      </tr>
+      <tr>
+        <td><code>.cursor/skills/.DS_Store</code></td>
+        <td><span class="pill junk">JUNK</span></td>
+        <td>Same.</td>
+        <td>Remove from tracking.</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <strong>New file proposed (not in original 20):</strong>
+    <code>.cursor/rules/playground-shared-context.mdc</code> —
+    always-apply pointer so Cursor loads the same current status as other agents (see §5).
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">4</span>Prioritized action list</h2>
+  <ol class="actions">
+    <li>
+      <span class="pill harmful">P0 · needs approval</span>
+      <strong>Junk STALE-HARMFUL + unused skills</strong> —
+      <code>git rm</code> agent + five skill directories listed above.
+      Does <em>not</em> touch <code>docs/command-builder.html</code>.
+    </li>
+    <li>
+      <span class="pill update">P0 · needs approval</span>
+      <strong>Add shared-context rule</strong> —
+      new always-apply <code>.cursor/rules/playground-shared-context.mdc</code> (draft below).
+    </li>
+    <li>
+      <span class="pill update">P1 · needs approval</span>
+      <strong>Refresh Anthropic skills</strong> —
+      remove dead cross-links; update “current direction”; keep official-first lookup order; bump last-reviewed date.
+    </li>
+    <li>
+      <span class="pill historical">P1 · needs approval</span>
+      <strong>Historical headers on four plans</strong> —
+      prepend status banner; do not rewrite plan bodies.
+    </li>
+    <li>
+      <span class="pill junk">P2 · needs approval</span>
+      <strong>Untrack <code>.DS_Store</code> files</strong> under <code>.cursor/</code>
+      (and note third tracked one under safari artifacts if Alan wants that too).
+    </li>
+    <li>
+      <span class="pill current">No approval needed for “do nothing”</span>
+      Keep plugins + continual-learning state as-is.
+    </li>
+    <li>
+      <span class="pill warn">Separate coordinated pass</span>
+      Mirror a Learned Workspace Fact into <code>AGENTS.md</code> / <code>CLAUDE.md</code> about which Cursor skills stay live.
+      Claude’s original brief said not to edit those in <em>this</em> Cursor-only audit; Alan’s shared-footing ask makes it worth doing in the same commit <em>if</em> he approves that exception.
+    </li>
+  </ol>
+</section>
+
+<section>
+  <h2><span class="num">5</span>What <code>.cursor/</code> should learn (shared footing)</h2>
+  <p>Proposed always-apply rule content (short; Cursor auto-loads <code>.mdc</code> rules with frontmatter):</p>
+  <pre>---
+description: >-
+  Shared playground status for Cursor: same footing as AGENTS.md / Claude Code.
+  Profiles retired; Anthropic-native; closed P0-01…P0-12; live safari symlink gaps.
+alwaysApply: true
+---
+
+# Playground shared context (Cursor)
+
+Read `AGENTS.md` as the shared source of truth. For Claude-specific notes also
+skim `CLAUDE.md` (Cursor does not auto-load it).
+
+## Direction (now)
+- This playground is an Anthropic-native runner lab (minimal core, explicit opt-ins).
+- Agent/capability profiles are RETIRED. Do not restore `--agent`, `--profile`,
+  `--list-agents`, or `--list-profiles`.
+- Model transport is native `POST /v1/messages` only. No OpenAI-compatible routes.
+  No upstream API-key fallback. OAuth Bearer via the local bridge only.
+
+## Live Cursor skills (intentional)
+- Keep live: `.cursor/skills/anthropic-official/`, `.cursor/skills/anthropic-platform-expert/`
+- Do not treat other historical `.cursor/skills/*` as active guidance.
+
+## Status pointers (do not invent parallel trackers)
+- Closed runtime P0-01…P0-12 — see concordance assessment under `docs/`.
+- Active path-safety thread: `HANDOFF-safari-3-remediation-plan-2026-07-25.md`
+  (two known live symlink gaps; Safari 3 not authorized to execute until Alan says so).
+- Future-directions band is `FD-01…FD-05` — say `FD-01`, not a second “P0” namespace.
+- Day-to-day runner UX: `docs/command-builder.html` (not a Cursor agent/skill).
+
+## Divergence awareness
+- Cursor loads `AGENTS.md` + `.cursor/**`. Claude Code loads `CLAUDE.md`.
+- See `AGENT-DOCS-DIVERGENCE-2026-07-25.html` before assuming both files match.</pre>
+</section>
+
+<section>
+  <h2><span class="num">6</span>Concrete patches for STALE-HARMFUL / history headers</h2>
+
+  <h3>6a — Junk commands (Terminal, repo root)</h3>
+  <p>Success looks like: those paths gone from the working tree; <code>docs/command-builder.html</code> still present.</p>
+  <pre>cd /Users/alanman/Developer/claude-local-bridge-playground
+
+git rm .cursor/agents/runner-command-builder.md
+git rm -r .cursor/skills/runner-command-builder
+git rm -r .cursor/skills/parity-archivist
+git rm -r .cursor/skills/oauth-evidence
+git rm -r .cursor/skills/lab-integrator
+git rm -r .cursor/skills/observability-scribe
+
+# optional junk (Finder metadata)
+git rm .cursor/.DS_Store .cursor/skills/.DS_Store
+
+# sanity: HTML command builder must still exist
+test -f docs/command-builder.html &amp;&amp; echo "command-builder.html OK"</pre>
+
+  <h3>6b — Historical status header (prepend after YAML frontmatter, or at top if no frontmatter)</h3>
+  <pre>&gt; **STATUS: HISTORICAL (as of 2026-07-26).**
+  &gt; This Cursor plan is preserved as an authentic record of goals/thinking from its
+  &gt; original date. It is **not** current instruction. Do not execute its todos as
+  &gt; live work. For current direction and safety status, read `AGENTS.md` and
+  &gt; `.cursor/rules/playground-shared-context.mdc`.</pre>
+  <p>Apply to all four files under <code>.cursor/plans/</code>. Do not rewrite the rest of each plan.</p>
+
+  <h3>6c — Anthropic skill refresh (outline; full text on approval)</h3>
+  <ul>
+    <li>Add <code>Last reviewed: 2026-07-26</code> near the top.</li>
+    <li>Keep official-first WebFetch order (already aligned with the live rule).</li>
+    <li>Remove “use runner-command-builder / parity-archivist / oauth-evidence / observability-scribe” routing.</li>
+    <li>Replace “north star: parity lab-notes” with “Anthropic-native runner lab; OAuth-only evidence; cite official docs.”</li>
+    <li>Point readers at <code>AGENTS.md</code> + the new shared-context rule for profiles/safari/P0 status.</li>
+    <li>Keep deliverable paths (<code>lab-notes/parity/…</code>) unless Alan wants those renamed later — renaming is out of scope for this pass.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">7</span>History-marking recommendation</h2>
+  <p>Alan chose <strong>in-file status headers</strong>. Trade-offs for the record:</p>
+  <ul>
+    <li><strong>Pro:</strong> anyone opening a plan in Cursor sees “historical” immediately; no second index to forget.</li>
+    <li><strong>Con:</strong> touches original bytes (a small banner only). Bodies stay intact.</li>
+  </ul>
+  <p>External-index-only would have preserved zero-touch originals; Alan preferred visibility inside the file.</p>
+</section>
+
+<section>
+  <h2><span class="num">8</span>Approval checklist</h2>
+  <div class="callout warn">
+    <p><strong>Nothing below has been executed yet.</strong> Reply with which batches to run:</p>
+    <ol>
+      <li>Junk the six skill/agent paths (and optionally <code>.DS_Store</code>)?</li>
+      <li>Add <code>playground-shared-context.mdc</code> as drafted?</li>
+      <li>Add historical headers to the four plans?</li>
+      <li>Refresh the two Anthropic skills now, or in a follow-up turn?</li>
+      <li>Also mirror the “only two Cursor skills stay live” fact into <code>AGENTS.md</code> + <code>CLAUDE.md</code> in the same pass?</li>
+      <li>Commit after (say the word if/when you want a commit)?</li>
+    </ol>
+  </div>
+</section>
+
+<section class="footer">
+  <h2><span class="num">H</span>Handoff fields</h2>
+  <ul>
+    <li><b>Folder / branch:</b> <code>/Users/alanman/Developer/claude-local-bridge-playground</code> · <code>main</code> · origin playground</li>
+    <li><b>Files changed this turn:</b> added <code>docs/cursor-dot-cursor-triage-2026-07-26.html</code> (this report). No junking yet.</li>
+    <li><b>Also dirty (unrelated / prior):</b> continual-learning state JSON from today’s hook run (not part of the triage edits).</li>
+    <li><b>Checks run:</b> inventory + targeted greps for retired flags; read of harmful skill/agent and keep-list Anthropic skills. No <code>npm test</code> / lint (docs-only report).</li>
+    <li><b>Skipped:</b> applying junk/headers/refresh pending approval; did not edit <code>AGENTS.md</code>/<code>CLAUDE.md</code> yet.</li>
+    <li><b>Risks / next:</b> after approval, execute batches in order P0→P1; keep <code>docs/command-builder.html</code> untouched; Safari 3 remains separately gated.</li>
+  </ul>
+  <p>Cross-refs: <code>HANDOFF-CURSOR-dot-cursor-audit-2026-07-25.md</code> · <code>AGENT-DOCS-DIVERGENCE-2026-07-25.html</code> · <code>HANDOFF-safari-3-remediation-plan-2026-07-25.md</code> · <code>AGENTS.md</code></p>
+</section>
+</div>
+</body>
+</html>
