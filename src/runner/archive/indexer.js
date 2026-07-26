@@ -1,10 +1,15 @@
 'use strict';
 
 const fs = require('fs');
+// A7: the archive index is runner-owned telemetry, not a user project file, so
+// it must not inherit the process umask (which produced world-readable 0644
+// catalogs). private-fs is the same 0700/0600 helper transcript, session,
+// ledger, and trust files already go through.
+const { ensurePrivateDir, privateWriteFileSync, privateAppendFileSync } = require('../private-fs');
 const { catalogJsonlPath, catalogLatestPath, sessionsIndexPath, indexDir } = require('./paths');
 
 function ensureIndexDir() {
-  if (!fs.existsSync(indexDir())) fs.mkdirSync(indexDir(), { recursive: true });
+  ensurePrivateDir(indexDir());
 }
 
 function readCatalogJsonl() {
@@ -31,14 +36,14 @@ function hasRunId(runId) {
 
 function appendCatalogEntry(entry) {
   ensureIndexDir();
-  fs.appendFileSync(catalogJsonlPath(), JSON.stringify(entry) + '\n', 'utf8');
+  privateAppendFileSync(catalogJsonlPath(), JSON.stringify(entry) + '\n');
 }
 
 function rebuildCatalogLatest() {
   const rows = readCatalogJsonl();
   rows.sort((a, b) => String(b.startedAt || '').localeCompare(String(a.startedAt || '')));
   ensureIndexDir();
-  fs.writeFileSync(catalogLatestPath(), JSON.stringify(rows, null, 2) + '\n', 'utf8');
+  privateWriteFileSync(catalogLatestPath(), JSON.stringify(rows, null, 2) + '\n');
   return rows;
 }
 
@@ -64,7 +69,7 @@ function updateSessionsIndex(sessionId, runId, meta = {}) {
   s.lastUpdated = new Date().toISOString();
   if (meta.cwd) s.meta.cwd = meta.cwd;
   ensureIndexDir();
-  fs.writeFileSync(sessionsIndexPath(), JSON.stringify(idx, null, 2) + '\n', 'utf8');
+  privateWriteFileSync(sessionsIndexPath(), JSON.stringify(idx, null, 2) + '\n');
 }
 
 function upsertCatalogEntry(entry, replace = false) {
@@ -72,11 +77,7 @@ function upsertCatalogEntry(entry, replace = false) {
   if (replace) {
     const rows = readCatalogJsonl().filter((r) => r.runId !== entry.runId);
     ensureIndexDir();
-    fs.writeFileSync(
-      catalogJsonlPath(),
-      rows.map((r) => JSON.stringify(r)).join('\n') + (rows.length ? '\n' : ''),
-      'utf8',
-    );
+    privateWriteFileSync(catalogJsonlPath(), rows.map((r) => JSON.stringify(r)).join('\n') + (rows.length ? '\n' : ''));
   }
   appendCatalogEntry(entry);
   return true;

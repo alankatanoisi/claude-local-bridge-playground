@@ -2,13 +2,15 @@
 
 const fs = require('fs');
 const path = require('path');
+// A7: session rollups are runner-owned artifacts — explicit 0700/0600, not umask.
+const { ensurePrivateDir, privateWriteFileSync, privateAppendFileSync } = require('../private-fs');
 const { archiveSessionDir, turnsDir } = require('./paths');
 const { readSessionsIndex } = require('./indexer');
 
 function updateSessionRollup(sessionId, runEntry) {
   if (!sessionId) return;
   const dir = archiveSessionDir(sessionId);
-  fs.mkdirSync(dir, { recursive: true });
+  ensurePrivateDir(dir);
 
   const metaPath = path.join(dir, 'meta.json');
   let meta = { sessionId, runIds: [], updatedAt: new Date().toISOString() };
@@ -21,10 +23,10 @@ function updateSessionRollup(sessionId, runEntry) {
   }
   if (!meta.runIds.includes(runEntry.runId)) meta.runIds.push(runEntry.runId);
   meta.updatedAt = new Date().toISOString();
-  fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2) + '\n', 'utf8');
+  privateWriteFileSync(metaPath, JSON.stringify(meta, null, 2) + '\n');
 
   const rollupPath = path.join(dir, 'rollup.jsonl');
-  fs.appendFileSync(
+  privateAppendFileSync(
     rollupPath,
     JSON.stringify({
       runId: runEntry.runId,
@@ -32,7 +34,6 @@ function updateSessionRollup(sessionId, runEntry) {
       promptPreview: runEntry.promptPreview,
       stopReason: runEntry.stopReason,
     }) + '\n',
-    'utf8',
   );
 
   const turnsIndex = { runs: [] };
@@ -46,8 +47,8 @@ function updateSessionRollup(sessionId, runEntry) {
       : [];
     turnsIndex.runs.push({ runId: rid, turnFiles: files });
   }
-  fs.writeFileSync(path.join(dir, 'turns.index.json'), JSON.stringify(turnsIndex, null, 2) + '\n', 'utf8');
-  fs.writeFileSync(path.join(dir, 'runs.json'), JSON.stringify(meta.runIds, null, 2) + '\n', 'utf8');
+  privateWriteFileSync(path.join(dir, 'turns.index.json'), JSON.stringify(turnsIndex, null, 2) + '\n');
+  privateWriteFileSync(path.join(dir, 'runs.json'), JSON.stringify(meta.runIds, null, 2) + '\n');
 }
 
 function getSessionSummary(sessionId) {

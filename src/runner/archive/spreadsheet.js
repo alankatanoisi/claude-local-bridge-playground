@@ -2,6 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
+// A7: CSV/XLSX exports flatten prompt previews and cwd paths into one file, so
+// they are at least as sensitive as the catalog they are built from.
+const { ensurePrivateDir, privateWriteFileSync, FILE_MODE } = require('../private-fs');
 const { readCatalogJsonl } = require('./indexer');
 const { exportsCsvDir, exportsWorkbookPath } = require('./paths');
 
@@ -37,9 +40,9 @@ function rowsToCsv(rows) {
 
 function rebuildCsvExports(rows) {
   const dir = exportsCsvDir();
-  fs.mkdirSync(dir, { recursive: true });
+  ensurePrivateDir(dir);
   const allPath = path.join(dir, 'all-runs.csv');
-  fs.writeFileSync(allPath, rowsToCsv(rows), 'utf8');
+  privateWriteFileSync(allPath, rowsToCsv(rows));
 
   const bySource = {};
   for (const row of rows) {
@@ -49,7 +52,7 @@ function rebuildCsvExports(rows) {
   }
   for (const [src, subset] of Object.entries(bySource)) {
     const safe = src.replace(/[^a-zA-Z0-9_-]/g, '_');
-    fs.writeFileSync(path.join(dir, 'runs-' + safe + '.csv'), rowsToCsv(subset), 'utf8');
+    privateWriteFileSync(path.join(dir, 'runs-' + safe + '.csv'), rowsToCsv(subset));
   }
   return { allPath, sourceFiles: Object.keys(bySource).length };
 }
@@ -73,8 +76,17 @@ function rebuildWorkbook(rows) {
   XLSX.utils.book_append_sheet(wb, sheet, 'runs');
 
   const dir = path.dirname(exportsWorkbookPath());
-  fs.mkdirSync(dir, { recursive: true });
+  ensurePrivateDir(dir);
+  // XLSX opens and writes the file itself and takes no mode, so unlike every
+  // other archive write this one cannot be created private — tighten it after
+  // the fact. Best-effort, matching private-fs's own chmod style: non-POSIX
+  // filesystems may ignore it.
   XLSX.writeFile(wb, exportsWorkbookPath());
+  try {
+    fs.chmodSync(exportsWorkbookPath(), FILE_MODE);
+  } catch {
+    // best-effort on non-POSIX
+  }
   return { path: exportsWorkbookPath(), skipped: false };
 }
 

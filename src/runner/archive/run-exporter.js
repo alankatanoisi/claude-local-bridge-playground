@@ -1,8 +1,10 @@
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 const safety = require('../safety');
+// A7: run/turn files hold model text, tool output, and tool arguments. They are
+// runner-owned artifacts, so they get explicit 0700/0600 rather than umask.
+const { ensurePrivateDir, privateWriteFileSync } = require('../private-fs');
 const { buildTurnEnvelope, turnFilename } = require('./turn-schema');
 const { runDir, turnsDir } = require('./paths');
 const { upsertCatalogEntry } = require('./indexer');
@@ -21,7 +23,7 @@ function promptPreview(text, max = 200) {
 function writeTurnFiles(collector) {
   const { runId, sessionId, source } = collector.meta;
   const tdir = turnsDir(runId);
-  fs.mkdirSync(tdir, { recursive: true });
+  ensurePrivateDir(tdir);
   const written = [];
   for (const turn of collector.turns) {
     const envelope = buildTurnEnvelope({
@@ -40,7 +42,7 @@ function writeTurnFiles(collector) {
     const scrubbed = safety.scrubObject(envelope, safety.scrubSecrets, ARCHIVE_ROOT_ID_OPTIONS);
     const fname = turnFilename(turn.seq, turn.kind, turn.toolName, turn.toolUseId);
     const fpath = path.join(tdir, fname);
-    fs.writeFileSync(fpath, JSON.stringify(scrubbed, null, 2) + '\n', 'utf8');
+    privateWriteFileSync(fpath, JSON.stringify(scrubbed, null, 2) + '\n');
     written.push(fname);
   }
   return written;
@@ -53,7 +55,7 @@ function finalizeArchiveExport(collector, resultPatch = {}) {
   const runId = collector.meta.runId;
   const endedAt = new Date().toISOString();
   const rdir = runDir(runId);
-  fs.mkdirSync(rdir, { recursive: true });
+  ensurePrivateDir(rdir);
 
   const turnFiles = writeTurnFiles(collector);
   const outcome = safety.scrubObject(
@@ -94,9 +96,9 @@ function finalizeArchiveExport(collector, resultPatch = {}) {
     ledgerPath: resultPatch.ledgerPath || collector.meta.ledgerPath,
   });
 
-  fs.writeFileSync(path.join(rdir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n', 'utf8');
-  fs.writeFileSync(path.join(rdir, 'outcome.json'), JSON.stringify(outcome, null, 2) + '\n', 'utf8');
-  fs.writeFileSync(path.join(rdir, 'sources.json'), JSON.stringify(sources, null, 2) + '\n', 'utf8');
+  privateWriteFileSync(path.join(rdir, 'meta.json'), JSON.stringify(meta, null, 2) + '\n');
+  privateWriteFileSync(path.join(rdir, 'outcome.json'), JSON.stringify(outcome, null, 2) + '\n');
+  privateWriteFileSync(path.join(rdir, 'sources.json'), JSON.stringify(sources, null, 2) + '\n');
 
   const catalogEntry = safety.scrubObject(
     {
