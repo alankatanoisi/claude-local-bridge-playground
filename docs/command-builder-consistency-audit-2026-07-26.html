@@ -1,0 +1,1433 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Command Builder Consistency Audit — 2026-07-26</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #07111d;
+        --surface: #0d1b2a;
+        --surface-2: #12263a;
+        --border: #27435c;
+        --text: #e9f2f8;
+        --muted: #a7bac9;
+        --blue: #76b7ff;
+        --green: #5ee09b;
+        --amber: #ffd166;
+        --red: #ff7b72;
+        --purple: #c8a6ff;
+        --ink: #06101a;
+        --code: #071521;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 15% 0%, rgba(118, 183, 255, 0.13), transparent 32rem),
+          radial-gradient(circle at 90% 16%, rgba(200, 166, 255, 0.1), transparent 26rem),
+          var(--bg);
+        color: var(--text);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+        font-size: 16px;
+        line-height: 1.65;
+      }
+
+      a {
+        color: var(--blue);
+      }
+
+      code {
+        padding: 0.08rem 0.3rem;
+        border: 1px solid rgba(118, 183, 255, 0.17);
+        border-radius: 0.32rem;
+        background: var(--code);
+        color: #c8e3ff;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.9em;
+      }
+
+      pre {
+        margin: 0.8rem 0 0;
+        padding: 1rem;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 0.65rem;
+        background: var(--code);
+        color: #d9ecff;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      pre code {
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+      }
+
+      .page {
+        width: min(1180px, calc(100% - 2rem));
+        margin: 0 auto;
+        padding: 2rem 0 5rem;
+      }
+
+      .hero {
+        position: relative;
+        overflow: hidden;
+        padding: 2.4rem;
+        border: 1px solid var(--border);
+        border-radius: 1.2rem;
+        background: linear-gradient(145deg, rgba(18, 38, 58, 0.96), rgba(9, 25, 39, 0.97));
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+      }
+
+      .hero::after {
+        position: absolute;
+        right: -6rem;
+        bottom: -8rem;
+        width: 20rem;
+        height: 20rem;
+        border: 1px solid rgba(118, 183, 255, 0.25);
+        border-radius: 50%;
+        content: "";
+      }
+
+      .eyebrow {
+        margin: 0 0 0.45rem;
+        color: var(--blue);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3 {
+        line-height: 1.2;
+      }
+
+      h1 {
+        max-width: 820px;
+        margin: 0;
+        font-size: clamp(2rem, 6vw, 4.3rem);
+        letter-spacing: -0.04em;
+      }
+
+      h2 {
+        margin: 0 0 1rem;
+        font-size: clamp(1.45rem, 3vw, 2.15rem);
+        letter-spacing: -0.025em;
+      }
+
+      h3 {
+        margin: 0;
+        font-size: 1.08rem;
+      }
+
+      .lede {
+        max-width: 820px;
+        margin: 1rem 0 0;
+        color: var(--muted);
+        font-size: 1.12rem;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        margin-top: 1.3rem;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.38rem;
+        padding: 0.35rem 0.62rem;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: rgba(7, 21, 33, 0.7);
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 700;
+      }
+
+      .pill::before {
+        width: 0.45rem;
+        height: 0.45rem;
+        border-radius: 50%;
+        background: var(--green);
+        content: "";
+      }
+
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        margin: 1rem 0 2rem;
+        padding: 0.9rem;
+        border: 1px solid var(--border);
+        border-radius: 0.8rem;
+        background: rgba(7, 21, 33, 0.85);
+        position: sticky;
+        top: 0.5rem;
+        z-index: 10;
+        backdrop-filter: blur(14px);
+      }
+
+      .nav a {
+        padding: 0.32rem 0.55rem;
+        border-radius: 0.4rem;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .nav a:hover {
+        background: var(--surface-2);
+        color: var(--text);
+      }
+
+      section {
+        margin-top: 2.6rem;
+        scroll-margin-top: 5rem;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 1rem;
+      }
+
+      .card {
+        grid-column: span 4;
+        padding: 1.15rem;
+        border: 1px solid var(--border);
+        border-radius: 0.85rem;
+        background: rgba(13, 27, 42, 0.9);
+      }
+
+      .card.wide {
+        grid-column: span 6;
+      }
+
+      .card.full {
+        grid-column: 1 / -1;
+      }
+
+      .metric {
+        margin: 0.2rem 0;
+        font-size: 2rem;
+        font-weight: 850;
+        letter-spacing: -0.04em;
+      }
+
+      .metric.red {
+        color: var(--red);
+      }
+
+      .metric.amber {
+        color: var(--amber);
+      }
+
+      .metric.green {
+        color: var(--green);
+      }
+
+      .small,
+      .card p {
+        color: var(--muted);
+      }
+
+      .card p:last-child {
+        margin-bottom: 0;
+      }
+
+      .verdict {
+        padding: 1.2rem 1.35rem;
+        border: 1px solid rgba(255, 209, 102, 0.48);
+        border-left: 0.42rem solid var(--amber);
+        border-radius: 0.8rem;
+        background: rgba(255, 209, 102, 0.07);
+      }
+
+      .callout {
+        margin: 1rem 0;
+        padding: 1rem 1.15rem;
+        border: 1px solid var(--border);
+        border-radius: 0.75rem;
+        background: rgba(18, 38, 58, 0.78);
+      }
+
+      .callout strong {
+        color: var(--text);
+      }
+
+      .callout.warning {
+        border-color: rgba(255, 209, 102, 0.42);
+        background: rgba(255, 209, 102, 0.06);
+      }
+
+      .callout.danger {
+        border-color: rgba(255, 123, 114, 0.45);
+        background: rgba(255, 123, 114, 0.06);
+      }
+
+      .finding-list {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .finding {
+        display: grid;
+        grid-template-columns: 7.5rem minmax(0, 1fr);
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 0.9rem;
+        background: rgba(13, 27, 42, 0.93);
+      }
+
+      .finding .severity {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem 0.7rem;
+        border-right: 1px solid var(--border);
+        background: rgba(7, 21, 33, 0.78);
+        text-align: center;
+      }
+
+      .severity .level {
+        font-size: 0.72rem;
+        font-weight: 850;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .severity .id {
+        margin-top: 0.25rem;
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.75rem;
+      }
+
+      .sev-critical .level,
+      .sev-high .level {
+        color: var(--red);
+      }
+
+      .sev-medium .level {
+        color: var(--amber);
+      }
+
+      .sev-low .level {
+        color: var(--blue);
+      }
+
+      .finding .body {
+        padding: 1.15rem 1.25rem;
+      }
+
+      .finding p {
+        margin: 0.55rem 0 0;
+        color: var(--muted);
+      }
+
+      .evidence {
+        margin-top: 0.8rem;
+        padding-top: 0.72rem;
+        border-top: 1px solid rgba(39, 67, 92, 0.8);
+        color: #bdd0df;
+        font-size: 0.86rem;
+      }
+
+      .evidence strong {
+        color: var(--purple);
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 0.85rem;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: rgba(13, 27, 42, 0.92);
+        font-size: 0.88rem;
+      }
+
+      th,
+      td {
+        padding: 0.75rem 0.8rem;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        position: sticky;
+        top: 4rem;
+        z-index: 2;
+        background: #102236;
+        color: #d8eafa;
+        font-size: 0.72rem;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .status {
+        display: inline-block;
+        min-width: 5.2rem;
+        padding: 0.18rem 0.45rem;
+        border-radius: 999px;
+        font-size: 0.69rem;
+        font-weight: 850;
+        letter-spacing: 0.04em;
+        text-align: center;
+        text-transform: uppercase;
+      }
+
+      .status.pass {
+        background: rgba(94, 224, 155, 0.14);
+        color: var(--green);
+      }
+
+      .status.caveat {
+        background: rgba(255, 209, 102, 0.14);
+        color: var(--amber);
+      }
+
+      .status.fail {
+        background: rgba(255, 123, 114, 0.14);
+        color: var(--red);
+      }
+
+      .status.info {
+        background: rgba(118, 183, 255, 0.14);
+        color: var(--blue);
+      }
+
+      .timeline {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .step {
+        display: grid;
+        grid-template-columns: 2.2rem minmax(0, 1fr);
+        gap: 0.8rem;
+        align-items: start;
+      }
+
+      .step .number {
+        display: grid;
+        width: 2.1rem;
+        height: 2.1rem;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 50%;
+        background: var(--surface-2);
+        color: var(--blue);
+        font-weight: 850;
+      }
+
+      .step p {
+        margin: 0.28rem 0 0;
+        color: var(--muted);
+      }
+
+      .checks {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
+      }
+
+      .check {
+        padding: 0.8rem;
+        border: 1px solid var(--border);
+        border-radius: 0.65rem;
+        background: rgba(7, 21, 33, 0.68);
+      }
+
+      .check strong {
+        display: block;
+      }
+
+      .check span {
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      .footer {
+        margin-top: 3rem;
+        padding-top: 1.2rem;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      @media (max-width: 820px) {
+        .card,
+        .card.wide {
+          grid-column: 1 / -1;
+        }
+
+        .finding {
+          grid-template-columns: 1fr;
+        }
+
+        .finding .severity {
+          flex-direction: row;
+          justify-content: flex-start;
+          gap: 0.65rem;
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+        }
+
+        .severity .id {
+          margin: 0;
+        }
+
+        .checks {
+          grid-template-columns: 1fr;
+        }
+
+        .hero {
+          padding: 1.5rem;
+        }
+      }
+
+      @media print {
+        :root {
+          color-scheme: light;
+          --bg: #ffffff;
+          --surface: #ffffff;
+          --surface-2: #f4f7fa;
+          --border: #c8d3dc;
+          --text: #12202c;
+          --muted: #455b6c;
+          --code: #f4f7fa;
+        }
+
+        body {
+          background: #fff;
+        }
+
+        .page {
+          width: 100%;
+          padding: 0;
+        }
+
+        .nav {
+          display: none;
+        }
+
+        .hero,
+        .card,
+        .finding,
+        table {
+          box-shadow: none;
+          background: #fff;
+        }
+
+        .finding,
+        .card,
+        .callout,
+        tr {
+          break-inside: avoid;
+        }
+
+        th {
+          position: static;
+          background: #edf3f7;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <p class="eyebrow">Evidence-led runtime concordance review</p>
+        <h1>Command Builder Consistency Audit</h1>
+        <p class="lede">
+          A source, browser, CLI, and live-model audit of <code>docs/command-builder.html</code> against the current
+          Claude Local Bridge runner. The main conclusion: the ordinary command-generation core is sound, but several
+          high-value controls tell the wrong story or generate commands that cannot work as presented.
+        </p>
+        <div class="meta">
+          <span class="pill">Audit date: 2026-07-26</span>
+          <span class="pill">Repo: claude-local-bridge-playground</span>
+          <span class="pill">Branch: main</span>
+          <span class="pill">Baseline commit: b855e58</span>
+          <span class="pill">Builder size at handoff: 2,547 lines</span>
+        </div>
+      </header>
+
+      <nav class="nav" aria-label="Report sections">
+        <a href="#verdict">Verdict</a>
+        <a href="#scope">Scope &amp; method</a>
+        <a href="#findings">Findings</a>
+        <a href="#lsp">LSP answer</a>
+        <a href="#presets">Presets</a>
+        <a href="#controls">Controls</a>
+        <a href="#tests">Checks</a>
+        <a href="#fix-order">Fix order</a>
+      </nav>
+
+      <section id="verdict">
+        <h2>Executive verdict</h2>
+        <div class="verdict">
+          <strong>Verdict: usable for ordinary read/edit commands, not yet trustworthy as a complete source of truth.</strong>
+          The builder correctly mirrors the default model, default limits, seven-tool core, tool catalog, effort/thinking
+          vocabulary, shell safety language, and most direct CLI flags. However, the interface currently contains
+          five high-severity consistency failures: LSP is intermittently ineffective, the advertised health check is a
+          dead route, the delegation preset lacks delegation, the resume UI generates rejected commands, and the
+          permission summary can understate auto-approved write authority.
+        </div>
+
+        <div class="grid" style="margin-top: 1rem">
+          <article class="card">
+            <div class="metric red">5</div>
+            <strong>High-impact builder failures</strong>
+            <p>These can produce a no-op, a guaranteed startup error, or a materially false authority summary.</p>
+          </article>
+          <article class="card">
+            <div class="metric amber">7</div>
+            <strong>Medium consistency gaps</strong>
+            <p>Mostly dependency handling, stale descriptions, validation, persistence, and future drift exposure.</p>
+          </article>
+          <article class="card">
+            <div class="metric green">42 / 42</div>
+            <strong>Focused tests passed</strong>
+            <p>The existing green tests do not exercise real browser event wiring, missing LSP executables, or preset intent.</p>
+          </article>
+        </div>
+
+        <div class="callout warning">
+          <strong>Important moving-target note.</strong> The audit began with source files synchronized to
+          <code>origin/main</code> at <code>b855e58</code>; only Alan’s tentative compaction plan was dirty. While the full
+          suite ran, a separate work session added uncommitted context-management changes across the runner and, late in
+          final review, updated the builder’s token-budget fields. Those new builder fields were rechecked against the
+          changed CLI and documentation checks; they do not alter the findings below. This report preserves that work
+          and separates its one observed catalog-test failure from command-builder defects.
+        </div>
+      </section>
+
+      <section id="scope">
+        <h2>What was audited</h2>
+        <div class="grid">
+          <article class="card wide">
+            <h3>Builder inventory</h3>
+            <p>
+              Every visible field, checkbox, selector, capability choice, permission style, quick preset, generated
+              flag, warning panel, summary sentence, persistence field, and copy path was inventoried.
+            </p>
+          </article>
+          <article class="card wide">
+            <h3>Runtime concordance</h3>
+            <p>
+              Builder behavior was traced to the CLI parser, permission modes, tool visibility, context policy, session
+              store, prompt registry, model catalog, LSP client, server routes, and relevant regression tests.
+            </p>
+          </article>
+          <article class="card wide">
+            <h3>Browser behavior</h3>
+            <p>
+              The real local HTML file was opened in a running browser. Desktop and 390-pixel mobile layouts, all nine
+              presets, checkbox state transitions, generated commands, warnings, summaries, and persistence were exercised.
+            </p>
+          </article>
+          <article class="card wide">
+            <h3>Live model behavior</h3>
+            <p>
+              Two bounded Claude Sonnet 5 probes were run through the live bridge: a read-only builder path and an
+              LSP-only path. No edit or shell tool was exposed in either probe.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="findings">
+        <h2>Prioritized findings</h2>
+        <div class="finding-list">
+          <article class="finding">
+            <div class="severity sev-critical">
+              <span class="level">Critical</span>
+              <span class="id">CB-01</span>
+            </div>
+            <div class="body">
+              <h3>“Enable LSP queries” is missing its browser event wiring</h3>
+              <p>
+                <code>enableLsp</code> is declared, persisted, and read by command generation, but it is absent from the
+                control list that receives <code>input</code>/<code>change</code> listeners. Checking it leaves the
+                displayed command unchanged and leaves the hidden <code>lsp_query</code> tool unchecked.
+              </p>
+              <p>
+                The Copy button independently rebuilds the command. An immediate copy can therefore include
+                <code>--enable-lsp</code> while also emitting an exact <code>--tools</code> allowlist that omits
+                <code>lsp_query</code>. Because <code>--tools</code> is an immutable ceiling, the flag is effectively
+                neutralized. Changing any other field afterward triggers a render and can make the LSP tool appear,
+                which explains the inconsistent “sometimes it works” behavior.
+              </p>
+              <div class="evidence">
+                <strong>Evidence:</strong> builder declaration at lines 1289–1290; event-listener array at lines
+                2013–2090 omits <code>enableLsp</code>; command generation at lines 1588–1617; browser screenshot and live
+                state showed the checkbox checked while the visible command still lacked <code>--enable-lsp</code>.
+              </div>
+            </div>
+          </article>
+
+          <article class="finding">
+            <div class="severity sev-high">
+              <span class="level">High</span>
+              <span class="id">CB-02</span>
+            </div>
+            <div class="body">
+              <h3>The LSP runtime crashes when the required JavaScript server is absent</h3>
+              <p>
+                The runtime gate itself is real: <code>--enable-lsp</code> makes <code>lsp_query</code> visible. On this Mac,
+                however, <code>typescript-language-server</code> and <code>pyright-langserver</code> are not installed.
+                <code>LspClient</code> handles child exit but does not handle the child process’s <code>error</code> event.
+                The intended friendly “install a language server” result is never returned; Node terminates on an
+                unhandled <code>ENOENT</code>.
+              </p>
+              <div class="evidence">
+                <strong>Evidence:</strong> live Claude call selected <code>lsp_query</code>, then the runner crashed with
+                <code>Error: spawn typescript-language-server ENOENT</code>. The same failure reproduced without a model.
+                LSP client lines 32–48 have <code>exit</code> handling but no <code>error</code> handler.
+              </div>
+            </div>
+          </article>
+
+          <article class="finding">
+            <div class="severity sev-high">
+              <span class="level">High</span>
+              <span class="id">CB-03</span>
+            </div>
+            <div class="body">
+              <h3>The “Bridge running?” preflight command points to a route that does not exist</h3>
+              <p>
+                The builder tells a beginner to run <code>curl -s http://127.0.0.1:11437/health</code> and expect
+                <code>{"status":"ok"}</code>. The server exposes <code>POST /v1/messages</code>,
+                <code>POST /v1/messages/count_tokens</code>, and locked <code>GET /v1/debug</code>—not
+                <code>GET /health</code>.
+              </p>
+              <div class="evidence">
+                <strong>Evidence:</strong> live <code>/health</code> request returned 404
+                <code>{"error":{"message":"Unknown: GET /health","type":"not_found"}}</code>, while the immediately
+                following read-only model run succeeded. Builder line 1158 conflicts with server lines 172–189.
+              </div>
+            </div>
+          </article>
+
+          <article class="finding">
+            <div class="severity sev-high">
+              <span class="level">High</span>
+              <span class="id">CB-04</span>
+            </div>
+            <div class="body">
+              <h3>The “Delegate subagent” preset does not enable <code>spawn_agent</code></h3>
+              <p>
+                The preset prompt explicitly instructs Claude to use <code>spawn_agent</code>, but the preset only applies
+                the ordinary <em>Edit — ask</em> style. Its generated command enables
+                <code>edits,recovery</code>, not the <code>agents</code> capability, and the exact selected tool list has no
+                <code>spawn_agent</code>.
+              </p>
+              <pre><code>--max-steps 12 --capabilities edits,recovery
+'Use spawn_agent to review ...'</code></pre>
+              <div class="evidence">
+                <strong>Evidence:</strong> preset definition lines 2342–2349 has no <code>tools</code> array or agent
+                capability; browser preset matrix confirmed the selected tool set excludes <code>spawn_agent</code>.
+              </div>
+            </div>
+          </article>
+
+          <article class="finding">
+            <div class="severity sev-high">
+              <span class="level">High</span>
+              <span class="id">CB-05</span>
+            </div>
+            <div class="body">
+              <h3>Two resume controls generate commands the CLI rejects</h3>
+              <p>
+                “Resume last session” emits <code>--resume-session</code> without automatically supplying or requiring a
+                session id/path, producing an immediate startup error. “Resume from transcript” emits deprecated
+                <code>--resume &lt;path&gt;</code>, which the CLI deliberately rejects to protect canonical session-store
+                integrity. The builder describes both as supported behavior and does not warn for either single-control case.
+              </p>
+              <div class="evidence">
+                <strong>Evidence:</strong> exact generated commands exited 1 with
+                <code>--resume-session requires --session-id or --session-path</code> and
+                <code>--resume &lt;transcript&gt; is deprecated and no longer accepted</code>. Builder lines 818–822 and
+                965–973 conflict with CLI lines 515–525 and 564–567.
+              </div>
+            </div>
+          </article>
+
+          <article class="finding">
+            <div class="severity sev-high">
+              <span class="level">High</span>
+              <span class="id">CB-06</span>
+            </div>
+            <div class="body">
+              <h3>The Permission mode selector can make the plain-language authority summary false</h3>
+              <p>
+                The summary reads only the builder’s hidden individual permission checkboxes; it ignores the
+                <code>permissionMode</code> selector. Selecting <code>accept-edits</code> leaves the summary saying the
+                runner will ask before changes, while the runtime auto-approves file writes. Selecting <code>plan</code>
+                leaves the summary saying edits may execute even though the runtime is plan-only.
+              </p>
+              <p>
+                The selector tooltip also says <code>auto</code> is the most permissive mode and auto-approves edits.
+                Runtime <code>auto</code> currently maps to <code>dontAsk: true</code>,
+                <code>acceptEdits: false</code>, <code>allowShell: false</code>; ordinary writes still ask.
+              </p>
+              <div class="evidence">
+                <strong>Evidence:</strong> builder lines 860–869 and summary lines 1953–1983; runtime
+                <code>src/runner/permission-mode.js</code> mode table. Browser matrix reproduced the false summary for
+                <code>permission-mode plan</code> and <code>auto</code>.
+              </div>
+            </div>
+          </article>
+
+          <article class="finding">
+            <div class="severity sev-medium">
+              <span class="level">Medium</span>
+              <span class="id">CB-07</span>
+            </div>
+            <div class="body">
+              <h3>Context checkboxes do not encode their runtime dependencies</h3>
+              <p>
+                <code>--include-claude-md</code> and <code>--include-repo-map</code> only contribute content inside the
+                repository-context block, which requires <code>--include-repo-context</code>. The builder lets either be
+                selected alone with no warning, generating a flag that does not add the promised startup content.
+                Conversely, <code>--bare</code> overrides all rich-context selections, yet the builder happily emits
+                <code>--bare</code> together with instruction docs, repo context, CLAUDE.md, repo map, and skills.
+              </p>
+              <div class="evidence">
+                <strong>Evidence:</strong> builder lines 839–855; runtime <code>context-policy.js</code> forces all rich
+                fields off under bare; <code>context-builder.js</code> returns before CLAUDE.md/repo-map work unless
+                <code>includeRepoContext</code> is true.
+              </div>
+            </div>
+          </article>
+
+          <article class="finding">
+            <div class="severity sev-medium">
+              <span class="level">Medium</span>
+              <span class="id">CB-08</span>
+            </div>
+            <div class="body">
+              <h3>Memory and extraction labels promise behavior their flags do not provide</h3>
+              <p>
+                “Auto-promote learnings” emits <code>--auto-memory</code>, but that flag injects already-saved runner
+                memory into context; it does not promote new learnings. “Queue learning extraction” emits
+                <code>--session-extract</code>, but extraction no-ops unless trusted hooks are enabled and a session path
+                exists. “List saved memories” emits <code>--review-memory</code>, whose CLI help and implementation review
+                pending promotions rather than listing all saved memory topics.
+              </p>
+              <div class="evidence">
+                <strong>Evidence:</strong> builder lines 879 and 939–942; runtime
+                <code>memory/auto-memory.js</code> lines 84–101; <code>run.js</code>
+                <code>maybeRunSessionExtract</code> requires <code>trustedWorkspace</code> and <code>sessionPath</code>.
+              </div>
+            </div>
+          </article>
+
+          <article class="finding">
+            <div class="severity sev-medium">
+              <span class="level">Medium</span>
+              <span class="id">CB-09</span>
+            </div>
+            <div class="body">
+              <h3>Validation misses the first render and the most important guaranteed errors</h3>
+              <p>
+                On the first render, the code creates the validation panel after storing a null reference, so it does not
+                populate the “No prompt entered” warning until a later interaction. More importantly, validation does not
+                catch resume-session without an id/path, deprecated transcript resume, ineffective context combinations,
+                permission-summary conflicts, or missing LSP prerequisites.
+              </p>
+              <div class="evidence">
+                <strong>Evidence:</strong> builder lines 1902–1922. The initial browser load showed an empty warning bar;
+                the next interaction populated it.
+              </div>
+            </div>
+          </article>
+
+          <article class="finding">
+            <div class="severity sev-medium">
+              <span class="level">Medium</span>
+              <span class="id">CB-10</span>
+            </div>
+            <div class="body">
+              <h3>Template arguments containing spaces are silently truncated</h3>
+              <p>
+                The placeholder itself suggests <code>focus=error handling</code>, but the parser splits on every
+                whitespace boundary. That becomes <code>focus=error</code>; the word <code>handling</code> is silently
+                discarded because it has no equals sign. The CLI can accept a quoted value with spaces, but the builder
+                cannot represent it.
+              </p>
+              <div class="evidence">
+                <strong>Evidence:</strong> UI example lines 735–739; builder parser lines 1651–1657.
+              </div>
+            </div>
+          </article>
+
+          <article class="finding">
+            <div class="severity sev-medium">
+              <span class="level">Medium</span>
+              <span class="id">CB-11</span>
+            </div>
+            <div class="body">
+              <h3>A literal caller-auth token is saved indefinitely in browser local storage</h3>
+              <p>
+                The builder supports a literal caller token or an environment-variable reference. Every render saves the
+                entire form state, including <code>callerToken</code>, to <code>localStorage</code>. A literal token
+                therefore survives reloads in clear text until “Reset to defaults” or manual storage clearing.
+              </p>
+              <div class="evidence">
+                <strong>Evidence:</strong> caller-token field lines 1013–1016; collection at line 2147; persistence at
+                lines 2247–2250. Prefer environment references and exclude this field from persistence.
+              </div>
+            </div>
+          </article>
+
+          <article class="finding">
+            <div class="severity sev-low">
+              <span class="level">Low</span>
+              <span class="id">CB-12</span>
+            </div>
+            <div class="body">
+              <h3>The drift gate proves only a subset of builder/runtime parity</h3>
+              <p>
+                The existing drift test checks the seven default tools, presence of all tool checkboxes, prompt-registry
+                tool names, the selected default model, effort/thinking values, and group headings. It does not execute
+                browser events, compare every control to a CLI option, validate presets, test dependency rules, or compare
+                the full model catalog.
+              </p>
+              <p>
+                The picker offers ten curated models and omits current limited-availability Mythos catalog entries. It
+                also has no custom model-id field even though the runtime intentionally passes unknown/future IDs through.
+                The UI shell-timeout maximum is 120,000 ms while the CLI/runtime cap is 900,000 ms.
+              </p>
+              <div class="evidence">
+                <strong>Evidence:</strong> <code>test/runner/command-builder-drift.test.js</code> passes all six cases
+                despite every higher-severity issue in this report.
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="lsp">
+        <h2>Direct answer: does “Enable LSP queries” do anything?</h2>
+        <div class="callout danger">
+          <strong>Yes in the runtime, but no—not reliably—from the current checkbox.</strong>
+        </div>
+        <div class="timeline">
+          <div class="step">
+            <div class="number">1</div>
+            <div>
+              <h3>The CLI flag is real</h3>
+              <p>
+                <code>--enable-lsp</code> is parsed, passed into the runner context, and makes
+                <code>lsp_query</code> eligible and visible. Focused tool-visibility tests confirm this.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="number">2</div>
+            <div>
+              <h3>The checkbox is not wired into normal rerendering</h3>
+              <p>
+                A direct click changes only the checkbox’s native state. The displayed command and hidden tool choice stay
+                stale until another field causes a render. Copying immediately can produce a self-defeating exact allowlist.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="number">3</div>
+            <div>
+              <h3>This JavaScript repo lacks the required server executable</h3>
+              <p>
+                No <code>typescript-language-server</code> is on this Mac’s PATH. <code>clangd</code> and
+                <code>rust-analyzer</code> exist, so the implementation may work for matching C/C++ or Rust files.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="number">4</div>
+            <div>
+              <h3>The missing dependency currently crashes the runner</h3>
+              <p>
+                The full live path reached Claude, Claude emitted the correct <code>lsp_query</code> tool call, and Node
+                terminated on an unhandled process-spawn error instead of returning a recoverable tool result.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="presets">
+        <h2>Quick-preset concordance</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Preset</th>
+                <th>Status</th>
+                <th>Generated authority/tool behavior</th>
+                <th>Audit note</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Minimal look-around</td>
+                <td><span class="status caveat">Caveat</span></td>
+                <td>Plan + exact read-only tools + bare + explore</td>
+                <td>Works. Summary says it will “describe changes,” although this preset has no write/proposal tools.</td>
+              </tr>
+              <tr>
+                <td>Read-only exploration</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Plan + exact read-only tools + explore + verbose</td>
+                <td>Live bounded variant successfully listed and read files without exposing writes or shell.</td>
+              </tr>
+              <tr>
+                <td>Plan first</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Plan + edits/recovery capabilities</td>
+                <td>Write tools are visible but run as proposal-only, matching plan semantics.</td>
+              </tr>
+              <tr>
+                <td>Edit with confirmation</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Edits/recovery, no auto-approval</td>
+                <td>Matches the runner’s default write-confirmation policy.</td>
+              </tr>
+              <tr>
+                <td>Auto-approve edits</td>
+                <td><span class="status pass">Pass</span></td>
+                <td><code>--accept-edits</code>, no shell</td>
+                <td>Authority summary and runtime agree.</td>
+              </tr>
+              <tr>
+                <td>Verify after edits</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Auto edits + shell + test-watch</td>
+                <td>The previously reported dropped-shell bug is fixed; browser matrix confirmed both flags.</td>
+              </tr>
+              <tr>
+                <td>Delegate subagent</td>
+                <td><span class="status fail">Fail</span></td>
+                <td>Edits/recovery only</td>
+                <td>Prompt asks for <code>spawn_agent</code>, but the tool is not visible.</td>
+              </tr>
+              <tr>
+                <td>Safe edits in a worktree</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Exact allowlist with enter/exit worktree + write/recovery</td>
+                <td>Required worktree tools are present. Preset also includes <code>spawn_agent</code>, though its prompt does not require it.</td>
+              </tr>
+              <tr>
+                <td>Edit + shell</td>
+                <td><span class="status caveat">Caveat</span></td>
+                <td>Auto edits + no prompts + shell + chaos acknowledgement + no-network</td>
+                <td>Works as advertised and is appropriately loud, but its title tooltip says “Runs tests” while it relies on the prompt/bash rather than <code>--test-watch</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="controls">
+        <h2>Control-by-control concordance</h2>
+        <p class="small">
+          “Pass” means the control emits a valid current CLI behavior and its nearby description is materially accurate.
+          “Caveat” means the underlying flag works but the UI omits an important dependency or nuance. “Fail” means the
+          control can generate a rejected/no-op command or materially misdescribe authority.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Area</th>
+                <th>Control(s)</th>
+                <th>Status</th>
+                <th>Current assessment</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Core</td>
+                <td>Prompt and shell quoting</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>POSIX single-quote handling safely escapes embedded apostrophes; prompt is appended as one argument.</td>
+              </tr>
+              <tr>
+                <td>Core</td>
+                <td>Runner folder + target folder</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Correctly distinguishes where the command is run from the project used by <code>--cwd</code>.</td>
+              </tr>
+              <tr>
+                <td>Permissions</td>
+                <td>Primary permission-style selector</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Five high-level styles map consistently to plan, write confirmation, auto edits, shell, and chaos acknowledgement.</td>
+              </tr>
+              <tr>
+                <td>Permissions</td>
+                <td>Advanced permission-mode selector</td>
+                <td><span class="status fail">Fail</span></td>
+                <td>Summary ignores it; <code>auto</code> description conflicts with runtime semantics.</td>
+              </tr>
+              <tr>
+                <td>Permissions</td>
+                <td>Shell, no-network, test-watch</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Shell remains explicit; dependent options are visually unavailable until shell is enabled; test-watch precondition matches CLI.</td>
+              </tr>
+              <tr>
+                <td>Permissions</td>
+                <td>Chaos conflict</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Copy is blocked for shell + auto edits + no prompts until <code>--chaos-ok</code> is selected.</td>
+              </tr>
+              <tr>
+                <td>Tools</td>
+                <td>Core, edits, recovery, worktrees, skills, shell groups</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>All 20 catalog tools have checkboxes; whole groups prefer <code>--capabilities</code>, partial groups use exact <code>--tools</code>.</td>
+              </tr>
+              <tr>
+                <td>Tools</td>
+                <td>LSP toggle/tool</td>
+                <td><span class="status fail">Fail</span></td>
+                <td>Missing listener creates stale UI and can copy an allowlist that excludes the very tool being enabled.</td>
+              </tr>
+              <tr>
+                <td>Tools</td>
+                <td>Advanced <code>apply_patch</code></td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Remains hidden by default and is exposed only through an exact allowlist, matching runtime design.</td>
+              </tr>
+              <tr>
+                <td>Attachments</td>
+                <td>Read / include-file / stdin modes</td>
+                <td><span class="status caveat">Caveat</span></td>
+                <td>Generation is coherent. Stdin mode intentionally shells through <code>cat</code> outside the runner’s file-tool safety/redaction path and should be labelled more prominently.</td>
+              </tr>
+              <tr>
+                <td>Model</td>
+                <td>Model picker/default</td>
+                <td><span class="status caveat">Caveat</span></td>
+                <td>Default and ten curated IDs match active mainstream choices; limited/future IDs supported by the runtime cannot be entered.</td>
+              </tr>
+              <tr>
+                <td>Model</td>
+                <td>Effort, thinking, temperature</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Current compatibility rules, disabled options, and warnings align with the local catalog for offered models.</td>
+              </tr>
+              <tr>
+                <td>Limits</td>
+                <td>Max steps, response output tokens, compaction threshold, run-token cap, tool-call cap</td>
+                <td><span class="status caveat">Caveat</span></td>
+                <td>The late context-policy update is represented by <code>--compact-at-tokens</code> and <code>--max-run-tokens</code>, and the output-token ceiling now matches the changed CLI. Empty/invalid number fields can still copy malformed or silently defaulted commands.</td>
+              </tr>
+              <tr>
+                <td>Limits</td>
+                <td>Shell timeout</td>
+                <td><span class="status caveat">Caveat</span></td>
+                <td>UI advertises a 120-second maximum; runtime supports up to 900 seconds.</td>
+              </tr>
+              <tr>
+                <td>Templates</td>
+                <td>Built-in registry and custom template paths</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Six built-in entries, recommended tools, and permissions match frontmatter snapshots.</td>
+              </tr>
+              <tr>
+                <td>Templates</td>
+                <td>Prompt arguments</td>
+                <td><span class="status fail">Fail</span></td>
+                <td>Space-containing values are truncated despite the UI example inviting that syntax.</td>
+              </tr>
+              <tr>
+                <td>Output</td>
+                <td>Stream, verbose, output format, log level</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Values and runtime precedence are consistent.</td>
+              </tr>
+              <tr>
+                <td>Logs</td>
+                <td>Transcript, human log, trace level/path</td>
+                <td><span class="status caveat">Caveat</span></td>
+                <td>Flags work. A trace path can be emitted while trace level is off, which is harmless but ineffective.</td>
+              </tr>
+              <tr>
+                <td>Bridge</td>
+                <td>Bridge URL + caller token</td>
+                <td><span class="status caveat">Caveat</span></td>
+                <td>Routing/quoting works; literal token persistence in local storage is avoidable sensitive-state retention.</td>
+              </tr>
+              <tr>
+                <td>Preflight</td>
+                <td>Bridge health command</td>
+                <td><span class="status fail">Fail</span></td>
+                <td><code>/health</code> is not a server route.</td>
+              </tr>
+              <tr>
+                <td>Sessions</td>
+                <td>New session</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Forces a fresh session and creates an id when needed.</td>
+              </tr>
+              <tr>
+                <td>Sessions</td>
+                <td>Resume session</td>
+                <td><span class="status fail">Fail</span></td>
+                <td>Can be selected without its required session id/path and then fails before a model call.</td>
+              </tr>
+              <tr>
+                <td>Sessions</td>
+                <td>Resume transcript</td>
+                <td><span class="status fail">Fail</span></td>
+                <td>Deprecated path is still presented as functional even though CLI intentionally rejects it.</td>
+              </tr>
+              <tr>
+                <td>Sessions</td>
+                <td>Continue latest, fork, ack risk</td>
+                <td><span class="status caveat">Caveat</span></td>
+                <td>Each underlying flag works. Conflicts are warned but remain copyable; fork is omitted from the resume-conflict counter.</td>
+              </tr>
+              <tr>
+                <td>Context</td>
+                <td>Bare, instruction docs, repo context, CLAUDE.md, repo map, skills</td>
+                <td><span class="status fail">Fail</span></td>
+                <td>Dependency/override combinations can look enabled while runtime omits their content.</td>
+              </tr>
+              <tr>
+                <td>Context</td>
+                <td>Exclude dynamic system sections</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Moves the dynamic machine fingerprint to the first user message as documented.</td>
+              </tr>
+              <tr>
+                <td>Context</td>
+                <td>Task scope + compact each turn</td>
+                <td><span class="status caveat">Caveat</span></td>
+                <td>Flags work; the concurrent uncommitted context-policy implementation remains a moving target outside this builder audit.</td>
+              </tr>
+              <tr>
+                <td>Memory</td>
+                <td>Auto-memory, session extraction, review-memory</td>
+                <td><span class="status fail">Fail</span></td>
+                <td>Descriptions and hidden preconditions do not match actual runtime roles.</td>
+              </tr>
+              <tr>
+                <td>Persistence</td>
+                <td>Save/restore + reset</td>
+                <td><span class="status caveat">Caveat</span></td>
+                <td>State restoration works, but persists sensitive caller tokens and makes quick presets overlays rather than clean configurations.</td>
+              </tr>
+              <tr>
+                <td>Responsive UI</td>
+                <td>Desktop and mobile layout</td>
+                <td><span class="status pass">Pass</span></td>
+                <td>Two-column desktop and single-column 390-pixel layout had no horizontal overflow.</td>
+              </tr>
+              <tr>
+                <td>Accessibility</td>
+                <td>Labels, warnings, status feedback</td>
+                <td><span class="status caveat">Caveat</span></td>
+                <td>No duplicate ids; most inputs have labels. The main prompt textarea has no programmatic label, and dynamic warnings/copy feedback lack live-region announcements.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tests">
+        <h2>Checks and evidence</h2>
+        <div class="checks">
+          <div class="check">
+            <strong>Repository preflight</strong>
+            <span>Correct playground, <code>main</code>, correct origin, baseline local/remote commit identical.</span>
+          </div>
+          <div class="check">
+            <strong>Focused runtime tests</strong>
+            <span>42/42 passed across builder drift, LSP unit gates, tool visibility, and context policy.</span>
+          </div>
+          <div class="check">
+            <strong>Builder drift suite</strong>
+            <span>6/6 passed—useful, but insufficient to catch browser listener and intent-level defects.</span>
+          </div>
+          <div class="check">
+            <strong>Lint</strong>
+            <span><code>npm run lint</code> passed.</span>
+          </div>
+          <div class="check">
+            <strong>Documentation checks</strong>
+            <span><code>npm run check:docs</code> passed at handoff: 76 CLI flags, 20 tools, 10 picker models.</span>
+          </div>
+          <div class="check">
+            <strong>Full test suite</strong>
+            <span>
+              One failure appeared after concurrent context work changed <code>CATALOG_VERSION</code> without updating its
+              regression expectation. This is not caused by the builder or this report.
+            </span>
+          </div>
+          <div class="check">
+            <strong>Read-only live model probe</strong>
+            <span>
+              Bridge/model/tool loop worked and only exposed <code>list_files</code>/<code>read_file</code>. The answer
+              stopped at the deliberately low output cap, not from a bridge failure.
+            </span>
+          </div>
+          <div class="check">
+            <strong>LSP live model probe</strong>
+            <span>Claude emitted the intended LSP tool call; runner crashed on missing TypeScript server <code>ENOENT</code>.</span>
+          </div>
+          <div class="check">
+            <strong>Browser desktop</strong>
+            <span>All nine presets and dependency state transitions exercised in the real page.</span>
+          </div>
+          <div class="check">
+            <strong>Browser mobile</strong>
+            <span>390 × 844 viewport, single-column layout, zero horizontal overflow.</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="fix-order">
+        <h2>Recommended post-mortem fix order</h2>
+        <div class="timeline">
+          <div class="step">
+            <div class="number">1</div>
+            <div>
+              <h3>Make LSP deterministic</h3>
+              <p>
+                Add <code>enableLsp</code> to the builder listener list and add a browser regression that clicks it,
+                checks the visible command, checks the copied command, and verifies <code>lsp_query</code> is present.
+                Separately, handle child-process <code>error</code> in <code>LspClient</code> and test missing executables.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="number">2</div>
+            <div>
+              <h3>Remove commands that are guaranteed to fail</h3>
+              <p>
+                Delete/retire transcript-resume UI, require a session id/path for resume-session, and replace the dead
+                health preflight with a currently supported readiness workflow.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="number">3</div>
+            <div>
+              <h3>Fix preset and authority truthfulness</h3>
+              <p>
+                Give Delegate the agents capability. Either remove the advanced Permission mode selector or make it the
+                sole source for hidden permission state and the plain-language summary. Correct <code>auto</code> copy.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="number">4</div>
+            <div>
+              <h3>Encode dependencies without silently erasing unrelated choices</h3>
+              <p>
+                Grey out or explain CLAUDE.md/repo-map until repo context is enabled; show bare as an explicit override.
+                Surface session-extract prerequisites. Keep the user’s other toggles intact, consistent with the builder’s
+                learned UX direction.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="number">5</div>
+            <div>
+              <h3>Expand the drift gate from snapshots to behavior</h3>
+              <p>
+                Add a lightweight DOM/browser test for every flag-emitting control and preset. Compare full curated model
+                policy deliberately, test dependency pairs, and assert every generated command is accepted by CLI
+                preflight or is clearly blocked in the UI.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="number">6</div>
+            <div>
+              <h3>Finish the teaching and safety details</h3>
+              <p>
+                Replace whitespace template-arg parsing, stop persisting caller tokens, correct memory terminology,
+                populate initial validation immediately, add a prompt label/live regions, and align numeric ranges.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>What should remain unchanged</h2>
+        <div class="grid">
+          <article class="card wide">
+            <h3>Conservative authority defaults</h3>
+            <p>
+              Shell remains a distinct explicit consent flag; <code>--dont-ask</code> does not enable it; hard safety
+              guards remain outside builder convenience logic.
+            </p>
+          </article>
+          <article class="card wide">
+            <h3>Capability-group strategy</h3>
+            <p>
+              Whole-group <code>--capabilities</code> plus exact <code>--tools</code> fallback is a strong minimal-core
+              design and should stay the builder’s primary tool-selection model.
+            </p>
+          </article>
+          <article class="card wide">
+            <h3>Runner/target folder distinction</h3>
+            <p>
+              This is unusually clear and beginner-helpful. Preserve the two-path explanation and shell quoting.
+            </p>
+          </article>
+          <article class="card wide">
+            <h3>Progressive disclosure</h3>
+            <p>
+              The collapsed Advanced panel, plain-language permission selector, glossary, command summary, and responsive
+              layout are worth refining rather than replacing.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <strong>Handoff.</strong> Report-only audit: no builder, CLI, runtime, test, or configuration fix was applied.
+        Alan’s tentative plan and the concurrent context-management source work were preserved. The late builder
+        token-budget update was rechecked but not authored or altered by this audit. Temporary live-probe transcripts
+        were written under <code>/tmp/command-builder-audit-2026-07-26/</code>, not into the repository.
+      </footer>
+    </main>
+  </body>
+</html>
