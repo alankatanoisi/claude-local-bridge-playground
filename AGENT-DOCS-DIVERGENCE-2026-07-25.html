@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Agent Docs Divergence — CLAUDE.md vs AGENTS.md (2026-07-25)</title>
+<style>
+  :root {
+    --bg:#fbfaf8; --surface:#fff; --surface-2:#f4f2ee; --ink:#1c1b19; --ink-soft:#55524d;
+    --ink-faint:#86817a; --rule:#e2ded7; --accent:#8a4b2a; --accent-soft:#f6ece5;
+    --ok:#2f6b45; --ok-soft:#e8f2ec; --warn:#8a6d1f; --warn-soft:#f8f1dc;
+    --bad:#97331f; --bad-soft:#fbeae6; --info:#2c5578; --info-soft:#e8eff5;
+    --claude:#5a3d8a; --claude-soft:#efe9f7; --agents:#1f6b6b; --agents-soft:#e4f1f1;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#17161a; --surface:#1f1e23; --surface-2:#26252b; --ink:#ece9e4; --ink-soft:#b5afa6;
+      --ink-faint:#8b857c; --rule:#35333a; --accent:#d99b6c; --accent-soft:#2c2320;
+      --ok:#7dc79b; --ok-soft:#1c2a22; --warn:#ddbc63; --warn-soft:#2b2618;
+      --bad:#e89078; --bad-soft:#2e1e1a; --info:#8fb6d8; --info-soft:#1c242c;
+      --claude:#b39ddb; --claude-soft:#262033; --agents:#7fc4c4; --agents-soft:#1b2727;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:64rem;margin:0 auto;padding:2.5rem 1.5rem 6rem}
+  header.doc{border-bottom:2px solid var(--rule);padding-bottom:1.5rem;margin-bottom:2rem}
+  .eyebrow{font:600 .72rem/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:.75rem}
+  h1{font-size:2rem;line-height:1.15;margin:0 0 .6rem;letter-spacing:-.02em}
+  .sub{color:var(--ink-soft);font-size:1.05rem;margin:0}
+  .meta{display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;margin-top:1.25rem;font-size:.85rem;color:var(--ink-faint)}
+  .meta b{color:var(--ink-soft);font-weight:600}
+  h2{font-size:1.3rem;margin:3rem 0 1rem;padding-top:.5rem;border-top:1px solid var(--rule);letter-spacing:-.01em}
+  h2 .num{color:var(--ink-faint);font:400 1rem var(--mono);margin-right:.5rem}
+  h3{font-size:1.02rem;margin:1.75rem 0 .6rem}
+  p{margin:.85rem 0}
+  code{font:.86em var(--mono);background:var(--surface-2);padding:.12em .38em;border-radius:4px;border:1px solid var(--rule)}
+  pre{background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:1rem 1.1rem;overflow-x:auto;font:.82rem/1.6 var(--mono);margin:1rem 0}
+  pre code{background:none;border:none;padding:0}
+  a{color:var(--accent);text-underline-offset:2px}
+  ul,ol{padding-left:1.4rem} li{margin:.4rem 0}
+  table{width:100%;border-collapse:collapse;margin:1.2rem 0;font-size:.89rem}
+  th,td{text-align:left;padding:.6rem .7rem;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font-size:.73rem;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);background:var(--surface-2)}
+  tbody tr:hover{background:var(--surface-2)}
+  .callout{border-left:3px solid var(--rule);background:var(--surface);border-radius:0 8px 8px 0;padding:.9rem 1.1rem;margin:1.2rem 0}
+  .callout .label{font:700 .7rem/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:.5rem}
+  .callout p:first-of-type{margin-top:0} .callout p:last-child{margin-bottom:0}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-soft)} .callout.warn .label{color:var(--warn)}
+  .callout.bad{border-left-color:var(--bad);background:var(--bad-soft)} .callout.bad .label{color:var(--bad)}
+  .callout.ok{border-left-color:var(--ok);background:var(--ok-soft)} .callout.ok .label{color:var(--ok)}
+  .callout.info{border-left-color:var(--info);background:var(--info-soft)} .callout.info .label{color:var(--info)}
+  .badge{display:inline-block;font:600 .68rem/1.5 var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:.15rem .45rem;border-radius:4px;white-space:nowrap}
+  .badge.bad{background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad)}
+  .badge.warn{background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn)}
+  .badge.ok{background:var(--ok-soft);color:var(--ok);border:1px solid var(--ok)}
+  .badge.info{background:var(--info-soft);color:var(--info);border:1px solid var(--info)}
+  .badge.c{background:var(--claude-soft);color:var(--claude);border:1px solid var(--claude)}
+  .badge.a{background:var(--agents-soft);color:var(--agents);border:1px solid var(--agents)}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:.8rem;margin:1.5rem 0}
+  .metric{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:.9rem 1rem;text-align:center}
+  .metric .n{font:700 1.7rem/1 var(--mono);display:block;margin-bottom:.35rem}
+  .metric .l{font-size:.74rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint)}
+  .metric.c .n{color:var(--claude)} .metric.a .n{color:var(--agents)} .metric.s .n{color:var(--accent)}
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--rule);border-radius:10px;overflow:hidden;margin:1rem 0}
+  @media (max-width:46rem){.cmp{grid-template-columns:1fr}}
+  .cmp>div{padding:.9rem 1.1rem;font-size:.9rem}
+  .cmp>div:first-child{background:var(--claude-soft);border-right:1px solid var(--rule)}
+  .cmp>div:last-child{background:var(--agents-soft)}
+  @media (max-width:46rem){.cmp>div:first-child{border-right:none;border-bottom:1px solid var(--rule)}}
+  .cmp .who{font:700 .7rem/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:.5rem}
+  .cmp>div:first-child .who{color:var(--claude)} .cmp>div:last-child .who{color:var(--agents)}
+  .cmp p{margin:.4rem 0}
+  footer.doc{margin-top:4rem;padding-top:1.5rem;border-top:2px solid var(--rule);color:var(--ink-faint);font-size:.85rem}
+  .toplink{font-size:.78rem;color:var(--ink-faint);text-decoration:none;float:right;font-weight:400}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <div class="eyebrow">Agent-facing docs audit · Diagnosis 3</div>
+  <h1>Divergence Report — <code>CLAUDE.md</code> vs <code>AGENTS.md</code></h1>
+  <p class="sub">Comparing the freshly amended <code>CLAUDE.md</code> against the current, untouched
+  <code>AGENTS.md</code>, to scope the AGENTS pass without guessing.</p>
+  <div class="meta">
+    <span><b>Date</b> 2026-07-25</span>
+    <span><b>Branch</b> main</span>
+    <span><b>CLAUDE.md</b> amended today</span>
+    <span><b>AGENTS.md</b> untouched</span>
+    <span><b>Author</b> Claude Code (Fable 5)</span>
+  </div>
+</header>
+
+<div class="callout info">
+  <span class="label">Why AGENTS.md was deliberately not edited</span>
+  <p>Two reasons. Alan authorized amendments to <code>CLAUDE.md</code> only. And more importantly, my own
+  recommendation was that a multi-agent docs pass should land <strong>atomically</strong> — editing
+  <code>AGENTS.md</code> while Cursor or Codex holds older context creates exactly the divergence we are
+  trying to remove. <strong>This report is the work order for that pass</strong>, to be executed in one
+  deliberate pass with Alan present.</p>
+</div>
+
+<h2 id="metrics"><span class="num">01</span>Measurements <a class="toplink" href="#">top ↑</a></h2>
+
+<p>Counted mechanically on unique non-blank lines with leading whitespace normalized, so this reflects real
+content overlap rather than my impression of it.</p>
+
+<div class="metrics">
+  <div class="metric c"><span class="n">295</span><span class="l">CLAUDE.md lines</span></div>
+  <div class="metric a"><span class="n">229</span><span class="l">AGENTS.md lines</span></div>
+  <div class="metric s"><span class="n">95</span><span class="l">shared lines</span></div>
+  <div class="metric c"><span class="n">116</span><span class="l">CLAUDE-only</span></div>
+  <div class="metric a"><span class="n">70</span><span class="l">AGENTS-only</span></div>
+</div>
+
+<p>The ratio is the headline: <strong>95 of AGENTS.md's 165 unique content lines (58%) are duplicated
+verbatim in <code>CLAUDE.md</code></strong>. Before today's amendment that share was higher still, since I
+added roughly 66 lines. Two independently-maintained files carrying the majority of their content in common
+is the mechanism of drift — not a symptom of it.</p>
+
+<div class="callout warn">
+  <span class="label">The structural finding</span>
+  <p>Duplication is not itself the bug. The bug is that <strong>the duplicated content is maintained
+  independently in two places with no check</strong>, so the two copies are free to disagree — and
+  <a href="#substantive">section 03</a> shows they did, on two invariants that matter.</p>
+</div>
+
+<h2 id="structure"><span class="num">02</span>Structural comparison <a class="toplink" href="#">top ↑</a></h2>
+
+<table>
+  <thead><tr><th>Section</th><th>CLAUDE.md</th><th>AGENTS.md</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td>Human Context</td><td>✓ L68</td><td>✓ L5</td><td>Near-identical. CLAUDE adds one sentence AGENTS lacks — see 03-I.</td></tr>
+    <tr><td>Novice-First Rules</td><td>✓ L72</td><td>✓ L9</td><td>All 11 rules identical. Pure duplication.</td></tr>
+    <tr><td>Startup Preflight</td><td>✓ L41</td><td>✓ L34</td><td>Verbatim identical, including the command block.</td></tr>
+    <tr><td>Project Overview</td><td>✓ L86</td><td>✓ L91</td><td>Was identical; now differs by the profiles correction (03-A).</td></tr>
+    <tr><td>Current Direction</td><td>✓ L110</td><td>✓ L61</td><td>Same intent, independently worded. AGENTS carries the profiles-retirement invariant.</td></tr>
+    <tr><td>Key Files</td><td>✓ L156</td><td>✓ L138</td><td>Identical 11-item list. Pure duplication.</td></tr>
+    <tr><td>Checks</td><td>✓ L205</td><td>✓ L153</td><td>Identical commands, different framing sentence.</td></tr>
+    <tr><td>Handoff</td><td>✓ L285</td><td>✓ L170</td><td>Same five fields, trivially different wording (03-K).</td></tr>
+    <tr><td>Safety rules</td><td>"Safety Rules" L171</td><td>"Runner Safety Rules" L127</td><td><span class="badge warn">Name drift</span> Same content, different heading — makes cross-referencing harder than it should be.</td></tr>
+    <tr><td>Learned User Preferences</td><td>✓ L257</td><td>✓ L208</td><td><span class="badge ok">In sync</span> Verified bullet-for-bullet.</td></tr>
+    <tr><td>Learned Workspace Facts</td><td>✓ L277</td><td>✓ L223</td><td><span class="badge ok">In sync</span> All three bullets identical.</td></tr>
+    <tr><td>Which File Loads Where</td><td><span class="badge c">CLAUDE only</span> L9</td><td>—</td><td>Added today. AGENTS needs the same map.</td></tr>
+    <tr><td>Which Clone Is This?</td><td><span class="badge c">CLAUDE only</span> L30</td><td>—</td><td>AGENTS covers this differently under "Active Repository".</td></tr>
+    <tr><td>Architecture Boundary</td><td><span class="badge c">CLAUDE only</span> L101</td><td>—</td><td>AGENTS has "Boundaries" instead, with different content.</td></tr>
+    <tr><td>Known live gaps</td><td><span class="badge c">CLAUDE only</span> L190</td><td>—</td><td>Added today. <strong>Safety-relevant; AGENTS should carry it.</strong></td></tr>
+    <tr><td>Current Work Thread</td><td><span class="badge c">CLAUDE only</span> L222</td><td>—</td><td>Replaced the stale "Active P0 Work". AGENTS has no status pointer at all.</td></tr>
+    <tr><td>Docs To Keep Updated</td><td><span class="badge c">CLAUDE only</span> L248</td><td>—</td><td>No AGENTS equivalent.</td></tr>
+    <tr><td>Active Repository</td><td>—</td><td><span class="badge a">AGENTS only</span> L23</td><td>Gives the explicit git URL, which CLAUDE's table does not.</td></tr>
+    <tr><td>Boundaries</td><td>—</td><td><span class="badge a">AGENTS only</span> L106</td><td>Protects "VS Code extension auth settings"; CLAUDE omits that entry (03-E).</td></tr>
+    <tr><td>Cursor Cloud instructions</td><td>—</td><td><span class="badge a">AGENTS only</span> L182</td><td><strong>27 lines of hard-won operational knowledge Claude Code never sees</strong> (03-C).</td></tr>
+  </tbody>
+</table>
+
+<h2 id="substantive"><span class="num">03</span>Substantive divergences <a class="toplink" href="#">top ↑</a></h2>
+
+<p>Ordered by consequence. Heading drift and wording differences are cosmetic; these are not.</p>
+
+<h3>A — Profiles retirement <span class="badge bad">Was a live contradiction</span></h3>
+<div class="cmp">
+  <div>
+    <span class="who">CLAUDE.md — before today</span>
+    <p>Listed <code>profiles</code> as an <em>active</em> runner surface in <strong>three</strong> places:
+    Project Overview, Architecture Boundary, and Current Direction ("Customization through … prompt templates,
+    profiles, hooks").</p>
+    <p>Carried <strong>no retirement invariant at all.</strong></p>
+  </div>
+  <div>
+    <span class="who">AGENTS.md — current</span>
+    <p>"Agent profiles and capability profiles are <strong>retired</strong> runtime concepts. Do not restore
+    <code>--agent</code>, <code>--profile</code>, <code>--list-agents</code>, or
+    <code>--list-profiles</code>; historical code lives under <code>docs/archive/runner-profiles/</code>."</p>
+  </div>
+</div>
+<div class="callout ok">
+  <span class="label">Fixed in CLAUDE.md today</span>
+  <p>Removed all three stale mentions and <strong>added the retirement invariant</strong>. A Claude Code
+  session previously had no way to learn this rule — it was only ever written down in a file Claude Code does
+  not load. That is a missing guardrail, not a documentation nicety.</p>
+</div>
+
+<h3>B — The redaction invariant <span class="badge bad">AGENTS was more accurate than CLAUDE</span></h3>
+<div class="cmp">
+  <div>
+    <span class="who">CLAUDE.md — before today</span>
+    <p>"…must also pass through one central redaction boundary — <strong>this is currently an open gap
+    (P0-11); do not claim stream output is redacted until it lands.</strong>"</p>
+    <p>P0-11 closed <strong>2026-07-19</strong>. The caveat stood for six days and was propagated into the
+    Safari 1 findings document as if current.</p>
+  </div>
+  <div>
+    <span class="who">AGENTS.md — current</span>
+    <p>"Tool results, transcripts, stream output, JSON output, and human logs <strong>must scrub
+    secrets.</strong>"</p>
+    <p>Stated unconditionally. <strong>Correct.</strong></p>
+  </div>
+</div>
+<div class="callout warn">
+  <span class="label">Worth sitting with</span>
+  <p>The file that auto-loads for Claude Code was the <em>less</em> accurate of the two, and the error was a
+  <strong>self-imposed capability restriction</strong> — it instructed agents not to claim a safety property
+  that was in fact true and field-verified. Staleness does not only create false confidence; it can also
+  create false doubt, and that is harder to notice because it feels appropriately cautious.</p>
+</div>
+
+<h3>C — Cursor Cloud operational knowledge <span class="badge warn">AGENTS only</span></h3>
+<p>27 lines in <code>AGENTS.md</code> that Claude Code never loads, several of which are broadly useful and
+were clearly expensive to learn:</p>
+<ul>
+  <li><code>npm run format:check</code> reports <strong>pre-existing</strong> Prettier warnings on
+    <code>package.json</code> / <code>package-lock.json</code> — unrelated to your changes, do not
+    "fix" them.</li>
+  <li><code>npm test</code> has <strong>one known Linux-only failure</strong>: <code>reports signal when
+    process is killed</code> in <code>test/runner/bash.test.js</code>. <strong>All other 478 tests pass.</strong>
+    A platform difference, not a regression.</li>
+  <li>The bridge <strong>cannot start standalone</strong> outside VS Code, and live model calls need real OAuth.</li>
+  <li><strong>A recipe for exercising the whole runner loop with no OAuth at all</strong>: point
+    <code>--bridge-url</code> at a local mock speaking the Anthropic Messages format, return a
+    <code>tool_use</code> block on turn one and a <code>text</code> block on turn two.</li>
+  <li>Headless mode requires <code>--trust-workspace</code> or the runner stops with
+    <code>workspace_not_trusted</code>.</li>
+</ul>
+<div class="callout info">
+  <span class="label">Recommendation — and it is not "copy it over"</span>
+  <p>The mock-bridge recipe and the known-failure list are <strong>surface-independent facts</strong> and
+  belong somewhere every agent reads. The Linux-VM-specific parts genuinely belong to Cursor Cloud.
+  <strong>Split the section:</strong> universal testing facts into shared content, cloud specifics stay.
+  Note the "478 tests" figure is itself perishable and should carry a date or be replaced with "one known
+  failure" phrasing.</p>
+</div>
+
+<h3>D — Repository identity: complementary, not contradictory</h3>
+<div class="cmp">
+  <div>
+    <span class="who">CLAUDE.md</span>
+    <p>A two-row table distinguishing <strong>playground vs canonical</strong> by path suffix, with expected
+    branch per clone. Better at answering "which am I in?"</p>
+  </div>
+  <div>
+    <span class="who">AGENTS.md</span>
+    <p>Gives the explicit clone URL
+    (<code>…/claude-local-bridge-playground.git</code>) and states the canonical repo is reference-only.
+    Better at answering "what should origin be?"</p>
+  </div>
+</div>
+<p>Both are useful and neither is wrong. This is the healthy kind of divergence — worth merging into one
+canonical block rather than choosing a winner.</p>
+
+<h3>E — Protected-file lists disagree <span class="badge warn">Safety-adjacent</span></h3>
+<p><code>AGENTS.md</code> protects <strong>"VS Code extension auth settings"</strong> in addition to the four
+source paths. <code>CLAUDE.md</code> lists only the four paths and omits that entry. Conversely,
+<code>AGENTS.md</code> scopes the runner work lane to three <em>specific</em> docs while
+<code>CLAUDE.md</code> says <code>docs/**</code>.</p>
+<p><strong>Recommendation:</strong> take the union for what is <em>protected</em> (fail safe) and the broader
+form for what is <em>permitted</em> — so add the auth-settings entry to <code>CLAUDE.md</code> and widen
+<code>AGENTS.md</code>'s docs lane. Not done today: modifying a protection list is exactly the kind of edit
+that deserves Alan in the room.</p>
+
+<h3>F, G, H — Content added to CLAUDE.md today that AGENTS.md now lacks</h3>
+<table>
+  <thead><tr><th>Content</th><th>Why AGENTS needs it</th><th>Priority</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Known live gaps</strong> — the two unremediated symlink/laundering findings</td><td>Safety-relevant. Cursor and Codex currently have <em>no</em> indication that the deny matrix is not target-aware, and Codex is the agent that found the first one.</td><td><span class="badge bad">High</span></td></tr>
+    <tr><td><strong>Current Work Thread</strong> — safari history, single tracker, the FD/P0 namespace collision</td><td>Neither file mentioned the safaris. The most active thread in the repo was invisible to every agent's auto-loaded context, including mine.</td><td><span class="badge bad">High</span></td></tr>
+    <tr><td><strong>Which File Loads Where</strong> — the surface/auto-load map</td><td>Explains <em>why</em> duplication exists and stops the next agent from "helpfully" deduplicating away its own guardrails.</td><td><span class="badge warn">Medium</span></td></tr>
+    <tr><td><strong>Doc-type header + verified-as-of date</strong></td><td>Makes staleness self-announcing instead of relying on maintenance.</td><td><span class="badge warn">Medium</span></td></tr>
+  </tbody>
+</table>
+
+<h3>I, J, K — Minor</h3>
+<ul>
+  <li><strong>I.</strong> <code>CLAUDE.md</code> adds "It is correct to treat him as if he does not understand
+    usual programmer conventions." <code>AGENTS.md</code> omits it. Worth mirroring — it is the sentence that
+    most changes agent behavior in the whole Human Context block.</li>
+  <li><strong>J.</strong> <span class="badge ok">Good news</span> Both <strong>Learned</strong> blocks are in
+    sync, bullet-for-bullet. <strong>The mirroring rule is working.</strong> My earlier characterization of a
+    "broken mirror" was wrong, and I am correcting it here: the mirror rule only ever covered those two blocks,
+    and it held. All the drift is in sections that were never under the rule.</li>
+  <li><strong>K.</strong> Handoff wording: "Any checks skipped and why" (AGENTS) vs "Anything skipped"
+    (CLAUDE). AGENTS' phrasing is better — it asks for the reason.</li>
+</ul>
+
+<h2 id="rec"><span class="num">04</span>Recommendations <a class="toplink" href="#">top ↑</a></h2>
+
+<div class="callout ok">
+  <span class="label">1 — Build check:agent-docs before editing AGENTS.md</span>
+  <p>This repo already has <code>scripts/check-doc-defaults.js</code> and
+  <code>scripts/check-runner-manifest.js</code>, both wired into <code>npm run check:docs</code>. The culture
+  here is already "verify docs against reality with a script that fails the gate." A script that fails when
+  the mirrored blocks diverge — and ideally when a shared invariant appears in one file but not the other — is
+  a small version of that same idea. <strong>Hoping agents remember is not a mechanism.</strong> Build the
+  check first so the AGENTS pass is verified rather than trusted.</p>
+</div>
+
+<div class="callout info">
+  <span class="label">2 — Decide the shared-content model, do not just sync twice</span>
+  <p>Three options, with the trade-off that actually matters:</p>
+  <ul>
+    <li><strong>Keep full duplication + a check script.</strong> Safest for auto-loading (every surface gets
+      every invariant in its own file). Costs two edits per change. <em>Recommended.</em></li>
+    <li><strong>Thin CLAUDE.md to Claude-specific content + pointers.</strong> Cleanest to maintain, but
+      <strong>Claude Code does not auto-load <code>AGENTS.md</code></strong> — so safety invariants would leave
+      guaranteed context and depend on an agent choosing to read a second file. <em>Do not do this for
+      invariants.</em></li>
+    <li><strong>Extract a shared include and generate both.</strong> Correct in principle; adds a build step
+      to documentation, which is a real maintenance cost for a two-file problem.</li>
+  </ul>
+</div>
+
+<div class="callout warn">
+  <span class="label">3 — Treat safety invariants as append-only during the pass</span>
+  <p>Unlike source code, a reworded invariant has <strong>no test that fails</strong> if the meaning shifts.
+  Correct factual errors freely (the P0-11 line, the profiles contradiction); add missing rules freely; do not
+  restyle invariant text that is already accurate. The risk/reward is bad.</p>
+</div>
+
+<div class="callout info">
+  <span class="label">4 — Field-test the result rather than judging it</span>
+  <p>When the pass is done, launch a fresh <code>--bare</code> runner session and ask it five questions:
+  which clone and branch, what is open versus closed, what is forbidden to touch, where is the single tracker,
+  and what happened most recently. Whatever it gets wrong is the remaining docs bug, stated precisely.</p>
+  <p>Alan and I both already know the answers, which makes us the two worst possible judges of whether the
+  documents convey them. This is the same move as the safari itself: don't reason about what the system should
+  do — run it and watch.</p>
+</div>
+
+<h2 id="changed"><span class="num">05</span>What changed in CLAUDE.md today <a class="toplink" href="#">top ↑</a></h2>
+
+<table>
+  <thead><tr><th>Change</th><th>Kind</th></tr></thead>
+  <tbody>
+    <tr><td>Added doc-type header, "facts verified as of" date, and a note that perishable status does not belong in the file</td><td><span class="badge info">Added</span></td></tr>
+    <tr><td>Added <strong>Which File Loads Where</strong> — the surface/auto-load map and its consequences</td><td><span class="badge info">Added</span></td></tr>
+    <tr><td>Corrected the redaction invariant: removed the stale "open gap (P0-11)" caveat, stated the boundary unconditionally, and recorded the correction inline with its date</td><td><span class="badge bad">Fact fix</span></td></tr>
+    <tr><td>Added the <strong>profiles retirement invariant</strong> (was in AGENTS.md only)</td><td><span class="badge info">Guardrail added</span></td></tr>
+    <tr><td>Removed three stale references to <code>profiles</code> as an active surface</td><td><span class="badge bad">Contradiction fix</span></td></tr>
+    <tr><td>Added <strong>Known live gaps</strong> — the two unremediated path-safety findings</td><td><span class="badge info">Guardrail added</span></td></tr>
+    <tr><td>Replaced <strong>Active P0 Work</strong> (perishable, stale) with <strong>Current Work Thread</strong> (pointers + dated status + tracker + namespace warning)</td><td><span class="badge warn">Restructured</span></td></tr>
+    <tr><td>Noted the Learned-block mirror as verified in sync on 2026-07-25, and recommended the check script</td><td><span class="badge info">Added</span></td></tr>
+  </tbody>
+</table>
+
+<p><strong>Not touched:</strong> every accurate safety invariant, all Novice-First Rules, both Learned blocks'
+content, Startup Preflight, Key Files, Checks, Handoff. Per the append-only rule for invariants.</p>
+
+<footer class="doc">
+  <p><strong>Folder</strong> <code>/Users/alanman/Developer/claude-local-bridge-playground</code> ·
+  <strong>Branch</strong> <code>main</code> · <strong>Files changed:</strong> <code>CLAUDE.md</code> (amended),
+  this report, and a Cursor-specific handoff. <strong>No source file modified. AGENTS.md untouched.</strong></p>
+  <p><strong>Checks run:</strong> <code>npm run check:docs</code> passed. The full test gate was not run
+  because no source changed. <strong>Not committed or pushed.</strong></p>
+  <p><strong>Measurement method:</strong> unique non-blank lines, leading whitespace normalized, compared with
+  <code>comm</code>. Heading inventory via <code>grep -n "^#\{1,3\} "</code>. Reproducible.</p>
+</footer>
+
+</div>
+</body>
+</html>

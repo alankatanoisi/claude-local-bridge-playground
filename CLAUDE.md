@@ -1,6 +1,31 @@
 # CLAUDE.md
 
+**Doc type:** durable reference + auto-loaded guardrails. **Facts verified as of 2026-07-25.**
+**Perishable status does not belong in this file** — see [Current Work Thread](#current-work-thread) for
+the pointer to where status lives.
+
 Claude-specific instructions for this repository. Read `AGENTS.md` first; it contains the shared beginner-first workflow and safety rules. The **Learned User Preferences** and **Learned Workspace Facts** blocks below must stay mirrored with `AGENTS.md` so Claude Code and Cursor see the same Alan preferences.
+
+## Which File Loads Where
+
+Three agent surfaces read this repo and **they do not load the same files**. Know which one you are
+before assuming your context is complete.
+
+| Surface | Auto-loads | Does NOT auto-load |
+| --- | --- | --- |
+| **Claude Code** (this file's audience) | `CLAUDE.md` | `AGENTS.md`, `.cursor/**` |
+| **Cursor** | `AGENTS.md`, `.cursor/rules/**` | `CLAUDE.md` |
+| **Codex** | `AGENTS.md` | `CLAUDE.md`, `.cursor/**` |
+
+Consequences that have caused real problems:
+
+- Safety invariants must be restated **in this file** to be reliably in a Claude Code session's
+  context. That is why some content here duplicates `AGENTS.md` rather than only linking to it.
+- Only the two **Learned** blocks at the bottom are under the mirroring rule. Everything else in this
+  file and `AGENTS.md` was written independently and **has drifted**. Treat `AGENTS.md` as upstream for
+  the Learned blocks; for anything else, check both before trusting either.
+- `.cursor/**` primitives are **not** visible to Claude Code or Codex, and as of 2026-07-25 several of
+  them contradict current invariants. Do not assume Cursor shares your understanding.
 
 ## Which Clone Is This?
 
@@ -70,7 +95,7 @@ prompt -> local bridge /v1/messages -> model response -> tool_use -> local tool 
 ```
 
 The bridge owns OAuth, keychain, interceptor, and proxy behavior. The runner owns the part we are actively evolving:
-the local agent loop, capability groups, permissions, prompts, profiles, transcripts, archives, and command-line user
+the local agent loop, capability groups, permissions, prompts, transcripts, archives, and command-line user
 experience.
 
 ## Architecture Boundary
@@ -79,7 +104,7 @@ Claude Local Bridge has two layers:
 
 - Bridge layer: VS Code extension, local HTTP server, OAuth/keychain/interceptor/proxy behavior. Treat this as transport
   plumbing unless Alan asks for bridge work.
-- Runner layer: local CLI agent loop, capability groups, prompts, templates, profiles, permissions, transcripts,
+- Runner layer: local CLI agent loop, capability groups, prompts, templates, permissions, transcripts,
   archives, readable logs, docs, and command builder. Treat this as the active product surface.
 
 ## Current Direction
@@ -92,7 +117,8 @@ Design direction:
 
 - Minimal default prompt and minimal startup context.
 - Explicit opt-ins for instruction docs, repo maps, skills, shell, and advanced patch mode.
-- Customization through `.bridge-runner/` files, prompt templates, profiles, hooks, and command-builder presets.
+- Customization through `.bridge-runner/` files, prompt templates, hooks, and command-builder presets.
+  (Not profiles — see the retirement invariant under Safety Rules.)
 - Capability groups over large flat tool menus.
 
 Transport invariants:
@@ -150,11 +176,31 @@ Keep these invariants:
 - `--dont-ask` must not enable shell by itself.
 - Block `.env`, private keys, credential JSON, token files, `.ssh`, `.aws`, `.claude`, and path escapes.
 - Write tools ask for confirmation unless `--accept-edits` is set.
-- Tool output, transcripts, and human logs redact secrets. Target invariant: raw assistant text on stdout and
-  `--json`/`--stream-json` events must also pass through one central redaction boundary — this is currently an
-  open gap (P0-11); do not claim stream output is redacted until it lands. See
-  `docs/runner-p0-10-12-agent-handoff-2026-07-18.md`.
+- Tool output, transcripts, stream output, JSON output, and human logs redact secrets. All sinks pass
+  through one central redaction boundary (`src/runner/redaction-boundary.js`). **Corrected 2026-07-25:**
+  this line previously described the central boundary as an open gap (P0-11). P0-11 closed 2026-07-19 and
+  permission safari 2 field-confirmed redaction across transcript, JSON/stdout, stderr, redacted trace, and
+  full trace. The stale caveat had persisted for six days and was propagated into other documents.
 - `--cwd` means the target project folder the tools operate inside.
+- Agent profiles and capability profiles are **retired** runtime concepts. Do not restore `--agent`,
+  `--profile`, `--list-agents`, or `--list-profiles`; historical code lives under
+  `docs/archive/runner-profiles/`. (This invariant was present in `AGENTS.md` but missing here until
+  2026-07-25 — a Claude Code session had no way to know.)
+
+### Known live gaps (as of 2026-07-25)
+
+Two path-safety gaps are **observed and unremediated**. Redaction is the only thing standing behind the
+first one, so do not treat the deny matrix as target-aware:
+
+- An in-root symlink whose own basename is innocent but whose **resolved target** basename is deny-listed
+  (`.env`) is opened by `read_file`. `confinePath` resolves the link only to test containment, then returns
+  the lexical path, so the deny matrix never sees the real target.
+- `write_file` on such a symlink causes the backup step to read the denied file and write a **plaintext
+  copy** into `.bridge-runner/backups/`, which is not covered by the deny matrix (shell-policy does block
+  it). Gitignored, so it never appears in `git status`.
+
+Full analysis and the remediation plan: `HANDOFF-safari-3-remediation-plan-2026-07-25.md`.
+`src/runner/safety.js` `isFileCandidateAllowed` is the correct reference pattern already in-tree.
 
 ## Checks
 
@@ -173,13 +219,31 @@ For runner-only work:
 node --require ./test/setup.js --test test/runner/*.test.js
 ```
 
-## Active P0 Work
+## Current Work Thread
 
-Open runtime-concordance items P0-10 (root-change cache integrity), P0-11 (centralized redaction boundary), and
-P0-12 (private-by-construction artifacts) are tracked in `docs/runner-p0-10-12-agent-handoff-2026-07-18.md`
-(execution order A: P0-10, B: P0-12, C: P0-11 — one item per session). Human-readable review:
-`docs/runner-p0-10-12-review-2026-07-18.html`. Annotate
-`docs/runner-runtime-concordance-assessment-2026-07-17.html` when closing items.
+**This section holds pointers only. It must never accumulate status.** Perishable state rots inside a
+durable document — the previous version of this section listed P0-10/11/12 as open for six days after all
+three closed, and every agent that read this file was misinformed on arrival.
+
+**Single tracker:** `docs/runner-runtime-concordance-assessment-2026-07-17.html`. Annotate it when closing
+items rather than starting a parallel tracker.
+
+**Status as of 2026-07-25:**
+
+- **P0-01 … P0-12: all closed** (P0-10 on 07-18; P0-11 and P0-12 on 07-19). Record:
+  `docs/runner-p0-10-12-agent-handoff-2026-07-18.md`.
+- **Active thread: the permission safaris.** Two adversarial field tests of the permission machinery have
+  run. Safari 1 (flag-composition ladder) passed everywhere. Safari 2 (Codex, rounds A–P) found the symlink
+  gap above and made no source fix. Safari 3 (remediation) is **planned and explicitly not authorized to
+  execute** — read the banner in the handoff before acting.
+  - Start here: `HANDOFF-safari-3-remediation-plan-2026-07-25.md` (and its `.html` twin for humans).
+  - Findings: `docs/permission-safari-2-findings-2026-07-21.md` (authoritative).
+  - Backlog: `docs/HANDOFF-safari-future-directions-2026-07-22.md` (authoritative; the `.html` is derived
+    and truncated — do not treat differences as a second opinion).
+
+**Two colliding `P0` namespaces exist in `docs/`.** The runtime-concordance series `P0-01…P0-12` is closed;
+the future-directions band `FD-01…FD-05` is *also* labelled P0 by the 07-22 handoff. Write `FD-01` when you
+mean `FD-01`. Register FD-* inside the concordance tracker rather than creating a third tracker.
 
 ## Docs To Keep Updated
 
@@ -193,6 +257,11 @@ When changing runner behavior or CLI options, update:
 ## Learned User Preferences
 
 These preferences are **universal for this repo** (same content as `AGENTS.md`). Follow them in Claude Code sessions too; do not treat them as Cursor-only memory. When continual-learning updates `AGENTS.md`, keep this block in sync.
+
+> **Mirror verified in sync with `AGENTS.md` on 2026-07-25.** Both Learned blocks matched bullet-for-bullet.
+> The mirroring rule is holding; the drift in this repo is in the *non-mirrored* sections, which were written
+> independently in each file. A `check:agent-docs` script that fails the gate on divergence would make this
+> verification automatic instead of manual — recommended, not yet built.
 
 - Treat `docs/command-builder.html` as the primary day-to-day runner UX; keep it lean, and update it when runner CLI flags or capabilities change.
 - Prefer compact in-UI explanations for runner flags (hover/"what does this do"/glossary) over relying on long docs alone; Alan learns mainly by doing.
