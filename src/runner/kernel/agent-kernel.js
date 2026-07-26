@@ -52,6 +52,8 @@ async function runKernel(input) {
     confirmTimeout: input.confirmTimeout,
     allowedTools,
     maxContextTokens: input.maxContextTokens,
+    maxRunTokens: input.maxRunTokens,
+    compactAtTokens: input.compactAtTokens,
     maxToolCallsPerTurn: input.maxToolCallsPerTurn,
     traceLevel: input.traceLevel,
     tracePath: input.tracePath,

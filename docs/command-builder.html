@@ -679,8 +679,8 @@
                     <input type="number" id="maxSteps" value="16" min="1" max="200" />
                   </div>
                   <div class="field">
-                    <label for="maxTokens" title="Maximum tokens the model can output in a single response. Higher values let the model write longer answers or bigger code blocks, but cost more.">Max tokens</label>
-                    <input type="number" id="maxTokens" value="2000" min="100" max="32000" />
+                    <label for="maxTokens" title="Maximum response output tokens for one model request. This allowance also reduces the room available for input context.">Response output tokens</label>
+                    <input type="number" id="maxTokens" value="2000" min="100" max="128000" />
                   </div>
                 </div>
                 <div class="row">
@@ -693,8 +693,12 @@
                     </div>
                   </div>
                   <div class="field">
-                    <label for="maxContextTokens" title="Token threshold that triggers compaction (summarizing older turns). When the conversation exceeds this, the runner compresses history to stay within the model's context window.">Context warning budget</label>
-                    <input type="number" id="maxContextTokens" placeholder="optional" min="1000" step="1000" />
+                    <label for="compactAtTokens" title="Advanced override for when the request projection starts reducing old evidence. It never enlarges the model context window.">Compact old evidence at</label>
+                    <input type="number" id="compactAtTokens" placeholder="derived from model" min="1000" step="1000" />
+                  </div>
+                  <div class="field">
+                    <label for="maxRunTokens" title="Cumulative input occupancy, including cache read/write tokens, plus model output. This is a whole-run guardrail, not current context size.">Maximum run tokens</label>
+                    <input type="number" id="maxRunTokens" placeholder="optional" min="1000" step="1000" />
                   </div>
                 </div>
                 <div class="field">
@@ -1255,7 +1259,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const maxTokens = document.getElementById('maxTokens');
       const temperature = document.getElementById('temperature');
       const temperatureNote = document.getElementById('temperatureNote');
-      const maxContextTokens = document.getElementById('maxContextTokens');
+      const compactAtTokens = document.getElementById('compactAtTokens');
+      const maxRunTokens = document.getElementById('maxRunTokens');
       const maxToolCalls = document.getElementById('maxToolCalls');
       const cwd = document.getElementById('cwd');
       const runnerPath = document.getElementById('runnerPath');
@@ -1532,7 +1537,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         if (+maxTokens.value !== DEFAULTS.maxTokens) parts.push('--max-tokens ' + maxTokens.value);
         if (+maxSteps.value !== DEFAULTS.maxSteps) parts.push('--max-steps ' + maxSteps.value);
         if (temperature.value.trim()) parts.push('--temperature ' + temperature.value.trim());
-        if (maxContextTokens.value.trim()) parts.push('--max-context-tokens ' + maxContextTokens.value.trim());
+        if (compactAtTokens.value.trim()) parts.push('--compact-at-tokens ' + compactAtTokens.value.trim());
+        if (maxRunTokens.value.trim()) parts.push('--max-run-tokens ' + maxRunTokens.value.trim());
         if (maxToolCalls.value.trim()) parts.push('--max-tool-calls-per-turn ' + maxToolCalls.value.trim());
         if (newSession.checked) parts.push('--new-session');
         if (resumeSession.checked) parts.push('--resume-session');
@@ -2015,7 +2021,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         maxSteps,
         maxTokens,
         temperature,
-        maxContextTokens,
+        compactAtTokens,
+        maxRunTokens,
         maxToolCalls,
         cwd,
         runnerPath,
@@ -2119,7 +2126,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           maxSteps: maxSteps.value,
           maxTokens: maxTokens.value,
           temperature: temperature.value,
-          maxContextTokens: maxContextTokens.value,
+          compactAtTokens: compactAtTokens.value,
+          maxRunTokens: maxRunTokens.value,
           maxToolCalls: maxToolCalls.value,
           cwd: cwd.value,
           runnerPath: runnerPath.value,
@@ -2191,7 +2199,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         const textKeys = [
           'prompt', 'promptTemplate', 'customPromptTemplate', 'promptArgs',
           'attachmentMode', 'attachedPaths', 'model', 'maxSteps', 'maxTokens',
-          'temperature', 'maxContextTokens', 'maxToolCalls', 'cwd', 'runnerPath',
+          'temperature', 'compactAtTokens', 'maxRunTokens', 'maxToolCalls', 'cwd', 'runnerPath',
           'permissionStyle', 'outputFormat', 'shellTimeout', 'confirmTimeout',
           'logLevel', 'resumePath', 'transcript', 'humanLog', 'traceLevel',
           'tracePath', 'bridgeUrl', 'callerToken', 'systemPrompt', 'systemPromptFile',
@@ -2203,7 +2211,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         const elMap = {
           prompt, promptTemplate, customPromptTemplate, promptArgs,
           attachmentMode, attachedPaths, model, maxSteps, maxTokens,
-          temperature, maxContextTokens, maxToolCalls, cwd, runnerPath,
+          temperature, compactAtTokens, maxRunTokens, maxToolCalls, cwd, runnerPath,
           permissionStyle, outputFormat, shellTimeout, confirmTimeout,
           logLevel, resumePath, transcript, humanLog, traceLevel,
           tracePath, bridgeUrl, callerToken, systemPrompt, systemPromptFile,
@@ -2411,7 +2419,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           appendSystemPromptFile.value = p.appendSystemPromptFile || '';
           applyPresetValue(permissionMode, 'permissionMode', p);
           applyPresetValue(temperature, 'temperature', p);
-          applyPresetValue(maxContextTokens, 'maxContextTokens', p);
+          applyPresetValue(compactAtTokens, 'compactAtTokens', p);
+          applyPresetValue(maxRunTokens, 'maxRunTokens', p);
           applyPresetValue(maxToolCalls, 'maxToolCalls', p);
           applyPresetValue(confirmTimeout, 'confirmTimeout', p);
           applyPresetValue(logLevel, 'logLevel', p);

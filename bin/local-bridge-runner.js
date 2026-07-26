@@ -17,6 +17,7 @@ const { run } = require('../src/runner/run');
 const { resolveModelControls } = require('../src/runner/model-capabilities');
 const { applyPromptTemplates, resolvePromptTemplate, substituteParameters } = require('../src/runner/prompt-templates');
 const safety = require('../src/runner/safety');
+const { deriveContextPolicy } = require('../src/runner/context-runtime-policy');
 
 // P1-07: the default model is shared with the bridge through the versioned
 // model catalog so the two layers cannot drift apart.
@@ -37,7 +38,7 @@ Options:\n\
   --model <model>      Model name (default: ' +
       DEFAULT_MODEL +
       ')\n\
-  --max-tokens <n>     Max tokens per request (default: ' +
+  --max-tokens <n>     Maximum response output tokens per model request (default: ' +
       DEFAULT_MAX_TOKENS +
       ')\n\
   --max-steps <n>      Max tool loops (default: ' +
@@ -99,7 +100,9 @@ Options:\n\
   --no-network         Best-effort HTTP/HTTPS proxy guard for shell; not hard network isolation\n\
   --system-prompt <s>  Override the default system prompt\n\
   --allowed-tools <f>  Same as --tools (others hidden + denied)\n\
-  --max-context-tokens <n> Warn when total tokens exceed budget; halt at 2x budget\n\
+  --compact-at-tokens <n> Advanced override for compacting old request evidence\n\
+  --max-run-tokens <n> Cumulative input occupancy plus output token guardrail\n\
+  --max-context-tokens <n> DEPRECATED legacy cumulative warning/2x-stop alias\n\
   --max-tool-calls-per-turn <n> Cap tool calls per model response; halt if exceeded\n\
   --temperature <f>    Model temperature 0.0–1.0 (default: model default, usually 1.0)\n\
   --confirm-timeout <ms> Auto-deny confirmation prompts after N ms (default: no timeout)\n\
@@ -205,6 +208,8 @@ async function main() {
         'system-prompt': { type: 'string' },
         'allowed-tools': { type: 'string' },
         'max-context-tokens': { type: 'string' },
+        'compact-at-tokens': { type: 'string' },
+        'max-run-tokens': { type: 'string' },
         'max-tool-calls-per-turn': { type: 'string' },
         temperature: { type: 'string' },
         'confirm-timeout': { type: 'string' },
@@ -416,6 +421,24 @@ async function main() {
   const temperature = temperatureStr ? parseFloat(temperatureStr) : undefined;
   const confirmTimeout = parseInt(args.values['confirm-timeout'], 10) || undefined;
   const maxContextTokens = parseInt(args.values['max-context-tokens'], 10) || undefined;
+  const compactAtTokens = parseInt(args.values['compact-at-tokens'], 10) || undefined;
+  const maxRunTokens = parseInt(args.values['max-run-tokens'], 10) || undefined;
+  if (maxContextTokens && maxRunTokens) {
+    console.error('Error: use either deprecated --max-context-tokens or --max-run-tokens, not both.');
+    process.exit(1);
+  }
+  if (maxContextTokens) {
+    console.error(
+      '[runner] DEPRECATED: --max-context-tokens is the legacy cumulative guard. ' +
+        'Use --max-run-tokens for cumulative usage and --compact-at-tokens for request pressure.',
+    );
+  }
+  try {
+    deriveContextPolicy({ model, maxTokens, compactAtTokens: compactAtTokens ?? undefined });
+  } catch (err) {
+    console.error('Error: ' + err.message);
+    process.exit(1);
+  }
   const maxToolCallsPerTurn = parseInt(args.values['max-tool-calls-per-turn'], 10) || undefined;
   const toolsRaw = args.values.tools || args.values['allowed-tools'];
   const exposedTools = toolsRaw
@@ -485,25 +508,13 @@ async function main() {
   if (taskScope) {
     if (!args.values['max-steps']) maxSteps = 8;
     compactionPolicy = {
-      warnTokens: 40_000,
-      haltTokens: 80_000,
-      snipAfterMessages: 12,
-      ghostAfterMessages: 20,
-      maxToolResultChars: 8_000,
-      snipOnMessageCount: true,
-      ghostOnMessageCount: true,
+      compactAtTokens: 40_000,
     };
   }
   if (compactEachTurn) {
     compactionPolicy = {
       ...(compactionPolicy || {}),
-      warnTokens: 20_000,
-      haltTokens: 40_000,
-      snipAfterMessages: 6,
-      ghostAfterMessages: 10,
-      maxToolResultChars: 4_000,
-      snipOnMessageCount: true,
-      ghostOnMessageCount: true,
+      compactAtTokens: 20_000,
     };
   }
 
@@ -634,6 +645,8 @@ async function main() {
     allowedTools: exposedTools,
     capabilities: capabilityGroups,
     maxContextTokens,
+    maxRunTokens,
+    compactAtTokens,
     maxToolCallsPerTurn,
     sessionId,
     sessionPath,

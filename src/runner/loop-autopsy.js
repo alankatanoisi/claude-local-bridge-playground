@@ -51,27 +51,9 @@ function writeAutopsyFile(sessionPath, autopsy) {
   return outPath;
 }
 
-/** Advisory token estimate — never used alone to block turns. */
-function estimateTokensAdvisory(messages) {
-  let chars = 0;
-  for (const msg of messages || []) {
-    if (typeof msg.content === 'string') chars += msg.content.length;
-    else if (Array.isArray(msg.content)) {
-      for (const block of msg.content) {
-        if (block.text) chars += block.text.length;
-        if (block.content) chars += String(block.content).length;
-      }
-    }
-  }
-  const codeHeavy = /```|function |const |import /.test(JSON.stringify(messages || []));
-  const divisor = codeHeavy ? 2 : 3.5;
-  return Math.ceil(chars / divisor);
-}
-
 module.exports = {
   normalizeToolCall,
   detectSemanticCycles,
   buildAutopsy,
   writeAutopsyFile,
-  estimateTokensAdvisory,
 };

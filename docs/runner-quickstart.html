@@ -771,9 +771,24 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td>Ledger repair plan (requires session; approval-gated in v1)</td>
             </tr>
             <tr>
-              <td><code>--max-context-tokens &lt;n&gt;</code></td>
+              <td><code>--max-tokens &lt;n&gt;</code></td>
               <td>off</td>
-              <td>Warn near budget; halt at 2× budget (playground compaction)</td>
+              <td>Maximum response output tokens per request; also reserves context headroom</td>
+            </tr>
+            <tr>
+              <td><code>--compact-at-tokens &lt;n&gt;</code></td>
+              <td>derived</td>
+              <td>Advanced old-evidence pressure override; cannot override the model input ceiling</td>
+            </tr>
+            <tr>
+              <td><code>--max-run-tokens &lt;n&gt;</code></td>
+              <td>off</td>
+              <td>Cumulative input occupancy (including cache tokens) plus output run guardrail</td>
+            </tr>
+            <tr>
+              <td><code>--max-context-tokens &lt;n&gt;</code></td>
+              <td>deprecated</td>
+              <td>Legacy cumulative warning/2×-stop behavior for one migration window</td>
             </tr>
             <tr>
               <td><code>--max-tool-calls-per-turn &lt;n&gt;</code></td>
@@ -1099,7 +1114,10 @@ node bin/local-bridge-coordinator.js \
         <p>
           Long runs can exceed context limits. The playground compactor applies a ladder: <strong>clip</strong> (trim
           old tool output), <strong>snip</strong> (collapse middle turns), then <strong>ghost</strong> (summary
-          placeholder). Set <code>--max-context-tokens</code> to get warnings before hard stops.
+          placeholder). Use <code>--max-run-tokens</code> for a cumulative run guardrail and
+          <code>--compact-at-tokens</code> only when deliberately testing earlier old-evidence pressure.
+          The deprecated <code>--max-context-tokens</code> flag retains its old warning/2×-stop formula for one
+          migration window.
         </p>
       </section>
 

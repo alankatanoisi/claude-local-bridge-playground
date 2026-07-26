@@ -3,6 +3,7 @@
 **Status:** Critically reviewed and revised implementation plan  
 **Date:** 2026-07-26  
 **Implementation status:** Not started  
+**Pre-build live validation:** Completed with five fully traced probes<br>
 **Delivery decision:** Build and validate as one integrated landing, not as separately shipped phases  
 **Active repository:** `/Users/alanman/Developer/claude-local-bridge-playground` on `main`
 
@@ -70,20 +71,20 @@ The plan distinguishes confirmed runtime defects from adjacent performance hypot
 
 ### Confirmed context-integrity defects
 
-| ID  | Confirmed current behavior                                                                                                                                                                 | Required resolution                                                                                                                             |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | `clipToolResults` has no preserved-recent exemption. Once the ladder’s entry gate opens, a fresh result can be clipped before the model consumes it.                                       | Ordinary clipping may affect only exchanges older than the protected tail. A separate emergency rule must be explicit and head+tail preserving. |
-| D2  | The compactor estimates only message characters. It omits system text, tool definitions, repository context, and some block fields; array-form result content is miscounted.               | Estimate the complete outbound request and all supported Anthropic content block shapes.                                                        |
-| D3  | Anthropic response usage is available but does not calibrate later compaction decisions.                                                                                                   | Pair each request estimate with its returned occupancy and update a bounded per-model calibration factor.                                       |
-| D4  | `summarizeOldTurns` is shallow prefix extraction, and later compaction can summarize the prior summary. The offline marker was lost at step 26.                                            | Always derive checkpoints from raw canonical exchanges. Never summarize a summary.                                                              |
-| D5  | The runner persists tasks but does not render a non-summarizable task/session anchor into pressured requests.                                                                              | Persist structured anchor source state and inject a bounded deterministic rendering into the projection.                                        |
-| D6  | `messages = compaction.messages` promotes a lossy request projection to in-memory and eventually persisted canonical history.                                                              | Keep raw history canonical; send only a derived projection.                                                                                     |
-| D7  | The ghost block changes the system tail and includes changing generation/ID text. The live compaction request coincided with cache-read occupancy dropping from 77,530 to zero.            | Never mutate the system for compaction. Keep the notice in the newest cache-free user message and stable within an epoch.                       |
-| D8  | `--max-context-tokens` measures cumulative usage, not current request occupancy, and does not configure the compactor.                                                                     | Split the public controls and document their exact formulas.                                                                                    |
-| D9  | Ghost turns increment `compactionGeneration`; session health degrades at generation 5 regardless of actual continuity.                                                                     | Redefine epochs and base health on integrity/continuity outcomes.                                                                               |
-| D10 | Compaction events omit after-size, loss volume, protected-tail status, and anchor status.                                                                                                  | Emit bounded, redacted decision and loss telemetry.                                                                                             |
-| D11 | The model catalog has provenance for context/output limits in its source note but does not expose those limits per entry. Fixed 80k/160k policy ignores model capacity and output reserve. | Add sourced limits and derive policy from the selected model plus requested output.                                                             |
-| D12 | Fresh tool output can be summarized at ingestion and then blindly prefix-clipped on the next request.                                                                                      | Ingestion owns fresh-result reduction; projection compaction handles old evidence.                                                              |
+| ID  | Confirmed current behavior                                                                                                                                                                                                              | Required resolution                                                                                                                             |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | `clipToolResults` has no preserved-recent exemption. Once the ladder’s entry gate opens, a fresh result can be clipped before the model consumes it.                                                                                    | Ordinary clipping may affect only exchanges older than the protected tail. A separate emergency rule must be explicit and head+tail preserving. |
+| D2  | The compactor estimates only message characters. It omits system text, tool definitions, repository context, and some block fields; array-form result content is miscounted.                                                            | Estimate the complete outbound request and all supported Anthropic content block shapes.                                                        |
+| D3  | Anthropic response usage is available but does not calibrate later compaction decisions.                                                                                                                                                | Pair each request estimate with its returned occupancy and update a bounded per-model calibration factor.                                       |
+| D4  | `summarizeOldTurns` is shallow prefix extraction, and later compaction can summarize the prior summary. The offline marker was lost at step 26.                                                                                         | Always derive checkpoints from raw canonical exchanges. Never summarize a summary.                                                              |
+| D5  | The runner persists tasks but does not render a non-summarizable task/session anchor into pressured requests.                                                                                                                           | Persist structured anchor source state and inject a bounded deterministic rendering into the projection.                                        |
+| D6  | `messages = compaction.messages` promotes a lossy request projection to in-memory and persisted canonical history. Live tests confirmed clipped history after success and a synthetic summary after a `model_max_tokens` terminal path. | Keep raw history canonical; send only a derived projection. Audit every finalizer/terminal path, not only successful turns.                     |
+| D7  | The ghost block changes the system tail and includes changing generation/ID text. The live compaction request coincided with cache-read occupancy dropping from 77,530 to zero.                                                         | Never mutate the system for compaction. Keep the notice in the newest cache-free user message and stable within an epoch.                       |
+| D8  | `--max-context-tokens` measures cumulative usage, not current request occupancy, and does not configure the compactor.                                                                                                                  | Split the public controls and document their exact formulas.                                                                                    |
+| D9  | Ghost turns increment `compactionGeneration`; session health degrades at generation 5 regardless of actual continuity. A successful 14-read live run ended at generation 11 and was marked degraded solely for this reason.             | Redefine epochs and base health on integrity/continuity outcomes.                                                                               |
+| D10 | Compaction events omit after-size, loss volume, protected-tail status, and anchor status.                                                                                                                                               | Emit bounded, redacted decision and loss telemetry.                                                                                             |
+| D11 | The model catalog has provenance for context/output limits in its source note but does not expose those limits per entry. Fixed 80k/160k policy ignores model capacity and output reserve.                                              | Add sourced limits and derive policy from the selected model plus requested output.                                                             |
+| D12 | Fresh tool output can be summarized at ingestion and then blindly prefix-clipped on the next request.                                                                                                                                   | Ingestion owns fresh-result reduction; projection compaction handles old evidence.                                                              |
 
 ### Adjacent findings
 
@@ -96,6 +97,56 @@ The plan distinguishes confirmed runtime defects from adjacent performance hypot
 ### Important causal nuance
 
 The code proves that the current ghost changes the cached system prefix. The live run proves that the same compaction request had zero cache-read tokens. This is strong evidence of a cache-disruptive design, but it is not proof that every ghost turn will always produce a zero cache read; server cache state and request-prefix changes elsewhere can also affect the observed result.
+
+## Pre-build live validation — 2026-07-26
+
+Alan explicitly authorized bounded live bridge-runner testing before implementation and requested full tracing for every run.
+
+### Safety and environment
+
+- Bridge status: running and authenticated through the existing OAuth-only path.
+- Model: `claude-sonnet-5`.
+- Model-visible tools: read-only only (`list_files` for controls or `read_file` for pressure runs).
+- Every run had explicit step, output, wall-clock, input, output, and estimated-cost caps.
+- Every run used `--trace-level full` with an explicit trace path.
+- Archives were disabled.
+- Temporary session persistence was enabled only for runs designed to test canonical-history behavior.
+- Sensitive full traces, transcripts, logs, and temporary sessions are under `/tmp/compaction-audit-live-20260726-qxifaQ/` and are not part of Git.
+
+### Results
+
+| Probe                       | Direct result                                                                                                                                                                                                                                                                                                                                                    | What it validates                                                                                                                                             |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One-step control            | `LIVE_CONTROL_OK`; 712 input and 15 output tokens.                                                                                                                                                                                                                                                                                                               | Bridge/model path was healthy before pressure testing.                                                                                                        |
+| Large initial prompt        | Eight current documents totaling exactly 297,784 included bytes; local message estimate 73,924 versus 111,732 reported input tokens; no compaction; `LARGE_INITIAL_OK`.                                                                                                                                                                                          | Current estimator was low by a factor of 1.51, and a single large exchange has no usable old-turn compaction path.                                            |
+| Default eight-read pressure | Request occupancy rose through 1,267; 22,753; 41,885; 56,866; 78,728; 97,261; and 117,482 tokens. Before request 8, `clip + ghost` reduced the local message estimate from 86,105 before the ladder to 21,306 in the outbound payload. Request 8 occupancy fell to 37,257.                                                                                       | The default policy still triggers a severe discontinuity well below the current model window.                                                                 |
+| Fresh-result protection     | All seven prior results—including the result returned immediately before request 8—were clipped to exactly 12,000 characters.                                                                                                                                                                                                                                    | D1 is not theoretical: the newest available result is reduced before the model consumes it.                                                                   |
+| Cache behavior              | Request 7 had 78,790 cache-read tokens. Compacted request 8 had zero cache-read and 32,222 cache-creation tokens. Its system hash differed because of the ghost. Request 9 restored the old system hash but recovered only 1,390 cache-read tokens and created 35,687.                                                                                           | System-side ghost mutation is directly associated with the cache discontinuity and delayed recovery.                                                          |
+| Simple continuity           | Request 9 returned exactly `MULTIREAD_CONTINUITY_OK ANCHOR_BRIDGE_7F3C`.                                                                                                                                                                                                                                                                                         | A simple marker can survive one clip event; this does not establish evidence recall.                                                                          |
+| Post-success session        | The final session stored the first seven tool results as 12,000-character clipped bodies; only the eighth remained larger.                                                                                                                                                                                                                                       | The lossy projection became resume history after a successful run.                                                                                            |
+| Aggressive 14-read preset   | The model completed the exact marker task, but the run reached compaction generation 11 and session health became degraded solely because `compaction_generation_high`. Cache read was zero on every ghost request, while intervening non-ghost requests produced cache reads.                                                                                   | Count-based health degradation and changing ghost text are independently real even when task continuity appears successful.                                   |
+| Forced summary              | Request 8 applied `clip + snip + ghost + summarize`. The summary retained only a 120-character prompt prefix plus tool markers. It omitted the required marker, the remaining file-order instructions, and the exact final instruction. The model used all 256 allowed output tokens as thinking, produced no next tool call, and stopped at `model_max_tokens`. | The current summary request is objectively missing task-critical state. The output cap confounds the model-quality outcome, but not the payload-loss finding. |
+| Post-failure session        | After the forced-summary terminal path, persisted message 1 was the synthetic summary, the acceptance marker was absent, six results were clipped to 4,000 characters, generation was 8, and health was degraded.                                                                                                                                                | A non-success terminal/finalizer path can also persist the lossy projection.                                                                                  |
+
+### Decision impact
+
+The live evidence strengthens rather than weakens the rebuild:
+
+- increase the initial estimate calibration factor from 1.3 to 1.5;
+- keep raw canonical history/request projection separation as a P0 invariant;
+- test every finalizer and stop path for projection leakage;
+- remove system-side ghost mutation;
+- protect the newest semantic tail before changing thresholds;
+- replace generation-count health with integrity/continuity health;
+- require the anchor and future-work instructions to be present in every pressured request;
+- treat the existing shallow summary as unsafe rather than incrementally patching its 120-character excerpt.
+
+### Limits of the evidence
+
+- The large-prompt files matched the prior aggregate byte size but were not guaranteed to be the identical historical set because the old `/tmp` manifest had expired.
+- The 14-read and forced-summary probes used the intentionally aggressive `--compact-each-turn` preset to reach repeated loss quickly; they are mechanism tests, not measurements of default timing.
+- The forced-summary behavioral failure also hit a deliberately low 256-token output cap. The decisive evidence is the missing marker/instructions in the request payload, not speculation about what the model would have done with a larger output allowance.
+- Full traces contain prompts, model blocks, and project-file contents. Aggregate findings may be published; raw files should remain private.
 
 ## Scope
 
@@ -236,7 +287,7 @@ For each outbound request, retain:
 - the exact pre-send estimated input occupancy;
 - the projection fingerprint.
 
-After the corresponding successful response:
+After the corresponding valid API response, including a response whose stop reason is not `end_turn`:
 
 ```text
 observed input occupancy
@@ -247,12 +298,12 @@ observed input occupancy
 
 Update only that model’s calibration using a bounded EWMA. Initial implementation constants may start at:
 
-- initial factor: `1.3`, based on the live undercount;
+- initial factor: `1.5`, based on two large-prompt live ratios of approximately 1.46 and 1.51 plus the new pressure-run measurements;
 - alpha: `0.3`;
 - clamp: `[0.75, 3.0]`;
 - ignore absent, zero, malformed, retry-mismatched, or model-mismatched samples.
 
-These are evaluation constants, not universal tokenization facts. Keep them centralized and test them. A failed request must not update calibration.
+These are evaluation constants, not universal tokenization facts. Keep them centralized and test them. An HTTP/network failure or a response without valid matched usage must not update calibration.
 
 ## Model-aware policy
 
@@ -422,7 +473,7 @@ The replacement contract is:
 - assistant/tool results are appended only to canonical messages;
 - the next request derives a fresh projection from canonical messages plus the stable checkpoint.
 
-If the model request fails after projection, canonical history remains unchanged. A successful response never causes the projection to be persisted as canonical messages.
+If the model request fails or terminates after projection, canonical history remains unchanged. This includes bridge errors, `model_max_tokens`, wall-clock/budget stops, message-contract errors, tool-limit stops, and ordinary success. No finalizer may persist the projection as canonical messages.
 
 ### Storage trade-off
 
@@ -607,6 +658,7 @@ Exact filenames may change if existing boundaries make a smaller design clearer,
 - Resume and fork reproduce raw history plus context state.
 - Legacy compacted sessions are labeled honestly and remain valid when structurally sound.
 - A bridge failure after projection does not persist the projection.
+- `model_max_tokens`, wall-clock, budget, tool-limit, and finalizer paths do not persist the projection.
 - Instruction-delta messages cannot split a semantic exchange.
 - Forty- and 80-step mock runs retain the original acceptance marker through every projection.
 - Multiple checkpoint epochs never contain summary-of-summary text.

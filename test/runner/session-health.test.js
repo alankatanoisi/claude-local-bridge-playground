@@ -25,13 +25,22 @@ describe('session health', () => {
     assert.equal(h.recommendation, health.RECOMMENDATIONS.RESUME_OK);
   });
 
-  it('degrades on high compaction generation', () => {
+  it('does not degrade solely because a healthy session has many checkpoint epochs', () => {
     const h = health.buildHealth({
       stopReason: STOP_REASONS.SUCCESS,
       compactionGeneration: health.MAX_COMPACTION_GENERATION,
     });
+    assert.equal(h.degraded, false);
+    assert.equal(h.recommendation, health.RECOMMENDATIONS.RESUME_OK);
+  });
+
+  it('degrades on concrete context-integrity failures', () => {
+    const h = health.buildHealth({
+      stopReason: STOP_REASONS.SUCCESS,
+      integrityFailures: ['context_ceiling_unrecoverable'],
+    });
     assert.equal(h.degraded, true);
-    assert.ok(h.reasons.includes('compaction_generation_high'));
+    assert.ok(h.reasons.includes('context_ceiling_unrecoverable'));
   });
 
   it('blocks resume when degraded without ack', () => {

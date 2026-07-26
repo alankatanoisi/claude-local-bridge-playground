@@ -22,7 +22,7 @@ const { resolveRatesDetailed, summarizeUsage } = require('../../src/runner/model
 
 describe('P1-07 model catalog', () => {
   it('has a version and provenance-annotated sources', () => {
-    assert.equal(catalog.CATALOG_VERSION, '2026-07-25');
+    assert.equal(catalog.CATALOG_VERSION, '2026-07-26-context-limits');
     assert.ok(catalog.CATALOG_SOURCES.length > 0);
     for (const source of catalog.CATALOG_SOURCES) {
       assert.ok(source.id && source.url && source.status, 'every source names id/url/status');
@@ -33,6 +33,8 @@ describe('P1-07 model catalog', () => {
         entry.label + ' cites a declared source',
       );
       assert.ok(entry.pricing, entry.label + ' carries pricing');
+      assert.ok(Number.isInteger(entry.contextWindow), entry.label + ' carries a context window');
+      assert.ok(Number.isInteger(entry.maxOutputTokens), entry.label + ' carries a maximum output limit');
     }
   });
 

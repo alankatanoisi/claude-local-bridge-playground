@@ -14,6 +14,19 @@ const { buildToolSummarySection, capSkillListing, applyContextBudget } = require
 const { isToolVisible } = require('./tool-visibility');
 const { buildRepoMap } = require('./repo-map');
 const { DEFAULT_POLICY } = require('./context-policy');
+const crypto = require('crypto');
+
+const CLAUDE_MD_REPO_CONTEXT_MAX_CHARS = 16_000;
+
+function boundedRepositoryContext(content) {
+  if (content.length <= CLAUDE_MD_REPO_CONTEXT_MAX_CHARS) return content;
+  const hash = crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
+  const marker =
+    '\n… [CLAUDE.md bounded for repository context; original_chars=' + content.length + '; sha256=' + hash + '] …\n';
+  const room = CLAUDE_MD_REPO_CONTEXT_MAX_CHARS - marker.length;
+  const head = Math.ceil(room / 2);
+  return content.slice(0, head) + marker + content.slice(content.length - (room - head));
+}
 
 function toolFlag(ctxOrAllowShell, name) {
   // Legacy boolean signature meant "allowShell?" — map it to a minimal ctx so
@@ -157,7 +170,7 @@ function buildRepoContextBlock(ctx, contextPolicy = DEFAULT_POLICY) {
     try {
       const claudePath = path.join(ctx.cwd, 'CLAUDE.md');
       if (fs.existsSync(claudePath)) {
-        const content = fs.readFileSync(claudePath, 'utf8');
+        const content = boundedRepositoryContext(fs.readFileSync(claudePath, 'utf8'));
         parts.push('### CLAUDE.md\n' + content.trim());
         hasContent = true;
       }
@@ -225,4 +238,6 @@ module.exports = {
   buildFullToolSection,
   buildRepoContextBlock,
   buildDynamicEnvironmentBlock,
+  boundedRepositoryContext,
+  CLAUDE_MD_REPO_CONTEXT_MAX_CHARS,
 };

@@ -14,6 +14,8 @@ const DEGRADED_STOP_REASONS = new Set([
   STOP_REASONS.BRIDGE_ERROR,
 ]);
 
+// Kept as an exported migration constant for callers that read old session
+// metadata. Epoch count alone is never a degradation reason.
 const MAX_COMPACTION_GENERATION = 5;
 const MAX_CONSECUTIVE_TOOL_FAILURES = 3;
 
@@ -38,7 +40,14 @@ function isDegraded(health) {
  * Build health snapshot from a completed run.
  */
 function buildHealth(input) {
-  const { stopReason, autopsy, compactionGeneration = 0, consecutiveToolFailures = 0 } = input || {};
+  const {
+    stopReason,
+    autopsy,
+    compactionGeneration = 0,
+    compactionEpoch = 0,
+    consecutiveToolFailures = 0,
+    integrityFailures = [],
+  } = input || {};
 
   const reasons = [];
   if (stopReason && DEGRADED_STOP_REASONS.has(stopReason)) {
@@ -47,8 +56,8 @@ function buildHealth(input) {
   if (autopsy?.cycleDetected && !reasons.includes(STOP_REASONS.SEMANTIC_CYCLE_DETECTED)) {
     reasons.push(STOP_REASONS.SEMANTIC_CYCLE_DETECTED);
   }
-  if (compactionGeneration >= MAX_COMPACTION_GENERATION) {
-    reasons.push('compaction_generation_high');
+  for (const failure of integrityFailures || []) {
+    if (failure && !reasons.includes(failure)) reasons.push(failure);
   }
   if (consecutiveToolFailures >= MAX_CONSECUTIVE_TOOL_FAILURES) {
     reasons.push('consecutive_tool_failures');
@@ -61,6 +70,7 @@ function buildHealth(input) {
     lastStopReason: stopReason || null,
     lastRunAt: new Date().toISOString(),
     compactionGeneration,
+    compactionEpoch,
     recommendation: degraded ? RECOMMENDATIONS.FRESH_SESSION : RECOMMENDATIONS.RESUME_OK,
   };
 }

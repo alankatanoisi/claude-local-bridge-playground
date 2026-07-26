@@ -455,7 +455,10 @@ Useful runner options:
 | `--shell-timeout <ms>`                                   | Max time for shell commands (default 30000, cap 900000)                                                                                        |
 | `--confirm-timeout <ms>`                                 | Auto-deny confirmation prompts after N ms (default: no timeout)                                                                                |
 | `--max-wall-clock-ms <n>`                                | Stop the run after N milliseconds                                                                                                              |
-| `--max-context-tokens <n>`                               | Warn when total tokens exceed the budget; halt at 2x budget                                                                                    |
+| `--max-tokens <n>`                                       | Maximum response output tokens for each model request; this reserve reduces input headroom                                                     |
+| `--compact-at-tokens <n>`                                | Advanced override for when old request evidence is compacted; never overrides the model ceiling                                                |
+| `--max-run-tokens <n>`                                   | Cumulative input occupancy (including cache read/write) plus output token guardrail                                                            |
+| `--max-context-tokens <n>`                               | Deprecated one-window alias retaining the legacy cumulative warning/2x-stop calculation                                                       |
 | `--max-tool-calls-per-turn <n>`                          | Cap tool calls per model response; halt if exceeded                                                                                            |
 | `--help`                                                 | Show CLI usage                                                                                                                                 |
 
@@ -464,6 +467,13 @@ commands for you. See [docs/runner-expansion-roadmap.md](./docs/runner-expansion
 expand runner tools and harness parity over time. A conservative first run is read-only or `--plan`; use
 `--accept-edits` only when file changes are intended, and add `--allow-shell` only when the runner needs commands such
 as tests.
+
+Context shaping is request-local: session checkpoints retain raw canonical messages, while a model-aware projection
+protects the newest eight semantic exchanges, reserves the requested response output, and may replace only old
+evidence with stable re-fetch markers or a deterministic checkpoint. `runner.contextState` stores the objective,
+latest directive, per-model estimate calibration (initial factor 1.5), history-quality label, and checkpoint epoch.
+Rendered anchors and projections are never stored as canonical messages. Unknown models use a visible conservative
+200,000-token estimate; known model limits come from the versioned model catalog.
 
 Adaptive thinking defaults to `--thinking auto`. The runner sends `thinking: { type: "adaptive" }` for known models
 that require an explicit request, omits that redundant field for always-on models such as Claude Fable 5, and rejects

@@ -66,6 +66,7 @@
     ],
     "stream_event_types": [
       "system",
+      "context_projection",
       "model_request",
       "budget",
       "assistant",
@@ -74,6 +75,7 @@
       "approval_required",
       "tool_result",
       "budget",
+      "context_projection",
       "model_request",
       "budget",
       "assistant",
@@ -82,6 +84,7 @@
     "trace_event_types": [
       "run_started",
       "runner_context_prepared",
+      "context_projection",
       "runner_model_request_built",
       "budget",
       "runner_model_response_received",
@@ -90,6 +93,7 @@
       "permission_decision",
       "tool_finished",
       "budget",
+      "context_projection",
       "runner_model_request_built",
       "budget",
       "runner_model_response_received",

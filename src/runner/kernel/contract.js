@@ -13,6 +13,8 @@ const STOP_REASONS = Object.freeze({
   MAX_STEPS: 'max_steps',
   MAX_TOOL_CALLS_PER_TURN: 'max_tool_calls_per_turn',
   CONTEXT_BUDGET_EXCEEDED: 'context_budget_exceeded',
+  INITIAL_PROMPT_TOO_LARGE: 'initial_prompt_too_large',
+  CONTEXT_CEILING_UNRECOVERABLE: 'context_ceiling_unrecoverable',
   BRIDGE_ERROR: 'bridge_error',
   MESSAGE_CONTRACT_ERROR: 'message_contract_error',
   CWD_INVALID: 'cwd_invalid',
@@ -59,6 +61,7 @@ const KERNEL_EVENT_TYPES = Object.freeze([
   'error',
   'result',
   'compaction',
+  'context_projection',
   'budget',
   'repeat_tool_warning',
 ]);
@@ -105,6 +108,8 @@ const KERNEL_EVENT_TYPES = Object.freeze([
  * @property {boolean} [plan]
  * @property {Set<string>|string[]|null} [allowedTools]
  * @property {number} [maxContextTokens]
+ * @property {number} [maxRunTokens]
+ * @property {number} [compactAtTokens]
  * @property {number} [maxToolCallsPerTurn]
  * @property {string} [traceLevel]
  * @property {string} [tracePath]

@@ -11,6 +11,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { ensurePrivateDir, privateAtomicWriteSync } = require('./private-fs');
 const { scrubDeepSecrets } = require('./redaction-boundary');
+const { createContextState } = require('./session-anchor');
 
 const SCHEMA_VERSION = 1;
 const DEFAULT_DEBOUNCE_MS = 75;
@@ -55,6 +56,8 @@ function defaultSession(sessionId, overrides = {}) {
       activeTaskIds: [],
       tasks: [],
       compactionGeneration: 0,
+      compactionEpoch: 0,
+      contextState: null,
       flags: {},
     },
     metadata: {
@@ -109,6 +112,15 @@ class SessionStore {
     if (!parsed.schemaVersion) parsed.schemaVersion = SCHEMA_VERSION;
     if (!parsed.runner) parsed.runner = defaultSession(parsed.sessionId).runner;
     if (!parsed.metadata) parsed.metadata = defaultSession(parsed.sessionId).metadata;
+    if (!parsed.runner.contextState) {
+      const serialized = JSON.stringify(parsed.messages || []);
+      const legacyCompacted =
+        (parsed.runner.compactionGeneration || 0) > 0 ||
+        /\[compaction:(?:clip|snip|summarize|ghost|cost-aware)/.test(serialized);
+      parsed.runner.contextState = createContextState('', legacyCompacted ? 'legacy_compacted' : 'unknown');
+      parsed.runner.compactionEpoch = Number(parsed.runner.compactionGeneration) || 0;
+      this._dirty = true;
+    }
     this._data = parsed;
     return this._data;
   }

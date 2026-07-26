@@ -13,13 +13,12 @@ const safety = require('./safety');
 const { HumanLog } = require('./human-log');
 const { STOP_REASONS, mapUpstreamStopReason } = require('./kernel/contract');
 const { SessionStore, resolveSessionPath } = require('./session-store');
-const { applyCompactionLadder, DEFAULT_POLICY } = require('./context-compactor');
 const { assertValidAnthropicMessages, toolUseIds } = require('./message-contract');
 const { HookDispatcher } = require('./hooks/hook-dispatcher');
 const { runBootstrap } = require('./bootstrap');
 const { SessionLedger } = require('./session-ledger');
 const { emitHint } = require('./beginner-hints');
-const { buildAutopsy, writeAutopsyFile, detectSemanticCycles, estimateTokensAdvisory } = require('./loop-autopsy');
+const { buildAutopsy, writeAutopsyFile, detectSemanticCycles } = require('./loop-autopsy');
 const { estimateCostUsd, summarizeUsage } = require('./model-pricing');
 const { loadInstructionMemory } = require('./memory/instruction-memory');
 const { isAutoMemoryEnabled } = require('./memory/auto-memory');
@@ -50,6 +49,16 @@ const { writeRunManifest } = require('./recovery/run-manifest');
 const { scrubDeepSecrets } = require('./redaction-boundary');
 const { normalizeEffort, resolveModelControls } = require('./model-capabilities');
 const { createAuthorityCeiling } = require('./authority');
+const { deriveContextPolicy } = require('./context-runtime-policy');
+const { buildContextProjection } = require('./context-projection');
+const {
+  estimateRequest,
+  calibrationForModel,
+  updateCalibration,
+  makePendingCalibration,
+} = require('./context-estimator');
+const { createContextState, updateDirective } = require('./session-anchor');
+const { CATALOG_VERSION } = require('./model-catalog');
 
 const DEFAULT_MAX_STEPS = 16;
 const MAX_CONSECUTIVE_TOOL_FAILURE_BATCHES = 3;
@@ -341,6 +350,8 @@ function persistSession(sessionStore, messages, ctx, noSessionPersistence) {
     consecutiveToolFailures: ctx._consecutiveToolFailures || 0,
     tasks,
     activeTaskIds: tasks.filter((t) => t.status === 'in_progress').map((t) => t.id),
+    contextState: ctx.contextState || null,
+    compactionEpoch: ctx.contextState?.checkpoint?.epoch || 0,
   });
   sessionStore.saveSoon();
 }
@@ -367,6 +378,7 @@ function hydrateRunnerStateFromSession(ctx, sessionStore) {
   if (Array.isArray(runner.tasks)) ctx.tasks = runner.tasks;
   else if (!ctx.tasks) ctx.tasks = [];
   ctx._consecutiveToolFailures = Number.isInteger(runner.consecutiveToolFailures) ? runner.consecutiveToolFailures : 0;
+  ctx.contextState = runner.contextState || null;
 }
 
 function appendLedger(ledger, hooks, type, payload) {
@@ -436,6 +448,8 @@ async function run(options) {
     confirmTimeout,
     allowedTools,
     maxContextTokens,
+    maxRunTokens,
+    compactAtTokens,
     maxToolCallsPerTurn,
     traceLevel,
     tracePath,
@@ -603,8 +617,8 @@ async function run(options) {
   const resolvedSessionPath = resolveSessionPath({ sessionPath, sessionId });
   const sessionStore = resolvedSessionPath ? new SessionStore(resolvedSessionPath) : null;
   const ledger = resolvedSessionPath ? new SessionLedger(resolvedSessionPath) : null;
-  let compactionGeneration = sessionStore ? sessionStore.data().runner.compactionGeneration || 0 : 0;
-  ctx.compactionGeneration = compactionGeneration;
+  const legacyCompactionGeneration = sessionStore ? sessionStore.data().runner.compactionGeneration || 0 : 0;
+  ctx.compactionGeneration = legacyCompactionGeneration;
   const hooks = new HookDispatcher(ctx.cwdRealpath, {
     // P1-14: hook opt-in comes only from the explicit --trusted-workspace CLI
     // flag; exec hooks additionally require "trusted": true inside hooks.json.
@@ -850,6 +864,8 @@ async function run(options) {
         stopReason: result.stopReason,
         autopsy: result.autopsy,
         compactionGeneration: runner.compactionGeneration || 0,
+        compactionEpoch: runner.contextState?.checkpoint?.epoch || runner.compactionEpoch || 0,
+        integrityFailures: runner.contextIntegrityFailures || [],
         consecutiveToolFailures: pipeline.failureStreak,
       });
       sessionStore.updateRunner({ health });
@@ -1048,6 +1064,7 @@ async function run(options) {
       });
     }
     messages.push(buildUserMessage(prompt, stdinText));
+    ctx.contextState = updateDirective(ctx.contextState || createContextState(prompt, 'unknown'), prompt);
     if (!quiet) console.error('[runner] resumed ' + messages.length + ' messages from session ' + resolvedSessionPath);
     if (sessionStore && !noSessionPersistence) {
       sessionStore.setMessages(messages);
@@ -1076,7 +1093,14 @@ async function run(options) {
       sessionStore.load();
       hydrateRunnerStateFromSession(ctx, sessionStore);
       if (newSession) {
-        sessionStore.updateRunner({ health: null, compactionGeneration: 0, consecutiveToolFailures: 0 });
+        sessionStore.updateRunner({
+          health: null,
+          compactionGeneration: 0,
+          compactionEpoch: 0,
+          consecutiveToolFailures: 0,
+          contextState: createContextState(prompt),
+        });
+        ctx.contextState = createContextState(prompt);
         ctx._consecutiveToolFailures = 0;
       }
       pipeline.restoreFailureStreak(ctx._consecutiveToolFailures);
@@ -1085,6 +1109,7 @@ async function run(options) {
       sessionStore.save();
     }
   }
+  if (!ctx.contextState) ctx.contextState = createContextState(prompt);
 
   // P1-13: only context sources the effective policy actually injects may be
   // watched for mid-session edits. Bare/minimal context watches nothing, so an
@@ -1109,10 +1134,22 @@ async function run(options) {
   // Resolve these together because valid effort and thinking settings depend
   // on the selected model family. This fails before the first HTTP request.
   const modelControls = resolveModelControls({ model, effort, thinking, temperature });
+  const runtimeContextPolicy = deriveContextPolicy({
+    model,
+    maxTokens: maxTokens || 2_000,
+    compactAtTokens: compactAtTokens ?? compactionPolicy?.compactAtTokens ?? compactionPolicy?.warnTokens,
+  });
   // P1-07: unknown-model permissiveness is reported, never silent — the local
   // catalog skipped validation, so the API is the only guard against a 400.
   for (const warning of modelControls.warnings || []) {
     emitHint(warning, { quiet, verbose, stopReason: 'model_catalog_warning' });
+  }
+  if (runtimeContextPolicy.limitsEstimated) {
+    emitHint('Context limits for model "' + model + '" are estimated (200,000-token conservative fallback).', {
+      quiet,
+      verbose,
+      stopReason: 'model_context_limits_estimated',
+    });
   }
 
   if (taskScope && !quiet && !plan) {
@@ -1206,47 +1243,67 @@ async function run(options) {
         });
     }
 
-    const compaction = applyCompactionLadder(messages, system, {
-      ...DEFAULT_POLICY,
-      ...(compactionPolicy || {}),
-      compactionGeneration,
+    const calibration = calibrationForModel(ctx.contextState, model, CATALOG_VERSION);
+    const estimatorSystem = repoContextBlock
+      ? [
+          { type: 'text', text: repoContextBlock },
+          ...(Array.isArray(system) ? system : [{ type: 'text', text: system }]),
+        ]
+      : system;
+    const projection = buildContextProjection({
+      messages,
+      system: estimatorSystem,
+      tools,
+      policy: runtimeContextPolicy,
+      calibration,
+      contextState: ctx.contextState,
+      runtime: {
+        tasks: ctx.tasks,
+        changedFiles: (ctx.undoLog || []).map((entry) => entry.path).filter(Boolean),
+        unresolvedErrors: ctx.unresolvedErrors || [],
+        safetyConstraints: [
+          ctx.allowShell ? 'Shell is explicitly enabled.' : 'Shell remains hidden.',
+          ctx.acceptEdits ? 'Writes may proceed without confirmation.' : 'Writes remain confirmation-guarded.',
+        ],
+      },
     });
-    if (compaction.changed) {
-      compactionGeneration = compaction.generation;
-      ctx.compactionGeneration = compactionGeneration;
-      if (sessionStore && !noSessionPersistence) sessionStore.updateRunner({ compactionGeneration });
-    } else {
-      ctx.compactionGeneration = compaction.generation;
-    }
-    if (compaction.stagesApplied.length) {
-      output.emit('compaction', {
-        step,
-        stages: compaction.stagesApplied,
-        tokensEstimated: compaction.tokensEstimated,
+    ctx.contextState = projection.contextState;
+    ctx.compactionGeneration = ctx.contextState?.checkpoint?.epoch || 0;
+    if (sessionStore && !noSessionPersistence) {
+      sessionStore.updateRunner({
+        contextState: ctx.contextState,
+        compactionEpoch: ctx.contextState?.checkpoint?.epoch || 0,
       });
-      if (ledger) {
-        appendLedger(ledger, hooks, 'compaction_applied', {
-          runId,
-          step,
-          stages: compaction.stagesApplied,
-          tokensEstimated: compaction.tokensEstimated,
-        });
-      }
-      if (!quiet) {
-        emitHint('Compaction applied: ' + compaction.stagesApplied.join(', '), {
-          quiet,
-          verbose,
-          stopReason: 'compaction_applied',
-        });
-      }
     }
-    messages = compaction.messages;
-    const systemForRequest = compaction.system;
+    output.emit('context_projection', { step, ...projection.decision });
+    if (trace) trace.append('context_projection', { run_id: runId, turn: step, ...projection.decision });
+    if (humanLog && projection.decision?.stages?.length) {
+      humanLog.writeError('Context projection: ' + projection.decision.stages.join(', '), {
+        stopReason: 'context_projection',
+      });
+    }
+    if (projection.decision?.stages?.length && ledger) {
+      appendLedger(ledger, hooks, 'compaction_applied', { runId, step, ...projection.decision });
+    }
+    if (projection.stopReason) {
+      if (sessionStore && !noSessionPersistence) {
+        sessionStore.updateRunner({ contextIntegrityFailures: [projection.stopReason] });
+      }
+      return finalizeRun({
+        stopReason:
+          projection.stopReason === 'initial_prompt_too_large'
+            ? STOP_REASONS.INITIAL_PROMPT_TOO_LARGE
+            : STOP_REASONS.CONTEXT_CEILING_UNRECOVERABLE,
+        finalText: projection.message,
+        steps: step,
+      });
+    }
+    const requestMessages = projection.messages;
 
     const { cachedSystem, cachedTools, cachedMessages } = applyCacheControlBudget(
-      systemForRequest,
+      system,
       tools,
-      messages,
+      requestMessages,
       repoContextBlock,
     );
 
@@ -1272,18 +1329,9 @@ async function run(options) {
       return finalizeRun({ stopReason: STOP_REASONS.MESSAGE_CONTRACT_ERROR, finalText: msg, steps: step });
     }
 
-    const advisoryTokens = estimateTokensAdvisory(messages);
-    if (maxContextTokens && advisoryTokens > maxContextTokens && !quiet) {
-      emitHint('Approaching context budget (~' + advisoryTokens + ' tokens estimated).', {
-        quiet,
-        verbose,
-        stopReason: 'predictive_context_budget_exceeded',
-      });
-    }
-
     const requestBody = {
       model,
-      max_tokens: maxTokens,
+      max_tokens: maxTokens || 2_000,
       system: cachedSystem,
       messages: cachedMessages,
       tools: cachedTools,
@@ -1292,6 +1340,14 @@ async function run(options) {
       ...(modelControls.effort ? { output_config: { effort: modelControls.effort } } : {}),
       ...(modelControls.thinkingConfig ? { thinking: modelControls.thinkingConfig } : {}),
     };
+    const exactEstimate = estimateRequest(requestBody, calibration.factor);
+    const pendingCalibration = makePendingCalibration(
+      { requestId: runId + ':' + step, runId, step },
+      exactEstimate,
+      calibration,
+      model,
+      CATALOG_VERSION,
+    );
 
     if (trace) {
       trace.append('runner_model_request_built', {
@@ -1364,6 +1420,9 @@ async function run(options) {
     }
 
     bridgeRetryCount = 0;
+    response._contextRequest = { model, fingerprint: pendingCalibration.fingerprint };
+    ctx.contextState = updateCalibration(ctx.contextState, pendingCalibration, response);
+    if (sessionStore && !noSessionPersistence) sessionStore.updateRunner({ contextState: ctx.contextState });
 
     hooks.dispatch('post_model_response', { step, runId });
 
@@ -1405,7 +1464,8 @@ async function run(options) {
       console.error('[runner] step ' + step + ': ' + parts.join(', '));
     }
 
-    // Context token budget check
+    // The deprecated alias keeps its historical input+output calculation and
+    // warning-at-N / stop-at-2N behavior for one migration window.
     if (maxContextTokens) {
       const contextTokens = totalUsage.input_tokens + totalUsage.output_tokens;
       if (contextTokens > maxContextTokens * 2) {
@@ -1429,6 +1489,25 @@ async function run(options) {
               maxContextTokens +
               ' budget (warning)',
           );
+      }
+    }
+    if (maxRunTokens) {
+      const runTokens =
+        totalUsage.input_tokens +
+        totalUsage.output_tokens +
+        totalUsage.cache_read_input_tokens +
+        totalUsage.cache_creation_input_tokens;
+      if (runTokens >= maxRunTokens) {
+        const msg =
+          'Cumulative run token limit reached (' +
+          runTokens +
+          ' / ' +
+          maxRunTokens +
+          '). This is a run guardrail, not the current request context size.';
+        return finalizeRun({ stopReason: STOP_REASONS.CONTEXT_BUDGET_EXCEEDED, finalText: msg, steps: step });
+      }
+      if (runTokens >= maxRunTokens * 0.8 && !quiet) {
+        console.error('[runner] cumulative run tokens ' + runTokens + ' / ' + maxRunTokens + ' (80% warning)');
       }
     }
 

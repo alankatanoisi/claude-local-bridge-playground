@@ -22,7 +22,7 @@
  */
 
 // Bump the version whenever an entry changes; consumers report it in warnings.
-const CATALOG_VERSION = '2026-07-25';
+const CATALOG_VERSION = '2026-07-26-context-limits';
 
 // Where each class of fact came from. `status` is deliberately blunt:
 // 'verified-live' means someone actually fetched the official page on that
@@ -123,6 +123,8 @@ const CATALOG_ENTRIES = Object.freeze([
   {
     matches: /^claude-fable-5(?:$|-)/,
     label: 'Claude Fable 5',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
     effortLevels: XHIGH_EFFORT,
     thinking: 'always-on',
     sampling: 'default-only',
@@ -133,6 +135,8 @@ const CATALOG_ENTRIES = Object.freeze([
   {
     matches: /^claude-mythos-5(?:$|-)/,
     label: 'Claude Mythos 5',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
     effortLevels: XHIGH_EFFORT,
     thinking: 'always-on',
     sampling: 'default-only',
@@ -143,6 +147,8 @@ const CATALOG_ENTRIES = Object.freeze([
   {
     matches: /^claude-mythos-preview(?:$|-)/,
     label: 'Claude Mythos Preview',
+    contextWindow: 200_000,
+    maxOutputTokens: 64_000,
     effortLevels: STANDARD_EFFORT,
     thinking: 'always-on',
     sampling: 'default-only',
@@ -157,6 +163,8 @@ const CATALOG_ENTRIES = Object.freeze([
   {
     matches: /^claude-opus-5(?:$|-)/,
     label: 'Claude Opus 5',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
     effortLevels: XHIGH_EFFORT,
     thinking: 'default-on',
     thinkingOffEffortLevels: THINKING_OFF_EFFORT,
@@ -168,6 +176,8 @@ const CATALOG_ENTRIES = Object.freeze([
   {
     matches: /^claude-sonnet-5(?:$|-)/,
     label: 'Claude Sonnet 5',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
     effortLevels: XHIGH_EFFORT,
     thinking: 'default-on',
     sampling: 'default-only',
@@ -178,6 +188,8 @@ const CATALOG_ENTRIES = Object.freeze([
   {
     matches: /^claude-opus-4-(?:8|7)(?:$|-)/,
     label: 'Claude Opus 4.7/4.8',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
     effortLevels: XHIGH_EFFORT,
     thinking: 'explicit-adaptive',
     sampling: 'default-only',
@@ -188,6 +200,8 @@ const CATALOG_ENTRIES = Object.freeze([
   {
     matches: /^claude-opus-4-6(?:$|-)/,
     label: 'Claude Opus 4.6',
+    contextWindow: 200_000,
+    maxOutputTokens: 64_000,
     effortLevels: STANDARD_EFFORT,
     thinking: 'explicit-adaptive',
     sampling: 'supported',
@@ -198,6 +212,8 @@ const CATALOG_ENTRIES = Object.freeze([
   {
     matches: /^claude-sonnet-4-6(?:$|-)/,
     label: 'Claude Sonnet 4.6',
+    contextWindow: 200_000,
+    maxOutputTokens: 64_000,
     effortLevels: STANDARD_EFFORT,
     thinking: 'explicit-adaptive',
     sampling: 'supported',
@@ -208,6 +224,8 @@ const CATALOG_ENTRIES = Object.freeze([
   {
     matches: /^claude-opus-4-5(?:$|-)/,
     label: 'Claude Opus 4.5',
+    contextWindow: 200_000,
+    maxOutputTokens: 64_000,
     effortLevels: BASE_EFFORT,
     thinking: 'manual-only',
     sampling: 'supported',
@@ -218,6 +236,8 @@ const CATALOG_ENTRIES = Object.freeze([
   {
     matches: /^claude-opus-4-1(?:$|-)/,
     label: 'Claude Opus 4.1',
+    contextWindow: 200_000,
+    maxOutputTokens: 32_000,
     effortLevels: null,
     thinking: 'manual-only',
     sampling: 'supported',
@@ -228,6 +248,8 @@ const CATALOG_ENTRIES = Object.freeze([
   {
     matches: /^claude-haiku-4-5(?:$|-)/,
     label: 'Claude Haiku 4.5',
+    contextWindow: 200_000,
+    maxOutputTokens: 64_000,
     effortLevels: null,
     thinking: 'manual-or-none',
     sampling: 'supported',
@@ -238,6 +260,8 @@ const CATALOG_ENTRIES = Object.freeze([
   {
     matches: /^claude-sonnet-4-5(?:$|-)/,
     label: 'Claude Sonnet 4.5',
+    contextWindow: 200_000,
+    maxOutputTokens: 64_000,
     effortLevels: null,
     thinking: 'manual-or-none',
     sampling: 'supported',
