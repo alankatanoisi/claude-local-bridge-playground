@@ -4,6 +4,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   buildToolSummarySection,
+  buildToolJudgmentSection,
   invalidateContextCache,
   invalidateDynamicOnly,
   getCachedSystemPrompt,
@@ -19,6 +20,28 @@ describe('context budget', () => {
     assert.match(section, /read_file:/);
     assert.doesNotMatch(section, /input_schema/);
     assert.doesNotMatch(section, /\bbash:/);
+  });
+
+  it('tells the model enabled tools are discretionary rather than mandatory', () => {
+    const section = buildToolJudgmentSection({});
+    assert.match(section, /available for your discretionary use/i);
+    assert.match(section, /without waiting for the user to name them/i);
+    assert.match(section, /manage_tasks/);
+    assert.match(section, /ask_user_question/);
+    assert.doesNotMatch(section, /spawn_agent/);
+  });
+
+  it('adds judgment hints only for optional tools that are actually visible', () => {
+    const section = buildToolJudgmentSection({
+      enabledCapabilities: new Set(['agents', 'worktrees', 'skills']),
+      enableLsp: true,
+    });
+    assert.match(section, /spawn_agent/);
+    assert.match(section, /prefer spawn_agent/);
+    assert.match(section, /do not need the user to request delegation/i);
+    assert.match(section, /enter_worktree/);
+    assert.match(section, /run_skill/);
+    assert.match(section, /lsp_query/);
   });
 
   it('memoizes and invalidates system prompt cache', () => {

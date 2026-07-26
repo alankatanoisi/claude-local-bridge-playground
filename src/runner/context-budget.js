@@ -142,6 +142,50 @@ function buildToolSummarySection(ctx) {
   return lines.join('\n');
 }
 
+/**
+ * Explain the difference between an enabled tool and a commanded tool.
+ *
+ * The API schemas already make tools visible. This compact standing policy
+ * tells the model it may exercise judgment without waiting for the user to
+ * name a tool, while still discouraging needless or performative tool calls.
+ * Each specialized hint appears only when that tool is actually visible.
+ */
+function buildToolJudgmentSection(ctx) {
+  const lines = [
+    '## Tool-use judgment\n',
+    '- Enabled tools are available for your discretionary use. Use them without waiting for the user to name them when they materially improve correctness, safety, efficiency, or parallelism; do not use them performatively when they add no value.',
+  ];
+
+  if (isToolVisible('manage_tasks', ctx)) {
+    lines.push(
+      '- Use manage_tasks when several dependent steps need durable progress tracking; skip it for a simple one-step answer.',
+    );
+  }
+  if (isToolVisible('ask_user_question', ctx)) {
+    lines.push(
+      '- Use ask_user_question only when unresolved ambiguity would materially change the result and a safe assumption is not available.',
+    );
+  }
+  if (isToolVisible('spawn_agent', ctx)) {
+    lines.push(
+      '- When a task has two or more substantial independent read-only research tracks, prefer spawn_agent unless child-agent overhead would exceed the benefit. You do not need the user to request delegation.',
+    );
+  }
+  if (isToolVisible('enter_worktree', ctx)) {
+    lines.push('- Consider enter_worktree when isolating edits from the current checkout materially reduces risk.');
+  }
+  if (isToolVisible('run_skill', ctx)) {
+    lines.push('- Use run_skill when an available project skill clearly matches the task.');
+  }
+  if (isToolVisible('lsp_query', ctx)) {
+    lines.push(
+      '- Prefer lsp_query for definitions, references, hover information, or diagnostics when it is more precise than text search.',
+    );
+  }
+
+  return lines.join('\n');
+}
+
 function budgetTruncate(text, maxChars, label) {
   if (!text || text.length <= maxChars) return text;
   return text.slice(0, maxChars) + '\n... [budget truncated: ' + label + ']';
@@ -186,6 +230,7 @@ module.exports = {
   makeStaticKey,
   makeDynamicKey,
   buildToolSummarySection,
+  buildToolJudgmentSection,
   capSkillListing,
   applyContextBudget,
   TOOL_SUMMARIES,

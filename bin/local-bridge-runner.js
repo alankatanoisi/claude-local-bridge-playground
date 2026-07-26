@@ -6,7 +6,7 @@
  *
  * Usage:
  *   node bin/local-bridge-runner.js "Explain this repo"
- *   node bin/local-bridge-runner.js --resume ./logs/last.jsonl "Continue where we left off"
+ *   node bin/local-bridge-runner.js --resume-session --session-id project-review "Continue where we left off"
  *   node bin/local-bridge-runner.js --accept-edits --stream "Fix the bug in src/app.js"
  */
 
@@ -78,18 +78,18 @@ Options:\n\
   --include-instruction-docs  Opt in to AGENTS.md / CLAUDE.md instruction hierarchy\n\
   --include-repo-context      Opt in to session repo-context block (fingerprint)\n\
   --include-claude-md         Include CLAUDE.md inside repo-context (requires --include-repo-context)\n\
-  --include-repo-map          Opt in to repo map inside repo-context block\n\
+  --include-repo-map          Add repo map (requires --include-repo-context)\n\
   --include-skills            Opt in to skills listing in system prompt\n\
   --append-system-prompt <s>  Append text to the default system prompt\n\
   --append-system-prompt-file <p>  Append contents of a file to the system prompt\n\
   --system-prompt-file <p>    Replace default system prompt with file contents\n\
   --exclude-dynamic-system-prompt-sections  Put cwd/git fingerprint in first user message\n\
-  --permission-mode <m>   default | plan | accept-edits | dont-ask | accept-edits-dont-ask | auto\n\
+  --permission-mode <m>   default | plan | accept-edits | dont-ask | accept-edits-dont-ask | auto (legacy alias for dont-ask)\n\
   --tools <names>         Comma-separated tools to expose; include apply_patch to opt into patch mode\n\
   --capabilities <groups> Enable optional tool groups beyond the default core: edits, recovery, agents, worktrees, skills, lsp (shell needs --allow-shell)\n\
   --no-session-persistence    Disable resume checkpoints (*.state.json); manifests/ledger/diagnostics may still write\n\
   --review-memory       List pending memory promotions for approval\n\
-  --session-extract     Run background session extraction after completion\n\
+  --session-extract     Queue a run-summary memory proposal after a successful trusted persisted session\n\
   --no-archive          Skip writing per-turn archive under ~/.bridge-runner/archive/\n\
   --accept-edits       Auto-approve write/edit/patch tools (skip confirmation)\n\
   --dont-ask           Skip confirmation for already-enabled risky tools\n\
@@ -462,7 +462,8 @@ async function main() {
     }
   }
 
-  // --continue: find the latest transcript in ~/.bridge-runner/logs/
+  // --continue resolves the newest canonical session checkpoint later, after
+  // the CLI has validated the other session-selection flags.
   const shouldContinue = !!args.values.continue;
   const newSession = !!args.values['new-session'];
   const resumeSession = !!args.values['resume-session'];

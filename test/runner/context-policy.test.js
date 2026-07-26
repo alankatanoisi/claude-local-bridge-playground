@@ -109,4 +109,26 @@ describe('permission mode', () => {
     assert.equal(merged.plan, true);
     assert.equal(merged.acceptEdits, false);
   });
+
+  it('keeps auto as a narrow legacy alias for dont-ask', () => {
+    assert.equal(normalizePermissionMode('auto'), 'auto');
+    const merged = applyPermissionMode(
+      {
+        acceptEdits: true,
+        dontAsk: false,
+        plan: true,
+        allowShell: true,
+      },
+      'auto',
+    );
+
+    // The compatibility alias deliberately resets every authority dimension.
+    // It skips questions only for tools the operator has already exposed.
+    assert.deepEqual(merged, {
+      acceptEdits: false,
+      dontAsk: true,
+      plan: false,
+      allowShell: false,
+    });
+  });
 });

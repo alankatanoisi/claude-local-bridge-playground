@@ -544,6 +544,7 @@
           <div class="card">
             <h2>Prompt</h2>
             <div class="field">
+              <label for="prompt">What should the runner do?</label>
               <textarea
                 id="prompt"
                 placeholder="e.g. Explain how src/server.js works&#10;or: Add JSDoc to every exported function"
@@ -663,6 +664,8 @@
                   <select id="model">
                     <option value="claude-sonnet-5" selected>claude-sonnet-5 (default)</option>
                     <option value="claude-fable-5">claude-fable-5</option>
+                    <option value="claude-mythos-5">claude-mythos-5 (limited availability)</option>
+                    <option value="claude-mythos-preview">claude-mythos-preview (limited availability)</option>
                     <option value="claude-opus-5">claude-opus-5</option>
                     <option value="claude-opus-4-8">claude-opus-4-8</option>
                     <option value="claude-opus-4-7">claude-opus-4-7</option>
@@ -672,6 +675,13 @@
                     <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
                     <option value="claude-haiku-4-5">claude-haiku-4-5</option>
                   </select>
+                </div>
+                <div class="field">
+                  <label for="customModel" title="Optional exact model id. The runner intentionally passes unknown future model ids through, but it can only validate and price models in its local catalog.">Custom or future model id</label>
+                  <input type="text" id="customModel" placeholder="Leave blank to use the selected catalog model" />
+                  <small style="color: var(--muted); margin-top: 0.25rem">
+                    Overrides the picker. Unknown ids use conservative context estimates and produce a runtime warning.
+                  </small>
                 </div>
                 <div class="row">
                   <div class="field">
@@ -733,9 +743,9 @@
                 </div>
                 <div class="field">
                   <label for="promptArgs">Template args (fills <code>{{name}}</code> placeholders)</label>
-                  <input type="text" id="promptArgs" placeholder="focus=error handling  area=src/runner" />
+                  <textarea id="promptArgs" placeholder="focus=error handling&#10;area=src/runner"></textarea>
                   <small style="color: var(--muted); margin-top: 0.25rem">
-                    Space-separated <code>key=value</code> pairs → one <code>--prompt-arg</code> each. Run
+                    Enter one <code>key=value</code> pair per line. Values may contain spaces. Run
                     <code>node bin/local-bridge-prompts.js show &lt;name&gt;</code> to see a template's parameters.
                   </small>
                 </div>
@@ -803,7 +813,7 @@
                 </div>
                 <div class="field" id="shellTimeoutRow">
                   <label for="shellTimeout" title="Maximum time a single shell command can run before the runner kills it. In milliseconds. Prevents commands like 'npm install' from hanging forever.">Shell timeout (ms)</label>
-                  <input type="number" id="shellTimeout" value="30000" min="100" max="120000" step="1000" />
+                  <input type="number" id="shellTimeout" value="30000" min="100" max="900000" step="1000" />
                 </div>
               </div>
 
@@ -815,8 +825,8 @@
                   <label class="check-label" id="newSessionRow" title="Ignore any existing session for this folder and start completely fresh. Previous context is discarded.">
                     <input type="checkbox" id="newSession" /> Force a fresh session <code>--new-session</code>
                   </label>
-                  <label class="check-label" id="resumeSessionRow" title="Resume the most recent session for this folder. The model picks up where it left off with its full conversation history intact.">
-                    <input type="checkbox" id="resumeSession" /> Resume last session <code>--resume-session</code>
+                  <label class="check-label" id="resumeSessionRow" title="Resume the canonical session checkpoint named by Session id or Session path below. This is different from a JSONL transcript.">
+                    <input type="checkbox" id="resumeSession" /> Resume specified session <code>--resume-session</code>
                   </label>
                   <label class="check-label" id="ackResumeRiskRow" title="Override the safety check that normally blocks resuming a degraded session. Use only when you understand and accept the risk that the session's history may be unreliable.">
                     <input type="checkbox" id="ackResumeRisk" /> Accept degraded-session risk <code>--ack-resume-risk</code>
@@ -824,7 +834,7 @@
                 </div>
                 <div id="sessionConflict" class="warn-panel conflict">
                   &#9940; <strong>Conflict:</strong> Pick one resume style: <code>--new-session</code>, <code>--resume-session</code>,
-                  <code>--continue</code>, or <code>--resume &lt;transcript&gt;</code> — combining them is confusing.
+                  or <code>--continue</code> — combining them is confusing.
                 </div>
                 <div class="field">
                   <label for="forkFrom" title="Start a new session that shares a parent session's history up to a point, then diverges — like a git branch but for agent conversations. Enter the parent session's id.">Fork from session id</label>
@@ -836,18 +846,18 @@
                   The runner no longer injects AGENTS.md / repo map by default. Opt in explicitly below.
                 </p>
                 <div class="checks">
-                  <label class="check-label" title="Start with the absolute minimum system prompt — no AGENTS.md, no repo map, no built-in instructions. Use when you want full control over what the model knows, or for a clean experiment."> <input type="checkbox" id="bareContext" /> Skip default instructions <code>--bare</code> </label>
-                  <label class="check-label">
+                  <label class="check-label" id="bareContextRow" title="Start with the absolute minimum system prompt — no AGENTS.md, no repo map, no built-in instructions. Saved rich-context choices stay selected but are inactive until bare mode is turned off."> <input type="checkbox" id="bareContext" /> Skip default instructions <code>--bare</code> </label>
+                  <label class="check-label" id="includeInstructionDocsRow">
                     <input type="checkbox" id="includeInstructionDocs" title="Load AGENTS.md and other instruction documents from your project into the system prompt. Gives the model project-specific rules and conventions." /> Load AGENTS.md &amp; instruction docs <code>--include-instruction-docs</code>
                   </label>
-                  <label class="check-label">
+                  <label class="check-label" id="includeRepoContextRow">
                     <input type="checkbox" id="includeRepoContext" title="Add a summary of your repository's structure, purpose, and key files to the system prompt. Helps the model orient itself without reading every file." /> Add repo summary to prompt <code>--include-repo-context</code>
                   </label>
-                  <label class="check-label">
+                  <label class="check-label" id="includeClaudeMdRow">
                     <input type="checkbox" id="includeClaudeMd" title="Load the project's CLAUDE.md file into the system prompt. Contains project-specific working notes. Needs --include-repo-context to activate the loader." /> Include CLAUDE.md <code>--include-claude-md</code>
                   </label>
-                  <label class="check-label" title="Include a file tree (directory listing) so the model knows what files and folders exist in your project without having to list_files first."> <input type="checkbox" id="includeRepoMap" /> Include file tree <code>--include-repo-map</code> </label>
-                  <label class="check-label" title="Load skill documents from .bridge-runner/skills/ so the model can use specialized workflows like code review, testing, or refactoring patterns."> <input type="checkbox" id="includeSkills" /> Load project skills <code>--include-skills</code> </label>
+                  <label class="check-label" id="includeRepoMapRow" title="Include a file tree inside the repository-context block. Needs --include-repo-context."> <input type="checkbox" id="includeRepoMap" /> Include file tree <code>--include-repo-map</code> </label>
+                  <label class="check-label" id="includeSkillsRow" title="Load skill metadata into the system prompt so the model knows which names it can pass to run_skill."> <input type="checkbox" id="includeSkills" /> Load project skills <code>--include-skills</code> </label>
                   <label class="check-label">
                     <input type="checkbox" id="excludeDynamicSystem" title="Remove automatically-generated system prompt sections (like safety rules and tool instructions that the runner adds). Advanced — can break expected model behavior." /> Strip auto-generated prompt sections <code>--exclude-dynamic-system-prompt-sections</code>
                   </label>
@@ -855,19 +865,9 @@
                     <input type="checkbox" id="noSessionPersistence" title="Don't save any session state after this run. The run still works normally, but there's nothing to --resume-session from later. Useful for one-shot experiments." /> Don't save session state <code>--no-session-persistence</code>
                   </label>
                 </div>
-                <div class="row">
-                  <div class="field">
-                    <label for="permissionMode" title="A single flag that sets multiple permissions at once. 'auto' is the most permissive (auto-approve edits + skip prompts). Usually the permission style dropdown above is easier to use.">Permission mode</label>
-                    <select id="permissionMode">
-                      <option value="">(individual flags)</option>
-                      <option value="default">default</option>
-                      <option value="plan">plan</option>
-                      <option value="accept-edits">accept-edits</option>
-                      <option value="dont-ask">dont-ask</option>
-                      <option value="accept-edits-dont-ask">accept-edits-dont-ask</option>
-                      <option value="auto">auto</option>
-                    </select>
-                  </div>
+                <div id="contextDependencyNote" class="warn-panel info">
+                  Rich-context choices remain saved while inactive. Turn off <code>--bare</code>, and enable
+                  <code>--include-repo-context</code> before CLAUDE.md or the file tree can be added.
                 </div>
 
                 <p class="subsection-title">Task hygiene</p>
@@ -876,7 +876,7 @@
                   <label class="check-label">
                     <input type="checkbox" id="compactEachTurn" title="After every model turn, summarize older conversation history to save context window space. Useful for long runs that might hit token limits. Trades precision for longevity." /> Summarize history every turn <code>--compact-each-turn</code>
                   </label>
-                  <label class="check-label" title="After the run finishes, automatically extract useful patterns and learnings from the conversation and save them to persistent memory for future sessions."> <input type="checkbox" id="autoMemory" /> Auto-promote learnings <code>--auto-memory</code> </label>
+                  <label class="check-label" title="Load previously approved runner memory topics into the system prompt. This does not create or promote new memories."> <input type="checkbox" id="autoMemory" /> Load approved runner memory <code>--auto-memory</code> </label>
                   <label class="check-label" title="Don't archive this run's data after it finishes. Keeps your ~/.bridge-runner/logs/ folder smaller. The run still works normally — just no post-run copy to the archive."> <input type="checkbox" id="noArchive" /> Skip run archival <code>--no-archive</code> </label>
                 </div>
                 <div class="row">
@@ -935,11 +935,11 @@
                   <label class="check-label">
                     <input type="checkbox" id="chaosOk" title="Acknowledge the most dangerous flag combination: shell + auto-approve edits + no confirmation prompts. The runner blocks this by default because the model could run arbitrary commands with no human review." /> Allow risky combo <code>--chaos-ok</code>
                   </label>
-                  <label class="check-label">
-                    <input type="checkbox" id="sessionExtract" title="After the run finishes, queue a learning-extraction pass that reviews the conversation for useful patterns — things the model discovered that might help future sessions." /> Queue learning extraction <code>--session-extract</code>
+                  <label class="check-label" id="sessionExtractRow">
+                    <input type="checkbox" id="sessionExtract" title="After a successful persisted run, queue a small run-summary proposal for later --review-memory approval. Requires --trusted-workspace and a Session id or Session path. It does not run a second model extraction pass." /> Queue run-summary memory proposal <code>--session-extract</code>
                   </label>
                   <label class="check-label">
-                    <input type="checkbox" id="reviewMemory" title="List all promoted memories for this workspace without starting a normal agent loop. An administrative/diagnostic command — it shows what the runner has 'learned' across sessions." /> List saved memories <code>--review-memory</code>
+                    <input type="checkbox" id="reviewMemory" title="List pending memory proposals awaiting human approval, then exit without starting a model run." /> Review pending memory proposals <code>--review-memory</code>
                   </label>
                 </div>
                 <div class="row">
@@ -962,14 +962,9 @@
                   </div>
                 </div>
 
-                <div class="field">
-                  <label for="resumePath" title="Resume a previous run from a specific transcript file. The model re-enters the conversation at the point the transcript left off. Use the full path to the .jsonl file.">Resume from transcript</label>
-                  <input type="text" id="resumePath" placeholder="~/.bridge-runner/logs/last.jsonl" />
-                </div>
-
                 <div class="checks" style="margin-top: 0.5rem">
-                  <label class="check-label" id="continueRow" title="Automatically find and resume from the most recent transcript file. Like --resume but you don't have to find the file path yourself.">
-                    <input type="checkbox" id="continueFromLatest" /> Auto-resume from latest session <code>--continue</code>
+                  <label class="check-label" id="continueRow" title="Find and resume the most recent canonical session checkpoint under ~/.bridge-runner/sessions/. If none exists, the runner starts a new session.">
+                    <input type="checkbox" id="continueFromLatest" /> Resume latest saved session <code>--continue</code>
                   </label>
                 </div>
 
@@ -1012,7 +1007,10 @@
                 </div>
                 <div class="field">
                   <label for="callerToken" title="If the bridge has caller authentication enabled (requireCallerAuth in VS Code settings), enter the token here. Can be a literal token or an environment variable reference like $BRIDGE_CALLER_TOKEN.">Caller auth token (optional)</label>
-                  <input type="text" id="callerToken" placeholder="$BRIDGE_CALLER_TOKEN or local-dev-token" />
+                  <input type="text" id="callerToken" autocomplete="off" spellcheck="false" placeholder="$BRIDGE_CALLER_TOKEN or local-dev-token" />
+                  <small style="color: var(--muted); margin-top: 0.25rem">
+                    For safety, this value is never saved in browser storage. Prefer the environment-variable form.
+                  </small>
                 </div>
               </div>
 
@@ -1028,7 +1026,11 @@
                   The runner defaults to the core read/session tools only. Checking tools outside the core emits
                   <code>--capabilities</code> (whole groups) or <code>--tools</code> (partial picks). Shell is hidden
                   until <code>--allow-shell</code>. <code>apply_patch</code> is advanced patch mode and is hidden
-                  unless you opt in here.
+                  unless you opt in here. Every checked tool is described to the model and is available for autonomous,
+                  discretionary use—it is not forced to call the tool. Permission is a separate layer: ordinary reads
+                  run immediately, while orchestration and worktree actions ask by default. <code>--dont-ask</code>
+                  lets already-enabled orchestration/worktree tools run unattended, but does not expose shell or
+                  approve file writes.
                 </p>
                 <div class="checks" id="toolChoices">
                   <div class="capability-group">Read</div>
@@ -1061,14 +1063,14 @@
                     <input type="checkbox" value="manage_tasks" checked />
                     <span><strong>manage_tasks</strong><small>In-session task checklist</small></span>
                   </label>
-                  <label class="check-label tool-choice" title="Let the model ask you a clarifying question in Terminal when it's unsure about something. Important safety net — without this, the model guesses instead of asking.">
+                  <label class="check-label tool-choice" title="Let the model show a numbered clarification question in the same Terminal running this command. This is the runner's own prompt, not the Claude Code TUI. Unavailable with --dont-ask, plan mode, child agents, or a detached/non-interactive process.">
                     <input type="checkbox" value="ask_user_question" checked />
                     <span><strong>ask_user_question</strong><small>Ask a clarifying question</small></span>
                   </label>
                   <div class="capability-group">Orchestration</div>
-                  <label class="check-label tool-choice" title="Let the model delegate a subtask to a child agent that runs independently. The child inherits permissions and tools. Only the top-level model can spawn agents — children cannot spawn further.">
+                  <label class="check-label tool-choice" title="Let the top-level model delegate a focused read-only subtask to a child with its own context window. This asks for confirmation by default; --dont-ask permits already-enabled orchestration to run unattended. The child receives a constrained read-only tool set and cannot spawn further children.">
                     <input type="checkbox" value="spawn_agent" />
-                    <span><strong>spawn_agent</strong><small>Delegate to a child agent (top-level only)</small></span>
+                    <span><strong>spawn_agent</strong><small>Delegate a read-only child; asks by default</small></span>
                   </label>
                   <label class="check-label tool-choice" title="Create and enter a git worktree — a separate checkout on its own branch. Edits happen there instead of your main branch, so you can review and merge (or discard) safely.">
                     <input type="checkbox" value="enter_worktree" />
@@ -1133,12 +1135,15 @@
                 <span class="dot"></span><span class="dot"></span><span class="dot"></span>
                 <span class="title">zsh</span>
               </div>
-              <pre id="cmdOutput"><code></code></pre>
+              <pre id="cmdOutput" aria-live="polite"><code></code></pre>
             </div>
+            <div id="validationWarnings" class="warn-panel caution" role="alert" aria-live="polite" style="margin-bottom: 0.5rem"></div>
             <button class="copy-btn" id="copyBtn" onclick="copyCommand()">Copy to clipboard</button>
             <button class="copy-btn" id="resetBtn" onclick="resetToDefaults()" style="margin-top: 0.4rem; border-color: var(--border); background: transparent; color: var(--muted);">Reset to defaults</button>
             <p
               id="copyFeedback"
+              role="status"
+              aria-live="polite"
               style="text-align: center; font-size: 0.75rem; color: var(--muted); margin-top: 0.35rem"
             >
               &nbsp;
@@ -1147,7 +1152,7 @@
             <!-- 3.1: plain-language summary -->
             <div id="commandSummary" class="command-summary" style="font-size: 0.82rem; color: var(--text); line-height: 1.55; margin-top: 0.8rem; padding: 0.65rem 0.8rem; background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;">
               <strong style="color: var(--blue); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;">What this command will do</strong>
-              <span id="summaryText" style="display: block; margin-top: 0.3rem;"></span>
+              <span id="summaryText" aria-live="polite" style="display: block; margin-top: 0.3rem;"></span>
             </div>
           </div>
 
@@ -1155,7 +1160,7 @@
           <div class="card" id="preflightCard" style="font-size: 0.82rem;">
             <h2>Before you run</h2>
             <ol style="padding-left: 1.2rem; margin: 0.3rem 0 0; color: var(--muted); line-height: 1.7;">
-              <li><strong style="color: var(--text);">Bridge running?</strong> Paste in Terminal: <code style="font-size: 0.75rem;">curl -s http://127.0.0.1:11437/health</code> — expect <code>{"status":"ok"}</code>.</li>
+              <li><strong style="color: var(--text);">Bridge running?</strong> In VS Code, press <code>Cmd+Shift+P</code>, choose <em>Claude Local Bridge: Show Status</em>, and confirm it says the server is running. The bridge intentionally has no public <code>/health</code> route.</li>
               <li><strong style="color: var(--text);">In the right folder?</strong> Run the command from the runner repo folder shown above. The target project is separate; set it via <code>--cwd</code> or the Target folder field.</li>
               <li><strong style="color: var(--text);">First time in this folder?</strong> The runner will ask for <code>--trust-workspace</code> consent the first time you target a new project.</li>
               <li><strong style="color: var(--text);">New to this?</strong> Start with a <em>read-only</em> preset — it inspects files without changing anything.</li>
@@ -1255,6 +1260,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const attachmentMode = document.getElementById('attachmentMode');
       const attachedPaths = document.getElementById('attachedPaths');
       const model = document.getElementById('model');
+      const customModel = document.getElementById('customModel');
       const maxSteps = document.getElementById('maxSteps');
       const maxTokens = document.getElementById('maxTokens');
       const temperature = document.getElementById('temperature');
@@ -1273,7 +1279,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const shellTimeout = document.getElementById('shellTimeout');
       const confirmTimeout = document.getElementById('confirmTimeout');
       const logLevel = document.getElementById('logLevel');
-      const resumePath = document.getElementById('resumePath');
       const transcript = document.getElementById('transcript');
       const humanLog = document.getElementById('humanLog');
       const traceLevel = document.getElementById('traceLevel');
@@ -1326,9 +1331,14 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const includeClaudeMd = document.getElementById('includeClaudeMd');
       const includeRepoMap = document.getElementById('includeRepoMap');
       const includeSkills = document.getElementById('includeSkills');
+      const includeInstructionDocsRow = document.getElementById('includeInstructionDocsRow');
+      const includeRepoContextRow = document.getElementById('includeRepoContextRow');
+      const includeClaudeMdRow = document.getElementById('includeClaudeMdRow');
+      const includeRepoMapRow = document.getElementById('includeRepoMapRow');
+      const includeSkillsRow = document.getElementById('includeSkillsRow');
+      const contextDependencyNote = document.getElementById('contextDependencyNote');
       const excludeDynamicSystem = document.getElementById('excludeDynamicSystem');
       const noSessionPersistence = document.getElementById('noSessionPersistence');
-      const permissionMode = document.getElementById('permissionMode');
       const noArchive = document.getElementById('noArchive');
       const replayMode = document.getElementById('replayMode');
       const repairMode = document.getElementById('repairMode');
@@ -1340,6 +1350,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const shellTimeoutRow = document.getElementById('shellTimeoutRow');
       const noNetworkRow = document.getElementById('noNetworkRow');
       const ackResumeRiskRow = document.getElementById('ackResumeRiskRow');
+      const sessionExtractRow = document.getElementById('sessionExtractRow');
       const permissionStyle = document.getElementById('permissionStyle');
       const permissionStyleHint = document.getElementById('permissionStyleHint');
 
@@ -1390,7 +1401,10 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
 
       const PERMISSION_STYLES = {
         'look-only': {
-          plan: true,
+          // Exact tool visibility already prevents writes and shell here.
+          // Adding --plan would also suppress orchestration, making a
+          // read-only Delegate preset advertise spawn_agent without running it.
+          plan: false,
           acceptEdits: false,
           dontAsk: false,
           allowShell: false,
@@ -1493,6 +1507,13 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         return promptText.trim();
       }
 
+      function getEffectiveModel() {
+        // A custom id deliberately overrides the curated picker. The runner
+        // passes future ids through while warning when catalog metadata is
+        // unavailable, so the builder should preserve that escape hatch.
+        return customModel.value.trim() || model.value;
+      }
+
       function buildCommandParts() {
         const parts = ['node bin/local-bridge-runner.js'];
 
@@ -1533,7 +1554,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
             parts.push('--prompt-arg ' + shellQuote(arg));
           }
         }
-        if (model.value !== DEFAULTS.model) parts.push('--model ' + model.value);
+        const effectiveModel = getEffectiveModel();
+        if (effectiveModel !== DEFAULTS.model) parts.push('--model ' + shellQuote(effectiveModel));
         if (+maxTokens.value !== DEFAULTS.maxTokens) parts.push('--max-tokens ' + maxTokens.value);
         if (+maxSteps.value !== DEFAULTS.maxSteps) parts.push('--max-steps ' + maxSteps.value);
         if (temperature.value.trim()) parts.push('--temperature ' + temperature.value.trim());
@@ -1551,17 +1573,22 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         if (autoMemory.checked) parts.push('--auto-memory');
         if (noArchive.checked) parts.push('--no-archive');
         if (bareContext.checked) parts.push('--bare');
-        if (includeInstructionDocs.checked) parts.push('--include-instruction-docs');
-        if (includeRepoContext.checked) parts.push('--include-repo-context');
-        if (includeClaudeMd.checked) parts.push('--include-claude-md');
-        if (includeRepoMap.checked) parts.push('--include-repo-map');
-        if (includeSkills.checked) parts.push('--include-skills');
+        // Bare mode is an explicit runtime override. Preserve the user's
+        // checked rich-context choices in the form, but do not emit flags that
+        // the runtime will discard. CLAUDE.md and repo-map also require the
+        // repository-context parent flag.
+        if (!bareContext.checked) {
+          if (includeInstructionDocs.checked) parts.push('--include-instruction-docs');
+          if (includeRepoContext.checked) {
+            parts.push('--include-repo-context');
+            if (includeClaudeMd.checked) parts.push('--include-claude-md');
+            if (includeRepoMap.checked) parts.push('--include-repo-map');
+          }
+          if (includeSkills.checked) parts.push('--include-skills');
+        }
         if (excludeDynamicSystem.checked) parts.push('--exclude-dynamic-system-prompt-sections');
         if (noSessionPersistence.checked) parts.push('--no-session-persistence');
-        if (permissionMode.value) parts.push('--permission-mode ' + permissionMode.value);
-        if (resumePath.value.trim()) parts.push('--resume ' + shellQuote(resumePath.value.trim()));
-        if (transcript.value.trim() && !resumePath.value.trim() && !resumeSession.checked)
-          parts.push('--transcript ' + shellQuote(transcript.value.trim()));
+        if (transcript.value.trim()) parts.push('--transcript ' + shellQuote(transcript.value.trim()));
         if (humanLog.value.trim()) parts.push('--human-log ' + shellQuote(humanLog.value.trim()));
         if (traceLevel.value !== DEFAULTS.traceLevel) parts.push('--trace-level ' + traceLevel.value);
         if (tracePath.value.trim()) parts.push('--trace-path ' + shellQuote(tracePath.value.trim()));
@@ -1578,8 +1605,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         if (acceptEdits.checked) parts.push('--accept-edits');
         if (dontAsk.checked) parts.push('--dont-ask');
         if (plan.checked) parts.push('--plan');
-        if (noNetwork.checked) parts.push('--no-network');
-        if (testWatch.checked) parts.push('--test-watch');
+        if (allowShell.checked && noNetwork.checked) parts.push('--no-network');
+        if (allowShell.checked && testWatch.checked) parts.push('--test-watch');
         if (outputFormat.value !== DEFAULTS.outputFormat) parts.push('--output-format ' + outputFormat.value);
         if (allowShell.checked) {
           parts.push('--allow-shell');
@@ -1647,12 +1674,21 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         return names;
       }
 
-      // Space-separated key=value pairs → ['key=value', ...] for --prompt-arg.
+      // Each non-empty line is one key=value argument. Keeping the whole line
+      // means a beginner can write `focus=error handling` without quotes and
+      // the generated shell command still passes the value as one argument.
       function getPromptArgs() {
         return promptArgs.value
-          .split(/\s+/)
-          .map((pair) => pair.trim())
-          .filter((pair) => pair.includes('='));
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+      }
+
+      function getInvalidPromptArgs() {
+        return getPromptArgs().filter((pair) => {
+          const equalsAt = pair.indexOf('=');
+          return equalsAt <= 0 || !/^[A-Za-z_][A-Za-z0-9_-]*$/.test(pair.slice(0, equalsAt).trim());
+        });
       }
 
       // Show the selected built-in template's recommended permissions/tools and
@@ -1700,7 +1736,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         if (newSession.checked) n++;
         if (resumeSession.checked) n++;
         if (continueFromLatest.checked) n++;
-        if (resumePath.value.trim()) n++;
         return n;
       }
 
@@ -1715,10 +1750,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         shellTimeoutRow.classList.toggle('is-muted-control', !shellOn);
         noNetworkRow.classList.toggle('is-muted-control', !shellOn);
         testWatchRow.classList.toggle('is-muted-control', !shellOn);
-        if (!shellOn) {
-          noNetwork.checked = false;
-          testWatch.checked = false;
-        }
 
         const bashChoice = toolChoices.find((c) => c.value === 'bash');
         const manageShellChoice = toolChoices.find((c) => c.value === 'manage_shell_jobs');
@@ -1729,10 +1760,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
             bashChoice.checked = true;
             bashChoice.dataset.shellWasShown = '1';
           }
-          if (!shellOn) {
-            bashChoice.checked = false;
-            delete bashChoice.dataset.shellWasShown;
-          }
         }
         if (manageShellChoice) {
           const manageLabel = manageShellChoice.closest('.tool-choice');
@@ -1741,24 +1768,50 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
             manageShellChoice.checked = true;
             manageShellChoice.dataset.shellWasShown = '1';
           }
-          if (!shellOn) {
-            manageShellChoice.checked = false;
-            delete manageShellChoice.dataset.shellWasShown;
-          }
         }
         const lspChoice = toolChoices.find((c) => c.value === 'lsp_query');
         if (lspChoice) {
           const lspLabel = lspChoice.closest('.tool-choice');
           if (lspLabel) lspLabel.classList.toggle('is-muted-control', !lspOn);
-          if (lspOn && !lspChoice.dataset.lspWasShown) {
+          if (lspOn) {
+            // --enable-lsp is a single-purpose gate: without lsp_query in the
+            // selected tool set it has no useful effect. Keep that promise
+            // deterministic even after a preset replaces the broader tool
+            // list. Turning the parent gate off still preserves the choice.
             lspChoice.checked = true;
-            lspChoice.dataset.lspWasShown = '1';
-          }
-          if (!lspOn) {
-            lspChoice.checked = false;
-            delete lspChoice.dataset.lspWasShown;
           }
         }
+
+        // Context dependencies are represented as inactive—not erased.
+        // Turning the parent option back on restores the user's saved child
+        // choices exactly as they left them.
+        const bareOn = bareContext.checked;
+        const repoContextOn = includeRepoContext.checked && !bareOn;
+        includeInstructionDocs.disabled = bareOn;
+        includeRepoContext.disabled = bareOn;
+        includeClaudeMd.disabled = !repoContextOn;
+        includeRepoMap.disabled = !repoContextOn;
+        includeSkills.disabled = bareOn;
+        includeInstructionDocsRow.classList.toggle('is-muted-control', bareOn);
+        includeRepoContextRow.classList.toggle('is-muted-control', bareOn);
+        includeClaudeMdRow.classList.toggle('is-muted-control', !repoContextOn);
+        includeRepoMapRow.classList.toggle('is-muted-control', !repoContextOn);
+        includeSkillsRow.classList.toggle('is-muted-control', bareOn);
+        const hasInactiveContextChoice =
+          (bareOn &&
+            (includeInstructionDocs.checked ||
+              includeRepoContext.checked ||
+              includeClaudeMd.checked ||
+              includeRepoMap.checked ||
+              includeSkills.checked)) ||
+          (!bareOn && !includeRepoContext.checked && (includeClaudeMd.checked || includeRepoMap.checked));
+        contextDependencyNote.classList.toggle('show', hasInactiveContextChoice);
+
+        const sessionExtractReady =
+          trustedWorkspace.checked &&
+          !!(sessionId.value.trim() || sessionPath.value.trim()) &&
+          !noSessionPersistence.checked;
+        sessionExtractRow.classList.toggle('is-muted-control', sessionExtract.checked && !sessionExtractReady);
 
         const chaosBlocked = hasChaosConflict();
         chaosConflict.classList.toggle('show', chaosBlocked);
@@ -1787,6 +1840,10 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           cautions.push('--trusted-workspace runs hooks from .bridge-runner/hooks.json in cwd (exec hooks also need "trusted": true in that file).');
         if (autoMemory.checked)
           cautions.push('--auto-memory injects opt-in runner memory into context (default off in runner).');
+        if (enableLsp.checked)
+          cautions.push(
+            '--enable-lsp offers lsp_query to the model. A matching language-server executable must be installed on PATH; missing servers now return a tool error instead of crashing the runner.',
+          );
         if (getPromptTemplates().length)
           cautions.push('Prompt templates prepend reusable instructions before the user request.');
         if (systemPromptFile.value.trim())
@@ -1815,7 +1872,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         // Keep model-specific controls honest without silently changing the
         // user's selections. Unsupported choices are greyed out, and a saved
         // selection that became incompatible is also surfaced as a warning.
-        const selectedModel = model.value;
+        const selectedModel = getEffectiveModel();
         const xhighSupported = /claude-(?:fable-5|sonnet-5|opus-(?:5|4-(?:8|7)))/.test(selectedModel);
         const thinkingAlwaysOn = /claude-(?:fable-5|mythos-5|mythos-preview)/.test(selectedModel);
         const adaptiveUnsupported = /claude-(?:sonnet-4-5|haiku-4-5|3-)/.test(selectedModel);
@@ -1856,79 +1913,96 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         const planNote = document.getElementById('planNote');
         if (planNote) planNote.style.display = plan.checked ? 'flex' : 'none';
 
-        copyBtn.disabled = chaosBlocked;
-        copyBtn.title = chaosBlocked ? 'Fix chaos combo before copying' : '';
-
         // ── 3.3: Input validation ──
         const promptText = buildPromptText();
         const targetFolder = cwd.value.trim();
+        const validationErrors = [];
         const validationWarnings = [];
 
         if (!promptText && !reviewMemory.checked && !replayMode.checked && !repairMode.checked)
-          validationWarnings.push('No prompt entered — the runner will start but won\'t know what to do.');
+          validationErrors.push('Enter a prompt before copying; the CLI rejects a normal run with no prompt.');
 
         if (targetFolder && !targetFolder.startsWith('/') && !targetFolder.startsWith('~'))
           validationWarnings.push('Target folder should be an absolute path (start with / or ~).');
 
         if (testWatch.checked && !allowShell.checked)
-          validationWarnings.push('--test-watch needs --allow-shell (shell runs the test watcher).');
+          validationWarnings.push('Auto-run tests is saved but inactive until shell is enabled.');
+
+        if (countResumeModes() > 1)
+          validationErrors.push('Pick only one session start mode: fresh, resume specified, or resume latest.');
+
+        if (resumeSession.checked && !sessionId.value.trim() && !sessionPath.value.trim())
+          validationErrors.push('Resume specified session needs a Session id or Session path.');
+
+        if (
+          sessionExtract.checked &&
+          (!trustedWorkspace.checked || (!sessionId.value.trim() && !sessionPath.value.trim()))
+        )
+          validationErrors.push(
+            'Run-summary memory proposal needs Enable project hooks plus a Session id or Session path.',
+          );
+
+        if (sessionExtract.checked && noSessionPersistence.checked)
+          validationErrors.push('Run-summary memory proposal cannot be combined with disabled session persistence.');
 
         if ((replayMode.checked || repairMode.checked) && !sessionId.value.trim() && !sessionPath.value.trim())
-          validationWarnings.push('Replay / repair needs --session-id or --session-path to find the ledger.');
+          validationErrors.push('Replay / repair needs --session-id or --session-path to find the ledger.');
+
+        if (getInvalidPromptArgs().length)
+          validationErrors.push(
+            'Each template argument must be on its own line and start with a key, for example focus=error handling.',
+          );
+
+        const shellTimeoutNumber = Number(shellTimeout.value);
+        if (allowShell.checked && (!Number.isFinite(shellTimeoutNumber) || shellTimeoutNumber < 100 || shellTimeoutNumber > 900000))
+          validationErrors.push('Shell timeout must be between 100 and 900000 milliseconds.');
 
         if (effort.value === 'xhigh' && !xhighSupported)
-          validationWarnings.push('The selected model does not support --effort xhigh.');
+          validationErrors.push('The selected model does not support --effort xhigh.');
 
         if (thinking.value === 'off' && thinkingAlwaysOn)
-          validationWarnings.push('The selected model keeps adaptive thinking on and cannot use --thinking off.');
+          validationErrors.push('The selected model keeps adaptive thinking on and cannot use --thinking off.');
 
         if (
           thinking.value === 'off' &&
           selectedModel === 'claude-opus-5' &&
           (effort.value === 'xhigh' || effort.value === 'max')
         )
-          validationWarnings.push('Claude Opus 5 cannot use --thinking off with xhigh or max effort.');
+          validationErrors.push('Claude Opus 5 cannot use --thinking off with xhigh or max effort.');
 
         if (thinking.value === 'adaptive' && adaptiveUnsupported)
-          validationWarnings.push('The selected model does not support --thinking adaptive.');
+          validationErrors.push('The selected model does not support --thinking adaptive.');
 
         if (
           temperature.value.trim() &&
           Number(temperature.value) !== 1 &&
           defaultOnlySampling
         )
-          validationWarnings.push('The selected model rejects non-default --temperature values; leave it blank.');
+          validationErrors.push('The selected model rejects non-default --temperature values; leave it blank.');
 
         const validationEl = document.getElementById('validationWarnings');
-        if (!validationEl) {
-          // Create the validation panel if it doesn't exist yet
-          const copyBtnEl = document.getElementById('copyBtn');
-          const existing = document.getElementById('validationWarnings');
-          if (!existing && copyBtnEl && validationWarnings.length) {
-            const panel = document.createElement('div');
-            panel.id = 'validationWarnings';
-            panel.className = 'warn-panel caution show';
-            panel.style.marginBottom = '0.5rem';
-            copyBtnEl.parentNode.insertBefore(panel, copyBtnEl);
-          }
-        }
-        if (validationEl) {
-          if (validationWarnings.length) {
-            validationEl.innerHTML = '⚠️ ' + validationWarnings.map((w) => esc(w)).join('<br>⚠️ ');
-            validationEl.classList.add('show');
-          } else {
-            validationEl.classList.remove('show');
-            validationEl.innerHTML = '';
-          }
+        if (customModel.value.trim()) {
+          validationWarnings.push(
+            'Custom model id overrides the picker. Unknown future ids pass through with conservative runtime estimates.',
+          );
         }
 
-        // 3.3: soften the copy button when there are warnings
-        if (validationWarnings.length > 0 && !chaosBlocked) {
-          copyBtn.disabled = false; // still copyable, just warn
-          copyBtn.style.opacity = '0.7';
-        } else if (!chaosBlocked) {
-          copyBtn.style.opacity = '';
+        const messages = [
+          ...validationErrors.map((message) => '&#9940; ' + esc(message)),
+          ...validationWarnings.map((message) => '&#9888; ' + esc(message)),
+        ];
+        if (messages.length) {
+          validationEl.innerHTML = messages.join('<br>');
+          validationEl.classList.add('show');
+        } else {
+          validationEl.classList.remove('show');
+          validationEl.innerHTML = '';
         }
+
+        const copyBlocked = chaosBlocked || validationErrors.length > 0;
+        copyBtn.disabled = copyBlocked;
+        copyBtn.title = copyBlocked ? 'Resolve the blocked items above before copying' : '';
+        copyBtn.style.opacity = validationWarnings.length > 0 && !copyBlocked ? '0.7' : '';
       }
 
       // ── Render command ──
@@ -1959,17 +2033,28 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         const steps = +maxSteps.value || DEFAULTS.maxSteps;
         const shellOn = allowShell.checked;
         const planOn = plan.checked;
+        const selectedToolNames = getSelectedTools();
+        const writeToolsOn = selectedToolNames.some((name) =>
+          ['edit_file', 'write_file', 'apply_patch'].includes(name),
+        );
+        const orchestrationOn = selectedToolNames.some((name) =>
+          ['spawn_agent', 'enter_worktree', 'exit_worktree'].includes(name),
+        );
         const editAuto = acceptEdits.checked && !dontAsk.checked;
-        const editAsk = !acceptEdits.checked && !planOn;
+        const editAsk = writeToolsOn && !acceptEdits.checked && !planOn;
         const fullAuto = acceptEdits.checked && dontAsk.checked;
 
         let permissionText;
-        if (planOn) permissionText = 'will <strong>describe</strong> what it would change without writing files or running commands';
+        if (planOn) permissionText = 'may <strong>inspect files for real</strong>, while proposed effects are recorded instead of executed';
         else if (shellOn && fullAuto) permissionText = 'may <strong>read, write files, and run shell commands</strong> without asking';
         else if (shellOn && editAuto) permissionText = 'may <strong>read, write files, and run shell commands</strong> (writes are auto-approved)';
         else if (shellOn && editAsk) permissionText = 'may <strong>read and write files, and run shell commands</strong> — asks before each write';
-        else if (editAuto) permissionText = 'may <strong>read and edit files</strong> without asking (shell is off)';
+        else if (writeToolsOn && editAuto) permissionText = 'may <strong>read and edit files</strong> without asking (shell is off)';
         else if (editAsk) permissionText = 'may <strong>read and edit files</strong> — asks in Terminal before each change';
+        else if (orchestrationOn && dontAsk.checked)
+          permissionText = 'may <strong>read files and use enabled orchestration</strong> without asking — no writes, no shell';
+        else if (orchestrationOn)
+          permissionText = 'may <strong>read files</strong>; enabled orchestration asks in Terminal — no writes, no shell';
         else permissionText = 'may <strong>only read files</strong> — no writes, no shell';
 
         const transcriptText = transcript.value.trim()
@@ -2018,6 +2103,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         attachmentMode,
         attachedPaths,
         model,
+        customModel,
         maxSteps,
         maxTokens,
         temperature,
@@ -2032,10 +2118,10 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         verbose,
         outputFormat,
         allowShell,
+        enableLsp,
         shellTimeout,
         confirmTimeout,
         logLevel,
-        resumePath,
         transcript,
         humanLog,
         traceLevel,
@@ -2081,7 +2167,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         includeSkills,
         excludeDynamicSystem,
         noSessionPersistence,
-        permissionMode,
         permissionStyle,
         ...toolChoices,
       ].forEach((el) => {
@@ -2096,6 +2181,10 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
 
       // ── Copy ──
       function copyCommand() {
+        if (copyBtn.disabled) {
+          copyFeedback.textContent = 'Resolve the blocked items before copying.';
+          return;
+        }
         const raw = buildRawCommand();
         navigator.clipboard
           .writeText(raw)
@@ -2123,6 +2212,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           attachmentMode: attachmentMode.value,
           attachedPaths: attachedPaths.value,
           model: model.value,
+          customModel: customModel.value,
           maxSteps: maxSteps.value,
           maxTokens: maxTokens.value,
           temperature: temperature.value,
@@ -2138,13 +2228,13 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           shellTimeout: shellTimeout.value,
           confirmTimeout: confirmTimeout.value,
           logLevel: logLevel.value,
-          resumePath: resumePath.value,
           transcript: transcript.value,
           humanLog: humanLog.value,
           traceLevel: traceLevel.value,
           tracePath: tracePath.value,
           bridgeUrl: bridgeUrl.value,
-          callerToken: callerToken.value,
+          // Caller auth is intentionally omitted. A literal token must not
+          // survive reloads in clear-text browser storage.
           systemPrompt: systemPrompt.value,
           systemPromptFile: systemPromptFile.value,
           appendSystemPrompt: appendSystemPrompt.value,
@@ -2166,8 +2256,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           thinking: thinking.value,
           autoMemory: autoMemory.checked,
           noArchive: noArchive.checked,
-          replayMode: replayMode.checked,
-          repairMode: repairMode.checked,
           bareContext: bareContext.checked,
           includeInstructionDocs: includeInstructionDocs.checked,
           includeRepoContext: includeRepoContext.checked,
@@ -2176,7 +2264,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           includeSkills: includeSkills.checked,
           excludeDynamicSystem: excludeDynamicSystem.checked,
           noSessionPersistence: noSessionPersistence.checked,
-          permissionMode: permissionMode.value,
           trustedWorkspace: trustedWorkspace.checked,
           trustWorkspace: trustWorkspace.checked,
           chaosOk: chaosOk.checked,
@@ -2198,27 +2285,25 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         // Text/select fields
         const textKeys = [
           'prompt', 'promptTemplate', 'customPromptTemplate', 'promptArgs',
-          'attachmentMode', 'attachedPaths', 'model', 'maxSteps', 'maxTokens',
+          'attachmentMode', 'attachedPaths', 'model', 'customModel', 'maxSteps', 'maxTokens',
           'temperature', 'compactAtTokens', 'maxRunTokens', 'maxToolCalls', 'cwd', 'runnerPath',
           'permissionStyle', 'outputFormat', 'shellTimeout', 'confirmTimeout',
-          'logLevel', 'resumePath', 'transcript', 'humanLog', 'traceLevel',
-          'tracePath', 'bridgeUrl', 'callerToken', 'systemPrompt', 'systemPromptFile',
+          'logLevel', 'transcript', 'humanLog', 'traceLevel',
+          'tracePath', 'bridgeUrl', 'systemPrompt', 'systemPromptFile',
           'appendSystemPrompt', 'appendSystemPromptFile', 'sessionId', 'sessionPath',
           'forkFrom', 'maxWallClockMs',
           'maxCostUsd', 'budgetInputTokens', 'budgetOutputTokens', 'effort', 'thinking',
-          'permissionMode',
         ];
         const elMap = {
           prompt, promptTemplate, customPromptTemplate, promptArgs,
-          attachmentMode, attachedPaths, model, maxSteps, maxTokens,
+          attachmentMode, attachedPaths, model, customModel, maxSteps, maxTokens,
           temperature, compactAtTokens, maxRunTokens, maxToolCalls, cwd, runnerPath,
           permissionStyle, outputFormat, shellTimeout, confirmTimeout,
-          logLevel, resumePath, transcript, humanLog, traceLevel,
-          tracePath, bridgeUrl, callerToken, systemPrompt, systemPromptFile,
+          logLevel, transcript, humanLog, traceLevel,
+          tracePath, bridgeUrl, systemPrompt, systemPromptFile,
           appendSystemPrompt, appendSystemPromptFile, sessionId, sessionPath,
           forkFrom, maxWallClockMs,
           maxCostUsd, budgetInputTokens, budgetOutputTokens, effort, thinking,
-          permissionMode,
         };
         for (const key of textKeys) {
           if (state[key] !== undefined && elMap[key]) elMap[key].value = state[key];
@@ -2227,7 +2312,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         const boolMap = {
           stream, verbose, continueFromLatest, newSession, resumeSession,
           ackResumeRisk, taskScope, compactEachTurn, autoMemory, noArchive,
-          replayMode, repairMode, bareContext, includeInstructionDocs,
+          bareContext, includeInstructionDocs,
           includeRepoContext, includeClaudeMd, includeRepoMap, includeSkills,
           excludeDynamicSystem, noSessionPersistence, trustedWorkspace,
           trustWorkspace, chaosOk, sessionExtract, reviewMemory,
@@ -2341,8 +2426,9 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         },
         delegate: {
           prompt:
-            'Use spawn_agent to review src/runner/tools/spawn-agent.js read-only. Summarize findings before making any edits yourself.',
-          permissionStyle: 'edit-ask',
+            'Review src/runner/tools/spawn-agent.js and src/runner/tools/enter-worktree.js read-only. Compare how they isolate authority, then synthesize the findings before proposing any edits.',
+          permissionStyle: 'look-only',
+          tools: [...DEFAULT_TOOL_NAMES, 'spawn_agent'],
           maxSteps: 12,
           runnerPath: PLAYGROUND,
           cwd: PLAYGROUND,
@@ -2359,7 +2445,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
             'git_status',
             'manage_tasks',
             'ask_user_question',
-            'spawn_agent',
             'enter_worktree',
             'exit_worktree',
             'edit_file',
@@ -2406,7 +2491,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         if (!p.permissionsOnly) {
           applyPresetValue(sessionId, 'sessionId', p);
           applyPresetValue(sessionPath, 'sessionPath', p);
-          applyPresetValue(resumePath, 'resumePath', p);
           applyPresetValue(forkFrom, 'forkFrom', p);
           applyPresetValue(tracePath, 'tracePath', p);
           applyPresetValue(bridgeUrl, 'bridgeUrl', p);
@@ -2417,7 +2501,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           systemPromptFile.value = p.systemPromptFile || '';
           appendSystemPrompt.value = p.appendSystemPrompt || '';
           appendSystemPromptFile.value = p.appendSystemPromptFile || '';
-          applyPresetValue(permissionMode, 'permissionMode', p);
           applyPresetValue(temperature, 'temperature', p);
           applyPresetValue(compactAtTokens, 'compactAtTokens', p);
           applyPresetValue(maxRunTokens, 'maxRunTokens', p);
@@ -2459,8 +2542,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           'compactEachTurn',
           'autoMemory',
           'noArchive',
-          'replayMode',
-          'repairMode',
           'bareContext',
           'includeInstructionDocs',
           'includeRepoContext',
@@ -2493,8 +2574,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           compactEachTurn,
           autoMemory,
           noArchive,
-          replayMode,
-          repairMode,
           bareContext,
           includeInstructionDocs,
           includeRepoContext,

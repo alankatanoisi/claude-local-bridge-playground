@@ -154,7 +154,7 @@ tool args can't leak into process listings or trip shell parsing.</div>
     <li>On breach, return <code>{decision: "ask", reason}</code> — route through the existing confirm port
     (<code>confirm.ask(proposedAction, timeoutMs)</code>) that the pipeline already owns, so UX and timeout
     semantics match normal confirmations. One approval re-arms the counter at 2× the threshold.</li>
-    <li>Persist counters in the session store so <code>--resume</code> can't reset the odometer.</li>
+    <li>Persist counters in the session store so <code>--resume-session</code> can't reset the odometer.</li>
   </ul>
 </div>
 

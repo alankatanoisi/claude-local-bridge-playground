@@ -182,13 +182,13 @@
   <ul>
     <li><strong>Clean stdout</strong> — usage/cost goes to stderr, so Shortcuts gets pure answer text</li>
     <li><strong>Multimodal reads</strong> — <code>read_file</code> attaches images (≤7MB) and PDFs (≤10MB) as model content</li>
-    <li><strong>Permission modes</strong> — <code>--plan</code>, <code>--accept-edits</code>, <code>--dont-ask</code>, profiles like <code>review-only</code></li>
+    <li><strong>Permission controls</strong> — <code>--plan</code>, <code>--accept-edits</code>, and <code>--dont-ask</code> make authority explicit</li>
     <li><strong>Prompt templates</strong> — <code>--prompt-template review --prompt-arg focus=…</code> with typed parameters</li>
-    <li><strong>File agents</strong> — <code>code-reviewer</code>, <code>debugger</code>, <code>refactoring-specialist</code>, <code>test-automator</code></li>
+    <li><strong>Optional tools</strong> — capability groups expose agents, worktrees, skills, or LSP only when a recipe needs them</li>
     <li><strong>Worktree isolation</strong> — risky edits land on fresh branches, never the main checkout</li>
     <li><strong>Budgets</strong> — <code>--max-cost-usd</code>, <code>--budget-output-tokens</code> hard-stop runaway runs</li>
     <li><strong>Whole-run rollback</strong> — <code>local-bridge-undo.js last-run --yes</code> reverts an entire run</li>
-    <li><strong>Session resume</strong> — <code>--continue</code> picks up the latest transcript</li>
+    <li><strong>Session resume</strong> — named session checkpoints carry canonical model state across Shortcut runs</li>
     <li><strong>Throwaway labs</strong> — <code>create-runner-throwaway-lab.js</code> mints disposable sandboxes</li>
   </ul>
 </section>
@@ -318,9 +318,9 @@ node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"
     <span class="badge trigger">Share Sheet · PDFs</span>
     <span class="badge safe">read-only</span>
     <span class="badge">multimodal PDF</span>
-    <span class="badge">--continue follow-ups</span>
+    <span class="badge">named-session follow-ups</span>
   </div>
-  <p class="desc">The runner's <code style="font-family:var(--mono)">read_file</code> attaches PDFs up to 10MB as native Anthropic content blocks. This shortcut drops the shared PDF into the inbox, asks you for a question via a dialog, and answers from the document. A companion one-action shortcut using <code style="font-family:var(--mono)">--continue</code> resumes the same transcript for follow-up questions.</p>
+  <p class="desc">The runner's <code style="font-family:var(--mono)">read_file</code> attaches PDFs up to 10MB as native Anthropic content blocks. This shortcut drops the shared PDF into the inbox, asks you for a question via a dialog, and answers from the document. A companion one-action shortcut resumes the named canonical session for follow-up questions.</p>
   <div class="flow"><span class="label">Shortcut actions</span>
     <ol>
       <li><strong>Receive</strong> PDFs from Share Sheet</li>
@@ -330,13 +330,13 @@ node bin/local-bridge-runner.js <span class="fl">--cwd</span> <span class="st">"
     </ol>
   </div>
   <pre><code>cd <span class="st">"/Users/alanman/Developer/claude-local-bridge-playground"</span>
-node bin/local-bridge-runner.js <span class="fl">--bare --dont-ask --max-cost-usd</span> 0.60 \
+node bin/local-bridge-runner.js <span class="fl">--bare --dont-ask --session-id shortcut-pdf-qa --max-cost-usd</span> 0.60 \
   <span class="st">"Read .bridge-runner/inbox/doc.pdf and answer precisely,
    citing page/section where possible: $1"</span> 2>/dev/null
 
 <span class="cm"># Follow-up shortcut ("Ask the PDF again"), one action:</span>
-node bin/local-bridge-runner.js <span class="fl">--continue --dont-ask</span> <span class="st">"$1"</span> 2>/dev/null</code></pre>
-  <div class="why"><strong>Why it's clever:</strong> <code>--continue</code> resumes the latest transcript from <code>~/.bridge-runner/logs/</code>, turning two stateless shortcuts into a stateful document-chat pair.</div>
+node bin/local-bridge-runner.js <span class="fl">--session-id shortcut-pdf-qa --resume-session --dont-ask</span> <span class="st">"$1"</span> 2>/dev/null</code></pre>
+  <div class="why"><strong>Why it's clever:</strong> the second Shortcut resumes <code>shortcut-pdf-qa</code> from <code>~/.bridge-runner/sessions/</code>. It restores canonical model state instead of mistaking an audit transcript for a conversation checkpoint.</div>
 </div>
 
 <!-- ═══════════════ 6 ═══════════════ -->

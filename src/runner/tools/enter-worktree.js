@@ -27,6 +27,7 @@ function definition() {
     name: 'enter_worktree',
     description:
       'Create an isolated git worktree on a fresh branch and switch the runner into it. ' +
+      'Use it at your discretion when isolating edits from the current checkout materially reduces risk. ' +
       'Use slot to manage multiple parallel worktrees in one run (switch by re-entering the same slot). ' +
       'Requires the cwd to be a git repository.',
     input_schema: {

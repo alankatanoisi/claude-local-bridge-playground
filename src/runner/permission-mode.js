@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * permission-mode.js — Map Claude Code-style permission modes to runner flags.
+ * permission-mode.js — Map runner permission bundles to explicit authority flags.
  */
 
 const MODES = Object.freeze({
@@ -17,6 +17,9 @@ const MODES = Object.freeze({
     plan: false,
     allowShell: false,
   },
+  // `auto` is retained only as a compatibility alias. It means "do not pause
+  // for confirmations on tools the operator already exposed"; it does not
+  // approve edits, expose shell, or grant any additional capability.
   auto: { acceptEdits: false, dontAsk: true, plan: false, allowShell: false },
 });
 

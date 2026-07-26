@@ -14,7 +14,8 @@ function definition() {
     name: 'ask_user_question',
     description:
       'Ask the human operator a structured multiple-choice question before proceeding. ' +
-      'Requires an interactive terminal; unavailable in child workers or --dont-ask runs.',
+      'Use it only when unresolved ambiguity would materially change the result and no safe assumption is available. ' +
+      'Requires an interactive terminal; unavailable in child workers, plan mode, or --dont-ask runs.',
     input_schema: {
       type: 'object',
       properties: {

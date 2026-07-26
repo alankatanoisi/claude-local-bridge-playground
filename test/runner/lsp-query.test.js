@@ -41,6 +41,26 @@ describe('lsp client (mock transport)', () => {
     assert.equal(result.contents, 'number');
     client.dispose();
   });
+
+  it('reports a missing language-server executable without crashing Node', async () => {
+    // This command name is intentionally impossible. On macOS and Linux,
+    // ChildProcess reports the missing program with an asynchronous ENOENT
+    // event—the exact path that previously terminated the whole runner.
+    const missingCommand = 'bridge-runner-language-server-that-does-not-exist';
+    const client = new LspClient({
+      command: missingCommand,
+      args: ['--stdio'],
+      cwd: process.cwd(),
+      timeoutMs: 1_000,
+    });
+
+    await assert.rejects(
+      client.initialize('file:///tmp'),
+      new RegExp('Could not start language server "' + missingCommand + '".*not found on PATH'),
+    );
+
+    client.dispose();
+  });
 });
 
 describe('lsp_query tool gates', () => {

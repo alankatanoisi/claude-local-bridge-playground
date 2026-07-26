@@ -14,6 +14,7 @@ function definition() {
     name: 'run_skill',
     description:
       'Load a skill document by name from .bridge-runner/skills/ or .cursor/skills/ and return its body. ' +
+      'Use it when an available project skill clearly matches the task. ' +
       'Read-only: does not execute shell or network actions embedded in the skill text.',
     input_schema: {
       type: 'object',

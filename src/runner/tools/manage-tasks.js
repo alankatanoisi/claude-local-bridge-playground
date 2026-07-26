@@ -16,7 +16,8 @@ function definition() {
     name: 'manage_tasks',
     description:
       'Create or update the in-session task checklist. Use merge=true to upsert tasks by id, ' +
-      'or merge=false to replace the whole list. Status values: pending, in_progress, completed, cancelled.',
+      'or merge=false to replace the whole list. Use it for multi-step work that benefits from durable progress tracking, ' +
+      'not for a simple one-step answer. Status values: pending, in_progress, completed, cancelled.',
     input_schema: {
       type: 'object',
       properties: {

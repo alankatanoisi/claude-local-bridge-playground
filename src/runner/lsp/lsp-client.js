@@ -21,6 +21,10 @@ class LspClient {
     this.pending = new Map();
     this.ready = false;
     this.disposed = false;
+    // A missing executable is reported asynchronously by Node's ChildProcess.
+    // Remember that startup failure so later calls get the same useful error
+    // instead of the vague "not running" message.
+    this.startupError = null;
     this.framer = createFramer((msg) => this._onMessage(msg));
     if (this.child) {
       this.child.stdout.on('data', (chunk) => this.framer.feed(chunk));
@@ -39,13 +43,36 @@ class LspClient {
     this.child.stderr.on('data', () => {
       // language servers are noisy on stderr; ignore for v1
     });
+    this.child.on('error', (err) => {
+      // `spawn()` does not throw when a command is missing. It emits `error`
+      // on the child a moment later. Without this listener, Node treats ENOENT
+      // as an uncaught event and terminates the whole runner process.
+      const detail =
+        err && err.code === 'ENOENT'
+          ? 'executable was not found on PATH'
+          : err && err.message
+            ? err.message
+            : 'unknown startup error';
+      this.startupError = new Error('Could not start language server "' + this.command + '": ' + detail + '.');
+      this._failPending(this.startupError);
+    });
+    this.child.stdin.on('error', (err) => {
+      // A server can also close its input stream during startup. The request
+      // waiting for that server should fail cleanly rather than emit EPIPE as
+      // another uncaught stream error.
+      this._failPending(new Error('Language server input closed: ' + err.message));
+    });
     this.child.on('exit', () => {
       this.disposed = true;
-      for (const [, pending] of this.pending) {
-        pending.reject(new Error('Language server exited unexpectedly.'));
-      }
-      this.pending.clear();
+      this._failPending(this.startupError || new Error('Language server exited unexpectedly.'));
     });
+  }
+
+  _failPending(err) {
+    for (const [, pending] of this.pending) {
+      pending.reject(err);
+    }
+    this.pending.clear();
   }
 
   _onMessage(msg) {
@@ -60,6 +87,9 @@ class LspClient {
   }
 
   _send(payload) {
+    if (this.startupError) {
+      throw this.startupError;
+    }
     if (!this.child || !this.child.stdin.writable) {
       throw new Error('Language server is not running.');
     }
@@ -83,7 +113,16 @@ class LspClient {
           reject(err);
         },
       });
-      this._send({ jsonrpc: '2.0', id, method, params });
+      try {
+        this._send({ jsonrpc: '2.0', id, method, params });
+      } catch (err) {
+        // `_send` can fail synchronously after we registered the request.
+        // Route it through the normal pending rejection so its timeout is
+        // cleared and the map does not retain a dead request.
+        const pending = this.pending.get(id);
+        this.pending.delete(id);
+        if (pending) pending.reject(err);
+      }
     });
   }
 

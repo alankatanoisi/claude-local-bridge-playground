@@ -404,9 +404,9 @@ Useful runner options:
 | `--include-instruction-docs`                             | Opt in to AGENTS.md / CLAUDE.md instruction hierarchy                                                                                          |
 | `--include-repo-context`                                 | Opt in to session repo-context block (cwd/git fingerprint)                                                                                     |
 | `--include-claude-md`                                    | Include CLAUDE.md in repo-context (needs `--include-repo-context`)                                                                             |
-| `--include-repo-map`                                     | Opt in to repo map inside repo-context                                                                                                         |
+| `--include-repo-map`                                     | Add a capped repo map (needs `--include-repo-context`)                                                                                         |
 | `--include-skills`                                       | Opt in to skills listing in the system prompt                                                                                                  |
-| `--permission-mode <m>`                                  | default, plan, accept-edits, dont-ask, accept-edits-dont-ask, auto                                                                             |
+| `--permission-mode <m>`                                  | Permission bundle; `auto` is a legacy alias for `dont-ask` and does not approve edits or enable shell                                         |
 | `--tools <list>`                                         | Expose only these tools (e.g. include `apply_patch` to opt into advanced patch mode)                                                           |
 | `--capabilities <groups>`                                | Enable optional tool groups beyond the default core: `edits`, `recovery`, `agents`, `worktrees`, `skills`, `lsp` (shell needs `--allow-shell`) |
 | `--append-system-prompt` / `--append-system-prompt-file` | Add text after the default system prompt                                                                                                       |
@@ -449,7 +449,7 @@ Useful runner options:
 | `--compact-each-turn`                                    | Aggressive compaction preset (compact-after-task UX)                                                                                           |
 | `--auto-memory`                                          | Opt-in runner auto-memory in context (default off)                                                                                             |
 | `--review-memory`                                        | List pending memory promotions for approval, then exit                                                                                         |
-| `--session-extract`                                      | Queue background session extraction after completion                                                                                           |
+| `--session-extract`                                      | After a successful trusted persisted session, queue a run-summary memory proposal for later review                                             |
 | `--trusted-workspace`                                    | Enable hooks from `.bridge-runner/hooks.json` in cwd (exec hooks also need `"trusted": true` in that file)                                     |
 | `--inherit-workspace-trust`                              | Child runs inherit a parent's validated cwd (no trust.json write)                                                                              |
 | `--shell-timeout <ms>`                                   | Max time for shell commands (default 30000, cap 900000)                                                                                        |

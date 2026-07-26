@@ -151,4 +151,23 @@ describe('command-builder drift', () => {
       );
     }
   });
+
+  it('wires the LSP gate into the live render listener set', () => {
+    assert.match(
+      BUILDER_HTML,
+      /allowShell,\s*enableLsp,\s*shellTimeout,/,
+      'enableLsp must trigger render so --enable-lsp and lsp_query update immediately',
+    );
+  });
+
+  it('does not advertise retired transcript resume or a nonexistent health route', () => {
+    assert.doesNotMatch(BUILDER_HTML, /--resume(?:\s|&lt;)/, 'Builder still emits or teaches retired --resume');
+    assert.doesNotMatch(BUILDER_HTML, /127\.0\.0\.1:11437\/health/, 'Builder still teaches the dead /health route');
+  });
+
+  it('matches the runtime shell-timeout ceiling and keeps caller tokens out of saved state', () => {
+    assert.match(BUILDER_HTML, /id="shellTimeout"[^>]*max="900000"/);
+    const collectBody = BUILDER_HTML.match(/function collectFormState\(\) \{([\s\S]*?)\n\s*\}/)?.[1] || '';
+    assert.doesNotMatch(collectBody, /callerToken\s*:/, 'collectFormState must not persist caller auth tokens');
+  });
 });

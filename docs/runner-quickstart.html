@@ -653,8 +653,8 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             </tr>
             <tr>
               <td><code>--resume &lt;path&gt;</code></td>
-              <td>off</td>
-              <td>Continue from an existing transcript</td>
+              <td>deprecated</td>
+              <td>Rejected: transcripts are audit logs. Use <code>--resume-session</code> with a session id/path.</td>
             </tr>
             <tr>
               <td><code>--session-id &lt;id&gt;</code></td>
@@ -758,7 +758,10 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             <tr>
               <td><code>--session-extract</code></td>
               <td>off</td>
-              <td>After run, queue session learning proposals (requires trusted workspace)</td>
+              <td>
+                After a successful run, queue a run-summary memory proposal for later review. Requires workspace
+                trust and a persisted session id/path.
+              </td>
             </tr>
             <tr>
               <td><code>--replay</code></td>
@@ -823,7 +826,10 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             <tr>
               <td><code>--permission-mode &lt;m&gt;</code></td>
               <td>default</td>
-              <td>Claude Code–style permission bundle (plan, accept-edits, dont-ask, auto, …)</td>
+              <td>
+                Runner permission bundle. <code>auto</code> is a legacy alias for <code>dont-ask</code>; it does not
+                approve edits or enable shell.
+              </td>
             </tr>
             <tr>
               <td><code>--tools &lt;list&gt;</code></td>
@@ -848,7 +854,7 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             <tr>
               <td><code>--continue</code></td>
               <td>off</td>
-              <td>Resume from the latest transcript in <code>~/.bridge-runner/logs/</code></td>
+              <td>Resume from the latest canonical checkpoint in <code>~/.bridge-runner/sessions/</code></td>
             </tr>
             <tr>
               <td><code>--accept-edits</code></td>
@@ -1094,18 +1100,19 @@ node bin/local-bridge-coordinator.js \
       <section>
         <h2>Resuming sessions</h2>
         <p>
-          Use <code>--resume &lt;path&gt;</code> to continue from a specific transcript, or <code>--continue</code> to
-          automatically pick up the latest transcript from <code>~/.bridge-runner/logs/</code>.
+          Use <code>--resume-session</code> with <code>--session-id</code> or <code>--session-path</code> to continue a
+          specific canonical session. Use <code>--continue</code> to pick the newest checkpoint from
+          <code>~/.bridge-runner/sessions/</code>. A JSONL transcript is an audit log and cannot restore model state.
         </p>
         <pre><code>node bin/local-bridge-runner.js --continue "Now add error handling to the function we just wrote"</code></pre>
         <p>
-          In the playground, prefer <code>--session-id</code> for reliable resume. The JSONL transcript is an audit log;
-          the <code>*.state.json</code> file under <code>~/.bridge-runner/sessions/</code> is the canonical conversation
-          state when a session id is set.
+          A session id names a <code>*.state.json</code> checkpoint under <code>~/.bridge-runner/sessions/</code>.
+          Resume is explicit so the runner cannot silently mistake an ordinary transcript for canonical conversation
+          state.
         </p>
         <pre><code>node bin/local-bridge-runner.js \
   --session-id my-project-1 \
-  --resume ~/.bridge-runner/logs/2025-05-24T12-00-00.jsonl \
+  --resume-session \
   "What did we decide in the last run?"</code></pre>
       </section>
 
@@ -1128,7 +1135,7 @@ node bin/local-bridge-coordinator.js \
           and a neutral coding-assistant identity. It does <strong>not</strong> load project markdown files unless you
           opt in. Use <code>--include-instruction-docs</code> for the AGENTS.md hierarchy,
           <code>--include-repo-context</code> for cwd/git fingerprinting, <code>--include-repo-map</code> for a capped
-          tree snapshot. <code>--bare</code> is the strictest minimal mode.
+          tree snapshot inside that repo-context block. <code>--bare</code> is the strictest minimal mode.
         </p>
         <p>
           The local bridge may still prepend Claude Code OAuth identity text upstream; that is transport context,

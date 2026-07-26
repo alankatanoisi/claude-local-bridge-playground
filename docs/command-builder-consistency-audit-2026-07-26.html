@@ -571,7 +571,8 @@
         <p class="lede">
           A source, browser, CLI, and live-model audit of <code>docs/command-builder.html</code> against the current
           Claude Local Bridge runner. The main conclusion: the ordinary command-generation core is sound, but several
-          high-value controls tell the wrong story or generate commands that cannot work as presented.
+          high-value controls originally told the wrong story or generated commands that could not work as presented.
+          A remediation record below preserves that original diagnosis while documenting the completed fixes.
         </p>
         <div class="meta">
           <span class="pill">Audit date: 2026-07-26</span>
@@ -579,10 +580,12 @@
           <span class="pill">Branch: main</span>
           <span class="pill">Baseline commit: b855e58</span>
           <span class="pill">Builder size at handoff: 2,547 lines</span>
+          <span class="pill">Remediation: implemented and validated</span>
         </div>
       </header>
 
       <nav class="nav" aria-label="Report sections">
+        <a href="#remediation">Remediation</a>
         <a href="#verdict">Verdict</a>
         <a href="#scope">Scope &amp; method</a>
         <a href="#findings">Findings</a>
@@ -592,6 +595,121 @@
         <a href="#tests">Checks</a>
         <a href="#fix-order">Fix order</a>
       </nav>
+
+      <section id="remediation">
+        <h2>Remediation update</h2>
+        <div class="callout" style="border-color: rgba(94, 224, 155, 0.48); background: rgba(94, 224, 155, 0.07)">
+          <strong style="color: var(--green)">All 12 original findings are addressed in the current working tree.</strong>
+          The original verdict and evidence remain below as the post-mortem baseline. This section records what changed,
+          how it was tested, and one separate orchestration observation discovered during the live follow-up.
+        </div>
+
+        <div class="grid">
+          <article class="card">
+            <div class="metric green">12 / 12</div>
+            <strong>Audit findings remediated</strong>
+            <p>LSP, resume, authority, dependency, persistence, teaching, and drift-gate findings all have code or UI fixes.</p>
+          </article>
+          <article class="card">
+            <div class="metric green">777 / 777</div>
+            <strong>Repository tests passed</strong>
+            <p>The full Node test suite completed with zero failures after the remediation.</p>
+          </article>
+          <article class="card">
+            <div class="metric green">390 px</div>
+            <strong>Small-screen browser pass</strong>
+            <p>The live page stayed single-column with zero horizontal overflow at a 390 × 844 viewport.</p>
+          </article>
+        </div>
+
+        <div class="table-wrap" style="margin-top: 1rem">
+          <table>
+            <thead>
+              <tr>
+                <th>Original fix group</th>
+                <th>Status</th>
+                <th>Implemented result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>LSP determinism</td>
+                <td><span class="status pass">Resolved</span></td>
+                <td>
+                  The checkbox now triggers rendering, always includes <code>lsp_query</code> when enabled, and survives
+                  preset changes. Missing language-server executables return a friendly tool error instead of an
+                  unhandled child-process event.
+                </td>
+              </tr>
+              <tr>
+                <td>Guaranteed-failure commands</td>
+                <td><span class="status pass">Resolved</span></td>
+                <td>
+                  Transcript resume was removed from the builder; specified resume requires an id/path; experimental
+                  replay/repair controls remain disabled and no longer restore stale saved state; the dead
+                  <code>/health</code> instruction was replaced by the VS Code status command.
+                </td>
+              </tr>
+              <tr>
+                <td>Preset and authority truthfulness</td>
+                <td><span class="status pass">Resolved</span></td>
+                <td>
+                  Delegate now exposes the agents capability without secretly adding <code>--plan</code>. True read-only
+                  mode is enforced through its tool surface. The duplicate advanced permission selector was removed,
+                  <code>auto</code> is documented as a legacy <code>dont-ask</code> alias, and summaries account for
+                  actual selected tools.
+                </td>
+              </tr>
+              <tr>
+                <td>Dependencies without erased choices</td>
+                <td><span class="status pass">Resolved</span></td>
+                <td>
+                  Bare/repo-context dependencies now grey out inactive children while preserving their checked state.
+                  Session extraction exposes its trust, persisted-session, and id/path prerequisites before copy.
+                </td>
+              </tr>
+              <tr>
+                <td>Behavioral drift gate</td>
+                <td><span class="status pass">Resolved</span></td>
+                <td>
+                  A dependency-free DOM harness executes the builder’s real inline script. It covers LSP, copy parity,
+                  Delegate, resume/extract blocking, context dependencies, spaced template arguments, sensitive
+                  persistence, and every preset. Static checks also guard listeners, model/tool facts, retired resume,
+                  dead health copy, and shell-timeout limits.
+                </td>
+              </tr>
+              <tr>
+                <td>Teaching and safety details</td>
+                <td><span class="status pass">Resolved</span></td>
+                <td>
+                  Template arguments are one <code>key=value</code> per line with spaces preserved; caller tokens are
+                  never stored; memory labels match runtime behavior; initial validation renders immediately; copy is
+                  blocked for invalid commands; prompt/live-region accessibility and numeric ceilings are aligned.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout">
+          <strong>Tool availability versus intent is now explicit.</strong> The runner’s standing system guidance tells
+          the model that enabled tools are discretionary capabilities and that it need not wait for the operator to name
+          them. Multiple substantial independent read-only tracks prefer <code>spawn_agent</code> when delegation
+          overhead is worthwhile. The builder separately explains the permission layer: orchestration asks by default;
+          <code>--dont-ask</code> permits already-enabled orchestration in an unattended run, but still does not expose
+          shell or approve writes.
+        </div>
+
+        <div class="callout warning">
+          <strong>New follow-up observation — not an original builder finding.</strong> In a live read-only probe, Claude
+          autonomously attempted multiple <code>spawn_agent</code> calls without being told to use that tool. The first
+          run was correctly denied because the terminal was non-interactive and orchestration asks by default. A second
+          run with <code>--dont-ask</code> reached the child-budget path, where child starts were refused with
+          “no unleased remainder” despite no explicit token-budget flags. The autonomy/permission behavior is therefore
+          proven, but concurrent child-budget leasing deserves a separate runtime investigation before calling the
+          unattended multi-agent path fully validated.
+        </div>
+      </section>
 
       <section id="verdict">
         <h2>Executive verdict</h2>
@@ -1423,10 +1541,10 @@
       </section>
 
       <footer class="footer">
-        <strong>Handoff.</strong> Report-only audit: no builder, CLI, runtime, test, or configuration fix was applied.
-        Alan’s tentative plan and the concurrent context-management source work were preserved. The late builder
-        token-budget update was rechecked but not authored or altered by this audit. Temporary live-probe transcripts
-        were written under <code>/tmp/command-builder-audit-2026-07-26/</code>, not into the repository.
+        <strong>Handoff update.</strong> The original report-only baseline is preserved above, followed by the remediation
+        record. Builder, runner context guidance, LSP startup handling, current operator docs, and regression tests were
+        updated. Live-probe transcripts remain temporary under <code>/tmp/</code>; no credentials, session checkpoints,
+        or repository archives were created by those probes.
       </footer>
     </main>
   </body>

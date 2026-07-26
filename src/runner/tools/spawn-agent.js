@@ -33,6 +33,8 @@ function definition() {
     name: 'spawn_agent',
     description:
       'Delegate a focused read-only subtask to a generic child agent with its own context window. ' +
+      'Prefer it for two or more substantial independent research tracks unless child-agent overhead would exceed the benefit. ' +
+      'The user does not need to request delegation. ' +
       'The child returns a summary and cannot spawn further children.',
     input_schema: {
       type: 'object',

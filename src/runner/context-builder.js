@@ -10,7 +10,12 @@ const { execFileSync } = require('child_process');
 const { loadInstructionMemory } = require('./memory/instruction-memory');
 const { buildAutoMemorySection, isAutoMemoryEnabled } = require('./memory/auto-memory');
 const { buildSkillsIndex } = require('./skills/skills-index');
-const { buildToolSummarySection, capSkillListing, applyContextBudget } = require('./context-budget');
+const {
+  buildToolSummarySection,
+  buildToolJudgmentSection,
+  capSkillListing,
+  applyContextBudget,
+} = require('./context-budget');
 const { isToolVisible } = require('./tool-visibility');
 const { buildRepoMap } = require('./repo-map');
 const { DEFAULT_POLICY } = require('./context-policy');
@@ -106,6 +111,7 @@ function buildSystem(ctx, options = {}) {
   intro += 'Inspect, edit, or validate only when the user request needs it.\n\n';
 
   const toolsSection = progressive ? buildToolSummarySection(ctx) : buildFullToolSection(ctx);
+  const toolJudgmentSection = buildToolJudgmentSection(ctx);
   const rulesSection = buildRulesSection(ctx);
 
   let instructionText = '';
@@ -131,6 +137,7 @@ function buildSystem(ctx, options = {}) {
   return applyContextBudget([
     { label: 'intro', text: intro },
     { label: 'tools', text: toolsSection },
+    { label: 'tool judgment', text: toolJudgmentSection },
     { label: 'rules', text: rulesSection },
     { label: 'instructions', text: instructionText },
     { label: 'skills', text: skillsListing },
