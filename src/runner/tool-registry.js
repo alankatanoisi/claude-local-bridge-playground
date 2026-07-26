@@ -166,6 +166,16 @@ async function runAndScrub(tool, args, ctx, toolUseId) {
     redacted = result.text !== originalText;
   }
 
+  // A6: `text` is not the only content-bearing field a tool can return.
+  // edit_file also returns `diff` as a sibling top-level field carrying real
+  // file lines. Scrubbing it here rather than inside edit_file keeps one
+  // redaction boundary and covers any future tool that returns a diff.
+  if (result && typeof result.diff === 'string') {
+    const originalDiff = result.diff;
+    result.diff = safety.scrubSecrets(originalDiff);
+    if (result.diff !== originalDiff) redacted = true;
+  }
+
   // E4: boundary auto-summarization. Runs *after* scrubbing so dropped bytes
   // can't smuggle a secret past the redactor. Tools opt-in via the registry
   // in tool-result-summarizers.js; unregistered tools pass through unchanged.

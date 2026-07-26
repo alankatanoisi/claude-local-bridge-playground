@@ -16,6 +16,7 @@ const safety = require('../../src/runner/safety');
 const { SessionStore } = require('../../src/runner/session-store');
 const { SessionLedger } = require('../../src/runner/session-ledger');
 const { run } = require('../../src/runner/run');
+const { execute: registryExecute, getDefinitions, snapshotOfferedTools } = require('../../src/runner/tool-registry');
 const { modeBits, FILE_MODE, DIR_MODE } = require('../../src/runner/private-fs');
 
 const SECRET = 'sk-ant-abc123def456ghi789jkl012mno345pqr678stu';
@@ -140,5 +141,42 @@ describe('P0-11 redaction boundary', () => {
     const display = scrubDeepSecrets({ content: body });
     assert.match(display.content, /\[REDACTED\]/);
     assert.doesNotMatch(display.content, /supersecret_token_value_xyz/);
+  });
+
+  // A6: `text` was the only content-bearing field the boundary covered.
+  // edit_file returns `diff` alongside it, carrying real file lines.
+  it('edit_file result.diff passes through the redaction boundary, not around it', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'a6-diff-'));
+    const file = path.join(tmp, 'conf.js');
+    // Two secrets: one on the line being changed, one in the ±2 context window.
+    fs.writeFileSync(file, 'const a = 1;\nconst KEY = "' + SECRET + '";\nconst target = "old";\n', 'utf8');
+
+    // edit_file lives in the `edits` capability group, which needs an explicit
+    // opt-in — same shape a real run gets from --capabilities edits.
+    const ctx = {
+      cwd: tmp,
+      cwdRealpath: fs.realpathSync(tmp),
+      acceptEdits: true,
+      dontAsk: true,
+      enabledCapabilities: new Set(['edits']),
+    };
+    const definitions = getDefinitions(ctx);
+    snapshotOfferedTools(ctx, definitions);
+
+    const result = await registryExecute(
+      'edit_file',
+      { path: 'conf.js', old_string: '"old"', new_string: '"new"' },
+      ctx,
+      'toolu_a6_diff',
+    );
+
+    assert.equal(result.ok, true, result.text);
+    assert.equal(typeof result.diff, 'string', 'diff field still present for callers that read it');
+    assert.ok(!result.diff.includes(SECRET), 'raw secret must not survive in result.diff');
+    assert.match(result.diff, /\[REDACTED:anthropic_key\]/);
+    // text was already covered; assert both fields agree so neither regresses alone.
+    assert.ok(!result.text.includes(SECRET));
+    // The file on disk keeps its real content — only display copies are scrubbed.
+    assert.ok(fs.readFileSync(file, 'utf8').includes(SECRET));
   });
 });

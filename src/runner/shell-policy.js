@@ -9,6 +9,11 @@
  */
 
 const path = require('path');
+// A11: sensitive-filename matching lives in safety.js as the single source of
+// truth. shell-policy used to keep its own copy, which had drifted to a strict
+// subset — shell permitted `.netrc`, `.npmrc`, and `id_rsa` basenames that the
+// file tools already denied. Importing the shared list closes that asymmetry.
+const { isBlockedBasename } = require('./safety');
 
 /** Short label for CLI flags, banners, and compact warnings. */
 const SHELL_AUTHORITY_SHORT =
@@ -22,30 +27,6 @@ const SHELL_AUTHORITY_HONESTY =
   'Shell is unsandboxed local-account authority: commands start in --cwd but can ' +
   'read/write absolute paths outside it, spawn processes, and reach the network ' +
   'unless separately constrained. Regex scanning and --no-network are defense-in-depth, not OS isolation.';
-
-const BLOCKED_BASENAMES = ['.env', '.env.local', '.env.production', '.env.development', '.envrc'];
-const BLOCKED_PATTERNS = [
-  /^\.env/i,
-  /^credentials.*\.json$/i,
-  /service[-_]?account.*\.json$/i,
-  /firebase.*adminsdk.*\.json$/i,
-  /^token.*$/i,
-  /^.*\.pem$/i,
-  /^.*\.key$/i,
-  /^.*\.p8$/i,
-  /^.*\.p12$/i,
-  /^.*\.pfx$/i,
-  /^.*_token$/i,
-  /^.*secret.*$/i,
-];
-
-function isBlockedBasename(basename) {
-  if (BLOCKED_BASENAMES.includes(basename)) return true;
-  for (const pattern of BLOCKED_PATTERNS) {
-    if (pattern.test(basename)) return true;
-  }
-  return false;
-}
 
 const NETWORK_PATTERNS = [
   /\bcurl\b/i,
@@ -103,10 +84,9 @@ function isBlockedPathToken(token) {
   const t = String(token || '').replace(/^['"]|['"]$/g, '');
   if (!t) return false;
   const base = path.basename(t);
+  // One basename check, not two: the loop that used to follow this line
+  // re-tested the exact same pattern array isBlockedBasename already walks.
   if (isBlockedBasename(base)) return true;
-  for (const pattern of BLOCKED_PATTERNS) {
-    if (pattern.test(base)) return true;
-  }
   for (const seg of HARD_DENY_PATH_SEGMENTS) {
     if (t.includes(seg)) return true;
   }

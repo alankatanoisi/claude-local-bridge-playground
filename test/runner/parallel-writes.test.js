@@ -61,6 +61,42 @@ describe('B3 path-disjoint grouping', () => {
     );
   });
 
+  // A10: grouping used to canonicalize with confinePath, which returns the
+  // LEXICAL path. Two names for one file therefore produced two different
+  // strings, looked disjoint, and were written in parallel to the same inode.
+  // resolveFileTarget keys on the realpath, so the aliases now collide.
+  it('does not treat a symlink and its target as disjoint', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'b3-alias-'));
+    fs.writeFileSync(path.join(tmp, 'real.txt'), '');
+    fs.symlinkSync(path.join(tmp, 'real.txt'), path.join(tmp, 'alias.txt'));
+    const ctx = { cwd: tmp, cwdRealpath: fs.realpathSync(tmp) };
+    const writeTools = [
+      { id: '1', name: 'write_file', input: { path: 'real.txt' } },
+      { id: '2', name: 'edit_file', input: { path: 'alias.txt' } },
+    ];
+    const groups = _groupDisjointWrites(writeTools, ctx);
+    assert.equal(groups.length, 2, 'aliases of one file must not share a parallel group');
+    assert.deepEqual(
+      groups.map((g) => g.map((t) => t.id)),
+      [['1'], ['2']],
+    );
+  });
+
+  it('still groups genuinely distinct files when a symlink is present', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'b3-alias-ok-'));
+    fs.writeFileSync(path.join(tmp, 'real.txt'), '');
+    fs.writeFileSync(path.join(tmp, 'other.txt'), '');
+    fs.symlinkSync(path.join(tmp, 'other.txt'), path.join(tmp, 'alias.txt'));
+    const ctx = { cwd: tmp, cwdRealpath: fs.realpathSync(tmp) };
+    const writeTools = [
+      { id: '1', name: 'write_file', input: { path: 'real.txt' } },
+      { id: '2', name: 'edit_file', input: { path: 'alias.txt' } },
+    ];
+    const groups = _groupDisjointWrites(writeTools, ctx);
+    assert.equal(groups.length, 1, 'alias resolving to a different inode is still disjoint');
+    assert.equal(groups[0].length, 2);
+  });
+
   it('isolates tools without a `path` argument (e.g. bash)', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'b3-bash-'));
     const ctx = { cwd: tmp, cwdRealpath: fs.realpathSync(tmp) };

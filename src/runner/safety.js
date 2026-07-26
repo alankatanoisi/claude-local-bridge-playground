@@ -92,8 +92,68 @@ const BLOCKED_DIRS = ['.git', 'node_modules', 'dist', 'build', 'coverage', 'acti
 // Deny matrix — path patterns that are always denied (read or write)
 // ---------------------------------------------------------------------------
 
+/**
+ * A11: the single source of truth for "this *filename* is sensitive".
+ *
+ * Before this consolidation the same list existed three times — here inside
+ * DENY_MATRIX_PATTERNS, in shell-policy.js, and in permissions.js (where it was
+ * dead code, exported and unit-tested but never reached by `check`). Three
+ * copies meant three chances to update only two of them.
+ *
+ * These are deliberately *basename* tests, not path tests: they answer "is the
+ * last path segment a sensitive kind of file?" regardless of where it lives.
+ * The directory-segment rules below are a separate tier — see the comment on
+ * DENY_MATRIX_PATTERNS for why the two must not be merged.
+ */
+const BLOCKED_BASENAME_PATTERNS = [
+  // Block env files conservatively: .env, .env.local, .env.test, .envrc, .env.example.
+  /^\.env/i,
+  /^\.netrc$/,
+  /^\.npmrc$/,
+  // Private-key and credential filenames
+  /^id_rsa/,
+  /^id_ed25519/,
+  /\.pem$/i,
+  /\.key$/i,
+  /\.p8$/i,
+  /\.p12$/i,
+  /\.pfx$/i,
+  /^credentials.*\.json$/i,
+  /service[-_]?account.*\.json$/i,
+  /firebase.*adminsdk.*\.json$/i,
+  // Token / secret naming conventions
+  /^token/i,
+  /_token$/i,
+  /secret/i,
+];
+
+/**
+ * True when a bare filename (not a path) matches any sensitive-name pattern.
+ * Callers that hold a full path should pass `path.basename(p)`.
+ *
+ * @param {string} basename
+ * @returns {boolean}
+ */
+function isBlockedBasename(basename) {
+  const name = String(basename || '');
+  if (!name) return false;
+  return BLOCKED_BASENAME_PATTERNS.some((pattern) => pattern.test(name));
+}
+
+/**
+ * Two tiers, intentionally kept apart:
+ *
+ *   1. Directory-segment rules — match anywhere in the *resolved path*, so a
+ *      benignly-named file inside `.ssh/` is still denied.
+ *   2. One basename rule, delegating to isBlockedBasename above.
+ *
+ * Collapsing tier 1 into tier 2 would change semantics: `/.git/` must match a
+ * mid-path segment, whereas `.env` must match only the final segment (a
+ * directory literally named `secrets` should not silently deny everything
+ * beneath it via the basename tier).
+ */
 const DENY_MATRIX_PATTERNS = [
-  // Blocked directory segments (checked against the full resolved path)
+  // Tier 1: blocked directory segments (checked against the full resolved path)
   (p) => p.includes('/.git/') || p.endsWith('/.git'),
   (p) => p.includes('/.ssh/') || p.endsWith('/.ssh'),
   (p) => p.includes('/.aws/') || p.endsWith('/.aws'),
@@ -102,24 +162,8 @@ const DENY_MATRIX_PATTERNS = [
   (p) => p.includes('/node_modules/') || p.endsWith('/node_modules'),
   (p) => p.includes('/actions-runner/') || p.endsWith('/actions-runner'),
   (p) => p.includes('/.bridge-runner/') || p.endsWith('/.bridge-runner'),
-  // Block env files conservatively: .env, .env.test, .envrc, .env.example.
-  (p) => /^\.env/i.test(path.basename(p)),
-  (p) => path.basename(p) === '.netrc',
-  (p) => path.basename(p) === '.npmrc',
-  // Blocked basename patterns
-  (p) => /^id_rsa/.test(path.basename(p)),
-  (p) => /^id_ed25519/.test(path.basename(p)),
-  (p) => path.basename(p).endsWith('.pem'),
-  (p) => path.basename(p).endsWith('.key'),
-  (p) => path.basename(p).endsWith('.p8'),
-  (p) => path.basename(p).endsWith('.p12'),
-  (p) => path.basename(p).endsWith('.pfx'),
-  (p) => /^credentials.*\.json$/i.test(path.basename(p)),
-  (p) => /service[-_]?account.*\.json$/i.test(path.basename(p)),
-  (p) => /firebase.*adminsdk.*\.json$/i.test(path.basename(p)),
-  (p) => /^token.*$/i.test(path.basename(p)),
-  (p) => /_token$/i.test(path.basename(p)),
-  (p) => /secret/i.test(path.basename(p)),
+  // Tier 2: sensitive filenames, from the one shared list
+  (p) => isBlockedBasename(path.basename(p)),
 ];
 
 // ---------------------------------------------------------------------------
@@ -395,6 +439,26 @@ function scrubSecrets(text) {
 }
 
 /**
+ * A6: scrub, then cap. For error messages that must quote real file content
+ * back to the model (apply_patch hunk mismatches), the quote is a second,
+ * narrower disclosure channel than read_file. Scrubbing alone is pattern-based,
+ * so a long line of ordinary-looking content would pass through whole; capping
+ * bounds how much of any single line can escape that way.
+ *
+ * Order matters: scrub first, then truncate. Truncating first could slice a
+ * secret in half so neither piece matches a redaction pattern.
+ *
+ * @param {string} text
+ * @param {number} [maxChars=120]
+ * @returns {string} scrubbed text, suffixed with " (truncated)" when capped
+ */
+function scrubAndTruncate(text, maxChars = 120) {
+  const scrubbed = scrubSecrets(text);
+  if (typeof scrubbed !== 'string' || scrubbed.length <= maxChars) return scrubbed;
+  return scrubbed.slice(0, maxChars) + ' (truncated)';
+}
+
+/**
  * Walk through arrays and plain objects, scrubbing any string values found
  * inside. Think of this like checking every drawer in a filing cabinet: the
  * shape of the object stays the same, but sensitive text inside gets covered.
@@ -657,10 +721,12 @@ module.exports = {
   confinePath,
   resolveFileTarget,
   scrubSecrets,
+  scrubAndTruncate,
   scrubStableIdentifiers,
   scrubObject,
   buildSafeEnv,
   isPathBlockedByDenyMatrix,
+  isBlockedBasename,
   isFileCandidateAllowed,
   cachedRealpathSync,
   invalidateRealpathCache,
@@ -669,6 +735,7 @@ module.exports = {
   STREAM_MAX_PEM_HOLD,
   SYSTEM_DIRS,
   BLOCKED_DIRS,
+  BLOCKED_BASENAME_PATTERNS,
   DENY_MATRIX_PATTERNS,
   SCRUBBED_ENV_VARS,
 };

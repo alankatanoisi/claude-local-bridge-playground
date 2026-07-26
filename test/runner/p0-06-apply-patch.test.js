@@ -74,6 +74,36 @@ describe('apply_patch repair (P0-06)', () => {
     assert.equal(fs.readFileSync(abs, 'utf8'), before);
   });
 
+  // A6: the mismatch error quotes real file content back to the model, which
+  // makes it a read channel that does not go through read_file. It must be
+  // scrubbed and length-capped before it leaves the tool.
+  it('scrubs secrets out of the mismatch error rather than echoing them', () => {
+    const root = tempProject();
+    const secret = 'sk-ant-' + 'A'.repeat(40);
+    const abs = writeProjectFile(root, 'leaky.txt', 'API=' + secret + '\nworld\n');
+    const patch = '@@ -1,2 +1,2 @@\n-NOPE\n+hi\n world\n';
+    const result = applyPatch.execute({ path: 'leaky.txt', patch_text: patch }, { cwd: root, cwdRealpath: root });
+
+    assert.equal(result.ok, false);
+    assert.match(result.text, /context mismatch/i);
+    assert.ok(!result.text.includes(secret), 'raw secret must not appear in the mismatch error');
+    assert.match(result.text, /\[REDACTED/);
+    assert.equal(fs.readFileSync(abs, 'utf8'), 'API=' + secret + '\nworld\n', 'file untouched');
+  });
+
+  it('caps how much of a long line the mismatch error can disclose', () => {
+    const root = tempProject();
+    const longLine = 'x'.repeat(4000);
+    writeProjectFile(root, 'long.txt', longLine + '\nworld\n');
+    const patch = '@@ -1,2 +1,2 @@\n-NOPE\n+hi\n world\n';
+    const result = applyPatch.execute({ path: 'long.txt', patch_text: patch }, { cwd: root, cwdRealpath: root });
+
+    assert.equal(result.ok, false);
+    assert.match(result.text, /\(truncated\)/);
+    // 120-char cap plus the surrounding message framing — nowhere near 4000.
+    assert.ok(result.text.length < 400, 'expected a capped message, got ' + result.text.length + ' chars');
+  });
+
   it('never invokes a shell for metacharacter filenames', () => {
     const root = tempProject();
     // Filename that would be dangerous under shell interpolation.

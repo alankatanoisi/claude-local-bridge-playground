@@ -190,6 +190,10 @@ function validateAndMaterializeHunk(fileLines, hunk) {
     if (tag === ' ' || tag === '-') {
       const actual = fileLines[filePos];
       if (actual !== body) {
+        // A6: `expected` came from the model's own patch_text, so quoting it
+        // back discloses nothing new. `actual` is real file content, which
+        // makes this error message a second read channel alongside read_file —
+        // so it goes through scrub-then-cap before the model sees it.
         return {
           ok: false,
           error:
@@ -198,7 +202,7 @@ function validateAndMaterializeHunk(fileLines, hunk) {
             ':\n  expected: ' +
             JSON.stringify(body) +
             '\n  actual:   ' +
-            JSON.stringify(actual),
+            safety.scrubAndTruncate(JSON.stringify(actual)),
         };
       }
       if (tag === ' ') replacement.push(body);

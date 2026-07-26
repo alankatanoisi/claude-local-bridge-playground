@@ -58,36 +58,23 @@ const MODES = {
   },
 };
 
-const BLOCKED_BASENAMES = ['.env', '.env.local', '.env.production', '.env.development', '.envrc'];
-const BLOCKED_PATTERNS = [
-  /^\.env/i,
-  /^credentials.*\.json$/i,
-  /service[-_]?account.*\.json$/i,
-  /firebase.*adminsdk.*\.json$/i,
-  /^token.*$/i,
-  /^.*\.pem$/i,
-  /^.*\.key$/i,
-  /^.*\.p8$/i,
-  /^.*\.p12$/i,
-  /^.*\.pfx$/i,
-  /^.*_token$/i,
-  /^.*secret.*$/i,
-];
 const { BLOCKED_DIRS } = safety;
+
+/**
+ * A11: this used to be a third hand-maintained copy of the sensitive-filename
+ * list. It is NOT in the `check` path — `resolveFileTarget` (safety.js) is what
+ * actually gates file access, and it applies the full deny matrix to both the
+ * lexical path and the realpath. This stays exported purely as a compatibility
+ * surface for callers and tests that import it from here, and now delegates to
+ * the one shared implementation so the three copies cannot drift again.
+ */
+const isBlockedBasename = safety.isBlockedBasename;
 
 function isInsideProject(requestedPath, cwd) {
   if (path.isAbsolute(requestedPath)) return false;
   const resolved = path.resolve(cwd, requestedPath);
   const normalizedCwd = path.resolve(cwd);
   return resolved.startsWith(normalizedCwd + path.sep) || resolved === normalizedCwd;
-}
-
-function isBlockedBasename(basename) {
-  if (BLOCKED_BASENAMES.includes(basename)) return true;
-  for (const pattern of BLOCKED_PATTERNS) {
-    if (pattern.test(basename)) return true;
-  }
-  return false;
 }
 
 function isBlockedDir(basename) {

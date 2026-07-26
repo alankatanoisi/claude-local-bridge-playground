@@ -76,8 +76,15 @@ const { buildPlanProposal } = require('./plan-proposals');
 // B3: path-disjoint detection over canonicalized paths. Two paths are
 // disjoint iff neither is identical to the other and neither is a
 // prefix-with-separator of the other (catches parent/child conflicts).
-// confinePath returns realpath-anchored absolute paths, so symlink aliasing
-// is mostly defused at the source.
+//
+// A10 correction: this comment previously claimed confinePath returns
+// realpath-anchored paths, "so symlink aliasing is mostly defused at the
+// source." That was false — confinePath uses the realpath only to answer the
+// containment question and then returns the *lexical* path (safety.js). Under
+// the old claim `a.txt` and a symlink `alias.txt -> a.txt` produced two
+// different strings, were judged disjoint, and were written in parallel to the
+// same inode. _groupDisjointWrites below now canonicalizes through
+// resolveFileTarget and keys on the realpath, so aliases collide correctly.
 function _arePathsDisjoint(paths) {
   for (let i = 0; i < paths.length; i++) {
     for (let j = i + 1; j < paths.length; j++) {
@@ -98,7 +105,16 @@ function _groupDisjointWrites(writeTools, ctx) {
   let currentPaths = [];
   for (const tu of writeTools) {
     const args = tu.input || {};
-    const canonical = args.path ? safety.confinePath(ctx, args.path) : null;
+    // Key on the realpath so two names for one file cannot be written in
+    // parallel. `real` is null for a path that does not exist yet (a brand-new
+    // file), and there the lexical path is the correct canonical answer.
+    // A resolveFileTarget denial is treated like a missing path below: isolate
+    // the tool so the permission layer still emits its own per-tool denial.
+    let canonical = null;
+    if (args.path) {
+      const target = safety.resolveFileTarget(ctx, args.path);
+      if (target && target.allowed) canonical = target.real || target.lexical;
+    }
     if (!canonical) {
       if (current.length) {
         groups.push(current);
