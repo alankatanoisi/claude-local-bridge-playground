@@ -113,6 +113,41 @@ describe('agent loop — read-only', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-loop-'));
   fs.writeFileSync(path.join(tmpDir, 'hello.js'), 'console.log("hi");\n');
 
+  it('allows a depth-one child to run while withholding spawn_agent', async () => {
+    const originalPost = modelClient.post;
+    let offeredToolNames = [];
+    modelClient.post = async (body) => {
+      offeredToolNames = body.tools.map((tool) => tool.name);
+      return {
+        content: [{ type: 'text', text: 'Child completed its read-only task.' }],
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 2, output_tokens: 1 },
+      };
+    };
+
+    try {
+      const result = await run({
+        prompt: 'Inspect one file.',
+        cwd: tmpDir,
+        model: 'test',
+        maxTokens: 10,
+        maxSteps: 1,
+        spawnDepth: 1,
+        capabilities: ['agents'],
+        skipTrustGate: true,
+        quiet: true,
+        noArchive: true,
+        noSessionPersistence: true,
+      });
+
+      assert.equal(result.stopReason, 'success');
+      assert.doesNotMatch(result.finalText, /fork depth exceeded/i);
+      assert.ok(!offeredToolNames.includes('spawn_agent'), 'a child can work but cannot offer a grandchild tool');
+    } finally {
+      modelClient.post = originalPost;
+    }
+  });
+
   it('final answer on first response', async () => {
     const originalPost = modelClient.post;
     modelClient.post = async () => ({

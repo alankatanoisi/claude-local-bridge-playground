@@ -2,10 +2,19 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { createBudgetBroker } = require('../../src/runner/budget-broker');
+const { createBudgetBroker, parseCap } = require('../../src/runner/budget-broker');
+const { createBudgetTracker } = require('../../src/runner/budget-tracker');
 const spawnAgent = require('../../src/runner/tools/spawn-agent');
 
 describe('budget broker (P1-05)', () => {
+  it('distinguishes an absent cap from a real zero-token cap', () => {
+    assert.equal(parseCap(null), null);
+    assert.equal(parseCap(undefined), null);
+    assert.equal(parseCap(''), null);
+    assert.equal(parseCap(0), 0);
+    assert.equal(parseCap('0'), 0);
+  });
+
   it('leases remainder so a second acquire cannot copy the same tokens', () => {
     const broker = createBudgetBroker({ inputCap: 1000, outputCap: 500 });
     const usage = { input_tokens: 100, output_tokens: 50 };
@@ -38,11 +47,21 @@ describe('budget broker (P1-05)', () => {
     assert.equal(broker.hasIncompleteChildren(), true);
   });
 
-  it('is a no-op lease when no caps are set', () => {
-    const broker = createBudgetBroker({});
+  it('is a no-op lease when run.js passes explicit null caps', () => {
+    // run.js always creates a broker and passes the budget tracker's values.
+    // With no CLI budget flags, those values are explicitly null—not omitted.
+    const tracker = createBudgetTracker({});
+    const broker = createBudgetBroker({
+      inputCap: tracker.effectiveHardInput,
+      outputCap: tracker.effectiveHardOutput,
+    });
     const lease = broker.acquire({ input_tokens: 10, output_tokens: 10 });
     assert.equal(lease.unconstrained, true);
     assert.equal(lease.leaseId, null);
+    assert.deepEqual(broker.snapshot().caps, {
+      input_tokens: null,
+      output_tokens: null,
+    });
   });
 });
 
@@ -123,5 +142,162 @@ describe('spawn_agent budget leasing (P1-05)', () => {
     );
     assert.equal(result.ok, false);
     assert.match(result.text, /no unleased remainder/);
+  });
+
+  it('allows sequential children when the parent has no explicit token caps', async () => {
+    const broker = createBudgetBroker({ inputCap: null, outputCap: null });
+    let parentUsage = { input_tokens: 20, output_tokens: 5 };
+    const calls = [];
+    const fakeRuntime = {
+      async spawnWorker(spec) {
+        calls.push(spec);
+        return {
+          workerId: 'wrk_unbounded_' + calls.length,
+          state: 'completed',
+          phase: 'subagent',
+          finalText: 'Child finished.',
+          summary: 'Child finished.',
+          exitCode: 0,
+          stderr: '',
+          duration_ms: 5,
+          usage: { input_tokens: 7, output_tokens: 3 },
+        };
+      },
+    };
+    const ctx = {
+      spawnDepth: 0,
+      cwd: '/tmp',
+      cwdRealpath: '/tmp',
+      workerRuntime: fakeRuntime,
+      budgetBroker: broker,
+      getParentUsage: () => parentUsage,
+      reconcileChildUsage(leaseId, actualUsage) {
+        const outcome = broker.release(leaseId, actualUsage);
+        if (outcome.reconciled && outcome.usage) {
+          parentUsage = {
+            input_tokens: parentUsage.input_tokens + outcome.usage.input_tokens,
+            output_tokens: parentUsage.output_tokens + outcome.usage.output_tokens,
+          };
+        }
+        return outcome;
+      },
+    };
+
+    const first = await spawnAgent.execute({ prompt: 'first task' }, ctx);
+    const second = await spawnAgent.execute({ prompt: 'second task' }, ctx);
+
+    assert.equal(first.ok, true);
+    assert.equal(second.ok, true);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].budgetRemaining, null);
+    assert.equal(calls[1].budgetRemaining, null);
+    assert.equal(calls[0].leaseId, null);
+    assert.equal(calls[1].leaseId, null);
+    assert.deepEqual(parentUsage, { input_tokens: 34, output_tokens: 11 });
+  });
+
+  it('allows simultaneous children when the parent has no explicit token caps', async () => {
+    const broker = createBudgetBroker({ inputCap: null, outputCap: null });
+    let parentUsage = { input_tokens: 0, output_tokens: 0 };
+    let started = 0;
+    let releaseChildren;
+    const childrenMayFinish = new Promise((resolve) => {
+      releaseChildren = resolve;
+    });
+    const fakeRuntime = {
+      async spawnWorker(spec) {
+        started += 1;
+        assert.equal(spec.budgetRemaining, null);
+        assert.equal(spec.leaseId, null);
+        await childrenMayFinish;
+        return {
+          workerId: 'wrk_parallel_' + started,
+          state: 'completed',
+          phase: 'subagent',
+          finalText: 'Child finished.',
+          summary: 'Child finished.',
+          exitCode: 0,
+          stderr: '',
+          duration_ms: 5,
+          usage: { input_tokens: 4, output_tokens: 2 },
+        };
+      },
+    };
+    const ctx = {
+      spawnDepth: 0,
+      cwd: '/tmp',
+      cwdRealpath: '/tmp',
+      workerRuntime: fakeRuntime,
+      budgetBroker: broker,
+      getParentUsage: () => parentUsage,
+      reconcileChildUsage(leaseId, actualUsage) {
+        const outcome = broker.release(leaseId, actualUsage);
+        if (outcome.reconciled && outcome.usage) {
+          parentUsage = {
+            input_tokens: parentUsage.input_tokens + outcome.usage.input_tokens,
+            output_tokens: parentUsage.output_tokens + outcome.usage.output_tokens,
+          };
+        }
+        return outcome;
+      },
+    };
+
+    const first = spawnAgent.execute({ prompt: 'first parallel task' }, ctx);
+    const second = spawnAgent.execute({ prompt: 'second parallel task' }, ctx);
+    // Both calls must reach the worker before either child is allowed to finish.
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(started, 2);
+    releaseChildren();
+
+    const results = await Promise.all([first, second]);
+    assert.equal(results[0].ok, true);
+    assert.equal(results[1].ok, true);
+    assert.deepEqual(parentUsage, { input_tokens: 8, output_tokens: 4 });
+  });
+
+  it('still prevents simultaneous children from sharing one finite remainder', async () => {
+    const broker = createBudgetBroker({ inputCap: 100, outputCap: 50 });
+    let releaseFirst;
+    const firstMayFinish = new Promise((resolve) => {
+      releaseFirst = resolve;
+    });
+    let workerCalls = 0;
+    const ctx = {
+      spawnDepth: 0,
+      cwd: '/tmp',
+      cwdRealpath: '/tmp',
+      budgetBroker: broker,
+      getParentUsage: () => ({ input_tokens: 0, output_tokens: 0 }),
+      workerRuntime: {
+        async spawnWorker() {
+          workerCalls += 1;
+          await firstMayFinish;
+          return {
+            workerId: 'wrk_finite',
+            state: 'completed',
+            phase: 'subagent',
+            finalText: 'Child finished.',
+            summary: 'Child finished.',
+            exitCode: 0,
+            stderr: '',
+            duration_ms: 5,
+            usage: { input_tokens: 10, output_tokens: 2 },
+          };
+        },
+      },
+      reconcileChildUsage(leaseId, actualUsage) {
+        return broker.release(leaseId, actualUsage);
+      },
+    };
+
+    const first = spawnAgent.execute({ prompt: 'lease the finite remainder' }, ctx);
+    await new Promise((resolve) => setImmediate(resolve));
+    const second = await spawnAgent.execute({ prompt: 'try to reuse the remainder' }, ctx);
+
+    assert.equal(second.ok, false);
+    assert.match(second.text, /no unleased remainder/);
+    assert.equal(workerCalls, 1);
+    releaseFirst();
+    assert.equal((await first).ok, true);
   });
 });

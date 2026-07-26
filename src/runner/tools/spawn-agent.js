@@ -109,8 +109,14 @@ async function execute(args, ctx) {
     return { ok: false, text: 'spawn_agent prompt exceeds ' + MAX_PROMPT_CHARS + ' characters.' };
   }
 
-  ctx.spawnCount = (ctx.spawnCount || 0) + 1;
-  if (ctx.spawnCount > MAX_SPAWNS_PER_RUN) {
+  // Production supplies registerChildSpawn(), which updates the original run
+  // context even though the dispatcher gives this tool a per-call context copy.
+  // Direct unit-test contexts keep the simple local counter as a fallback.
+  const spawnCount =
+    typeof ctx.registerChildSpawn === 'function'
+      ? ctx.registerChildSpawn()
+      : (ctx.spawnCount = (ctx.spawnCount || 0) + 1);
+  if (spawnCount > MAX_SPAWNS_PER_RUN) {
     return { ok: false, text: 'spawn_agent limit reached for this run (' + MAX_SPAWNS_PER_RUN + ').' };
   }
 

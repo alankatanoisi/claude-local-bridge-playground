@@ -511,8 +511,17 @@ async function run(options) {
     testWatch: !!testWatch,
     enableLsp: !!enableLsp,
     spawnDepth: spawnDepth ?? (parseInt(process.env.BRIDGE_RUNNER_SPAWN_DEPTH, 10) || 0),
+    spawnCount: 0,
     workspaceTrusted: false,
     autoMemory: isAutoMemoryEnabled({ autoMemory }),
+  };
+
+  // The dispatcher adds a per-call toolUseId by giving each tool a shallow
+  // context copy. This closure deliberately updates the original run context,
+  // so child counts survive that copy for telemetry and the eight-child limit.
+  ctx.registerChildSpawn = function registerChildSpawn() {
+    ctx.spawnCount += 1;
+    return ctx.spawnCount;
   };
 
   ctx.allowedTools = computeAllowedTools(ctx);
@@ -584,23 +593,6 @@ async function run(options) {
       includeProjectDocs: contextPolicy.includeInstructionDocs,
     });
     ctx.instructionHash = ctx.instructionMemory.hash;
-  }
-
-  try {
-    if (ctx.spawnDepth > 0) {
-      throw new Error('Child agents cannot spawn further children (fork depth exceeded).');
-    }
-  } catch (err) {
-    emitHint(err.message, { quiet, verbose, stopReason: 'fork_depth_exceeded' });
-    process.exitCode = 1;
-    return {
-      stopReason: STOP_REASONS.CANCELLED,
-      finalText: err.message,
-      steps: 0,
-      duration_ms: 0,
-      usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
-      events: [],
-    };
   }
 
   const cwdCheck = safety.validateCwd(ctx.cwd);

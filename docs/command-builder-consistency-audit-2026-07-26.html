@@ -700,14 +700,20 @@
           shell or approve writes.
         </div>
 
-        <div class="callout warning">
-          <strong>New follow-up observation — not an original builder finding.</strong> In a live read-only probe, Claude
-          autonomously attempted multiple <code>spawn_agent</code> calls without being told to use that tool. The first
-          run was correctly denied because the terminal was non-interactive and orchestration asks by default. A second
-          run with <code>--dont-ask</code> reached the child-budget path, where child starts were refused with
-          “no unleased remainder” despite no explicit token-budget flags. The autonomy/permission behavior is therefore
-          proven, but concurrent child-budget leasing deserves a separate runtime investigation before calling the
-          unattended multi-agent path fully validated.
+        <div class="callout">
+          <strong>Follow-up observation repaired and live-validated.</strong> The original read-only probe proved that
+          Claude autonomously attempted multiple <code>spawn_agent</code> calls without being told to use that tool. The
+          first run was correctly denied because the terminal was non-interactive and orchestration asks by default. The
+          second run exposed a separate budget-broker bug: JavaScript converted absent <code>null</code> input/output
+          caps into numeric zeroes, so <code>--dont-ask</code> child starts were refused with “no unleased remainder”
+          despite no explicit token-budget flags. The broker now preserves absent caps as unlimited while retaining
+          numeric zero as a genuinely exhausted cap. A follow-up live attempt then exposed and closed a second
+          child-start bug: the runner rejected every depth-one worker instead of merely withholding the grandchild tool.
+          Deterministic tests cover sequential and simultaneous unlimited children, finite-budget concurrency, usage
+          reconciliation, a working depth-one child with <code>spawn_agent</code> hidden, and the shared parent counter
+          that enforces the eight-child ceiling. The final bounded live run completed one read-only child, returned the
+          expected package name, folded the child’s reported usage into the parent total, and reported one parent spawn.
+          Full traces remain private under <code>/tmp</code>.
         </div>
       </section>
 

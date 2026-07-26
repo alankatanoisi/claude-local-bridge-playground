@@ -3,7 +3,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const spawnAgent = require('../../src/runner/tools/spawn-agent');
-const { getDefinitions } = require('../../src/runner/tool-registry');
+const { execute: executeRegisteredTool, getDefinitions } = require('../../src/runner/tool-registry');
 const permissions = require('../../src/runner/permissions');
 
 describe('spawn_agent tool', () => {
@@ -88,6 +88,48 @@ describe('spawn_agent tool', () => {
     assert.equal(calls[0].maxSteps, 4);
     assert.equal(calls[0].dontAsk, undefined, 'generic read-only children do not inherit automation flags');
     assert.equal(ctx.spawnCount, 1);
+  });
+
+  it('keeps one parent spawn counter across per-call dispatcher contexts', async () => {
+    let workerCalls = 0;
+    const ctx = {
+      spawnDepth: 0,
+      spawnCount: 0,
+      cwd: '/tmp',
+      cwdRealpath: '/tmp',
+      dontAsk: true,
+      offeredTools: new Set(['spawn_agent']),
+      workerRuntime: {
+        async spawnWorker() {
+          workerCalls += 1;
+          return {
+            workerId: 'wrk_count_' + workerCalls,
+            state: 'completed',
+            phase: 'subagent',
+            finalText: 'done',
+            summary: 'done',
+            exitCode: 0,
+            stderr: '',
+            duration_ms: 1,
+          };
+        },
+      },
+    };
+    ctx.registerChildSpawn = function registerChildSpawn() {
+      ctx.spawnCount += 1;
+      return ctx.spawnCount;
+    };
+
+    const results = [];
+    for (let i = 1; i <= 9; i += 1) {
+      results.push(await executeRegisteredTool('spawn_agent', { prompt: 'child ' + i }, ctx, 'tu_' + i));
+    }
+
+    assert.equal(workerCalls, 8);
+    assert.equal(ctx.spawnCount, 9);
+    assert.ok(results.slice(0, 8).every((result) => result.ok));
+    assert.equal(results[8].ok, false);
+    assert.match(results[8].text, /limit reached/);
   });
 
   it('permissions deny spawn_agent for child depth', () => {

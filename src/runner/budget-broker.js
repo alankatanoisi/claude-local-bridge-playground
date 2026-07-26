@@ -21,6 +21,10 @@
 const crypto = require('crypto');
 
 function parseCap(value) {
+  // `Number(null)` and `Number('')` both equal 0 in JavaScript. In this broker,
+  // though, those empty values mean "the parent did not set a limit." Check
+  // for absence first so an unlimited run does not become a zero-token run.
+  if (value === null || value === undefined || value === '') return null;
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) return null;
   return Math.floor(n);
