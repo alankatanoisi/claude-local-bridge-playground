@@ -11,7 +11,9 @@ const { parseArgs } = require('util');
 const path = require('path');
 const { Coordinator } = require('../src/runner/coordinator');
 
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
+// Share the runner's single versioned model default instead of maintaining a
+// second hardcoded copy that can silently drift after Anthropic model updates.
+const { DEFAULT_MODEL } = require('../src/runner/model-catalog');
 
 async function main() {
   const args = parseArgs({

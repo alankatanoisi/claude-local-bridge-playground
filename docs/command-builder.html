@@ -661,14 +661,16 @@
                 <div class="field">
                   <label for="model" title="Which Claude model the runner sends prompts to. Bigger models (like Opus) are smarter but slower and more expensive per turn.">Model</label>
                   <select id="model">
-                    <option value="claude-sonnet-4-6" selected>claude-sonnet-4-6 (default)</option>
-                    <option value="claude-sonnet-5">claude-sonnet-5</option>
+                    <option value="claude-sonnet-5" selected>claude-sonnet-5 (default)</option>
                     <option value="claude-fable-5">claude-fable-5</option>
+                    <option value="claude-opus-5">claude-opus-5</option>
                     <option value="claude-opus-4-8">claude-opus-4-8</option>
                     <option value="claude-opus-4-7">claude-opus-4-7</option>
+                    <option value="claude-opus-4-6">claude-opus-4-6</option>
+                    <option value="claude-opus-4-5">claude-opus-4-5</option>
+                    <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
                     <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
                     <option value="claude-haiku-4-5">claude-haiku-4-5</option>
-                    <option value="claude-3-5-sonnet-20241022">claude-3-5-sonnet</option>
                   </select>
                 </div>
                 <div class="row">
@@ -683,10 +685,11 @@
                 </div>
                 <div class="row">
                   <div class="field">
-                    <label for="temperature" title="Controls randomness in model output. 0 = most deterministic, 1 = most creative. Leave blank to use the model's default. Opus 4.8 rejects non-default values.">Temperature</label>
+                    <label for="temperature" title="Controls randomness in model output. Leave blank for current Claude 5 and Opus 4.7+ models, which reject non-default sampling values.">Temperature</label>
                     <input type="number" id="temperature" placeholder="model default" min="0" max="1" step="0.1" />
-                    <div class="note show">
-                      &#8505; Leave this blank for Opus 4.8; Anthropic rejects non-default sampling settings on that model.
+                    <div class="note show" id="temperatureNote">
+                      &#8505; Leave this blank for Claude 5 and Opus 4.7+ models; Anthropic rejects non-default sampling
+                      settings on those models.
                     </div>
                   </div>
                   <div class="field">
@@ -1251,6 +1254,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const maxSteps = document.getElementById('maxSteps');
       const maxTokens = document.getElementById('maxTokens');
       const temperature = document.getElementById('temperature');
+      const temperatureNote = document.getElementById('temperatureNote');
       const maxContextTokens = document.getElementById('maxContextTokens');
       const maxToolCalls = document.getElementById('maxToolCalls');
       const cwd = document.getElementById('cwd');
@@ -1435,7 +1439,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const DEFAULTS = {
         maxSteps: 16,
         maxTokens: 2000,
-        model: 'claude-sonnet-4-6',
+        model: 'claude-sonnet-5',
         shellTimeout: 30000,
         outputFormat: 'text',
         traceLevel: 'off',
@@ -1806,9 +1810,11 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         // user's selections. Unsupported choices are greyed out, and a saved
         // selection that became incompatible is also surfaced as a warning.
         const selectedModel = model.value;
-        const xhighSupported = /claude-(?:fable-5|sonnet-5|opus-4-(?:8|7))/.test(selectedModel);
+        const xhighSupported = /claude-(?:fable-5|sonnet-5|opus-(?:5|4-(?:8|7)))/.test(selectedModel);
         const thinkingAlwaysOn = /claude-(?:fable-5|mythos-5|mythos-preview)/.test(selectedModel);
         const adaptiveUnsupported = /claude-(?:sonnet-4-5|haiku-4-5|3-)/.test(selectedModel);
+        const defaultOnlySampling =
+          /claude-(?:fable-5|mythos-(?:5|preview)|sonnet-5|opus-(?:5|4-(?:8|7)))/.test(selectedModel);
         const xhighOption = effort.querySelector('option[value="xhigh"]');
         const adaptiveOption = thinking.querySelector('option[value="adaptive"]');
         const thinkingOffOption = thinking.querySelector('option[value="off"]');
@@ -1820,9 +1826,9 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           if (thinkingAlwaysOn) {
             thinkingNote.textContent =
               'This model keeps adaptive thinking on automatically. Auto omits the redundant API field; off is unavailable.';
-          } else if (/claude-sonnet-5/.test(selectedModel)) {
+          } else if (/claude-(?:sonnet|opus)-5/.test(selectedModel)) {
             thinkingNote.textContent =
-              'This model enables adaptive thinking by default. Auto and adaptive leave that default intact; off sends an explicit disabled setting.';
+              'This model enables adaptive thinking by default. Auto and adaptive leave that default intact; off sends an explicit disabled setting. Opus 5 requires low, medium, or high effort when thinking is off.';
           } else if (/claude-(?:sonnet-4-6|opus-4-(?:8|7|6))/.test(selectedModel)) {
             thinkingNote.textContent =
               'This model needs an adaptive-thinking request field. Auto adds it; off deliberately omits it.';
@@ -1833,6 +1839,12 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
             thinkingNote.textContent =
               'Auto uses the runner\'s known model rules. Explicit adaptive is forwarded for unknown future model IDs.';
           }
+        }
+
+        if (temperatureNote) {
+          temperatureNote.textContent = defaultOnlySampling
+            ? 'Leave temperature blank for this model. Anthropic rejects non-default sampling values; use prompt instructions instead.'
+            : 'This model accepts temperature. Leave it blank unless you intentionally need a non-default sampling value.';
         }
 
         const planNote = document.getElementById('planNote');
@@ -1864,8 +1876,22 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         if (thinking.value === 'off' && thinkingAlwaysOn)
           validationWarnings.push('The selected model keeps adaptive thinking on and cannot use --thinking off.');
 
+        if (
+          thinking.value === 'off' &&
+          selectedModel === 'claude-opus-5' &&
+          (effort.value === 'xhigh' || effort.value === 'max')
+        )
+          validationWarnings.push('Claude Opus 5 cannot use --thinking off with xhigh or max effort.');
+
         if (thinking.value === 'adaptive' && adaptiveUnsupported)
           validationWarnings.push('The selected model does not support --thinking adaptive.');
+
+        if (
+          temperature.value.trim() &&
+          Number(temperature.value) !== 1 &&
+          defaultOnlySampling
+        )
+          validationWarnings.push('The selected model rejects non-default --temperature values; leave it blank.');
 
         const validationEl = document.getElementById('validationWarnings');
         if (!validationEl) {

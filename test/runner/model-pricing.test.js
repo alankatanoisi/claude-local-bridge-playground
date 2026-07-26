@@ -38,10 +38,18 @@ describe('model-pricing: estimateCostUsd', () => {
   });
 
   it('resolves new/alias names by family prefix, not default', () => {
-    // A future opus alias should price like opus ($15/M input), not default ($3/M).
+    // Current Opus models use $5/M input, not the retired generation's $15/M.
     assert.equal(resolveRates('claude-opus-4-8'), resolveRates('claude-opus-4-6'));
     const cost = estimateCostUsd('claude-opus-4-8', { input_tokens: M });
-    assert.equal(cost, 15.0);
+    assert.equal(cost, 5.0);
+  });
+
+  it('uses the official July 25, 2026 rates for the latest model families', () => {
+    assert.equal(estimateCostUsd('claude-fable-5', { input_tokens: M, output_tokens: M }), 60.0);
+    assert.equal(estimateCostUsd('claude-opus-5', { input_tokens: M, output_tokens: M }), 30.0);
+    // Sonnet 5 has introductory $2/$10 pricing through August 31, 2026.
+    assert.equal(estimateCostUsd('claude-sonnet-5', { input_tokens: M, output_tokens: M }), 12.0);
+    assert.equal(estimateCostUsd('claude-haiku-4-5', { input_tokens: M, output_tokens: M }), 6.0);
   });
 });
 

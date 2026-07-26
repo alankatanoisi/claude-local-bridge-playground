@@ -17,6 +17,9 @@ const { pricingForModel, catalogEntryForModel, CATALOG_VERSION, DEFAULT_PRICING 
 
 // Back-compat shape for existing consumers/tests that index by model key.
 const PRICING_PER_MILLION = Object.freeze({
+  'claude-fable-5': catalogEntryForModel('claude-fable-5').pricing,
+  'claude-opus-5': catalogEntryForModel('claude-opus-5').pricing,
+  'claude-sonnet-5': catalogEntryForModel('claude-sonnet-5').pricing,
   'claude-sonnet-4-6': catalogEntryForModel('claude-sonnet-4-6').pricing,
   'claude-opus-4-6': catalogEntryForModel('claude-opus-4-6').pricing,
   'claude-haiku-4-5': catalogEntryForModel('claude-haiku-4-5').pricing,

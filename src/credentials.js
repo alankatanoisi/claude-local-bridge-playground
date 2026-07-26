@@ -216,24 +216,23 @@ function getCredentialAuthMode(creds) {
   return 'none';
 }
 
-// Header values captured from a live Claude Code 2.1.203 request on 2026-07-07.
-// These mimic what the CLI sends so Anthropic accepts an OAuth token.
-// Tweak via VS Code settings if Anthropic rotates the expected values.
+// Stable header values verified from Anthropic's official Claude Code 2.1.220
+// macOS arm64 package on 2026-07-25. `src/fingerprint.js` owns actual header
+// construction; this exported object remains for compatibility and for the
+// body-level fallback values consumed below.
 const CLAUDE_CODE_FINGERPRINT = {
-  userAgent: 'claude-cli/2.1.203 (external, sdk-cli)',
+  userAgent: 'claude-cli/2.1.220 (external, sdk-cli)',
   anthropicBeta:
-    'claude-code-20250219,oauth-2025-04-20,context-1m-2025-08-07,interleaved-thinking-2025-05-14,mid-conversation-system-2026-04-07,effort-2025-11-24,fallback-credit-2026-06-01',
+    'claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,mid-conversation-system-2026-04-07,effort-2025-11-24',
   // Stainless = the Anthropic SDK's self-identification headers.
   stainless: {
     'x-stainless-arch': 'arm64',
     'x-stainless-lang': 'js',
     'x-stainless-os': 'MacOS',
     'x-stainless-package-version': '0.94.0',
-    'x-stainless-retry-count': '0',
     'x-stainless-runtime': 'node',
     // Use Claude Code's captured runtime, not the Node version running this bridge.
     'x-stainless-runtime-version': 'v26.3.0',
-    'x-stainless-timeout': '600',
   },
   // These body-level blocks are older than the header fingerprint above, but
   // the bridge still needs a fallback shape when live capture has not observed

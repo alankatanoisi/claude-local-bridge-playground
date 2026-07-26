@@ -456,7 +456,7 @@ async function main() {
 
   try {
     // Validate the combination before the runner creates any model request.
-    resolveModelControls({ model, effort: effortRaw, thinking: thinkingRaw });
+    resolveModelControls({ model, effort: effortRaw, thinking: thinkingRaw, temperature });
   } catch (err) {
     console.error('Error: ' + err.message);
     process.exit(1);

@@ -75,7 +75,7 @@ Defaults below are sourced from `package.json` (`contributes.configuration.prope
 | Setting                               | Default (from package.json) | Notes                                            |
 | ------------------------------------- | --------------------------- | ------------------------------------------------ |
 | `claudeLocalBridge.port`              | `11437`                     | Local bridge listens on `http://localhost:11437` |
-| `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-6`         | Used when requests omit `model`                  |
+| `claudeLocalBridge.defaultModel`      | `claude-sonnet-5`           | Used when requests omit `model`                  |
 | `claudeLocalBridge.anthropicBaseUrl`  | `https://api.anthropic.com` | Upstream Anthropic endpoint                      |
 | `claudeLocalBridge.logRequests`       | `false`                     | Verbose request/response logging                 |
 | `claudeLocalBridge.logTimeZone`       | `local`                     | Output timestamps use the system timezone        |
@@ -147,7 +147,7 @@ Open **VS Code Settings** and search for `Claude Local Bridge`:
 | ------------------------------------- | --------------------------- | ----------------------------------------- |
 | `claudeLocalBridge.port`              | `11437`                     | HTTP server port                          |
 | `claudeLocalBridge.anthropicBaseUrl`  | `https://api.anthropic.com` | Override for staging                      |
-| `claudeLocalBridge.defaultModel`      | `claude-sonnet-4-6`         | Default model when none is specified      |
+| `claudeLocalBridge.defaultModel`      | `claude-sonnet-5`           | Default model when none is specified      |
 | `claudeLocalBridge.logRequests`       | `false`                     | Verbose request logging to Output channel |
 | `claudeLocalBridge.logTimeZone`       | `local`                     | `local`, `utc`, or an IANA timezone name  |
 | `claudeLocalBridge.requireCallerAuth` | `false`                     | Enforce Bearer token for incoming callers |
@@ -436,7 +436,7 @@ Useful runner options:
 | `--no-archive`                                           | Skip per-turn archive export to `~/.bridge-runner/archive/`                                                                                    |
 | `--model <name>`                                         | Model name (defaults to the runner's built-in default)                                                                                         |
 | `--max-tokens <n>`                                       | Max output tokens per model request                                                                                                            |
-| `--temperature <f>`                                      | Model temperature 0.0–1.0 (default: model default)                                                                                             |
+| `--temperature <f>`                                      | Model temperature 0.0–1.0; omit for Claude 5 and Opus 4.7+                                                                                     |
 | `--output-format <f>`                                    | Output style: `text`, `json`, or `stream-json`                                                                                                 |
 | `--transcript <path>`                                    | JSONL transcript path (default under `~/.bridge-runner/logs/`)                                                                                 |
 | `--resume <path>`                                        | Deprecated — rejected. Use `--resume-session` with a session id/path                                                                           |
@@ -468,7 +468,10 @@ as tests.
 Adaptive thinking defaults to `--thinking auto`. The runner sends `thinking: { type: "adaptive" }` for known models
 that require an explicit request, omits that redundant field for always-on models such as Claude Fable 5, and rejects
 known incompatible combinations before contacting the bridge. `xhigh` is similarly rejected for known models that do
-not support it. Unknown future model IDs remain pass-through friendly so Anthropic can remain the source of truth.
+not support it. Claude Opus 5 and Sonnet 5 keep thinking on by default; Opus 5 permits `--thinking off` only through
+`--effort high`. The runner also rejects non-default temperature values on model families whose current API contract
+does not accept them. Unknown future model IDs remain pass-through friendly so Anthropic can remain the source of
+truth.
 
 ### Runner flight recorder
 
@@ -579,7 +582,7 @@ Start with the local smoke task before running larger datasets:
 harbor run \
   -p evals/harbor/tasks/cc-bridge-runner-smoke \
   --agent-import-path evals.harbor.cc_bridge_runner_agent:CcBridgeRunnerAgent \
-  -m claude-sonnet-4-6 \
+  -m claude-sonnet-5 \
   --n-concurrent 1 \
   --job-name cc-bridge-runner-smoke
 ```
@@ -590,7 +593,7 @@ For Terminal-Bench through Harbor, keep early runs small and single-threaded:
 harbor run \
   -d terminal-bench/terminal-bench-2 \
   --agent-import-path evals.harbor.cc_bridge_runner_agent:CcBridgeRunnerAgent \
-  -m claude-sonnet-4-6 \
+  -m claude-sonnet-5 \
   --n-tasks 5 \
   --n-concurrent 1 \
   --job-name cc-bridge-runner-tbench-smoke

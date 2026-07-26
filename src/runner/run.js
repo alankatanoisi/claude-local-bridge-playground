@@ -1108,7 +1108,7 @@ async function run(options) {
   const steps = maxSteps || DEFAULT_MAX_STEPS;
   // Resolve these together because valid effort and thinking settings depend
   // on the selected model family. This fails before the first HTTP request.
-  const modelControls = resolveModelControls({ model, effort, thinking });
+  const modelControls = resolveModelControls({ model, effort, thinking, temperature });
   // P1-07: unknown-model permissiveness is reported, never silent — the local
   // catalog skipped validation, so the API is the only guard against a 400.
   for (const warning of modelControls.warnings || []) {

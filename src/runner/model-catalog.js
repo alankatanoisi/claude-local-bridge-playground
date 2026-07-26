@@ -22,7 +22,7 @@
  */
 
 // Bump the version whenever an entry changes; consumers report it in warnings.
-const CATALOG_VERSION = '2026-07-20';
+const CATALOG_VERSION = '2026-07-25';
 
 // Where each class of fact came from. `status` is deliberately blunt:
 // 'verified-live' means someone actually fetched the official page on that
@@ -31,15 +31,45 @@ const CATALOG_VERSION = '2026-07-20';
 const CATALOG_SOURCES = Object.freeze([
   {
     id: 'anthropic-models-overview',
-    url: 'https://docs.anthropic.com/en/docs/about-claude/models/overview',
-    status: 'unverified',
-    note: 'Model list/context/output facts. Re-verify on next networked session.',
+    url: 'https://platform.claude.com/docs/en/about-claude/models/overview',
+    status: 'verified-live',
+    checked: '2026-07-25',
+    note: 'Current model IDs, aliases, context windows, output limits, and latest-model comparison.',
   },
   {
     id: 'anthropic-pricing',
-    url: 'https://docs.anthropic.com/en/docs/about-claude/pricing',
-    status: 'unverified',
-    note: 'Per-million token rates incl. 1h-TTL cache multipliers (2.0x write, 0.1x read).',
+    url: 'https://platform.claude.com/docs/en/about-claude/pricing',
+    status: 'verified-live',
+    checked: '2026-07-25',
+    note: 'Per-million token rates, including Sonnet 5 introductory pricing through 2026-08-31.',
+  },
+  {
+    id: 'anthropic-effort',
+    url: 'https://platform.claude.com/docs/en/build-with-claude/effort',
+    status: 'verified-live',
+    checked: '2026-07-25',
+    note: 'Per-model effort support, including the xhigh and max availability matrix.',
+  },
+  {
+    id: 'anthropic-thinking',
+    url: 'https://platform.claude.com/docs/en/build-with-claude/thinking',
+    status: 'verified-live',
+    checked: '2026-07-25',
+    note: 'Per-model adaptive-thinking defaults and supported thinking modes.',
+  },
+  {
+    id: 'anthropic-opus-5',
+    url: 'https://platform.claude.com/docs/en/about-claude/models/whats-new-opus-5',
+    status: 'verified-live',
+    checked: '2026-07-25',
+    note: 'Opus 5 thinking defaults and the effort restriction when thinking is disabled.',
+  },
+  {
+    id: 'anthropic-model-deprecations',
+    url: 'https://platform.claude.com/docs/en/about-claude/model-deprecations',
+    status: 'verified-live',
+    checked: '2026-07-25',
+    note: 'Active, deprecated, and retired first-party Claude API model IDs.',
   },
   {
     id: 'runner-thinking-experiment',
@@ -61,13 +91,21 @@ const THINKING_MODES = Object.freeze(['auto', 'adaptive', 'off']);
 
 // Shared default model. The runner CLI and the bridge both read this constant
 // so the two layers cannot drift apart again (P1-07 "defaults disagree").
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
+const DEFAULT_MODEL = 'claude-sonnet-5';
 
 // Shared per-family rate objects (single references, so identity comparisons
 // across family members remain valid for consumers/tests).
-const OPUS_PRICING = Object.freeze({ input: 15.0, output: 75.0, cache_read: 1.5, cache_write: 30.0 });
+const FABLE_PRICING = Object.freeze({ input: 10.0, output: 50.0, cache_read: 1.0, cache_write: 20.0 });
+const OPUS_PRICING = Object.freeze({ input: 5.0, output: 25.0, cache_read: 0.5, cache_write: 10.0 });
+const LEGACY_OPUS_PRICING = Object.freeze({ input: 15.0, output: 75.0, cache_read: 1.5, cache_write: 30.0 });
+// Sonnet 5's $2/$10 introductory price is effective through 2026-08-31.
+// The catalog is date-versioned so this deliberately visible temporary rate
+// cannot masquerade as an evergreen price after its documented end date.
+const SONNET_5_INTRO_PRICING = Object.freeze({ input: 2.0, output: 10.0, cache_read: 0.2, cache_write: 4.0 });
 const SONNET_PRICING = Object.freeze({ input: 3.0, output: 15.0, cache_read: 0.3, cache_write: 6.0 });
-const HAIKU_PRICING = Object.freeze({ input: 0.8, output: 4.0, cache_read: 0.08, cache_write: 1.6 });
+const HAIKU_PRICING = Object.freeze({ input: 1.0, output: 5.0, cache_read: 0.1, cache_write: 2.0 });
+const BASE_EFFORT = Object.freeze(['low', 'medium', 'high']);
+const THINKING_OFF_EFFORT = BASE_EFFORT;
 
 /**
  * Catalog entries. Date-suffixed IDs still match because every pattern accepts
@@ -75,81 +113,135 @@ const HAIKU_PRICING = Object.freeze({ input: 0.8, output: 4.0, cache_read: 0.08,
  *
  * thinking values:
  *   'always-on'         cannot be disabled; sending a thinking field is redundant
- *   'default-on'        on unless explicitly `{type:'disabled'}`
+ *   'default-on'        on unless explicitly `{type:'disabled'}`; an entry may
+ *                       further restrict which effort levels permit disabling
  *   'explicit-adaptive' needs `{type:'adaptive'}` to enable; omit to leave off
  *   'manual-only'       legacy budgeted thinking only; adaptive rejected
  *   'manual-or-none'    legacy models; adaptive rejected
  */
 const CATALOG_ENTRIES = Object.freeze([
   {
-    matches: /^claude-(?:fable|mythos)-5(?:$|-)/,
-    label: 'Claude Fable/Mythos 5',
+    matches: /^claude-fable-5(?:$|-)/,
+    label: 'Claude Fable 5',
     effortLevels: XHIGH_EFFORT,
     thinking: 'always-on',
-    pricing: OPUS_PRICING,
-    provenance: 'runner-thinking-experiment',
+    sampling: 'default-only',
+    lifecycle: 'active',
+    pricing: FABLE_PRICING,
+    provenance: 'anthropic-thinking',
+  },
+  {
+    matches: /^claude-mythos-5(?:$|-)/,
+    label: 'Claude Mythos 5',
+    effortLevels: XHIGH_EFFORT,
+    thinking: 'always-on',
+    sampling: 'default-only',
+    lifecycle: 'limited-availability',
+    pricing: FABLE_PRICING,
+    provenance: 'anthropic-thinking',
   },
   {
     matches: /^claude-mythos-preview(?:$|-)/,
     label: 'Claude Mythos Preview',
     effortLevels: STANDARD_EFFORT,
     thinking: 'always-on',
+    sampling: 'default-only',
+    lifecycle: 'limited-availability',
+    // Anthropic no longer publishes a separate Preview price in the current
+    // table. Use the successor Mythos family rate, but label it as an estimate
+    // rather than presenting it as an exact catalog price.
+    pricing: FABLE_PRICING,
+    pricingSource: 'family-estimate',
+    provenance: 'anthropic-thinking',
+  },
+  {
+    matches: /^claude-opus-5(?:$|-)/,
+    label: 'Claude Opus 5',
+    effortLevels: XHIGH_EFFORT,
+    thinking: 'default-on',
+    thinkingOffEffortLevels: THINKING_OFF_EFFORT,
+    sampling: 'default-only',
+    lifecycle: 'active',
     pricing: OPUS_PRICING,
-    provenance: 'runner-thinking-experiment',
+    provenance: 'anthropic-opus-5',
   },
   {
     matches: /^claude-sonnet-5(?:$|-)/,
     label: 'Claude Sonnet 5',
     effortLevels: XHIGH_EFFORT,
     thinking: 'default-on',
-    pricing: SONNET_PRICING,
-    provenance: 'runner-thinking-experiment',
+    sampling: 'default-only',
+    lifecycle: 'active',
+    pricing: SONNET_5_INTRO_PRICING,
+    provenance: 'anthropic-thinking',
   },
   {
     matches: /^claude-opus-4-(?:8|7)(?:$|-)/,
     label: 'Claude Opus 4.7/4.8',
     effortLevels: XHIGH_EFFORT,
     thinking: 'explicit-adaptive',
+    sampling: 'default-only',
+    lifecycle: 'active',
     pricing: OPUS_PRICING,
-    provenance: 'runner-thinking-experiment',
+    provenance: 'anthropic-thinking',
   },
   {
     matches: /^claude-opus-4-6(?:$|-)/,
     label: 'Claude Opus 4.6',
     effortLevels: STANDARD_EFFORT,
     thinking: 'explicit-adaptive',
+    sampling: 'supported',
+    lifecycle: 'active',
     pricing: OPUS_PRICING,
-    provenance: 'runner-thinking-experiment',
+    provenance: 'anthropic-thinking',
   },
   {
     matches: /^claude-sonnet-4-6(?:$|-)/,
     label: 'Claude Sonnet 4.6',
     effortLevels: STANDARD_EFFORT,
     thinking: 'explicit-adaptive',
+    sampling: 'supported',
+    lifecycle: 'active',
     pricing: SONNET_PRICING,
-    provenance: 'runner-thinking-experiment',
+    provenance: 'anthropic-thinking',
   },
   {
     matches: /^claude-opus-4-5(?:$|-)/,
     label: 'Claude Opus 4.5',
-    effortLevels: STANDARD_EFFORT,
+    effortLevels: BASE_EFFORT,
     thinking: 'manual-only',
+    sampling: 'supported',
+    lifecycle: 'active',
     pricing: OPUS_PRICING,
-    provenance: 'runner-thinking-experiment',
+    provenance: 'anthropic-effort',
+  },
+  {
+    matches: /^claude-opus-4-1(?:$|-)/,
+    label: 'Claude Opus 4.1',
+    effortLevels: null,
+    thinking: 'manual-only',
+    sampling: 'supported',
+    lifecycle: 'deprecated',
+    pricing: LEGACY_OPUS_PRICING,
+    provenance: 'anthropic-model-deprecations',
   },
   {
     matches: /^claude-haiku-4-5(?:$|-)/,
     label: 'Claude Haiku 4.5',
     effortLevels: null,
     thinking: 'manual-or-none',
+    sampling: 'supported',
+    lifecycle: 'active',
     pricing: HAIKU_PRICING,
     provenance: 'anthropic-models-overview',
   },
   {
-    matches: /^claude-sonnet-4-5(?:$|-)|^claude-3(?:$|-)/,
-    label: 'legacy Claude model',
+    matches: /^claude-sonnet-4-5(?:$|-)/,
+    label: 'Claude Sonnet 4.5',
     effortLevels: null,
     thinking: 'manual-or-none',
+    sampling: 'supported',
+    lifecycle: 'active',
     pricing: SONNET_PRICING,
     provenance: 'anthropic-models-overview',
   },
@@ -160,10 +252,10 @@ const CATALOG_ENTRIES = Object.freeze([
 // newest known family member so estimates skew current, and callers are told
 // the number is a family estimate rather than an exact published rate.
 const PRICING_FAMILY_FALLBACKS = Object.freeze([
-  { prefix: 'claude-opus', canonical: 'claude-opus-4-6' },
+  { prefix: 'claude-opus', canonical: 'claude-opus-5' },
   { prefix: 'claude-fable', canonical: 'claude-fable-5' },
-  { prefix: 'claude-mythos', canonical: 'claude-fable-5' },
-  { prefix: 'claude-sonnet', canonical: 'claude-sonnet-4-6' },
+  { prefix: 'claude-mythos', canonical: 'claude-mythos-5' },
+  { prefix: 'claude-sonnet', canonical: 'claude-sonnet-5' },
   { prefix: 'claude-haiku', canonical: 'claude-haiku-4-5' },
 ]);
 
@@ -183,7 +275,7 @@ function catalogEntryForModel(model) {
  */
 function pricingForModel(model) {
   const entry = catalogEntryForModel(model);
-  if (entry) return { rates: entry.pricing, source: 'catalog', label: entry.label };
+  if (entry) return { rates: entry.pricing, source: entry.pricingSource || 'catalog', label: entry.label };
   const modelId = String(model || '').toLowerCase();
   for (const { prefix, canonical } of PRICING_FAMILY_FALLBACKS) {
     if (modelId.startsWith(prefix)) {

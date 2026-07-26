@@ -22,6 +22,7 @@ const fs = require('fs');
 const { TOOLS } = require('../../src/runner/tool-catalog');
 const { isToolVisible } = require('../../src/runner/tool-visibility');
 const { EFFORT_LEVELS, THINKING_MODES } = require('../../src/runner/model-capabilities');
+const { DEFAULT_MODEL } = require('../../src/runner/model-catalog');
 
 // P2-01: the no-flag default surface comes straight from the runtime's own
 // visibility function (empty ctx = no opt-ins), not a re-implemented filter.
@@ -116,12 +117,9 @@ describe('command-builder drift', () => {
   });
 
   it('model dropdown includes the runner default model', () => {
-    // The runner default model is set in model-pricing.js defaultModelKey.
-    // claude-sonnet-4-6 is the canonical default as of this test's creation.
-    const defaultModel = 'claude-sonnet-4-6';
     assert.ok(
-      BUILDER_HTML.includes('value="' + defaultModel + '"'),
-      'Model dropdown missing default model: ' + defaultModel,
+      BUILDER_HTML.includes('value="' + DEFAULT_MODEL + '" selected'),
+      'Model dropdown missing selected runtime default model: ' + DEFAULT_MODEL,
     );
   });
 

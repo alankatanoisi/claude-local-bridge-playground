@@ -61,11 +61,12 @@ const REQUEST_SPECIFIC_HEADERS = new Set([
  * `anthropic-beta` is mixed: some flags are stable client identity
  * (claude-code, oauth) and some describe the *shape of one request*
  * (context-1m marks a long-context request; fallback-credit is a billing
- * behavior opt-in). Request-shape flags are stripped before replay so a
- * small runner request is not mislabeled as, say, a 1M-context request.
+ * behavior opt-in; structured-outputs marks a formatted-output request).
+ * Request-shape flags are stripped before replay so a small runner request is
+ * not mislabeled as, say, a 1M-context or structured-output request.
  * Prefix matching survives Anthropic rotating the date suffix.
  */
-const REQUEST_SHAPE_BETA_PREFIXES = ['context-1m-', 'fallback-credit-'];
+const REQUEST_SHAPE_BETA_PREFIXES = ['context-1m-', 'fallback-credit-', 'structured-outputs-'];
 
 /**
  * Headers we want to capture from Claude Code's outgoing requests.
@@ -193,10 +194,9 @@ function buildAdaptiveAuthHeaders(ctx, creds) {
       }
     } else {
       // Fall back to the latest known Claude Code header fingerprint.
-      // Captured from Claude Code 2.1.203 on 2026-07-07. The pinned version
-      // metadata is stale relative to the currently installed CLI; refreshing
-      // it needs a live capture/canary and is tracked as P1-06 follow-up,
-      // not guessed here.
+      // Verified from Anthropic's official Claude Code 2.1.220 macOS arm64
+      // package on 2026-07-25. The verification used a temporary local mock
+      // with a dummy key, so no real credential or paid API call was involved.
       //
       // P1-06 containment: the fallback no longer fabricates request-specific
       // state (no session id, no retry-count, no timeout) and no longer opts
@@ -205,7 +205,7 @@ function buildAdaptiveAuthHeaders(ctx, creds) {
       headers['anthropic-beta'] =
         'claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,mid-conversation-system-2026-04-07,effort-2025-11-24';
       headers['anthropic-dangerous-direct-browser-access'] = 'true';
-      headers['user-agent'] = 'claude-cli/2.1.203 (external, sdk-cli)';
+      headers['user-agent'] = 'claude-cli/2.1.220 (external, sdk-cli)';
       headers['x-app'] = 'cli';
       headers['x-stainless-arch'] = 'arm64';
       headers['x-stainless-lang'] = 'js';

@@ -83,7 +83,7 @@ function validateEffortForModel(model, effort, capability) {
  * Convert the friendly runner mode into the exact Anthropic request field.
  * Returning null deliberately omits `thinking` from the JSON request.
  */
-function thinkingConfigForModel(model, mode, capability) {
+function thinkingConfigForModel(model, mode, capability, effort) {
   switch (capability.thinking) {
     case 'always-on':
       if (mode === 'off') {
@@ -92,6 +92,23 @@ function thinkingConfigForModel(model, mode, capability) {
       return null;
 
     case 'default-on':
+      // Opus 5 permits thinking to be disabled only at low, medium, or high
+      // effort. The omitted effort value means Anthropic's default (`high`),
+      // so only an explicitly incompatible xhigh/max value is rejected here.
+      if (
+        mode === 'off' &&
+        effort &&
+        capability.thinkingOffEffortLevels &&
+        !capability.thinkingOffEffortLevels.includes(effort)
+      ) {
+        throw new Error(
+          "--thinking off is not supported by model '" +
+            model +
+            "' at --effort " +
+            effort +
+            '. Use low, medium, or high effort, or keep thinking enabled.',
+        );
+      }
       return mode === 'off' ? { type: 'disabled' } : null;
 
     case 'explicit-adaptive':
@@ -110,16 +127,33 @@ function thinkingConfigForModel(model, mode, capability) {
 }
 
 /**
+ * Newer model families reject non-default sampling values. The runner exposes
+ * only `temperature`, so validate that one control here before an HTTP request
+ * can spend time or tokens on an avoidable 400 response.
+ */
+function validateTemperatureForModel(model, temperature, capability) {
+  if (typeof temperature !== 'number' || Number.isNaN(temperature)) return;
+  if (capability.sampling === 'default-only' && temperature !== 1) {
+    throw new Error(
+      "--temperature is not supported by model '" +
+        model +
+        "' unless it is the API default (1). Omit --temperature and use prompting instead.",
+    );
+  }
+}
+
+/**
  * Resolve and validate both controls together before a model request is built.
  * Returns warnings (e.g. unknown model → validation skipped) so callers can
  * surface them; nothing here is allowed to fall back silently.
  */
-function resolveModelControls({ model, effort, thinking } = {}) {
+function resolveModelControls({ model, effort, thinking, temperature } = {}) {
   const normalizedEffort = normalizeEffort(effort);
   const thinkingMode = normalizeThinkingMode(thinking);
   const capability = capabilityForModel(model);
 
   validateEffortForModel(model, normalizedEffort, capability);
+  validateTemperatureForModel(model, temperature, capability);
 
   const warnings = [];
   if (!capability.known) {
@@ -135,7 +169,7 @@ function resolveModelControls({ model, effort, thinking } = {}) {
   return {
     effort: normalizedEffort,
     thinkingMode,
-    thinkingConfig: thinkingConfigForModel(model, thinkingMode, capability),
+    thinkingConfig: thinkingConfigForModel(model, thinkingMode, capability, normalizedEffort),
     capability,
     warnings,
   };

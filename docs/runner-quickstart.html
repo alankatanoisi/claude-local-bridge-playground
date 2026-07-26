@@ -594,9 +594,9 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
             </tr>
             <tr>
               <td><code>--model &lt;name&gt;</code></td>
-              <td><code>claude-sonnet-4-6</code></td>
+              <td><code>claude-sonnet-5</code></td>
               <td>
-                Model to request from the bridge. Use <code>--model claude-opus-4-8</code> for the newest Opus model.
+                Model to request from the bridge. Use <code>--model claude-opus-5</code> for the newest Opus model.
               </td>
             </tr>
             <tr>
@@ -989,12 +989,13 @@ node bin/local-bridge-coordinator.js \
 
         <h3>Use a different model</h3>
         <pre><code>node bin/local-bridge-runner.js \
-  --model claude-opus-4-8 \
+  --model claude-opus-5 \
   --max-tokens 4096 \
   "Give me a deep dive on src/runner/context-builder.js"</code></pre>
         <p>
-          Leave <code>--temperature</code> unset when using <code>claude-opus-4-8</code>. Anthropic rejects non-default
-          sampling settings on Opus 4.8.
+          Leave <code>--temperature</code> unset for Claude 5 models and Claude Opus 4.7 or newer. Anthropic rejects
+          non-default sampling settings on those models. Claude Opus 5 also allows <code>--thinking off</code> only
+          with <code>--effort low</code>, <code>medium</code>, or <code>high</code>.
         </p>
       </section>
 

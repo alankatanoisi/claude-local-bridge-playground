@@ -167,7 +167,7 @@ describe('credentials.buildAuthHeaders', () => {
     );
 
     // Stable client identity still replays.
-    assert.equal(headers['user-agent'], 'claude-cli/2.1.203 (external, sdk-cli)');
+    assert.equal(headers['user-agent'], 'claude-cli/2.1.220 (external, sdk-cli)');
     assert.equal(headers['x-stainless-package-version'], '0.94.0');
     assert.equal(headers['x-stainless-runtime-version'], 'v26.3.0');
     // P1-06 containment: no session/retry/timeout fabrication, no
@@ -177,6 +177,7 @@ describe('credentials.buildAuthHeaders', () => {
     assert.equal(headers['x-stainless-timeout'], undefined);
     assert.doesNotMatch(headers['anthropic-beta'], /context-1m-/);
     assert.doesNotMatch(headers['anthropic-beta'], /fallback-credit-/);
+    assert.doesNotMatch(headers['anthropic-beta'], /structured-outputs-/);
     assert.match(headers['anthropic-beta'], /oauth-2025-04-20/);
   });
 
@@ -185,7 +186,7 @@ describe('credentials.buildAuthHeaders', () => {
     const ctx = {
       liveFingerprint: {
         'user-agent': 'claude-cli/2.2.0 (test)',
-        'anthropic-beta': 'test-beta-2026-01-01,context-1m-2025-08-07',
+        'anthropic-beta': 'test-beta-2026-01-01,context-1m-2025-08-07,structured-outputs-2025-12-15',
         'x-stainless-runtime': 'node',
         // Request-specific captured state must not be replayed globally.
         'x-claude-code-session-id': 'other-session',

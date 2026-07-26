@@ -135,6 +135,12 @@ describe('instruction delta in run loop', () => {
         maxTokens: 10,
         maxSteps: 2,
         acceptEdits: true,
+        // P2-01 made write tools an explicit opt-in. `acceptEdits` controls
+        // confirmation, while this capability makes `write_file` visible.
+        capabilities: ['edits'],
+        // Minimal startup context intentionally ignores CLAUDE.md. Opt this
+        // fixture into that file so an edit is eligible to produce a delta.
+        includeClaudeMdInRepoContext: true,
       });
       assert.equal(sawDelta, true);
     } finally {

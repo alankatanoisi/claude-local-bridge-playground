@@ -22,7 +22,7 @@ const { resolveRatesDetailed, summarizeUsage } = require('../../src/runner/model
 
 describe('P1-07 model catalog', () => {
   it('has a version and provenance-annotated sources', () => {
-    assert.match(catalog.CATALOG_VERSION, /^\d{4}-\d{2}-\d{2}$/);
+    assert.equal(catalog.CATALOG_VERSION, '2026-07-25');
     assert.ok(catalog.CATALOG_SOURCES.length > 0);
     for (const source of catalog.CATALOG_SOURCES) {
       assert.ok(source.id && source.url && source.status, 'every source names id/url/status');
@@ -86,5 +86,10 @@ describe('P1-07 model catalog', () => {
     assert.throws(() => resolveModelControls({ model: 'claude-sonnet-4-6', effort: 'xhigh' }), /Supported levels/);
     assert.throws(() => resolveModelControls({ model: 'claude-sonnet-4-5', thinking: 'adaptive' }), /not supported/);
     assert.throws(() => resolveModelControls({ model: 'claude-fable-5', thinking: 'off' }), /always on/);
+    assert.throws(
+      () => resolveModelControls({ model: 'claude-opus-5', effort: 'max', thinking: 'off' }),
+      /high effort/,
+    );
+    assert.throws(() => resolveModelControls({ model: 'claude-opus-5', temperature: 0 }), /Omit --temperature/);
   });
 });

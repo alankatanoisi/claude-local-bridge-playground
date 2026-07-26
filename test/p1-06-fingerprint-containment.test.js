@@ -46,7 +46,7 @@ describe('P1-06 sanitizeBetaList', () => {
   it('drops request-shape beta flags regardless of date suffix', () => {
     assert.equal(
       fingerprint.sanitizeBetaList(
-        'claude-code-20250219,oauth-2025-04-20,context-1m-2025-08-07,fallback-credit-2026-06-01',
+        'claude-code-20250219,oauth-2025-04-20,context-1m-2025-08-07,fallback-credit-2026-06-01,structured-outputs-2025-12-15',
       ),
       'claude-code-20250219,oauth-2025-04-20',
     );
@@ -68,7 +68,7 @@ describe('P1-06 live fingerprint replay containment', () => {
       'user-agent': 'claude-cli/2.2.0 (test)',
       'x-app': 'cli',
       'x-stainless-os': 'MacOS',
-      'anthropic-beta': 'oauth-2025-04-20,context-1m-2025-08-07',
+      'anthropic-beta': 'oauth-2025-04-20,context-1m-2025-08-07,structured-outputs-2025-12-15',
       // Captured request-specific state from someone else's request:
       'x-claude-code-session-id': 'captured-session-abc',
       'x-stainless-retry-count': '2',
@@ -123,6 +123,7 @@ describe('P1-06 fallback fingerprint containment', () => {
     // ...but no request-shape or billing opt-ins.
     assert.doesNotMatch(headers['anthropic-beta'], /context-1m-/);
     assert.doesNotMatch(headers['anthropic-beta'], /fallback-credit-/);
+    assert.doesNotMatch(headers['anthropic-beta'], /structured-outputs-/);
   });
 
   it('still captures the billing header for system blocks without replaying it', () => {

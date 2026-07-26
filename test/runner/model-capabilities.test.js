@@ -49,6 +49,32 @@ describe('model-aware effort and thinking controls', () => {
     assert.deepEqual(controls.thinkingConfig, { type: 'disabled' });
   });
 
+  it('knows Opus 5 is default-on and supports the full effort ladder', () => {
+    const controls = resolveModelControls({ model: 'claude-opus-5', effort: 'xhigh' });
+    assert.equal(controls.capability.known, true);
+    assert.equal(controls.effort, 'xhigh');
+    assert.equal(controls.thinkingConfig, null);
+  });
+
+  it('allows Opus 5 thinking off only at high effort or below', () => {
+    const allowed = resolveModelControls({ model: 'claude-opus-5', effort: 'high', thinking: 'off' });
+    assert.deepEqual(allowed.thinkingConfig, { type: 'disabled' });
+    assert.throws(
+      () => resolveModelControls({ model: 'claude-opus-5', effort: 'xhigh', thinking: 'off' }),
+      /Use low, medium, or high effort/,
+    );
+    assert.throws(
+      () => resolveModelControls({ model: 'claude-opus-5', effort: 'max', thinking: 'off' }),
+      /Use low, medium, or high effort/,
+    );
+  });
+
+  it('rejects non-default temperature on current default-only sampling models', () => {
+    assert.throws(() => resolveModelControls({ model: 'claude-sonnet-5', temperature: 0.2 }), /Omit --temperature/);
+    assert.doesNotThrow(() => resolveModelControls({ model: 'claude-sonnet-5', temperature: 1 }));
+    assert.doesNotThrow(() => resolveModelControls({ model: 'claude-sonnet-4-6', temperature: 0.2 }));
+  });
+
   it('rejects turning off thinking on always-on models', () => {
     assert.throws(
       () => resolveModelControls({ model: 'claude-fable-5', thinking: 'off' }),
