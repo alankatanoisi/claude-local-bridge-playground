@@ -78,7 +78,13 @@ function execute(args, ctx) {
     // P1-08: fail closed on backup failure — same policy as edit_file / apply_patch.
     // Continuing after a failed backup left write_file as the only writer that
     // could mutate without a recoverable artifact.
+    // FD-01: refuse to back up symlinks; a symlink can have an innocent name but
+    // point at a denied file, and backing it up would launder the denied content.
     try {
+      const stat = fs.lstatSync(target);
+      if (stat.isSymbolicLink()) {
+        return { ok: false, text: 'Cannot write through symlink (possible path-security bypass)' };
+      }
       const original = fs.readFileSync(target);
       originalHash = sha256Text(original.toString('utf8'));
       backupPath = saveBackup(target, original, cwd);

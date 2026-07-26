@@ -100,13 +100,13 @@ function collectMatches(rootDir, searchDir, matcher, ctx, out) {
 
     if (!matcher.test(rel)) continue;
 
-    let confined;
+    let resolved;
     try {
-      confined = safety.confinePath(ctx, rel);
+      resolved = safety.resolveFileTarget(ctx, rel);
     } catch {
       continue;
     }
-    if (!confined || safety.isPathBlockedByDenyMatrix(confined)) continue;
+    if (!resolved.allowed) continue;
 
     let mtimeMs = 0;
     try {

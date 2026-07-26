@@ -225,31 +225,19 @@ function _checkUncached(toolName, args, ctx) {
   }
 
   if (requestedPath) {
-    const confined = safety.confinePath(ctx, requestedPath);
-    if (!confined) {
+    const resolved = safety.resolveFileTarget(ctx, requestedPath);
+    if (!resolved.allowed) {
       return enrichDecision(
-        { decision: 'deny', reason: 'Path escapes working directory: ' + requestedPath },
+        { decision: 'deny', reason: 'Path not allowed: ' + resolved.reason + ' (' + requestedPath + ')' },
         {
           category: category || 'unknown',
           mode,
           ruleId: 'path_guard',
-          matchedGuards: ['path_confinement'],
+          matchedGuards: resolved.reason.includes('escape') ? ['path_confinement'] : ['deny_matrix'],
           severity: 'hard_deny',
-          explanation: 'That path is outside --cwd. The runner only accesses files inside the working directory.',
-        },
-      );
-    }
-    if (safety.isPathBlockedByDenyMatrix(confined)) {
-      return enrichDecision(
-        { decision: 'deny', reason: 'Blocked file type (potential secret): ' + path.basename(requestedPath) },
-        {
-          category: category || 'unknown',
-          mode,
-          ruleId: 'deny_matrix',
-          matchedGuards: ['secret_pattern'],
-          severity: 'hard_deny',
-          explanation:
-            'Sensitive files (.env, credentials, keys) are always blocked, even with --accept-edits or --chaos-ok.',
+          explanation: resolved.reason.includes('escape')
+            ? 'That path is outside --cwd. The runner only accesses files inside the working directory.'
+            : 'That path or its target is blocked (potential secret).',
         },
       );
     }

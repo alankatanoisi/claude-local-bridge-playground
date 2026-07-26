@@ -101,6 +101,7 @@ const DENY_MATRIX_PATTERNS = [
   (p) => p.includes('/.gnupg/') || p.endsWith('/.gnupg'),
   (p) => p.includes('/node_modules/') || p.endsWith('/node_modules'),
   (p) => p.includes('/actions-runner/') || p.endsWith('/actions-runner'),
+  (p) => p.includes('/.bridge-runner/') || p.endsWith('/.bridge-runner'),
   // Block env files conservatively: .env, .env.test, .envrc, .env.example.
   (p) => /^\.env/i.test(path.basename(p)),
   (p) => path.basename(p) === '.netrc',
@@ -300,6 +301,57 @@ function confinePath(ctx, inputPath) {
   }
 
   return resolved;
+}
+
+// ---------------------------------------------------------------------------
+// resolveFileTarget — unified path resolution for all file tools
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve and validate a file path for tool operations, checking both the
+ * lexical path (what the user typed) and the realpath target (where the file
+ * actually lives). Returns both for downstream code to use.
+ *
+ * A symlink inside --cwd can have an innocent basename but point at a
+ * deny-listed file or escape the tree; this function catches both.
+ *
+ * @param {object} ctx — runner context with cwd / cwdRealpath / cachedRealpath
+ * @param {string} inputPath — user-provided path (relative or absolute)
+ * @returns {object} { lexical, real, allowed, reason } or null on error
+ */
+function resolveFileTarget(ctx, inputPath) {
+  if (!inputPath || typeof inputPath !== 'string') {
+    return { lexical: null, real: null, allowed: false, reason: 'Invalid input path' };
+  }
+
+  const lexical = confinePath(ctx, inputPath);
+  if (!lexical) {
+    return { lexical: null, real: null, allowed: false, reason: 'Path escapes working directory' };
+  }
+
+  if (isPathBlockedByDenyMatrix(lexical)) {
+    return { lexical, real: null, allowed: false, reason: 'Blocked by deny matrix (basename)' };
+  }
+
+  let real = null;
+  try {
+    const absolutePath = path.isAbsolute(inputPath) ? inputPath : path.join(ctx.cwd || '.', inputPath);
+    if (fs.existsSync(absolutePath)) {
+      real = cachedRealpathSync(ctx, absolutePath);
+      if (isPathBlockedByDenyMatrix(real)) {
+        return { lexical, real, allowed: false, reason: 'Blocked by deny matrix (realpath)' };
+      }
+
+      const cwdReal = cachedRealpathSync(ctx, ctx.cwdRealpath || ctx.cwd);
+      if (!real.startsWith(cwdReal + path.sep) && real !== cwdReal) {
+        return { lexical, real, allowed: false, reason: 'Realpath escapes working directory' };
+      }
+    }
+  } catch {
+    return { lexical, real: null, allowed: false, reason: 'Failed to resolve realpath' };
+  }
+
+  return { lexical, real, allowed: true, reason: null };
 }
 
 // ---------------------------------------------------------------------------
@@ -603,6 +655,7 @@ function isFileCandidateAllowed(ctx, absolutePath) {
 module.exports = {
   validateCwd,
   confinePath,
+  resolveFileTarget,
   scrubSecrets,
   scrubStableIdentifiers,
   scrubObject,
