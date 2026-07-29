@@ -1,0 +1,1974 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Harness Engineering Review — Agent Runner Runtime (2026-07-28)</title>
+    <style>
+      :root {
+        --bg: #f7f8fa;
+        --fg: #15202b;
+        --muted: #5b6b7c;
+        --card: #ffffff;
+        --border: #e2e8f0;
+        --accent: #1d4ed8;
+        --accent-soft: #dbeafe;
+        --ok: #047857;
+        --ok-bg: #ecfdf5;
+        --warn: #b45309;
+        --warn-bg: #fffbeb;
+        --bad: #b91c1c;
+        --bad-bg: #fef2f2;
+        --info: #0369a1;
+        --info-bg: #e0f2fe;
+        --code: #0f172a;
+        --code-bg: #f1f5f9;
+        --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.04);
+        --radius: 12px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        color: var(--fg);
+        background: var(--bg);
+        line-height: 1.65;
+      }
+
+      header.hero {
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 55%, #1d4ed8 140%);
+        color: #fff;
+        padding: 3rem 1.5rem 2.5rem;
+      }
+
+      header.hero .wrap,
+      main.wrap,
+      footer.wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+      }
+
+      header.hero h1 {
+        margin: 0 0 0.5rem;
+        font-size: clamp(1.7rem, 3vw, 2.35rem);
+        letter-spacing: -0.02em;
+      }
+
+      header.hero p {
+        margin: 0.35rem 0;
+        color: rgba(255, 255, 255, 0.88);
+        max-width: 62rem;
+      }
+
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1.25rem;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.28rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+      }
+
+      nav.toc {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: rgba(247, 248, 250, 0.92);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--border);
+      }
+
+      nav.toc .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0.7rem 1.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem 0.9rem;
+      }
+
+      nav.toc a {
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.86rem;
+        font-weight: 600;
+      }
+
+      nav.toc a:hover {
+        color: var(--accent);
+      }
+
+      main.wrap {
+        padding: 1.5rem 1.5rem 4rem;
+      }
+
+      section {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 1.4rem 1.5rem 1.55rem;
+        margin: 1.1rem 0;
+      }
+
+      section h2 {
+        margin: 0 0 0.75rem;
+        font-size: 1.35rem;
+        letter-spacing: -0.015em;
+      }
+
+      section h3 {
+        margin: 1.35rem 0 0.55rem;
+        font-size: 1.05rem;
+      }
+
+      section h4 {
+        margin: 1rem 0 0.4rem;
+        font-size: 0.98rem;
+      }
+
+      p,
+      li {
+        color: #1f2937;
+      }
+
+      .lede {
+        font-size: 1.05rem;
+        color: #334155;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 0.85rem;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.85rem;
+      }
+
+      .stat {
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.9rem 1rem;
+      }
+
+      .stat .label {
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .stat .value {
+        font-size: 1.45rem;
+        font-weight: 760;
+        margin-top: 0.15rem;
+        letter-spacing: -0.02em;
+      }
+
+      .stat .note {
+        color: var(--muted);
+        font-size: 0.86rem;
+        margin-top: 0.2rem;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.93rem;
+        margin: 0.7rem 0 0.3rem;
+      }
+
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 0.55rem 0.65rem;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #f8fafc;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #475569;
+      }
+
+      tr:nth-child(even) td {
+        background: #fcfcfd;
+      }
+
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+      }
+
+      code {
+        background: var(--code-bg);
+        color: var(--code);
+        padding: 0.1rem 0.35rem;
+        border-radius: 5px;
+        font-size: 0.88em;
+      }
+
+      pre {
+        background: #0b1220;
+        color: #e2e8f0;
+        padding: 0.95rem 1rem;
+        border-radius: 10px;
+        overflow-x: auto;
+        font-size: 0.84rem;
+        line-height: 1.5;
+      }
+
+      pre code {
+        background: transparent;
+        color: inherit;
+        padding: 0;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 0.12rem 0.48rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 750;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+      }
+
+      .badge.ok {
+        background: var(--ok-bg);
+        color: var(--ok);
+      }
+
+      .badge.warn {
+        background: var(--warn-bg);
+        color: var(--warn);
+      }
+
+      .badge.bad {
+        background: var(--bad-bg);
+        color: var(--bad);
+      }
+
+      .badge.info {
+        background: var(--info-bg);
+        color: var(--info);
+      }
+
+      .badge.neutral {
+        background: #f1f5f9;
+        color: #475569;
+      }
+
+      .callout {
+        border-radius: 10px;
+        padding: 0.85rem 1rem;
+        margin: 0.85rem 0;
+        border: 1px solid var(--border);
+      }
+
+      .callout.ok {
+        background: var(--ok-bg);
+        border-color: #a7f3d0;
+      }
+
+      .callout.warn {
+        background: var(--warn-bg);
+        border-color: #fcd34d;
+      }
+
+      .callout.bad {
+        background: var(--bad-bg);
+        border-color: #fecaca;
+      }
+
+      .callout.info {
+        background: var(--info-bg);
+        border-color: #7dd3fc;
+      }
+
+      .callout strong.title {
+        display: block;
+        margin-bottom: 0.25rem;
+      }
+
+      .scorebar {
+        display: grid;
+        grid-template-columns: 2.4rem 1fr auto;
+        gap: 0.65rem;
+        align-items: center;
+        margin: 0.45rem 0;
+      }
+
+      .scorebar .n {
+        font-weight: 760;
+        color: var(--muted);
+      }
+
+      .scorebar .track {
+        height: 10px;
+        background: #e2e8f0;
+        border-radius: 999px;
+        overflow: hidden;
+      }
+
+      .scorebar .fill {
+        height: 100%;
+        border-radius: 999px;
+      }
+
+      .fill.high {
+        background: linear-gradient(90deg, #059669, #10b981);
+      }
+
+      .fill.mid {
+        background: linear-gradient(90deg, #d97706, #f59e0b);
+      }
+
+      .fill.low {
+        background: linear-gradient(90deg, #dc2626, #f87171);
+      }
+
+      .arch {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        background: #0b1220;
+        color: #cbd5e1;
+        padding: 1rem 1.1rem;
+        border-radius: 10px;
+        overflow-x: auto;
+        white-space: pre;
+        font-size: 0.8rem;
+        line-height: 1.45;
+      }
+
+      ul.tight > li,
+      ol.tight > li {
+        margin: 0.25rem 0;
+      }
+
+      .finding {
+        border-left: 4px solid #94a3b8;
+        padding: 0.7rem 0.9rem;
+        margin: 0.7rem 0;
+        background: #f8fafc;
+        border-radius: 0 8px 8px 0;
+      }
+
+      .finding.p0 {
+        border-left-color: #dc2626;
+        background: #fef2f2;
+      }
+
+      .finding.p1 {
+        border-left-color: #d97706;
+        background: #fffbeb;
+      }
+
+      .finding.p2 {
+        border-left-color: #0284c7;
+        background: #f0f9ff;
+      }
+
+      .finding .head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem 0.6rem;
+        align-items: center;
+        margin-bottom: 0.3rem;
+      }
+
+      .finding h4 {
+        margin: 0;
+      }
+
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 1.5rem;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      a {
+        color: var(--accent);
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .small {
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="hero">
+      <div class="wrap">
+        <h1>Harness Engineering Review</h1>
+        <p>
+          Read-only exploratory review of the <strong>Claude Local Bridge Playground agent runner
+          runtime</strong>, scored against OpenAI’s Harness Engineering practices and this repo’s own
+          safety/runtime invariants.
+        </p>
+        <p class="small" style="color: rgba(255, 255, 255, 0.75)">
+          Scope is the runner layer (<code>bin/local-bridge-runner.js</code>,
+          <code>src/runner/**</code>, tests, docs, CI). Bridge/OAuth transport is treated as a boundary,
+          not the product under redesign. No source files were modified for this review.
+        </p>
+        <div class="meta-row">
+          <span class="chip">Date: 2026-07-28</span>
+          <span class="chip">Repo: claude-local-bridge-playground</span>
+          <span class="chip">Branch: main</span>
+          <span class="chip">Mode: read-only</span>
+          <span class="chip">Playbook audit: 1/11 baseline</span>
+          <span class="chip">Runtime maturity: high internals / low packaging</span>
+        </div>
+      </div>
+    </header>
+
+    <nav class="toc" aria-label="Table of contents">
+      <div class="wrap">
+        <a href="#exec">Executive summary</a>
+        <a href="#method">Method</a>
+        <a href="#baseline">Baseline</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#scorecard">Nine practices</a>
+        <a href="#control">Control system</a>
+        <a href="#subsystems">Subsystems</a>
+        <a href="#strengths">Strengths</a>
+        <a href="#findings">Findings</a>
+        <a href="#recommendations">Recommendations</a>
+        <a href="#handoff">Handoff</a>
+      </div>
+    </nav>
+
+    <main class="wrap">
+      <!-- ============================================================ -->
+      <section id="exec">
+        <h2>1. Executive summary</h2>
+        <p class="lede">
+          This playground already contains a <strong>serious, safety-conscious agent harness</strong>
+          inside the runtime: explicit capability groups, an authority ceiling, a tool pipeline with
+          ledger effect pairing, multi-budget stop reasons, context projection that preserves
+          canonical history, redaction at sink boundaries, session resume with health checks, child
+          budget leases, plan-mode proposals, golden eval hooks, and a large targeted test suite.
+        </p>
+        <p>
+          What it does <strong>not</strong> yet have is the <em>outer</em> Harness Engineering packaging
+          the playbook expects: stable one-command agent entrypoints (<code>make smoke / check / ci</code>),
+          a durable <code>PLANS.md</code>, a single architecture/observability contract doc, and an
+          entropy-control audit loop. The runtime is ahead of the packaging. The packaging debt is
+          real because this repo is unusually document-heavy and multi-agent-driven — entropy is the
+          main long-term risk, not missing permission modes.
+        </p>
+
+        <div class="grid-3" style="margin-top: 1rem">
+          <div class="stat">
+            <div class="label">Playbook baseline</div>
+            <div class="value">1 / 11</div>
+            <div class="note">Only <code>AGENTS.md</code> present</div>
+          </div>
+          <div class="stat">
+            <div class="label">Runner modules</div>
+            <div class="value">~111 JS</div>
+            <div class="note">~13.1k LOC top-level + tools</div>
+          </div>
+          <div class="stat">
+            <div class="label">Runner tests</div>
+            <div class="value">105 files</div>
+            <div class="note">Strong unit/contract coverage</div>
+          </div>
+          <div class="stat">
+            <div class="label">Stop reasons</div>
+            <div class="value">25</div>
+            <div class="note">Typed terminal taxonomy</div>
+          </div>
+          <div class="stat">
+            <div class="label">Default tools</div>
+            <div class="value">7 core</div>
+            <div class="note">Edits/shell opt-in</div>
+          </div>
+          <div class="stat">
+            <div class="label">Monolith hotspot</div>
+            <div class="value">1,709</div>
+            <div class="note">lines in <code>run.js</code></div>
+          </div>
+        </div>
+
+        <div class="callout warn">
+          <strong class="title">Bottom line for Alan</strong>
+          The runner is already a control system in code. It is not yet a fully packaged harness for
+          autonomous multi-hour agent work on <em>this repository itself</em>. The highest-leverage
+          next moves are (1) finish remaining Safari path-tool migration consistency, (2) add thin
+          harness wrappers around existing npm scripts, (3) shrink/split <code>run.js</code> ownership,
+          and (4) fight docs entropy with one architecture + one observability contract rather than
+          more dated HTML handoffs.
+        </div>
+
+        <h3>Headline judgments</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Dimension</th>
+              <th>Grade</th>
+              <th>One-line read</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Safety / authority design</td>
+              <td><span class="badge ok">Strong</span></td>
+              <td>Ceiling, plan mode, deny matrix, shell honesty, redaction — mature for a lab runner.</td>
+            </tr>
+            <tr>
+              <td>Agent loop reliability</td>
+              <td><span class="badge ok">Strong</span></td>
+              <td>Many typed stop reasons, retries, budgets, semantic-cycle detection, finalizer.</td>
+            </tr>
+            <tr>
+              <td>Context / compaction</td>
+              <td><span class="badge ok">Strong</span></td>
+              <td>Projection separates lossy request shape from canonical history; calibrated.</td>
+            </tr>
+            <tr>
+              <td>Observability surfaces</td>
+              <td><span class="badge ok">Strong</span></td>
+              <td>runId correlation, transcript, ledger, archive, autopsy, human log, traces.</td>
+            </tr>
+            <tr>
+              <td>Module boundaries</td>
+              <td><span class="badge warn">Mixed</span></td>
+              <td>Many good deep modules; <code>run.js</code> still owns too much of the control plane.</td>
+            </tr>
+            <tr>
+              <td>Kernel abstraction</td>
+              <td><span class="badge warn">Thin / inverted</span></td>
+              <td><code>AgentKernel</code> wraps <code>run()</code>; primary CLI bypasses kernel entirely.</td>
+            </tr>
+            <tr>
+              <td>Eval harness</td>
+              <td><span class="badge warn">Early</span></td>
+              <td>Golden eval plumbing exists; only 2 golden cases checked in.</td>
+            </tr>
+            <tr>
+              <td>CI / deterministic wrappers</td>
+              <td><span class="badge bad">Weak</span></td>
+              <td>No <code>make smoke/check/ci</code>; CI is CodeQL + manual self-hosted POC, not PR gate.</td>
+            </tr>
+            <tr>
+              <td>Docs entropy control</td>
+              <td><span class="badge bad">Weak</span></td>
+              <td>~2.3MB docs, many dated handoffs; no single ARCHITECTURE/OBSERVABILITY contract.</td>
+            </tr>
+            <tr>
+              <td>Path-safety consistency</td>
+              <td><span class="badge warn">Improving</span></td>
+              <td><code>resolveFileTarget</code> landed; some tools still call bare <code>confinePath</code>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="method">
+        <h2>2. Method and review lens</h2>
+        <p>
+          This review uses the
+          <a href="https://openai.com/index/harness-engineering/">OpenAI Harness Engineering</a>
+          playbook as the outer rubric, then maps those practices onto the actual runner control loop.
+        </p>
+
+        <h3>What “harness” means here</h3>
+        <p>
+          In the playbook sense, a harness is the set of durable constraints that make autonomous agent
+          runs <strong>repeatable, observable, and safe</strong>:
+        </p>
+        <ul class="tight">
+          <li>one-command checks an agent can run without tribal knowledge</li>
+          <li>compact operational docs that state real guardrails</li>
+          <li>strict module/data boundaries</li>
+          <li>structured observability with correlation IDs</li>
+          <li>plans that survive interruption</li>
+          <li>repo-local deterministic wrappers</li>
+          <li>static analysis before expensive loops</li>
+          <li>entropy control so docs/scripts don’t rot</li>
+        </ul>
+        <p>
+          In <em>this</em> repo there is a second, more important meaning: the runner <strong>is itself
+          a harness</strong> for model-driven coding. So the review answers two questions:
+        </p>
+        <ol>
+          <li><strong>As a product:</strong> how good is the runner as an agent control system?</li>
+          <li><strong>As a codebase:</strong> how easy is it for agents to safely evolve the runner?</li>
+        </ol>
+
+        <h3>Evidence sources (read-only)</h3>
+        <ul class="tight">
+          <li>Playbook wizard <code>status</code> + <code>audit_harness.sh</code> against repo root</li>
+          <li>
+            Primary runtime sources: <code>bin/local-bridge-runner.js</code>,
+            <code>src/runner/run.js</code>, kernel, tool pipeline, safety/permissions, context stack,
+            budgets, coordinator/workers, session/ledger/archive
+          </li>
+          <li>
+            Safety field notes:
+            <code>docs/threat-model.md</code>, Safari 2 findings, Safari 3 handoffs
+          </li>
+          <li>Test inventory under <code>test/runner/</code> and npm scripts in <code>package.json</code></li>
+          <li>CI under <code>.github/workflows/</code></li>
+          <li>Git history on runner commits (P0–P2 and Safari Phase A landings)</li>
+        </ul>
+
+        <div class="callout info">
+          <strong class="title">Important vocabulary note</strong>
+          This repo has <em>two</em> “P0” namespaces. Runtime-concordance items
+          <code>P0-01…P0-12</code> are closed. Safari future-directions
+          <code>FD-01…</code> are a separate backlog. This report uses playbook severity
+          (<code>P0/P1/P2</code> only for <em>new review findings</em>, and names historical items by
+          their original IDs.
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="baseline">
+        <h2>3. Baseline inventory</h2>
+
+        <h3>3.1 Location preflight</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Check</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Working directory</td>
+              <td><code>/Users/alanman/Developer/claude-local-bridge-playground</code></td>
+            </tr>
+            <tr>
+              <td>Branch</td>
+              <td><code>main</code></td>
+            </tr>
+            <tr>
+              <td>Origin</td>
+              <td><code>alankatanoisi/claude-local-bridge-playground</code></td>
+            </tr>
+            <tr>
+              <td>Tree at review start</td>
+              <td>clean</td>
+            </tr>
+            <tr>
+              <td>Clone role</td>
+              <td>Playground lab (canonical repo is reference-only)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>3.2 Toolchain</h3>
+        <div class="grid-2">
+          <div class="stat">
+            <div class="label">Runtime</div>
+            <div class="value" style="font-size: 1.1rem">Node.js (CommonJS)</div>
+            <div class="note">VS Code extension host + CLI runner</div>
+          </div>
+          <div class="stat">
+            <div class="label">Test runner</div>
+            <div class="value" style="font-size: 1.1rem">node:test</div>
+            <div class="note"><code>npm test</code> → setup + test/**/*.test.js</div>
+          </div>
+          <div class="stat">
+            <div class="label">Static checks</div>
+            <div class="value" style="font-size: 1.1rem">ESLint + Prettier</div>
+            <div class="note">plus <code>check:docs</code> drift scripts</div>
+          </div>
+          <div class="stat">
+            <div class="label">Typecheck</div>
+            <div class="value" style="font-size: 1.1rem">None</div>
+            <div class="note">JSDoc contracts exist; no tsc/flow gate</div>
+          </div>
+        </div>
+
+        <h3>3.3 npm scripts today</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Script</th>
+              <th>Role</th>
+              <th>Harness equivalent?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>npm test</code></td>
+              <td>Full unit/integration suite</td>
+              <td>Closest to <code>make test</code></td>
+            </tr>
+            <tr>
+              <td><code>npm run lint</code> / <code>format:check</code></td>
+              <td>Static style gates</td>
+              <td>Closest to <code>make lint</code></td>
+            </tr>
+            <tr>
+              <td><code>npm run check:docs</code></td>
+              <td>Doc/default/manifest drift</td>
+              <td>Partial entropy control</td>
+            </tr>
+            <tr>
+              <td><code>npm run runner:eval</code></td>
+              <td>Golden eval entry</td>
+              <td>Eval actuator, thin corpus</td>
+            </tr>
+            <tr>
+              <td><code>make smoke / check / ci</code></td>
+              <td>—</td>
+              <td><span class="badge bad">Missing</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>3.4 Playbook artifact audit (literal)</h3>
+        <p>
+          Wizard status: <strong>baseline 1/11</strong>. Control primitives: <strong>0/8</strong>.
+          Audit reported <strong>20 missing issues</strong>.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Artifact</th>
+              <th>Status</th>
+              <th>Repo reality</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>AGENTS.md</code></td>
+              <td><span class="badge ok">Present</span></td>
+              <td>Rich novice-first ops guide; missing playbook “Harness Commands / Execution Plans” sections</td>
+            </tr>
+            <tr>
+              <td><code>PLANS.md</code></td>
+              <td><span class="badge bad">Missing</span></td>
+              <td>Plans live as dated HTML/MD handoffs instead</td>
+            </tr>
+            <tr>
+              <td><code>docs/ARCHITECTURE.md</code></td>
+              <td><span class="badge bad">Missing</span></td>
+              <td>Architecture is distributed across CLAUDE.md, threat-model, many HTML reviews</td>
+            </tr>
+            <tr>
+              <td><code>docs/OBSERVABILITY.md</code></td>
+              <td><span class="badge bad">Missing</span></td>
+              <td>Observability is implemented in code; contract not centralized</td>
+            </tr>
+            <tr>
+              <td><code>Makefile.harness</code> + scripts</td>
+              <td><span class="badge bad">Missing</span></td>
+              <td>npm scripts exist but no stable agent-facing wrappers</td>
+            </tr>
+            <tr>
+              <td><code>.github/workflows/harness.yml</code></td>
+              <td><span class="badge bad">Missing</span></td>
+              <td>CodeQL + manual readonly POC only</td>
+            </tr>
+            <tr>
+              <td><code>docs/threat-model.md</code></td>
+              <td><span class="badge ok">Extra / strong</span></td>
+              <td>Better than template for this domain</td>
+            </tr>
+            <tr>
+              <td>Runner kernel contract</td>
+              <td><span class="badge ok">Extra / strong</span></td>
+              <td><code>src/runner/kernel/contract.js</code> is a real control taxonomy</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout info">
+          <strong class="title">How to read a 1/11 score</strong>
+          A low playbook score does <em>not</em> mean the runner is unsafe or immature. It means the
+          <em>repo packaging pattern</em> the playbook standardizes is absent. This lab reinvented many
+          harness internals under different names. The gap is alignment and discoverability, not total
+          absence of control.
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="architecture">
+        <h2>4. Runtime architecture map</h2>
+
+        <h3>4.1 Two layers</h3>
+        <div class="arch">Bridge layer (transport)
+  VS Code extension → localhost:11437 → OAuth Bearer → Anthropic /v1/messages
+  Owns: credentials, proxy, interceptor, upstream auth
+  Invariants: OAuth-only; no OpenAI routes; no API-key fallback
+
+Runner layer (agent product under review)
+  CLI → bootstrap/trust → system+tools → model loop → tool pipeline → sinks
+  Owns: permissions, tools, context, budgets, sessions, archives, UX</div>
+
+        <h3>4.2 Primary control loop</h3>
+        <div class="arch">prompt / resume
+   │
+   ▼
+bootstrap (cwd validate, workspace trust, chaos-ok gate, instruction memory)
+   │
+   ▼
+build ctx + authorityCeiling + allowedTools + sinks
+   │
+   ▼
+for step in 1..maxSteps:
+   instruction-delta watch
+   buildContextProjection(messages)     ← lossy request view; canonical history stays
+   applyCacheControlBudget(...)
+   assertValidAnthropicMessages(...)
+   modelClient.post(/v1/messages)
+   budget / stop checks
+   if tool_use:
+      tool-pipeline.executeTurn(...)
+         permission → confirm/plan → execute → scrub → ledger pair → sinks
+      loop-level stops (semantic cycle, wall clock, cost, failure streak)
+   else:
+      mapUpstreamStopReason → finalize
+   │
+   ▼
+finalizeRun → autopsy, archive export, session save, hooks session_end</div>
+
+        <h3>4.3 Ownership map (what should own what)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Concern</th>
+              <th>Intended owner</th>
+              <th>Actual primary owner today</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>CLI flag parsing / presets</td>
+              <td><code>bin/local-bridge-runner.js</code></td>
+              <td>same</td>
+              <td>Large help surface; good beginner notes</td>
+            </tr>
+            <tr>
+              <td>Turn engine</td>
+              <td><code>kernel/*</code></td>
+              <td><code>run.js</code></td>
+              <td>Kernel is a thin adapter over <code>run()</code></td>
+            </tr>
+            <tr>
+              <td>Tool dispatch + effect pairing</td>
+              <td><code>tool-pipeline.js</code></td>
+              <td>same</td>
+              <td>Best deep-module example in the tree</td>
+            </tr>
+            <tr>
+              <td>Path safety</td>
+              <td><code>safety.js</code></td>
+              <td>mostly same; tools partially migrated</td>
+              <td><code>resolveFileTarget</code> is the new choicepoint</td>
+            </tr>
+            <tr>
+              <td>Permission policy</td>
+              <td><code>permissions.js</code> + <code>authority.js</code></td>
+              <td>same</td>
+              <td>Mode matrix + immutable ceiling</td>
+            </tr>
+            <tr>
+              <td>Context shaping</td>
+              <td><code>context-projection.js</code></td>
+              <td>same (+ legacy compactor still present)</td>
+              <td>Good “parse/don’t validate” instinct</td>
+            </tr>
+            <tr>
+              <td>Multi-agent orchestration</td>
+              <td><code>coordinator.js</code> / <code>spawn_agent</code></td>
+              <td>two paths</td>
+              <td>Coordinator CLI separate from main runner</td>
+            </tr>
+            <tr>
+              <td>Session durability</td>
+              <td><code>session-store</code> + ledger</td>
+              <td>same</td>
+              <td>Resume health + crash pending-intent recovery</td>
+            </tr>
+            <tr>
+              <td>Observability sinks</td>
+              <td>transcript / trace / archive / autopsy / human-log</td>
+              <td>wired from <code>run.js</code></td>
+              <td>Rich, but contract doc missing</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>4.4 Default capability surface</h3>
+        <p>
+          From <code>tool-catalog.js</code> capability groups (P2-01):
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Group</th>
+              <th>Tools</th>
+              <th>Enablement</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>core</code></td>
+              <td>list_files, read_file, search_text, glob, git_status, manage_tasks, ask_user_question</td>
+              <td>Always on</td>
+            </tr>
+            <tr>
+              <td><code>edits</code></td>
+              <td>edit_file, write_file, apply_patch*</td>
+              <td><code>--capabilities edits</code>; apply_patch still needs exact <code>--tools</code></td>
+            </tr>
+            <tr>
+              <td><code>recovery</code></td>
+              <td>undo, undo_edit</td>
+              <td><code>--capabilities recovery</code></td>
+            </tr>
+            <tr>
+              <td><code>agents</code></td>
+              <td>spawn_agent</td>
+              <td><code>--capabilities agents</code>; depth 0 only; max 8/run</td>
+            </tr>
+            <tr>
+              <td><code>worktrees</code></td>
+              <td>enter/exit/list_worktrees</td>
+              <td><code>--capabilities worktrees</code></td>
+            </tr>
+            <tr>
+              <td><code>skills</code> / <code>lsp</code></td>
+              <td>run_skill / lsp_query</td>
+              <td>capabilities or <code>--enable-lsp</code></td>
+            </tr>
+            <tr>
+              <td><code>shell</code></td>
+              <td>bash, manage_shell_jobs</td>
+              <td><code>--allow-shell</code> only (never via capabilities)</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="scorecard">
+        <h2>5. Nine Harness Engineering practices — scorecard</h2>
+        <p>
+          Scores are 0–5 against the playbook intent, judged on <em>this repo as an agent workplace</em>
+          and on the runner as a product harness.
+        </p>
+
+        <div class="scorebar">
+          <div class="n">1</div>
+          <div>
+            <strong>Make the easy thing the hard thing’s path</strong>
+            <div class="track"><div class="fill mid" style="width: 45%"></div></div>
+          </div>
+          <div><span class="badge warn">2.5 / 5</span></div>
+        </div>
+        <p class="small muted">
+          Runner CLI is powerful and well-helped, but day-to-day repo checks are still a multi-command
+          recipe (<code>npm test && npm run lint && npm run check:docs && npm run format:check</code>).
+          No <code>make smoke</code>/<code>make ci</code>. Command builder HTML is excellent for humans;
+          agents still need a stable wrapper.
+        </p>
+
+        <div class="scorebar">
+          <div class="n">2</div>
+          <div>
+            <strong>Communicate actionable constraints with compact docs</strong>
+            <div class="track"><div class="fill mid" style="width: 55%"></div></div>
+          </div>
+          <div><span class="badge warn">3 / 5</span></div>
+        </div>
+        <p class="small muted">
+          <code>AGENTS.md</code>/<code>CLAUDE.md</code>/<code>threat-model.md</code> are unusually good.
+          But constraints are duplicated and have drifted historically (profiles retired in one file
+          later than another; redaction status stale for days). Volume fights compactness.
+        </p>
+
+        <div class="scorebar">
+          <div class="n">3</div>
+          <div>
+            <strong>Strict boundaries and flow</strong>
+            <div class="track"><div class="fill mid" style="width: 60%"></div></div>
+          </div>
+          <div><span class="badge warn">3 / 5</span></div>
+        </div>
+        <p class="small muted">
+          Strong boundary instincts: message contract validation at the outbound edge, projection vs
+          canonical history, tool-pipeline sink order, authority ceiling. Weakness: kernel is inverted
+          (wrapper, not engine), and <code>run.js</code> remains a god-module.
+        </p>
+
+        <div class="scorebar">
+          <div class="n">4</div>
+          <div>
+            <strong>Observability from day 1</strong>
+            <div class="track"><div class="fill high" style="width: 85%"></div></div>
+          </div>
+          <div><span class="badge ok">4.5 / 5</span></div>
+        </div>
+        <p class="small muted">
+          Outstanding for a personal lab: runId, stream-json events, JSONL transcript, flight-recorder
+          traces, session ledger with effect intents, loop autopsy, archive export, human logs, budget
+          events. Missing mainly a single OBSERVABILITY.md field contract and guaranteed CI retention.
+        </p>
+
+        <div class="scorebar">
+          <div class="n">5</div>
+          <div>
+            <strong>Optimize for agent flow, not human flow</strong>
+            <div class="track"><div class="fill mid" style="width: 65%"></div></div>
+          </div>
+          <div><span class="badge warn">3.5 / 5</span></div>
+        </div>
+        <p class="small muted">
+          Runtime features are agent-first: minimal default context, session resume, task scope,
+          plan mode, spawn leases, instruction-delta. Repo workflow is still human-handoff heavy
+          (many dated HTML handoffs instead of one living plan).
+        </p>
+
+        <div class="scorebar">
+          <div class="n">6</div>
+          <div>
+            <strong>Bring your own harness</strong>
+            <div class="track"><div class="fill mid" style="width: 70%"></div></div>
+          </div>
+          <div><span class="badge ok">3.5 / 5</span></div>
+        </div>
+        <p class="small muted">
+          The runner <em>is</em> a custom harness with project-local <code>.bridge-runner/</code>
+          primitives (hooks, prompts, skills, trust). What’s missing is a repo-local harness for
+          developing the harness itself (Makefile wrappers, smoke path, nightly audit).
+        </p>
+
+        <div class="scorebar">
+          <div class="n">7</div>
+          <div>
+            <strong>Prototype in natural language first</strong>
+            <div class="track"><div class="fill high" style="width: 80%"></div></div>
+          </div>
+          <div><span class="badge ok">4 / 5</span></div>
+        </div>
+        <p class="small muted">
+          Cultural strength of this lab: HTML plans, safari protocols, concordance assessments, and
+          plan-mode proposal diffs. Formal <code>PLANS.md</code> is absent, but the practice exists.
+        </p>
+
+        <div class="scorebar">
+          <div class="n">8</div>
+          <div>
+            <strong>Invest in static analysis and linting</strong>
+            <div class="track"><div class="fill mid" style="width: 55%"></div></div>
+          </div>
+          <div><span class="badge warn">3 / 5</span></div>
+        </div>
+        <p class="small muted">
+          ESLint + Prettier + docs drift scripts are real. No typechecker. No mandatory PR CI for test/lint.
+          CodeQL helps security scanning but is not a harness gate for agent changes.
+        </p>
+
+        <div class="scorebar">
+          <div class="n">9</div>
+          <div>
+            <strong>Manage entropy</strong>
+            <div class="track"><div class="fill low" style="width: 35%"></div></div>
+          </div>
+          <div><span class="badge bad">2 / 5</span></div>
+        </div>
+        <p class="small muted">
+          Known historical drift (P0 status fossilized in CLAUDE.md; dual P0 namespaces; derived HTML
+          truncations). <code>check:docs</code> and command-builder drift tests help. No nightly harness
+          audit, no single tracker discipline enforced by tooling.
+        </p>
+
+        <h3>Composite</h3>
+        <div class="grid-3">
+          <div class="stat">
+            <div class="label">Average practice score</div>
+            <div class="value">~3.3 / 5</div>
+            <div class="note">Capable internals, incomplete packaging</div>
+          </div>
+          <div class="stat">
+            <div class="label">Best practice</div>
+            <div class="value" style="font-size: 1.1rem">Observability</div>
+            <div class="note">4.5 — production-grade for a lab</div>
+          </div>
+          <div class="stat">
+            <div class="label">Worst practice</div>
+            <div class="value" style="font-size: 1.1rem">Entropy control</div>
+            <div class="note">2.0 — docs/process sprawl</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="control">
+        <h2>6. Control-system reading of the runner</h2>
+        <p>
+          The playbook’s control profile (setpoints, sensors, controller, actuators, feedback,
+          stability, entropy) maps cleanly onto modules that already exist:
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Primitive</th>
+              <th>Runner embodiment</th>
+              <th>Quality</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Setpoints</td>
+              <td>
+                <code>maxSteps</code>, token/cost/wall-clock budgets, context tiers
+                (observe/compact/checkpoint/ceiling), authority ceiling flags, tool allowlists
+              </td>
+              <td><span class="badge ok">Strong</span></td>
+            </tr>
+            <tr>
+              <td>Sensors</td>
+              <td>
+                usage totals, context estimator + calibration, session health, instruction-delta,
+                repeat-tool detector, semantic-cycle detector, failure streak, ledger pending intents
+              </td>
+              <td><span class="badge ok">Strong</span></td>
+            </tr>
+            <tr>
+              <td>Controller</td>
+              <td>
+                <code>run.js</code> step loop + <code>tool-pipeline</code> + permissions modes +
+                context projection decisions
+              </td>
+              <td><span class="badge warn">Effective but centralized</span></td>
+            </tr>
+            <tr>
+              <td>Actuators</td>
+              <td>
+                file tools, shell, worktrees, spawn_agent workers, hooks, confirmations, plan proposals
+              </td>
+              <td><span class="badge ok">Strong, opt-in</span></td>
+            </tr>
+            <tr>
+              <td>Feedback loop</td>
+              <td>
+                tool_result → messages; ledger; autopsy; archive; beginner hints; stream-json events
+              </td>
+              <td><span class="badge ok">Strong</span></td>
+            </tr>
+            <tr>
+              <td>Stability</td>
+              <td>
+                message contract asserts, cache breakpoint budget, bridge retry limits, chaos-ok gate,
+                monotonic authority, child non-recursion, budget leases
+              </td>
+              <td><span class="badge ok">Strong</span></td>
+            </tr>
+            <tr>
+              <td>Entropy management</td>
+              <td>
+                docs drift scripts, retired profiles archive, Safari handoffs; lacks automated stale-doc
+                reaping and single living architecture doc
+              </td>
+              <td><span class="badge bad">Weak</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Stop-reason taxonomy (controller outputs)</h3>
+        <p>
+          <code>src/runner/kernel/contract.js</code> defines <strong>25</strong> machine-readable stop
+          reasons, including predictive budget stops and upstream
+          <code>model_max_tokens</code> / <code>model_refusal</code> mapping. This is a hallmark of a
+          real harness: terminal states are typed, not inferred only from prose.
+        </p>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="subsystems">
+        <h2>7. Subsystem deep dives</h2>
+
+        <h3>7.1 CLI and bootstrap</h3>
+        <p>
+          <code>bin/local-bridge-runner.js</code> (~825 lines) is a careful flag surface with beginner
+          explanations baked into <code>--help</code>. Notable design choices:
+        </p>
+        <ul>
+          <li>Permission mode normalization (<code>--permission-mode</code> plus legacy flags)</li>
+          <li>Context opt-ins default off (<code>--bare</code>, instruction docs, repo map, skills)</li>
+          <li>Session resume is first-class; transcript resume is deprecated/rejected</li>
+          <li>Dangerous combo requires <code>--chaos-ok</code></li>
+          <li>Side commands: golden eval, memory review, ledger repair/replay, worktree orphan scan</li>
+        </ul>
+        <p>
+          Bootstrap (<code>bootstrap.js</code>) gates cwd validity, workspace trust, and chaos
+          combinations before the loop starts. This is the right place for fail-closed startup.
+        </p>
+
+        <h3>7.2 Main loop (<code>run.js</code>)</h3>
+        <p>
+          At <strong>1,709 lines</strong>, <code>run.js</code> is both the product’s brain and its main
+          maintainability risk. It currently orchestrates:
+        </p>
+        <ul class="tight">
+          <li>retired-profile rejection</li>
+          <li>context policy resolution and ctx construction</li>
+          <li>authority ceiling freeze</li>
+          <li>bootstrap / trust</li>
+          <li>session store, ledger, hooks, transcript, human log, archive, trace</li>
+          <li>budget tracker + broker + child inherit bundle</li>
+          <li>tool pipeline construction</li>
+          <li>resume hydration and health checks</li>
+          <li>the full step loop including projection, cache control, model I/O, tool execution</li>
+          <li>finalizer, autopsy, SIGINT cancellation, session extract</li>
+        </ul>
+        <div class="callout warn">
+          <strong class="title">Architectural smell</strong>
+          The file named “kernel” does not own the loop. <code>runKernel()</code> merely adapts options,
+          calls <code>run()</code>, and normalizes the result. The primary CLI never goes through the
+          kernel. Coordinator does. That means there are two public entry shapes for one engine, and the
+          “stable contract” is not the path most users hit.
+        </div>
+
+        <h3>7.3 Tool pipeline</h3>
+        <p>
+          <code>tool-pipeline.js</code> is the best-documented deep module in the runner. It enforces:
+        </p>
+        <ul>
+          <li>
+            <strong>Effect pairing:</strong> every tool use gets
+            <code>tool_effect_intent</code> then exactly one <code>tool_effect_result</code>
+          </li>
+          <li>
+            <strong>Ordered sinks:</strong> ledger → pre_tool hook → events/trace/transcript → execute →
+            result sinks → post_tool hook
+          </li>
+          <li>
+            <strong>Plan mode honesty:</strong> reads execute; writes become proposals, never fake success
+          </li>
+          <li>
+            <strong>Parallelism rules:</strong> read-only batching; writes serial unless accept-edits and
+            realpath-disjoint
+          </li>
+          <li>
+            <strong>Offered tools == executable tools:</strong> definitions derived from the same ctx gates
+          </li>
+        </ul>
+        <p>
+          This module is the template other parts of the system should emulate: small interface, explicit
+          invariants, fail modes documented up front.
+        </p>
+
+        <h3>7.4 Safety and permissions</h3>
+        <h4>What is excellent</h4>
+        <ul>
+          <li>Unified basename deny list consolidation (A11) — one source of truth</li>
+          <li>
+            <code>resolveFileTarget()</code> checks lexical path <em>and</em> realpath deny/escape (FD-01 / A2)
+          </li>
+          <li>Authority ceiling freezes shell/plan/network/tools at run start</li>
+          <li>Shell described honestly as unsandboxed local-account authority</li>
+          <li><code>--dont-ask</code> does not enable shell by itself</li>
+          <li>Central redaction boundary for sink fan-out (P0-11)</li>
+          <li>Private FS modes for sensitive artifacts (P0-12 / A7)</li>
+          <li>write_file refuses to back up through symlinks (A4)</li>
+        </ul>
+        <h4>What remains uneven</h4>
+        <ul>
+          <li>
+            Some tools still call bare <code>confinePath</code> in the execute path
+            (<code>write-file.js</code>, <code>apply-patch.js</code>, undo tools) while permissions already
+            use <code>resolveFileTarget</code>. Defense-in-depth is better than before, but not uniform.
+          </li>
+          <li>
+            Safari 3 Phase A is partially complete; A5 symlink matrix tests and live Phase B re-verify are
+            still open / not authorized.
+          </li>
+          <li>
+            Shell policy remains regex defense-in-depth, not confinement. That is documented — keep it
+            loudly documented forever.
+          </li>
+        </ul>
+
+        <h3>7.5 Context management</h3>
+        <p>
+          The 2026-07-26 rebuild introduced a clean conceptual split:
+        </p>
+        <ul>
+          <li>
+            <strong>Canonical history</strong> stays in session messages / store.
+          </li>
+          <li>
+            <strong>Projection</strong> (<code>context-projection.js</code>) builds the lossy per-request
+            view: stale-read drop, head/tail clips, checkpoints, protected recent exchanges.
+          </li>
+          <li>
+            <strong>Runtime policy</strong> derives observe/compact/checkpoint/ceiling from model catalog
+            windows and <code>--max-tokens</code>.
+          </li>
+          <li>
+            <strong>Estimator calibration</strong> updates from actual usage so later projections improve.
+          </li>
+        </ul>
+        <p>
+          Startup context is minimal by default (<code>context-policy.js</code>) — a deliberate
+          agent-flow choice: don’t stuff AGENTS.md/CLAUDE.md/repo maps unless asked. That matches the
+          playground direction and reduces prompt entropy.
+        </p>
+        <p class="small muted">
+          Legacy <code>context-compactor.js</code> still exists and is unit-tested, but explorers
+          confirmed it is <strong>not imported by <code>run.js</code></strong> — the live hot path is
+          projection-only. Residual risk is cognitive: agents may “fix” the dead ladder. Mark it
+          historical or delete once tests fully migrate.
+        </p>
+
+        <h3>7.6 Budgets and multi-agent economics</h3>
+        <ul>
+          <li>
+            Parent hard budgets: input tokens, output tokens, wall clock, estimated USD cost
+          </li>
+          <li>
+            Predictive stops before a request that would clearly exceed ceilings
+          </li>
+          <li>
+            <code>budget-broker</code> leases slices to children so concurrent spawns cannot each copy the
+            full remainder (P1-05)
+          </li>
+          <li>
+            Child inherit bundle strips/narrows authority and forwards remaining wall-clock (P1-10)
+          </li>
+          <li>
+            <code>spawn_agent</code>: depth 0 only, max 8, read-focused child surface
+          </li>
+        </ul>
+        <p>
+          Coordinator (<code>bin/local-bridge-coordinator.js</code>) is a separate phased orchestrator
+          (research → synthesize → execute → verify) that calls <code>runKernel</code> and can fan out
+          dependency-batched workers. It is a promising control plane, but still a playground sidecar
+          rather than the main UX.
+        </p>
+
+        <h3>7.7 Observability and recovery</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Surface</th>
+              <th>Path / form</th>
+              <th>Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>runId / traceId</td>
+              <td>generated per run; bridge correlation headers</td>
+              <td>join runner ↔ bridge artifacts</td>
+            </tr>
+            <tr>
+              <td>Transcript</td>
+              <td>JSONL under <code>~/.bridge-runner/logs/</code></td>
+              <td>conversation reconstruction</td>
+            </tr>
+            <tr>
+              <td>Session store</td>
+              <td><code>*.state.json</code></td>
+              <td>resume checkpoint</td>
+            </tr>
+            <tr>
+              <td>Ledger</td>
+              <td>append-only effect log</td>
+              <td>crash recovery, repair, replay</td>
+            </tr>
+            <tr>
+              <td>Flight recorder</td>
+              <td>runner JSONL trace levels off/summary/redacted/full</td>
+              <td>forensics (redacted by default intent)</td>
+            </tr>
+            <tr>
+              <td>Archive</td>
+              <td>per-turn export + rollup</td>
+              <td>post-run analysis</td>
+            </tr>
+            <tr>
+              <td>Autopsy</td>
+              <td>end-of-run structured summary</td>
+              <td>why it stopped; cycle signals</td>
+            </tr>
+            <tr>
+              <td>Run manifest</td>
+              <td><code>.bridge-runner/runs/&lt;id&gt;/manifest.json</code></td>
+              <td>operator undo of whole run</td>
+            </tr>
+            <tr>
+              <td>stream-json / json</td>
+              <td>stdout machine events</td>
+              <td>automation integrations</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>7.8 Evals and tests</h3>
+        <ul>
+          <li>
+            <strong>105</strong> runner test files covering permissions, pipeline, context rebuild,
+            budgets, hooks, spawn, redaction, command-builder drift, etc.
+          </li>
+          <li>
+            Golden eval framework exists (<code>golden-eval.js</code> + <code>npm run runner:eval</code>)
+            but checked-in corpus is tiny: currently
+            <code>read-list-then-answer.json</code> and <code>plan-mode-write-blocked.json</code>.
+          </li>
+          <li>
+            Adversarial field methodology (permission safaris) is a standout practice — better than most
+            production agent harnesses at learning from live behavior.
+          </li>
+          <li>
+            CI does not currently force the unit suite on every PR; that is a packaging gap, not a missing
+            test culture.
+          </li>
+        </ul>
+
+        <h3>7.9 Memory, skills, hooks</h3>
+        <ul>
+          <li>Auto-memory is opt-in; session-extract queues promotions for human review</li>
+          <li>Skills are Markdown loaders, not arbitrary code execution</li>
+          <li>
+            Hooks require explicit workspace trust opt-in; exec hooks need an additional
+            <code>trusted: true</code> in hooks.json (P1-14 honesty)
+          </li>
+        </ul>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="strengths">
+        <h2>8. Strengths worth protecting</h2>
+        <ol>
+          <li>
+            <strong>Small default, explicit consent.</strong> Seven-tool core; shell and patch mode are
+            hard to enable by accident.
+          </li>
+          <li>
+            <strong>Monotonic authority ceiling.</strong> Mid-run ctx mutation cannot widen shell/plan/network/tools.
+          </li>
+          <li>
+            <strong>Tool pipeline invariants.</strong> Effect pairing + plan-mode honesty + offered=executable.
+          </li>
+          <li>
+            <strong>Typed stop taxonomy.</strong> Automation can branch on real terminal causes.
+          </li>
+          <li>
+            <strong>Context projection without destroying history.</strong> Correct separation for resume
+            and audit.
+          </li>
+          <li>
+            <strong>Redaction as a sink boundary.</strong> Execution may need raw bytes; logs must not.
+          </li>
+          <li>
+            <strong>Child economics.</strong> Budget leases beat naïve remainder copying.
+          </li>
+          <li>
+            <strong>Beginner-first product voice.</strong> Help text and hints treat the operator as a
+            learner without weakening safety.
+          </li>
+          <li>
+            <strong>Adversarial safaris + threat model.</strong> Evidence classes (confirmed control vs
+            model refusal) are unusually disciplined.
+          </li>
+          <li>
+            <strong>Test density around hard bugs.</strong> P0/P1 regression tests encode institutional
+            memory better than prose alone.
+          </li>
+        </ol>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="findings">
+        <h2>9. Findings (ranked)</h2>
+        <p class="muted small">
+          These are review findings for harness quality and maintainability. They are not a claim that
+          historical P0-01…12 reopened.
+        </p>
+
+        <div class="finding p0">
+          <div class="head">
+            <span class="badge bad">P0</span>
+            <h4>HE-01 — Path choicepoint not fully adopted by all file actuators</h4>
+          </div>
+          <p>
+            <code>resolveFileTarget</code> is the intended unified gate and is used by
+            <code>permissions.check</code> (so normal registry dispatch is target-aware). But several
+            tool execute paths still use thinner checks:
+          </p>
+          <ul>
+            <li><code>write-file.js</code> — <code>confinePath</code> + lstat symlink refuse (good partial)</li>
+            <li><code>apply-patch.js</code> / undo tools — <code>confinePath</code> only</li>
+            <li><code>read-file.js</code> / <code>edit-file.js</code> — plain <code>path.resolve</code>; trust the gate entirely</li>
+            <li><code>edit_file</code> still <strong>follows</strong> symlinks on read/write (no lstat refuse)</li>
+            <li><code>list_files</code> can still <em>reveal</em> deny-matrix basenames (existence leak)</li>
+          </ul>
+          <p>
+            <strong>Why it matters:</strong> Safari F1 is mostly closed at the permission gate, but
+            defense-in-depth is uneven. Any future path that calls <code>tool.execute</code> without
+            <code>permissions.check</code> reopens F1-class bugs. <code>edit_file</code> /
+            <code>apply_patch</code> symlink write-through remains an open tool-layer residual.
+            Phase A task A5 (symlink/hardlink matrix) is still deferred.
+          </p>
+          <p class="small">
+            <strong>Evidence:</strong> <code>src/runner/safety.js</code> (<code>resolveFileTarget</code>),
+            <code>permissions.js</code> gate, <code>write-file.js:50–87</code>,
+            <code>read-file.js</code> / <code>edit-file.js</code> plain resolve,
+            <code>HANDOFF-safari-3-phase-a-progress-2026-07-26.md</code>.
+          </p>
+        </div>
+
+        <div class="finding p0">
+          <div class="head">
+            <span class="badge bad">P0</span>
+            <h4>HE-02 — No mandatory deterministic CI gate for runner changes</h4>
+          </div>
+          <p>
+            Local scripts are good, but GitHub automation is CodeQL + a manual/self-hosted readonly POC.
+            There is no PR-required <code>npm test && lint && check:docs</code> harness workflow.
+          </p>
+          <p>
+            <strong>Why it matters:</strong> multi-agent commits on <code>main</code> need a machine
+            referee. Playbook practice 1/6/8 all fail without it.
+          </p>
+        </div>
+
+        <div class="finding p1">
+          <div class="head">
+            <span class="badge warn">P1</span>
+            <h4>HE-03 — Kernel abstraction is inverted</h4>
+          </div>
+          <p>
+            Docs and coordinator treat AgentKernel as the deterministic turn engine. Implementation:
+            kernel options-maps into <code>run()</code>. Primary CLI requires <code>run</code> directly.
+            Contract normalization even pattern-matches legacy finalText strings for stop reasons.
+          </p>
+          <p>
+            <strong>Option-map drift risk:</strong> <code>runKernel</code> hand-lists fields. CLI-only
+            options such as <code>capabilities</code>, <code>budgetInputTokens</code>,
+            <code>enableLsp</code>, <code>testWatch</code>, <code>sessionExtract</code> can be silently
+            dropped on the coordinator→kernel path unless each is threaded through the adapter.
+          </p>
+          <p>
+            <strong>Recommendation:</strong> either (a) make CLI call <code>runKernel</code> and move the
+            loop under <code>kernel/</code>, or (b) stop calling it a kernel and document
+            <code>run.js</code> as the engine with a DTO helper. Today’s halfway state costs future agents
+            reasoning time.
+          </p>
+        </div>
+
+        <div class="finding p1">
+          <div class="head">
+            <span class="badge warn">P1</span>
+            <h4>HE-04 — <code>run.js</code> god-module concentration risk</h4>
+          </div>
+          <p>
+            1.7k lines owning startup, loop, budgets, resume, finalizer, and sink wiring. Tool-pipeline
+            extraction was the right move; next extractions should be: resume/bootstrap orchestration,
+            step-loop controller, and finalize/autopsy path.
+          </p>
+        </div>
+
+        <div class="finding p1">
+          <div class="head">
+            <span class="badge warn">P1</span>
+            <h4>HE-05 — Docs entropy without a living architecture contract</h4>
+          </div>
+          <p>
+            ~2.3MB under <code>docs/</code>, many dated handoffs, dual P0 namespaces, CLAUDE.md/AGENTS.md
+            non-mirrored sections already known to drift. Playbook missing
+            <code>ARCHITECTURE.md</code>/<code>OBSERVABILITY.md</code>/<code>PLANS.md</code> is not
+            cosmetic here — agents literally reload stale narrative.
+          </p>
+          <p>
+            Alan’s notebook-vs-protocol preference applies: keep immutable safari records, but stop letting
+            them act as live instructions.
+          </p>
+        </div>
+
+        <div class="finding p1">
+          <div class="head">
+            <span class="badge warn">P1</span>
+            <h4>HE-06 — Golden eval corpus too thin for regression confidence</h4>
+          </div>
+          <p>
+            Framework quality is ahead of case count (2 golden cases). High-value missing cases: symlink
+            deny, authority ceiling, budget lease exhaustion, resume degraded health, plan proposal invalid
+            edit, shell hidden under dont-ask, offered-tools quarantine.
+          </p>
+        </div>
+
+        <div class="finding p1">
+          <div class="head">
+            <span class="badge warn">P1</span>
+            <h4>HE-07 — Missing one-command agent wrappers</h4>
+          </div>
+          <p>
+            Playbook wants <code>make smoke</code>, <code>make check</code>, <code>make ci</code>. The
+            ingredients exist as npm scripts. Wrapping them is cheap and removes a whole class of “which
+            commands do I run?” agent failures.
+          </p>
+        </div>
+
+        <div class="finding p2">
+          <div class="head">
+            <span class="badge info">P2</span>
+            <h4>HE-08 — Dead legacy compaction stack still in tree</h4>
+          </div>
+          <p>
+            Live path is projection-only (<code>context-projection.js</code> + estimator + runtime policy).
+            Legacy <code>context-compactor.js</code> (clip→snip→ghost→summarize, fixed 80k/160k era) is
+            <strong>not on the hot path</strong> but remains imported by tests and architecture smoke tests.
+            Mark non-runtime / migrate tests / delete to stop agents rewriting the wrong module.
+          </p>
+        </div>
+
+        <div class="finding p2">
+          <div class="head">
+            <span class="badge info">P2</span>
+            <h4>HE-08b — Secondary safety residuals from deep review</h4>
+          </div>
+          <ul>
+            <li>Redaction patterns miss several modern token shapes (<code>github_pat_</code>, <code>ghs_</code>, Slack <code>xox*</code>, etc.).</li>
+            <li>Multimodal <code>contentBlocks</code> from media reads are outside the text scrub chokepoint.</li>
+            <li>Coordinator <code>runPhasePlan</code> / dependency batching is implemented and tested but not wired into live <code>Coordinator.run</code>.</li>
+            <li><code>docs/threat-model.md</code> still partially narrates pre-<code>resolveFileTarget</code> Safari state in one section — docs drift.</li>
+            <li>No durable chaos-ok audit marker in run artifacts (Safari S2-05 / F6 still open).</li>
+          </ul>
+        </div>
+
+        <div class="finding p2">
+          <div class="head">
+            <span class="badge info">P2</span>
+            <h4>HE-09 — Coordinator sidelined from primary UX</h4>
+          </div>
+          <p>
+            Phased orchestration + dependency batching is interesting harness tech, but main operator path
+            is single-loop runner + optional spawn_agent. Either promote coordinator with docs/tests or
+            quarantine it as experimental to reduce cognitive load.
+          </p>
+        </div>
+
+        <div class="finding p2">
+          <div class="head">
+            <span class="badge info">P2</span>
+            <h4>HE-10 — No type boundary enforcement</h4>
+          </div>
+          <p>
+            JSDoc typedefs on kernel contracts help humans; nothing fails the build if shapes drift.
+            Given the message/tool/event graphs, even a light <code>// @ts-check</code> on boundary files
+            or zod-like runtime asserts beyond message-contract would pay rent.
+          </p>
+        </div>
+
+        <div class="finding p2">
+          <div class="head">
+            <span class="badge info">P2</span>
+            <h4>HE-11 — Playbook control docs absent (by name only)</h4>
+          </div>
+          <p>
+            Do not dump empty template prose into <code>docs/control/*</code> just to pass the wizard.
+            If adopted, rewrite those primitives against the real modules in §6. A green audit that lies
+            is worse than a red audit.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="recommendations">
+        <h2>10. Recommendations</h2>
+
+        <h3>10.1 Do now (high leverage, low regret)</h3>
+        <ol>
+          <li>
+            <strong>Finish path-gate uniformity.</strong> Make every file actuator call
+            <code>resolveFileTarget</code> (or a tiny wrapper) in execute, not only in permissions.
+            Add the A5 symlink matrix tests before calling Safari 3 Phase A closed.
+          </li>
+          <li>
+            <strong>Add thin harness wrappers without rewriting culture.</strong>
+            <pre><code>Makefile.harness
+smoke:   node --require ./test/setup.js --test test/runner/safety.test.js test/runner/permissions.test.js
+check:   npm run lint &amp;&amp; npm run format:check &amp;&amp; npm run check:docs
+test:    npm test
+ci:      make check test</code></pre>
+            Point <code>AGENTS.md</code> at these four commands.
+          </li>
+          <li>
+            <strong>Write two living contract docs, not twenty more handoffs.</strong>
+            <ul>
+              <li><code>docs/ARCHITECTURE.md</code> — module ownership map from §4.3</li>
+              <li><code>docs/OBSERVABILITY.md</code> — required event fields, artifact paths, redaction rules</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Add a PR CI workflow</strong> that runs <code>make ci</code> (or npm equivalent) on
+            ubuntu-latest. Keep the self-hosted readonly POC as an optional live probe.
+          </li>
+        </ol>
+
+        <h3>10.2 Do next (structural)</h3>
+        <ol>
+          <li>
+            <strong>Resolve the kernel story.</strong> Prefer: CLI → <code>runKernel</code> → extracted
+            loop modules. Keep stop-reason normalization free of finalText regex fallbacks for new paths.
+          </li>
+          <li>
+            <strong>Split <code>run.js</code></strong> into at least:
+            <code>run-bootstrap.js</code>, <code>run-loop.js</code>, <code>run-finalize.js</code>.
+          </li>
+          <li>
+            <strong>Grow golden corpus to ~15 cases</strong> covering the permission/budget/resume spine.
+          </li>
+          <li>
+            <strong>Introduce <code>PLANS.md</code></strong> as the single writable plan for multi-hour
+            work; link out to immutable safari notebooks rather than duplicating them.
+          </li>
+          <li>
+            <strong>Mark legacy compaction paths</strong> explicitly deprecated in code comments and docs.
+          </li>
+        </ol>
+
+        <h3>10.3 Do not do</h3>
+        <ul>
+          <li>Do not bulk-bootstrap playbook templates over existing strong AGENTS/threat-model docs.</li>
+          <li>Do not restore profiles / OpenAI routes / API-key fallback.</li>
+          <li>
+            Do not treat model refusals during safaris as proof of runner controls (Safari vocabulary).
+          </li>
+          <li>
+            Do not authorize Safari 3 Phase B live probes from this report alone — that still needs Alan’s
+            explicit budget/window confirmation per the handoff banner.
+          </li>
+        </ul>
+
+        <h3>10.4 Suggested adoption profile</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Playbook profile</th>
+              <th>Fit for this repo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>baseline</code></td>
+              <td>
+                Good starting point <em>if customized</em>: wrappers + ARCHITECTURE + OBSERVABILITY + PLANS
+              </td>
+            </tr>
+            <tr>
+              <td><code>control</code></td>
+              <td>
+                Useful only after rewriting control docs to name real modules (pipeline, ceiling, projection)
+              </td>
+            </tr>
+            <tr>
+              <td><code>full</code></td>
+              <td>
+                Nightly entropy audit is justified here — docs sprawl is the actual failure mode
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="appendix">
+        <h2>11. Appendix — quick reference anchors</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Topic</th>
+              <th>Primary files</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>CLI entry</td>
+              <td><code>bin/local-bridge-runner.js</code></td>
+            </tr>
+            <tr>
+              <td>Main loop</td>
+              <td><code>src/runner/run.js</code></td>
+            </tr>
+            <tr>
+              <td>Kernel contract</td>
+              <td><code>src/runner/kernel/contract.js</code>, <code>agent-kernel.js</code></td>
+            </tr>
+            <tr>
+              <td>Tool dispatch</td>
+              <td><code>tool-pipeline.js</code>, <code>tool-registry.js</code>, <code>tool-catalog.js</code></td>
+            </tr>
+            <tr>
+              <td>Visibility</td>
+              <td><code>tool-visibility.js</code></td>
+            </tr>
+            <tr>
+              <td>Permissions / ceiling</td>
+              <td><code>permissions.js</code>, <code>authority.js</code>, <code>permission-mode.js</code></td>
+            </tr>
+            <tr>
+              <td>Path safety / redaction</td>
+              <td><code>safety.js</code>, <code>redaction-boundary.js</code>, <code>private-fs.js</code></td>
+            </tr>
+            <tr>
+              <td>Context</td>
+              <td>
+                <code>context-policy.js</code>, <code>context-runtime-policy.js</code>,
+                <code>context-projection.js</code>, <code>context-estimator.js</code>,
+                <code>context-builder.js</code>
+              </td>
+            </tr>
+            <tr>
+              <td>Budgets</td>
+              <td><code>budget-tracker.js</code>, <code>budget-broker.js</code>, <code>model-pricing.js</code></td>
+            </tr>
+            <tr>
+              <td>Multi-agent</td>
+              <td>
+                <code>tools/spawn-agent.js</code>, <code>worker-runtime.js</code>,
+                <code>coordinator.js</code>, <code>child-inherit.js</code>
+              </td>
+            </tr>
+            <tr>
+              <td>Session / recovery</td>
+              <td>
+                <code>session-store.js</code>, <code>session-ledger.js</code>,
+                <code>session-health.js</code>, <code>recovery/run-manifest.js</code>
+              </td>
+            </tr>
+            <tr>
+              <td>Threat model / safari</td>
+              <td>
+                <code>docs/threat-model.md</code>,
+                <code>docs/permission-safari-2-findings-2026-07-21.md</code>,
+                <code>HANDOFF-safari-3-*.md</code>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>Size snapshot (approx.)</h3>
+        <pre><code>bin/local-bridge-runner.js     825 lines
+src/runner/run.js             1709 lines
+src/runner/tool-pipeline.js    601 lines
+src/runner/safety.js           741 lines
+src/runner/permissions.js      485 lines
+src/runner/*.js total        ~13.1k lines
+src/runner/tools               24 modules / ~3.5k lines
+test/runner                   105 test files
+docs/                         ~2.3 MB</code></pre>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="handoff">
+        <h2>12. Handoff</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Folder</td>
+              <td><code>/Users/alanman/Developer/claude-local-bridge-playground</code></td>
+            </tr>
+            <tr>
+              <td>Branch</td>
+              <td><code>main</code></td>
+            </tr>
+            <tr>
+              <td>Files changed</td>
+              <td>
+                Added only
+                <code>docs/harness-engineering-runner-runtime-review-2026-07-28.html</code>
+                (this report). No runtime/source edits.
+              </td>
+            </tr>
+            <tr>
+              <td>Checks run</td>
+              <td>
+                Playbook <code>harness_wizard.py status</code>;
+                <code>audit_harness.sh</code> (failed 20 missing artifacts, expected);
+                extensive read-only source inspection. Full <code>npm test</code> not re-run for this
+                docs-only deliverable.
+              </td>
+            </tr>
+            <tr>
+              <td>Skipped</td>
+              <td>
+                No code changes; no Safari live probes; no playbook bootstrap writes; did not push.
+              </td>
+            </tr>
+            <tr>
+              <td>Risks</td>
+              <td>
+                Report snapshots a moving lab (Safari Phase A partially landed). Re-verify path-tool call
+                sites before implementing HE-01. Dual P0 namespaces can still confuse future agents.
+              </td>
+            </tr>
+            <tr>
+              <td>Suggested next step</td>
+              <td>
+                If Alan wants action: implement HE-07 wrappers + HE-05 living contracts first, then finish
+                HE-01 path uniformity with tests. Keep Safari Phase B gated.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout ok">
+          <strong class="title">One-sentence summary</strong>
+          The bridge runner is already a sophisticated agent control system with strong safety and
+          observability guts; its main harness debt is packaging, entropy control, path-gate consistency,
+          and reducing the <code>run.js</code>/kernel conceptual split so future agents can evolve it
+          without archaeology.
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Read-only harness engineering review · Claude Local Bridge Playground · 2026-07-28 · Generated
+        for local operator use. Source lens: OpenAI Harness Engineering practices + repo invariants in
+        <code>AGENTS.md</code> / <code>CLAUDE.md</code> / <code>docs/threat-model.md</code>.
+      </div>
+    </footer>
+  </body>
+</html>
