@@ -1,639 +1,1425 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preliminary Study: User-Owned AI Orchestration, Programmatic Tool Calling & Agent-as-Tool Architectures</title>
-  <style>
-    :root {
-      --bg-primary: #0f172a;
-      --bg-card: #1e293b;
-      --bg-card-hover: #334155;
-      --text-primary: #f8fafc;
-      --text-secondary: #94a3b8;
-      --accent-blue: #38bdf8;
-      --accent-indigo: #818cf8;
-      --accent-purple: #c084fc;
-      --accent-emerald: #34d399;
-      --accent-amber: #fbbf24;
-      --accent-rose: #f87171;
-      --border-color: #334155;
-      --code-bg: #090d16;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: var(--bg-primary);
-      color: var(--text-primary);
-      line-height: 1.6;
-      display: flex;
-      min-height: 100vh;
-    }
-
-    /* Sidebar Navigation */
-    .sidebar {
-      width: 280px;
-      background-color: #0b1120;
-      border-right: 1px solid var(--border-color);
-      position: fixed;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      overflow-y: auto;
-      padding: 1.5rem 1rem;
-    }
-
-    .sidebar h2 {
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-secondary);
-      margin-bottom: 1rem;
-      padding-left: 0.5rem;
-    }
-
-    .sidebar nav ul {
-      list-style: none;
-    }
-
-    .sidebar nav li {
-      margin-bottom: 0.25rem;
-    }
-
-    .sidebar nav a {
-      display: block;
-      padding: 0.5rem;
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-size: 0.9rem;
-      border-radius: 6px;
-      transition: all 0.2s ease;
-    }
-
-    .sidebar nav a:hover {
-      background-color: var(--bg-card);
-      color: var(--accent-blue);
-    }
-
-    /* Main Content */
-    .main-content {
-      margin-left: 280px;
-      flex: 1;
-      padding: 2.5rem 3rem;
-      max-width: 1200px;
-    }
-
-    .header-banner {
-      background: linear-gradient(135deg, #1e1b4b 0%, #1e293b 100%);
-      border: 1px solid var(--accent-indigo);
-      border-radius: 12px;
-      padding: 2rem;
-      margin-bottom: 2.5rem;
-    }
-
-    .header-banner h1 {
-      font-size: 2rem;
-      color: var(--text-primary);
-      margin-bottom: 0.75rem;
-    }
-
-    .header-banner p {
-      color: var(--text-secondary);
-      font-size: 1rem;
-    }
-
-    .meta-tags {
-      display: flex;
-      gap: 0.75rem;
-      margin-top: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 0.25rem 0.6rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .badge-blue { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); border: 1px solid var(--accent-blue); }
-    .badge-indigo { background: rgba(129, 140, 248, 0.15); color: var(--accent-indigo); border: 1px solid var(--accent-indigo); }
-    .badge-emerald { background: rgba(52, 211, 153, 0.15); color: var(--accent-emerald); border: 1px solid var(--accent-emerald); }
-    .badge-amber { background: rgba(251, 191, 36, 0.15); color: var(--accent-amber); border: 1px solid var(--accent-amber); }
-    .badge-rose { background: rgba(248, 113, 113, 0.15); color: var(--accent-rose); border: 1px solid var(--accent-rose); }
-
-    section {
-      margin-bottom: 3rem;
-      scroll-margin-top: 2rem;
-    }
-
-    h2.section-title {
-      font-size: 1.5rem;
-      border-bottom: 2px solid var(--border-color);
-      padding-bottom: 0.5rem;
-      margin-bottom: 1.5rem;
-      color: var(--accent-blue);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    h3 {
-      font-size: 1.2rem;
-      margin: 1.25rem 0 0.75rem 0;
-      color: var(--text-primary);
-    }
-
-    p, li {
-      color: var(--text-secondary);
-      margin-bottom: 0.75rem;
-    }
-
-    ul, ol {
-      padding-left: 1.5rem;
-      margin-bottom: 1rem;
-    }
-
-    /* Cards & Containers */
-    .card {
-      background-color: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      padding: 1.5rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .analogy-box {
-      background: rgba(129, 140, 248, 0.08);
-      border-left: 4px solid var(--accent-indigo);
-      padding: 1.25rem;
-      border-radius: 0 8px 8px 0;
-      margin: 1rem 0;
-    }
-
-    /* Tables */
-    .table-container {
-      overflow-x: auto;
-      margin: 1.5rem 0;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: var(--bg-card);
-      border-radius: 8px;
-      overflow: hidden;
-      font-size: 0.88rem;
-    }
-
-    th, td {
-      padding: 0.85rem 1rem;
-      text-align: left;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    th {
-      background-color: #162032;
-      color: var(--accent-blue);
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 0.75rem;
-      letter-spacing: 0.05em;
-    }
-
-    tr:hover td {
-      background-color: var(--bg-card-hover);
-    }
-
-    /* Code & Diagrams */
-    pre, code {
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-      background-color: var(--code-bg);
-      border-radius: 6px;
-    }
-
-    code {
-      padding: 0.2rem 0.4rem;
-      font-size: 0.85rem;
-      color: var(--accent-amber);
-    }
-
-    pre {
-      padding: 1rem;
-      overflow-x: auto;
-      border: 1px solid var(--border-color);
-      margin: 1rem 0;
-      color: #e2e8f0;
-      font-size: 0.85rem;
-    }
-
-    .diagram-box {
-      background-color: var(--code-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 1.5rem;
-      margin: 1.5rem 0;
-      text-align: center;
-    }
-
-    .flow-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1rem;
-      margin: 1rem 0;
-    }
-
-    .flow-step {
-      background: #131d2e;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 1rem;
-    }
-
-    .flow-step h4 {
-      color: var(--accent-blue);
-      margin-bottom: 0.5rem;
-      font-size: 0.95rem;
-    }
-
-    footer {
-      margin-top: 4rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid var(--border-color);
-      color: var(--text-secondary);
-      font-size: 0.85rem;
-      text-align: center;
-    }
-  </style>
-</head>
-<body>
-<!--
-Provenance: this file in `docs/` is the **primary** preliminary study (smaller,
-"Completed Preliminary Study"). A separate, longer draft from a parallel session
-lives at `~/Downloads/ai-orchestration-preliminary-study-2026-07-29.{md,html}`
-(marked "Superseding draft — provenance only"). Both pairs are kept per user
-decision on 2026-07-29; do not delete either without checking with the user.
--->
-<div style="background:#fffbe6;border:1px solid #d4a373;padding:0.6rem 1rem;border-radius:6px;margin:1rem 0;font-size:0.88rem;color:#5a4a2a;font-family:system-ui,sans-serif;">
-  <strong>Provenance note (2026-07-29).</strong>
-  This <code>docs/</code> copy is the <b>primary</b> preliminary study.
-  A longer <i>superseding draft</i> from a parallel session is kept at
-  <code>~/Downloads/ai-orchestration-preliminary-study-2026-07-29.{md,html}</code>
-  for reference only. Do not delete either pair without checking with the user.
-</div>
-
-  <!-- Sidebar -->
-  div class="sidebar">
-    <h2>Table of Contents</h2>
-    <nav>
-      <ul>
-        <li><a href="#exec-summary">1. Executive Summary</a></li>
-        <li><a href="#ontology">2. Ontology & Loops</a></li>
-        <li><a href="#landscape">3. Landscape Deep-Dives</a></li>
-        <li><a href="#matrix">4. Comparison Matrix</a></li>
-        <li><a href="#open-problems">5. Open Problems</a></li>
-        <li><a href="#trends">6. Industry Trends</a></li>
-        <li><a href="#architecture">7. Reference Architecture</a></li>
-        <li><a href="#agenda">8. Research Agenda</a></li>
-        <li><a href="#appendix">9. Source Appendix</a></li>
-      </ul>
-    </nav>
-  </div>
-
-  <!-- Main Content -->
-  <div class="main-content">
-
-    <div class="header-banner">
-      <h1>Preliminary Study: User-Owned AI Orchestration</h1>
-      <p>Programmatic Tool Calling, Code-as-Action, and Agent-as-Tool Architectures</p>
-      <div class="meta-tags">
-        <span class="badge badge-blue">Date: 2026-07-29</span>
-        <span class="badge badge-emerald">Phase 1 Synthesis</span>
-        <span class="badge badge-indigo">User-Owned Control Plane</span>
-        <span class="badge badge-amber">Research & Architecture Map</span>
-      </div>
-    </div>
-
-    <!-- Section 1 -->
-    <section id="exec-summary">
-      <h2 classsection-title">1. Executive Summary</h2>
-
-      <div class="card">
-        <h3>The Shift: From Micro-Management to Automated Scripts</h3>
-        <p>In early AI applications, language models operated via <strong>Direct Tool Calling</strong>. Every time an AI needed information, it had to make a single tool request, wait for a response across the network, read the answer, and then decide its next step. Imagine an executive who walks to a assistant's desk 50 times in an hour for individual papers—the back-and-forth travel time (latency) and consultation fees (token costs) quickly become prohibitive.</p>
-
-        <p>Modern orchestration shifts to <strong>Programmatic Tool Calling</strong> (also known as <i>Code-as-Action</i> or <i>CodeAct</i>). Instead of micro-managing each step, the AI writes a complete, self-contained Python script or configures an automated graph workflow. The local system executes the script in one pass and returns only the final answer. Research proves this reduces agent steps by up to 30% and boosts complex task success rates by up to 20%.</p>
-
-        <div class="analogy-box">
-          <strong>Intuitive Analogy:</strong><br>
-          • <i>Direct Tool Calling:</i> Asking an assistant to read line 1 of a file, then line 2, then line 3.<br>
-          • <i>Programmatic Execution:</i> Giving the assistant a script that says: "Filter all 100 documents by date, summarize each, and give me a consolidated table." The assistant delivers the final table in one trip.
-        </div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>User-Owned AI Orchestration — Preliminary Study (R2, 2026-07-30)</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #09111f;
+        --panel: #101c2f;
+        --panel-2: #14243a;
+        --text: #e8eef8;
+        --muted: #a8b7cd;
+        --line: #2b405d;
+        --cyan: #66d9ef;
+        --green: #7ee2a8;
+        --amber: #ffd479;
+        --red: #ff8e91;
+        --violet: #bda8ff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 12% 0%, rgba(102, 217, 239, 0.11), transparent 28rem),
+          radial-gradient(circle at 92% 10%, rgba(189, 168, 255, 0.09), transparent 30rem), var(--bg);
+        color: var(--text);
+        font:
+          16px/1.68 Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+      main {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 32px 0 96px;
+      }
+      h1 {
+        font-size: clamp(1.7rem, 4vw, 2.5rem);
+        line-height: 1.2;
+        margin: 0 0 12px;
+      }
+      h2 {
+        font-size: clamp(1.25rem, 2.6vw, 1.6rem);
+        margin: 44px 0 14px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--line);
+        color: var(--cyan);
+      }
+      h3 {
+        font-size: 1.1rem;
+        margin: 28px 0 10px;
+        color: var(--violet);
+      }
+      h4 {
+        font-size: 0.98rem;
+        margin: 20px 0 8px;
+        color: var(--amber);
+      }
+      a {
+        color: var(--cyan);
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.88em;
+        background: rgba(102, 217, 239, 0.1);
+        border: 1px solid rgba(102, 217, 239, 0.22);
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+      pre {
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px 16px;
+        overflow-x: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.82rem;
+        line-height: 1.55;
+      }
+      pre code {
+        background: none;
+        border: none;
+        padding: 0;
+        font-size: inherit;
+      }
+      .lede {
+        font-size: 1.05rem;
+        color: var(--muted);
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 16px 0 28px;
+      }
+      .meta span {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 18px 20px;
+        margin: 20px 0;
+      }
+      .callout {
+        border-left: 3px solid var(--cyan);
+        background: var(--panel-2);
+        border-radius: 0 10px 10px 0;
+        padding: 14px 18px;
+        margin: 18px 0;
+      }
+      .callout.warn {
+        border-left-color: var(--amber);
+      }
+      .callout.key {
+        border-left-color: var(--green);
+      }
+      .callout.open {
+        border-left-color: var(--red);
+      }
+      .callout h4 {
+        margin-top: 0;
+      }
+      .tag {
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        border-radius: 999px;
+        padding: 2px 8px;
+        white-space: nowrap;
+        border: 1px solid currentColor;
+      }
+      .t-doc {
+        color: var(--green);
+      }
+      .t-src {
+        color: var(--cyan);
+      }
+      .t-meas {
+        color: var(--violet);
+      }
+      .t-vendor {
+        color: var(--amber);
+      }
+      .t-res {
+        color: var(--violet);
+      }
+      .t-inf {
+        color: var(--muted);
+      }
+      .t-open {
+        color: var(--red);
+      }
+      .scroll {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        margin: 18px 0;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        min-width: 620px;
+        font-size: 0.86rem;
+      }
+      caption {
+        text-align: left;
+        padding: 12px 14px;
+        color: var(--muted);
+        font-size: 0.84rem;
+        border-bottom: 1px solid var(--line);
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      thead th {
+        background: var(--panel-2);
+        color: var(--cyan);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      td.yes {
+        color: var(--green);
+        font-weight: 600;
+      }
+      td.no {
+        color: var(--red);
+        font-weight: 600;
+      }
+      td.part {
+        color: var(--amber);
+      }
+      .runner-col {
+        background: rgba(126, 226, 168, 0.07);
+      }
+      nav.toc {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin: 24px 0 8px;
+      }
+      nav.toc ol {
+        margin: 8px 0 0;
+        padding-left: 20px;
+        columns: 2;
+        column-gap: 28px;
+      }
+      nav.toc li {
+        margin: 3px 0;
+        font-size: 0.9rem;
+      }
+      .diagram {
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 18px;
+        margin: 18px 0;
+        overflow-x: auto;
+      }
+      .flow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: stretch;
+      }
+      .node {
+        flex: 1 1 150px;
+        min-width: 140px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 0.82rem;
+      }
+      .node b {
+        display: block;
+        color: var(--cyan);
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-bottom: 4px;
+      }
+      .node.owned {
+        border-color: rgba(126, 226, 168, 0.5);
+      }
+      .node.owned b {
+        color: var(--green);
+      }
+      .node.vendor {
+        border-color: rgba(255, 212, 121, 0.5);
+      }
+      .node.vendor b {
+        color: var(--amber);
+      }
+      ul.tight li {
+        margin: 5px 0;
+      }
+      .foot {
+        margin-top: 56px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 12px 0 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>User-Owned AI Orchestration, Programmatic Tool Calling, and Agent-as-Tool Architectures</h1>
+      <p class="lede">
+        A preliminary study mapping who owns the loop when models write code that calls tools — and what
+        is genuinely still unsolved.
+      </p>
+      <div class="meta">
+        <span>Original draft 2026-07-29</span>
+        <span>Revision R2 · 2026-07-30</span>
+        <span>Research only — no runner/bridge/auth/proxy changes</span>
+        <span>Branch <code>claude/user-owned-ai-orchestration-ypiplp</code> @ <code>1446307</code></span>
       </div>
 
-      <div class="card">
-        <h3>The Core Decision: Who Owns the Control Plane?</h3>
-        <p>As programmatic tool execution grows, developers face a crucial decision regarding ownership and infrastructure:</p>
-
-        <div class="flow-grid">
-          <div class="flow-step">
-            <h4>Vendor-Managed Execution (e.g. Anthropic)</h4>
-            <p>The vendor hosts the code sandbox in their cloud container (5 GiB RAM, 1 CPU, 0 internet access). Claude calls tools as async Python functions without intermediate model round-trips. Highly optimized, but hardware and network policies are vendor-controlled.</p>
-          </div>
-          <div class="flow-step">
-            <h4>User-Owned Control Plane (e.g. Local Runner / LangGraph)</h4>
-            <p>The user operates the outer loop, local sandbox, state checkpoints, and credential storage. The AI model is treated as a replaceable cognitive worker rather than the owner of the control plane.</p>
-          </div>
-        </div>
+      <div class="callout warn">
+        <h4>What R2 is</h4>
+        <p style="margin: 0">
+          The 2026-07-29 draft was a structural skeleton with several unverified load-bearing claims. R2
+          re-checked every material claim against pinned released source and current vendor docs.
+          <strong>Nine material claims changed</strong>, and two entire features were missing from the
+          draft. See <a href="#s13">§13 Revision Log</a>. This HTML is the human-facing companion to
+          <code>docs/ai-orchestration-preliminary-study-2026-07-29.md</code>; the Markdown is
+          authoritative.
+        </p>
       </div>
-    </section>
 
-    <!-- Section 2 -->
-    <section id="ontology">
-      <h2 class="section-title">2. Working Ontology & Loop Ownership</h2>
+      <nav class="toc">
+        <strong>Contents</strong>
+        <ol>
+          <li><a href="#s0">How to read this</a></li>
+          <li><a href="#s1">Executive summary</a></li>
+          <li><a href="#s2">Ontology &amp; loop ownership</a></li>
+          <li><a href="#s3">Verified starting point: the runner</a></li>
+          <li><a href="#s4">Maturity rubric</a></li>
+          <li><a href="#s5">Landscape analysis</a></li>
+          <li><a href="#s6">Comparison matrix</a></li>
+          <li><a href="#s7">What existing systems teach us</a></li>
+          <li><a href="#s8">What remains genuinely open</a></li>
+          <li><a href="#s9">Trends assessment</a></li>
+          <li><a href="#s10">Reference architecture</a></li>
+          <li><a href="#s11">Second-phase agenda</a></li>
+          <li><a href="#s12">Source appendix</a></li>
+          <li><a href="#s13">Revision log</a></li>
+        </ol>
+      </nav>
 
-      <div class="table-container">
+      <!-- ============ 0 ============ -->
+      <h2 id="s0">0 · How To Read This Document</h2>
+      <p>
+        Every material claim carries a label. That is the point of the document: a preliminary study is
+        only useful if a later session can tell what was <em>verified</em> from what was
+        <em>reasoned</em>.
+      </p>
+      <div class="legend">
+        <span class="tag t-doc">documented fact</span>
+        <span class="tag t-src">source-code observation</span>
+        <span class="tag t-meas">measured result</span>
+        <span class="tag t-vendor">vendor claim</span>
+        <span class="tag t-res">research finding</span>
+        <span class="tag t-inf">inference</span>
+        <span class="tag t-open">open question</span>
+      </div>
+      <div class="scroll">
         <table>
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Means</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag t-doc">documented fact</span></td>
+              <td>Stated explicitly in current official vendor/framework documentation.</td>
+            </tr>
+            <tr>
+              <td><span class="tag t-src">source-code observation</span></td>
+              <td>Read directly out of a pinned released source tree. Version/commit in §12.</td>
+            </tr>
+            <tr>
+              <td><span class="tag t-meas">measured result</span></td>
+              <td>A benchmark number, reported by the party that ran it.</td>
+            </tr>
+            <tr>
+              <td><span class="tag t-vendor">vendor claim</span></td>
+              <td>A vendor performance assertion this study did <em>not</em> independently reproduce.</td>
+            </tr>
+            <tr>
+              <td><span class="tag t-res">research finding</span></td>
+              <td>From a peer-reviewed or preprint paper.</td>
+            </tr>
+            <tr>
+              <td><span class="tag t-inf">inference</span></td>
+              <td>This study's reasoning. Not independently attested.</td>
+            </tr>
+            <tr>
+              <td><span class="tag t-open">open question</span></td>
+              <td>Genuinely unresolved. Left unresolved rather than smoothed over.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        <strong>Confidence</strong> is stated separately as High / Medium / Low, because a documented fact
+        about a fast-moving API can still be low-confidence over time.
+      </p>
+      <div class="callout">
+        <h4>What “verified” means here</h4>
+        <p style="margin: 0">
+          Framework claims were checked against <strong>shallow clones of released source</strong>, not
+          blog posts or memory. Where the session's network policy blocked a host, that is disclosed in
+          §12.1 and an alternate primary route was used. No claim in this revision rests on a blocked
+          source alone.
+        </p>
+      </div>
+
+      <!-- ============ 1 ============ -->
+      <h2 id="s1">1 · Executive Summary</h2>
+      <p class="lede">Written for a non-programmer. Jargon is defined on first use.</p>
+
+      <h3>1.1 The problem in plain terms</h3>
+      <p>
+        When an AI model uses tools today, the usual arrangement is a conversation. The model says “read
+        file 1,” the software reads it and hands back the contents, the model says “read file 2,” and so
+        on. Each exchange is a full round trip to the model, and each one re-sends the whole conversation
+        so far. For fifty files that is fifty round trips and fifty ever-larger bills. This is
+        <strong>direct tool calling</strong>.
+      </p>
+      <p>
+        The alternative that has taken hold is to let the model <strong>write a small program</strong>
+        instead. The program contains the loop — “for each of these fifty files, read it, pull out the
+        date, keep last month's” — and runs once. The model is consulted twice, not fifty times, and only
+        the short final answer returns to the conversation. This is
+        <strong>programmatic tool orchestration</strong>; when the model's program <em>is</em> the action,
+        the research literature calls it <strong>CodeAct</strong>.
+      </p>
+      <p>
+        The saving is real and now vendor-measured: Anthropic reports that adding programmatic tool calling
+        on top of basic search tools improved results by an average of
+        <strong>11% while using 24% fewer input tokens</strong> on two web-research benchmarks
+        <span class="tag t-vendor">vendor claim</span>.
+      </p>
+
+      <h3>1.2 The question that actually matters for this project</h3>
+      <p>
+        Efficiency is the easy part. The hard question is <strong>who owns the machinery</strong>. A model
+        writing a program still needs somewhere to run it, permission to touch files, a budget, a way to be
+        stopped, and somewhere to keep the evidence. Those things are the <strong>control plane</strong>.
+        Whoever owns the control plane owns the system — not whoever supplies the model.
+      </p>
+      <div class="flow">
+        <div class="node vendor">
+          <b>The vendor owns it</b>
+          Anthropic runs the model's Python in its own container: 5&nbsp;GiB RAM, 1 CPU, and
+          <strong>no internet access at all</strong>. Immediate efficiency, almost no infrastructure to
+          write. You accept a fixed machine, a fixed isolation model, and a ~4-minute deadline to answer
+          each tool call before the model's code sees a <code>TimeoutError</code>.
+        </div>
+        <div class="node owned">
+          <b>You own it</b>
+          LangGraph, smolagents, and this repository's bridge runner keep the loop, credentials, sandbox,
+          budget, and audit trail on your side. The model becomes a replaceable worker you call, rather
+          than the host you rent.
+        </div>
+      </div>
+
+      <h3>1.3 What this study concludes</h3>
+      <ul class="tight">
+        <li>
+          <strong>The user-owned side is more built than it looks.</strong> Every layer the governing
+          principle asks for — scheduling, state, policy, artifacts, budgets, execution — exists in
+          shipping open-source software today. What does not exist is a settled standard spanning
+          providers.
+        </li>
+        <li>
+          <strong>“Has code execution” is not “supports programmatic tool orchestration.”</strong> The
+          most common category error in this space, and this study found a concrete instance: Google's ADK
+          ships <strong>six</strong> code-execution backends but does <strong>not</strong> expose its own
+          registered tools inside the generated code
+          <span class="tag t-src">source-code observation</span>. smolagents does, in one line.
+        </li>
+        <li>
+          <strong>This repository's runner already owns more of the control plane than the frameworks
+          do.</strong> Its <code>authority.js</code> enforces a per-run authority ceiling that only ever
+          narrows — a stronger structural guarantee than any per-call permission check found in the
+          surveyed frameworks.
+        </li>
+        <li>
+          <strong>The genuinely unsolved problem is not efficiency — it is pausing.</strong> No surveyed
+          system can stop a model-generated program mid-way, ask a human a question, and resume from that
+          exact point. LangGraph is explicit that resuming re-runs the whole step from the top. Every
+          “human in the loop” story here is really “human <em>between</em> the steps.”
+        </li>
+      </ul>
+      <div class="callout key">
+        <h4>The one-sentence version</h4>
+        <p style="margin: 0">
+          Programmatic tool orchestration is mature enough to adopt and too young to standardise; the
+          durable investment is the control plane you keep, not the execution trick you borrow.
+        </p>
+      </div>
+
+      <!-- ============ 2 ============ -->
+      <h2 id="s2">2 · Working Ontology And Loop Ownership</h2>
+      <div class="scroll">
+        <table>
+          <caption>
+            Terminology, held close to the handoff's ontology so downstream sessions inherit stable words.
+          </caption>
           <thead>
             <tr>
               <th>Term</th>
               <th>Definition</th>
-              <th>Architectural Role</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><strong>Direct Tool Calling</strong></td>
-              <td>Model emits a structured tool request (JSON); harness executes and resamples the model.</td>
-              <td>High-latency, multi-turn interaction.</td>
+              <td><strong>Direct tool calling</strong></td>
+              <td>Model requests a structured tool; harness executes, returns a result, resamples the model. One tool call per model turn.</td>
             </tr>
             <tr>
-              <td><strong>Programmatic Tool Execution</strong></td>
-              <td>Executable script or graph logic controls tool invocation and intermediate state in one pass.</td>
-              <td>Low-latency, token-efficient batch execution.</td>
+              <td><strong>Agent-authored scripting</strong></td>
+              <td>Model writes a program to automate work. Says nothing about whether that program can reach registered tools.</td>
             </tr>
             <tr>
-              <td><strong>Batch Dispatcher</strong></td>
-              <td>Deterministic software that fans out jobs to workers and aggregates results without model calls.</td>
-              <td>High-throughput deterministic execution.</td>
+              <td><strong>Programmatic tool orchestration</strong></td>
+              <td>Executable logic — not repeated model turns — controls multiple tool calls and intermediate processing. <em>Runtime location is not part of the definition.</em></td>
+            </tr>
+            <tr>
+              <td><strong>Self-hosted programmatic tool calling</strong></td>
+              <td>User controls the generated-code runtime <em>and</em> the tool-call protocol.</td>
+            </tr>
+            <tr>
+              <td><strong>Provider-managed programmatic tool calling</strong></td>
+              <td>Vendor manages the generated program and some or all of the inner tool loop.</td>
+            </tr>
+            <tr>
+              <td><strong>Batch dispatcher</strong></td>
+              <td>Deterministic software fanning bounded jobs to workers and aggregating results. No model in the control path.</td>
             </tr>
             <tr>
               <td><strong>Worker</strong></td>
-              <td>Bounded capability (a deterministic script or a focused model prompt).</td>
-              <td>Execution of a single discrete task.</td>
+              <td>A bounded deterministic or model-backed capability.</td>
             </tr>
             <tr>
-              <td><strong>Agent-as-Tool</strong></td>
-              <td>An autonomous agent hidden behind a single tool interface (e.g. <code>sub_agent.as_tool()</code>).</td>
-              <td>Context-isolated multi-turn specialization.</td>
+              <td><strong>Agent</strong></td>
+              <td>A worker with its own model loop, tools, state, or repeated decisions.</td>
             </tr>
             <tr>
-              <td><strong>Control Plane</strong></td>
-              <td>User-owned state storage, policy enforcement, secret redaction, and execution management.</td>
-              <td>Ultimate authority and system governance.</td>
+              <td><strong>Agent-as-tool</strong></td>
+              <td>An agent behind a bounded tool contract while the manager retains control.</td>
+            </tr>
+            <tr>
+              <td><strong>Orchestrator / Scheduler</strong></td>
+              <td>Chooses jobs, dependencies, sequencing / enforces queues, concurrency, retries, timeouts, cancellation, limits.</td>
+            </tr>
+            <tr>
+              <td><strong>Control plane</strong></td>
+              <td>User-owned policy, state, authority, observability, lifecycle above workers.</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <div class="card">
-        <h3>User-Owned Benchmark Workflow (Apple Shortcut + Python + Gemini)</h3>
-        <p>The user already operates a production-proven user-owned control plane: a local Python script triggered via Apple Shortcuts that uses the Gemini API to rename 100+ files in roughly 1-2 minutes.</p>
-
-        <pre>
-Finder Action / Apple Shortcut
-  └── Local Python Program (Scheduler &amp; Batch Orchestrator)
-        ├── Gemini Model API (Bounded Cognitive Judgment per File)
-        └── Local Filesystem (Direct Mutation &amp; Audit Logging)
-        </pre>
-        <p><i>Key Insight:</i> The model provides bounded cognitive judgment, while deterministic local code owns the loop, rate-limiting, and filesystem operations.</p>
-      </div>
-    </section>
-
-    <!-- Section 3 -->
-    <section id="landscape">
-      <h2 class="section-title">3. Source-Grounded Landscape Analysis</h2>
-
-      <div class="card">
-        <h3>1. Hugging Face <code>smolagents</code></h3>
-        <p>Pioneers the <code>CodeAgent</code> paradigm where actions are generated as Python code. Benchmarks confirm a <strong>30% step reduction</strong> over JSON tool calls. Offers a local AST interpreter (<code>LocalPythonExecutor</code>) for fast non-mutating code, alongside container backends (Docker, E2B, Blaxel) for production security.</p>
+      <div class="callout key">
+        <h4>Sharpened in R2 — the distinction that does the most work</h4>
+        <p>Three properties are independent, and conflating them is the field's dominant confusion:</p>
+        <ol style="margin: 0">
+          <li>Can the model emit code that runs? (<em>code execution</em>)</li>
+          <li>Can that code call <strong>registered tools</strong>? (<em>programmatic tool orchestration</em>)</li>
+          <li>Can that code call <strong>other agents</strong>? (<em>nested delegation from code</em>)</li>
+        </ol>
+        <p style="margin: 10px 0 0">
+          A system can have (1) without (2) — <strong>ADK</strong>. Or (1)+(2)+(3) —
+          <strong>smolagents</strong>. Or (2) without owning the runtime — <strong>Anthropic,
+          OpenAI</strong>. Four genuinely different architectures; §6.B separates them on exactly these
+          axes.
+        </p>
       </div>
 
-      <div class="card">
-        <h3>2. LangGraph (LangChain Inc.)</h3>
-        <p>Models workflows as explicit graphs (<code>StateGraph</code>) with Bulk Synchronous Parallel (BSP) super-step checkpointers. When execution halts via an <code>interrupt()</code> call, resuming re-executes the node function from the top rather than mid-line. Dynamic fan-out is managed via <code>Send</code> map-reduce primitives.</p>
+      <h3>2.2 Loop ownership: provider-managed inner loop</h3>
+      <div class="diagram">
+        <pre><code>Your process (outer loop)        Claude        Anthropic container          Your tool
+        │                          │          5 GiB / 1 CPU / no net           │
+        │  messages.create(tools    │                   │                      │
+        │  with allowed_callers) ──▶│                   │                      │
+        │                          ├─ emit Python ────▶│                      │
+        │                          │  caller:          │                      │
+        │                          │  code_execution_  │                      │
+        │                          │  20260120         │                      │
+        │   ╔═════════ inner loop — no model round trips ═════════╗            │
+        │◀──╫── pause: programmatic tool_use ───────────┤        ║            │
+        ├───╫──────────────── execute locally ──────────╫──────────────────▶│
+        │◀──╫──────────────── result ───────────────────╫───────────────────┤
+        ├───╫─ tool_result ONLY (no text allowed) ─────▶│        ║            │
+        │   ║   ~4 min deadline per pending call,       │        ║            │
+        │   ║   else TimeoutError in stderr             │        ║            │
+        │   ╚═══════════════════════════════════════════════════╝            │
+        │                          │◀─ final stdout only                      │
+        │                          │   (intermediates stay in container)      │
+        │◀── synthesised answer ───┤                   │                      │</code></pre>
+      </div>
+      <div class="callout key">
+        <h4>The subtlety worth carrying forward</h4>
+        <p style="margin: 0">
+          <strong>The user still executes the tool.</strong> The vendor manages the <em>loop</em>, not the
+          side effects. Credentials and side-effect authority stay local. That makes this less of a
+          surrender than “vendor-managed” suggests — and it is why §7 treats it as a pattern worth learning
+          from rather than merely a lock-in risk.
+        </p>
       </div>
 
-      <div class="card">
-        <h3>3. OpenAI Agents SDK (Replacing Swarm)</h3>
-        <p>OpenAI has deprecated the experimental <code>Swarm</code> prototype and launched the production-grade <code>OpenAI Agents SDK</code>. Features <code>Agent.as_tool()</code> to encapsulate sub-agent loops into bounded function tools.</p>
+      <h3>2.3 Loop ownership: user-owned control plane</h3>
+      <div class="diagram">
+        <div class="flow" style="margin-bottom: 12px">
+          <div class="node owned"><b>Trigger</b>CLI · Shortcut · cron</div>
+          <div class="node owned"><b>Authority ceiling</b>Frozen at run start. Narrows only.</div>
+          <div class="node owned"><b>Policy</b>Deny matrix · path confinement · central redaction</div>
+          <div class="node owned"><b>Scheduler</b>Dependency batches · concurrency · budgets · cancellation</div>
+        </div>
+        <div class="flow" style="margin-bottom: 12px">
+          <div class="node"><b>Model adapter</b>Claude · Gemini · local</div>
+          <div class="node"><b>Agent-as-tool</b>Bounded contract</div>
+          <div class="node"><b>Deterministic worker</b>Pure code</div>
+          <div class="node"><b>Sandboxed runtime</b>Generated code</div>
+        </div>
+        <div class="flow">
+          <div class="node owned"><b>State + checkpoints</b>Resumable</div>
+          <div class="node owned"><b>Artifact vault</b>Complete evidence out of context</div>
+          <div class="node"><b>Back toward the model</b>Summaries and stable references — never payloads</div>
+        </div>
       </div>
+      <p>
+        The load-bearing part is the last box: <strong>complete evidence goes to the vault, only summaries
+        and stable references go back toward the model.</strong> That single split keeps context small
+        without losing provenance — and §8.4 explains why it is harder than it looks.
+      </p>
 
-      <div class="card">
-        <h3>4. Microsoft AutoGen &amp; Anthropic Programmatic Tool Calling</h3>
-        <p><strong>AutoGen:</strong> Operates statelessly via <code>CommandLineCodeExecutor</code>. Running code directly on the host machine presents severe security risks; Docker containment is recommended.<br>
-        <strong>Anthropic Programmatic Calling:</strong> Runs user tools inside a provider container (5 GiB RAM, 1 CPU, zero network) as async Python functions, eliminating intermediate model round-trips.</p>
+      <h3>2.4 The user's existing worker (architectural anchor)</h3>
+      <p>The user already runs a system that gets this right, and it predates the frameworks studied here.</p>
+      <div class="diagram">
+        <pre><code>Finder ──▶ Apple Shortcut ──▶ Local Python ──▶ Gemini API ──▶ suggested filename
+                                   │                              │
+                                   │◀─────────────────────────────┘
+                                   ├──▶ local filesystem rename
+                                   └──▶ success/failure log
+                         (100+ files in ~1–2 minutes)</code></pre>
       </div>
-    </section>
+      <ul class="tight">
+        <li><strong>The Python program is the orchestrator.</strong> The model never decides what to do next.</li>
+        <li><strong>Gemini is a bounded cognitive worker, not an agent.</strong> No loop, no tools, no state, no authority — one narrow question per file.</li>
+        <li><strong>All side-effect authority stays deterministic.</strong> The model cannot rename anything; it can only suggest a string.</li>
+        <li><strong>It is fast because there is no agent in it.</strong> A per-file agent loop would not approach this throughput.</li>
+      </ul>
+      <p>
+        This is a <strong>batch dispatcher over a model-backed worker</strong>, and it is the shape most of
+        §7's lessons converge on. It would sit behind a provider-neutral tool contract with essentially no
+        redesign. <span class="tag t-inf">inference</span> High confidence.
+      </p>
 
-    <!-- Section 4 -->
-    <section id="matrix">
-      <h2 class="section-title">4. Comprehensive Comparison Matrix</h2>
+      <!-- ============ 3 ============ -->
+      <h2 id="s3">3 · Verified Starting Point: The Bridge Runner</h2>
+      <p>Re-verified read-only against the live checkout on 2026-07-30. The handoff's observations held, with useful additions.</p>
 
-      <div class="table-container">
+      <h3>3.1 Confirmed</h3>
+      <ul class="tight">
+        <li>
+          The runner owns a custom Node.js Anthropic Messages loop: prompt → local bridge
+          <code>/v1/messages</code> → <code>tool_use</code> → local execution → <code>tool_result</code> →
+          repeat. <span class="tag t-src">source-code observation</span>
+        </li>
+        <li>
+          <strong>No managed-execution surface exists.</strong> A grep across <code>src/</code> and
+          <code>bin/</code> for <code>code_execution</code>, <code>server_tool_use</code>,
+          <code>allowed_callers</code>, <code>container_upload</code>, and <code>programmatic</code>
+          returns <strong>zero matches</strong>. <span class="tag t-src">source-code observation</span>
+          High confidence.
+        </li>
+        <li>
+          A model with <code>edits</code> + <code>shell</code> can write and run a Python script — that is
+          <strong>agent-authored local scripting</strong>, not programmatic tool orchestration, because the
+          script cannot call the runner's registered tools. <span class="tag t-inf">inference</span>
+        </li>
+      </ul>
+      <div class="scroll">
         <table>
+          <caption>
+            Capability groups — <code>core</code> always on, everything else explicitly opted in.
+            <span class="tag t-src">source-code observation</span>
+          </caption>
           <thead>
             <tr>
-              <th>Framework</th>
-              <th>Language</th>
-              <th>Outer Loop</th>
-              <th>Inner Loop</th>
-              <th>Agent-as-Tool</th>
-              <th>Execution Backend</th>
-              <th>Maturity</th>
+              <th>Group</th>
+              <th>Tools</th>
+              <th>Gate</th>
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td><strong>smolagents</strong></td>
-              <td>Python (Code)</td>
-              <td>User</td>
-              <td>AST / E2B</td>
-              <td><code>ManagedAgent</code></td>
-              <td>Local AST, Docker, E2B</td>
-              <td><span class="badge badge-amber">Level 2</span></td>
-            </tr>
-            <tr>
-              <td><strong>LangGraph</strong></td>
-              <td>Python / TS</td>
-              <td>User</td>
-              <td>Graph Engine</td>
-              <td><code>Sub-Graph Tool</code></td>
-              <td>Local / LangGraph Cloud</td>
-              <td><span class="badge badge-emerald">Level 3</span></td>
-            </tr>
-            <tr>
-              <td><strong>OpenAI Agents SDK</strong></td>
-              <td>Python</td>
-              <td>User</td>
-              <td>SDK Runtime</td>
-              <td><code>Agent.as_tool()</code></td>
-              <td>Local Runtime</td>
-              <td><span class="badge badge-emerald">Level 3</span></td>
-            </tr>
-            <tr>
-              <td><strong>Google ADK</strong></td>
-              <td>Python</td>
-              <td>User</td>
-              <td>ADK Engine</td>
-              <td><code>AgentTool</code></td>
-              <td>Local / Vertex AI</td>
-              <td><span class="badge badge-amber">Level 2</span></td>
-            </tr>
-            <tr>
-              <td><strong>Microsoft AutoGen</strong></td>
-              <td>Python / .NET</td>
-              <td>User</td>
-              <td>Subprocess</td>
-              <td><code>NestedChat</code></td>
-              <td>Subprocess, Docker</td>
-              <td><span class="badge badge-amber">Level 2</span></td>
-            </tr>
-            <tr>
-              <td><strong>Anthropic Programmatic</strong></td>
-              <td>Python Container</td>
-              <td>Model / Vendor</td>
-              <td>Provider Container</td>
-              <td>Not Supported</td>
-              <td>Provider Cloud Sandbox</td>
-              <td><span class="badge badge-amber">Level 2</span></td>
-            </tr>
-            <tr>
-              <td><strong>CodeAct Research</strong></td>
-              <td>Executable Python</td>
-              <td>Model Loop</td>
-              <td>Subprocess</td>
-              <td>Conceptual</td>
-              <td>Local Subprocess</td>
-              <td><span class="badge badge-indigo">Level 1</span></td>
-            </tr>
+            <tr><td><code>core</code></td><td><code>list_files</code>, <code>read_file</code>, <code>search_text</code>, <code>glob</code>, <code>git_status</code>, <code>manage_tasks</code>, <code>ask_user_question</code></td><td>always on</td></tr>
+            <tr><td><code>edits</code></td><td><code>edit_file</code>, <code>write_file</code>, <code>apply_patch</code></td><td><code>--capabilities</code></td></tr>
+            <tr><td><code>recovery</code></td><td><code>undo</code>, <code>undo_edit</code></td><td><code>--capabilities</code></td></tr>
+            <tr><td><code>agents</code></td><td><code>spawn_agent</code></td><td><code>--capabilities</code></td></tr>
+            <tr><td><code>worktrees</code></td><td><code>enter_worktree</code>, <code>exit_worktree</code>, <code>list_worktrees</code></td><td><code>--capabilities</code></td></tr>
+            <tr><td><code>skills</code></td><td><code>run_skill</code></td><td><code>--capabilities</code></td></tr>
+            <tr><td><code>lsp</code></td><td><code>lsp_query</code></td><td><code>--enable-lsp</code></td></tr>
+            <tr><td><code>shell</code></td><td><code>bash</code>, <code>manage_shell_jobs</code></td><td class="no"><code>--allow-shell</code> only</td></tr>
           </tbody>
         </table>
       </div>
-    </section>
+      <p>
+        <code>shell</code> is deliberately excluded from <code>OPTIONAL_CAPABILITIES</code>, so
+        <code>--capabilities</code> cannot reach it. The invariant “shell is hidden unless
+        <code>--allow-shell</code>” is enforced <em>structurally</em>, not by convention.
+      </p>
 
-    <!-- Section 5 -->
-    <section id="open-problems">
-      <h2 class="section-title">5. Difficult &amp; Unsolved Engineering Problems</h2>
-
-      <div class="card">
-        <h3>1. Authority Delegation below Code</h3>
-        <p>When an LLM generates a 30-line Python script that invokes multiple tools, traditional per-tool permissions fail. Users must either grant blind upfront approval or endure disruptive mid-script confirmation prompts.</p>
+      <h3>3.2 Additions the handoff did not record</h3>
+      <div class="panel">
+        <h4><code>authority.js</code> — an immutable per-run authority ceiling</h4>
+        <p>
+          Frozen once from CLI-derived flags at run start; everything downstream may only <em>narrow</em>
+          authority, never widen it. No profile, hook, tool, or mid-run context mutation can add shell
+          access, expose extra tools, escape plan mode, or drop <code>--no-network</code>. The one
+          deliberate exception is a single-permission-check human consent path (<code>executeForce</code>)
+          for a write the user just approved — and plan mode blocks even that for effectful tools.
+          <span class="tag t-src">source-code observation</span> High confidence.
+        </p>
+        <p style="margin-bottom: 0">
+          This is a <strong>monotonicity guarantee</strong>, stronger than anything found in the surveyed
+          frameworks, which gate per call rather than bounding the run. See §7.6.
+        </p>
       </div>
-
-      <div class="card">
-        <h3>2. Imperative Execution vs. Graph Checkpointing</h3>
-        <p>Graph engines snapshot state cleanly at node boundaries. However, pausing inside an imperative Python loop requires microVM state serialization (e.g. Firecracker memory dumps) to avoid re-executing nodes from line 1 upon resumption.</p>
+      <div class="panel">
+        <h4><code>coordinator.js</code> — a deterministic phased orchestrator</h4>
+        <p style="margin-bottom: 0">
+          Fixed phases (<code>research</code>, <code>synthesize</code>, <code>execute</code>,
+          <code>verify</code>) above the agent kernel, with a Kahn-style topological sort grouping a phase
+          plan into dependency-free batches that run concurrently. Cycles and missing dependencies
+          <strong>throw</strong> rather than silently serialising. The runner therefore already has a
+          user-owned orchestrator with explicit dependency semantics — the same primitive LangGraph
+          provides as a graph. <span class="tag t-src">source-code observation</span>
+        </p>
       </div>
-    </section>
-
-    <!-- Section 6 -->
-    <section id="trends">
-      <h2 class="section-title">6. Emerging Industry Trends</h2>
-
-      <ul>
-        <li><span class="badge badge-emerald">Verified</span> <strong>Code as Action Language:</strong> CodeAct research (20% benchmark gain) proves Python code outperforms static JSON tool calls.</li>
-        <li><span class="badge badge-emerald">Verified</span> <strong>Specialists as Bounded Tools:</strong> Adopted across OpenAI Agents SDK, Google ADK, and LangGraph.</li>
-        <li><span class="badge badge-indigo">Observed</span> <strong>Sandboxed Execution Runtimes:</strong> First-class integration of E2B microVMs and Docker directly into SDKs.</li>
-        <li><span class="badge badge-amber">Open Question</span> <strong>Provider-Neutral Gateways:</strong> Cross-provider harmonization remains unsettled due to conflicting vendor API schemas.</li>
-      </ul>
-    </section>
-
-    <!-- Section 7 -->
-    <section id="architecture">
-      <h2 class="section-title">7. Synthesis: User-Owned Reference Architecture</h2>
-
-      <div class="card">
-        <h3>Layered Architecture Model</h3>
-        <ol>
-          <td><strong>1. Policy &amp; Security Layer:</strong> Secret redaction boundary, path confinement, deny matrix, explicit permission toggles.</td>
-          <td><strong>2. Deterministic Scheduler &amp; State Engine:</strong> Bulk Synchronous Parallel (BSP) checkpointers, human approval pause points, rate-limiting.</td>
-          <td><strong>3. Provider-Neutral Worker Gateway:</strong> Unified model adapters (Claude, Gemini, Local LLMs) and bounded Agent-as-Tool interfaces.</td>
-          <td><strong>4. Isolated Execution Sandbox:</strong> Local AST interpreter for non-mutating logic; Docker/E2B microVMs for script execution.</td>
-          <td><strong>5. Artifact &amp; Evidence Vault:</strong> Disk-backed storage for full outputs; returning concise markdown summaries to LLM context windows.</td>
-        </ol>
-      </div>
-    </section>
-
-    <!-- Section 8 -->
-    <section id="agenda">
-      <h2 class="section-title">8. Second-Phase Research Agenda</h2>
-      <div class="card">
-        <ul>
-          <li>Evaluate local AST execution latency versus containerized E2B sandboxes.</li>
-          <li>Design state-freezing mechanisms for pausing local Python script loops.</li>
-          <li>Construct a provider-neutral gateway translating Anthropic programmatic tool schemas to OpenAI tool definitions.</li>
+      <div class="panel">
+        <h4><code>spawn_agent</code> — a genuine agent-as-tool, conservatively bounded</h4>
+        <ul class="tight" style="margin-bottom: 0">
+          <li>Child gets a <strong>read-only</strong> 7-tool set.</li>
+          <li><code>spawnDepth &gt; 0</code> is blocked: children cannot fork further. No recursive fan-out.</li>
+          <li><code>MAX_SPAWNS_PER_RUN = 8</code>; child steps clamped 1–16, default 6.</li>
+          <li>Token budgets are <strong>leased from the parent broker and reconciled on return</strong>, not copied — nested cost cannot exceed the parent ceiling.</li>
         </ul>
       </div>
-    </section>
+      <div class="callout warn">
+        <h4>3.3 One honest limitation</h4>
+        <p style="margin: 0">
+          <code>--no-network</code> is documented in the CLI help as a “best-effort HTTP/HTTPS proxy guard
+          for shell; <strong>not</strong> hard network isolation”
+          <span class="tag t-doc">documented fact</span>. That is the correct description, and it matters
+          for §8.1: the runner bounds authority well and bounds <em>network</em> weakly. Container-based
+          executors in the surveyed frameworks are stronger on exactly this axis — the clearest thing the
+          runner could learn from them.
+        </p>
+      </div>
 
-    <!-- Section 9 -->
-    <section id="appendix">
-      <h2 class="section-title">9. Primary Source Appendix</h2>
-
-      <div class="table-container">
+      <!-- ============ 4 ============ -->
+      <h2 id="s4">4 · Maturity Rubric</h2>
+      <p>Applied per capability, not per vendor, because vendors ship capabilities at very different maturities.</p>
+      <div class="scroll">
         <table>
-          <thead>
-            <tr>
-              <th>Source Title &amp; URL</th>
-              <th>Access Date</th>
-              <th>Key Verified Claims</th>
-              <th>Label</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Level</th><th>Name</th><th>Test it must pass</th></tr></thead>
           <tbody>
-            <tr>
-              <td><a href="https://docs.anthropic.com/en/docs/build-with-claude/tool-use/programmatic-tool-calling" style="color:var(--accent-blue);">Anthropic Programmatic Tool Calling</a></td>
-              <td>2026-07-29</td>
-              <td>Container specs (5 GiB RAM, 1 CPU, 0 internet), async Python tools, context suppression.</td>
-              <td><span class="badge badge-emerald">Documented Fact</span></td>
-            </tr>
-            <tr>
-              <td><a href="https://github.com/huggingface/smolagents" style="color:var(--accent-blue);">Hugging Face smolagents</a></td>
-              <td>2026-07-29</td>
-              <td>CodeAgent Python AST execution, 30% step reduction benchmark, E2B backends.</td>
-              <td><span class="badge badge-emerald">Source-Code Observation</span></td>
-            </tr>
-            <tr>
-              <td><a href="https://langchain-ai.github.io/langgraph/concepts/persistence/" style="color:var(--accent-blue);">LangGraph Persistence Concepts</a></td>
-              <td>2026-07-29</td>
-              <td>StateGraph BSP super-steps, checkpointers vs stores, node restart behavior.</td>
-              <td><span class="badge badge-emerald">Documented Fact</span></td>
-            </tr>
-            <tr>
-              <td><a href="https://arxiv.org/abs/2402.01030" style="color:var(--accent-blue);">CodeAct Research Paper</a></td>
-              <td>2026-07-29</td>
-              <td>20% success boost of executable code actions over JSON tool calls across 17 LLMs.</td>
-              <td><span class="badge badge-indigo">Measured Result</span></td>
-            </tr>
+            <tr><td><strong>0</strong></td><td>Research concept</td><td>Exists in a paper or prototype. No supported implementation.</td></tr>
+            <tr><td><strong>1</strong></td><td>Experimental implementation</td><td>Shipped but unstable interface, or explicitly not production-safe.</td></tr>
+            <tr><td><strong>2</strong></td><td>Usable with material caveats</td><td>Documented and usable; real constraints (security, portability, lock-in) to design around.</td></tr>
+            <tr><td><strong>3</strong></td><td>Repeated production pattern</td><td>Hardened, operational guidance exists, multiple independent implementations agree on shape.</td></tr>
+            <tr><td><strong>4</strong></td><td>Interoperable / standardised</td><td>A cross-vendor standard exists and is broadly implemented.</td></tr>
           </tbody>
         </table>
       </div>
-    </section>
+      <div class="scroll">
+        <table>
+          <caption>Hypothesis test — the handoff's starting maturity hypothesis, verified.</caption>
+          <thead><tr><th>Layer</th><th>Handoff hypothesis</th><th>R2 verdict</th><th>Level</th></tr></thead>
+          <tbody>
+            <tr><td>Structured model-to-tool calling</td><td>Mainstream</td><td class="yes">Confirmed</td><td>3–4</td></tr>
+            <tr><td>Agent exposed as bounded tool</td><td>Common in modern SDKs</td><td class="yes">Confirmed — 4 of 4 SDKs</td><td>3</td></tr>
+            <tr><td>Developer-authored parallel fan-out</td><td>Mature pattern</td><td class="yes">Confirmed</td><td>3</td></tr>
+            <tr><td>Provider-neutral model adapters</td><td>Common, parity incomplete</td><td class="yes">Confirmed</td><td>2–3</td></tr>
+            <tr><td>Generated code composing tools</td><td>Demonstrated; hard to secure/persist/replay</td><td class="part">Confirmed &amp; sharpened — now shipped by <em>two</em> vendors as a managed feature, which the hypothesis did not anticipate</td><td>2</td></tr>
+            <tr><td>Generated code invoking nested agents</td><td>Implemented, specialised</td><td class="part">Confirmed — essentially smolagents alone</td><td>1–2</td></tr>
+            <tr><td>Durable cross-provider orchestration</td><td>Active, unsettled</td><td class="yes">Confirmed</td><td>1–2</td></tr>
+            <tr><td>Dependable autonomous agent organisations</td><td>Unsolved, overclaimed</td><td class="yes">Confirmed</td><td>0–1</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <p style="margin: 0">
+          The one place the hypothesis under-called the field: managed programmatic tool calling is no
+          longer single-vendor. OpenAI ships <code>ProgrammaticToolCallingTool</code> and Anthropic ships
+          <code>code_execution_20260120</code>+, making this a <strong>converging two-vendor
+          pattern</strong> — while still Level 2, because the two are mutually incompatible and neither is
+          portable.
+        </p>
+      </div>
 
-    <footer>
-      <p>Prepared for Alan Man | Preliminary Research Study on User-Owned AI Orchestration | July 2026</p>
-    </footer>
+      <!-- ============ 5 ============ -->
+      <h2 id="s5">5 · Source-Grounded Landscape Analysis</h2>
 
-  </div>
+      <h3>5.1 Hugging Face <code>smolagents</code> — v1.27.0.dev0</h3>
+      <p><em>The closest exact match to code-as-action, and the only surveyed system where generated code can call both tools and agents.</em></p>
+      <div class="callout key">
+        <h4>The decisive line — <code>agents.py:492</code></h4>
+        <pre style="margin: 8px 0 0"><code>self.python_executor.send_tools({**self.tools, **self.managed_agents})</code></pre>
+        <p style="margin: 10px 0 0">
+          Tools <strong>and</strong> managed agents are injected into the executor namespace together, so
+          generated Python calls both as ordinary callables. This is the verification the handoff
+          explicitly demanded, and the strongest single piece of evidence in this study.
+          <span class="tag t-src">source-code observation</span> High confidence.
+        </p>
+      </div>
+      <ul class="tight">
+        <li>Two agent classes: <code>CodeAgent</code> (actions as Python) and <code>ToolCallingAgent</code> (actions as JSON). <span class="tag t-doc">documented fact</span></li>
+        <li><strong>Correction:</strong> there is <strong>no <code>ManagedAgent</code> wrapper class</strong>. Only <code>ManagedAgentPromptTemplate</code> exists. Composition is <code>managed_agents=[...]</code>, each requiring <code>name</code> and <code>description</code> (asserted at setup).</li>
+        <li>Five executors: <code>LocalPythonExecutor</code>, <code>E2BExecutor</code>, <code>DockerExecutor</code>, <strong><code>ModalExecutor</code></strong>, <code>BlaxelExecutor</code>, via <code>executor_type: Literal["local","blaxel","e2b","modal","docker"]</code>. The draft omitted Modal.</li>
+        <li><strong>Security posture, stated by the project itself:</strong> “The built-in <code>LocalPythonExecutor</code> is <strong>not a security sandbox</strong>. It applies some restrictions but can be bypassed and must not be used as a security boundary.” <span class="tag t-doc">documented fact</span></li>
+      </ul>
+      <div class="callout warn">
+        <h4>Provenance correction on the headline number</h4>
+        <p style="margin: 0">
+          The README's “30% fewer steps” links to <code>huggingface.co/papers/2402.01030</code> —
+          <strong>the CodeAct paper itself</strong>. It is smolagents <em>citing</em> CodeAct, not an
+          independent benchmark. The 07-29 draft treated the 30% and the 20% as two independent
+          confirmations; they are one research lineage cited twice. §9 trend 1 is downgraded accordingly.
+        </p>
+      </div>
 
-</body>
+      <h3>5.2 LangGraph — v1.2.10</h3>
+      <p><em>The reference implementation of a durable, user-owned control plane. Not a code-gen framework, and it does not pretend to be.</em></p>
+      <ul class="tight">
+        <li><strong>Durability is a first-class, tunable property.</strong> <code>Durability = Literal["sync","async","exit"]</code>: persist before the next step, concurrently with it, or only at exit. No other surveyed system exposes such a dial. <span class="tag t-src">source-code observation</span></li>
+        <li>Dynamic fan-out via <code>Send</code>, explicitly for map-reduce. <code>Command</code> unifies control flow: <code>update</code>, <code>resume</code>, <code>goto</code>, <code>graph=Command.PARENT</code>.</li>
+        <li>Subgraph checkpointing is explicitly ternary: <code>True</code> enable, <code>False</code> disable even if the parent has one, <code>None</code> inherit.</li>
+        <li>Checkpointer backends ship as separate libs — base/in-memory, <strong>SQLite</strong>, <strong>Postgres</strong>, plus a <em>conformance</em> suite: evidence the checkpointer is a pluggable contract, not an implementation detail.</li>
+        <li>Supersteps are real in code, not just docs vocabulary: the delta channel snapshots on <code>snapshot_frequency</code> or when supersteps since last snapshot hit <code>DELTA_MAX_SUPERSTEPS_SINCE_SNAPSHOT</code> (default 5000).</li>
+      </ul>
+      <div class="callout open">
+        <h4>The pause/resume truth — verbatim from the <code>interrupt</code> docstring</h4>
+        <p style="margin: 0 0 8px">
+          “The graph resumes from the start of the node, <strong>re-executing</strong> all logic.”
+          <span class="tag t-src">source-code observation</span> High confidence. Multiple
+          <code>interrupt</code> calls in one node are matched to resume values <strong>by order</strong>.
+        </p>
+        <p style="margin: 0">
+          This is the single most important operational fact in the study, and the empirical basis for
+          §8.2: any side effect before an <code>interrupt</code> runs <strong>again</strong> on resume
+          unless it is idempotent.
+        </p>
+      </div>
+
+      <h3>5.3 OpenAI Agents SDK — v0.19.1</h3>
+      <p><em>The most refined agent-as-tool interface, and — new since the 07-29 draft — a second vendor implementation of managed programmatic tool calling.</em></p>
+      <ul class="tight">
+        <li>
+          <code>as_tool()</code> is far richer than the draft recorded: <code>tool_name</code>,
+          <code>tool_description</code>, <code>custom_output_extractor</code>, <code>is_enabled</code>,
+          <code>on_stream</code>, <code>run_config</code>, <code>max_turns</code>, <code>hooks</code>,
+          <code>previous_response_id</code>, <code>conversation_id</code>, <code>session</code>,
+          <code>failure_error_function</code>, <strong><code>needs_approval</code></strong>,
+          <code>parameters</code>, <code>input_builder</code>, <code>include_input_schema</code>.
+          <span class="tag t-src">source-code observation</span> Read as a control-plane checklist:
+          bounded turns, output shaping, dynamic visibility, approval gating, own session — all on the
+          <em>tool contract</em>.
+        </li>
+        <li>The docstring states the distinction precisely: a handoff receives conversation history and <strong>takes over</strong>; as a tool it receives generated input and the original agent <strong>continues</strong>.</li>
+        <li><strong><code>ToolSearchTool</code></strong> — a hosted tool letting the model search <em>deferred</em> tools by namespace. Independent corroboration of trend 10.</li>
+        <li>Approval is a real interrupt-style flow: on trigger “the run pauses and pending items appear in <code>result.interruptions</code>”, resolved via <code>state.approve()</code> / <code>state.reject()</code>. <span class="tag t-doc">documented fact</span></li>
+        <li>The docs endorse code orchestration explicitly: “more deterministic and predictable, in terms of speed, cost and performance.”</li>
+      </ul>
+      <div class="callout key">
+        <h4><code>ProgrammaticToolCallingTool</code> — the feature the draft missed entirely</h4>
+        <p style="margin: 0 0 8px">
+          “A hosted Responses tool that lets generated <strong>JavaScript</strong> orchestrate other
+          tools.” Only one permitted per request. <span class="tag t-src">source-code observation</span>
+        </p>
+        <p style="margin: 0">
+          Note the substrate: <strong>JavaScript</strong>, where Anthropic uses <strong>Python</strong>.
+          Two vendors, the same architecture, incompatible substrates — the clearest single reason §9 trend
+          6 remains unsettled.
+        </p>
+      </div>
+      <div class="callout warn">
+        <h4>Portability correction</h4>
+        <p style="margin: 0">
+          The SDK ships <code>litellm_model.py</code>, <code>litellm_provider.py</code>,
+          <code>any_llm_model.py</code>, <code>any_llm_provider.py</code> under
+          <code>extensions/models/</code>, with optional <code>litellm&gt;=1.83.0</code>. The draft rated
+          provider portability “Low (OpenAI focus)”. That is <strong>wrong</strong> — hosted tools are
+          OpenAI-only, but the model layer is broadly pluggable.
+        </p>
+      </div>
+
+      <h3>5.4 Google ADK — v2.5.0</h3>
+      <p><em>The cleanest separation of deterministic workflow from agency — and the study's sharpest example of code execution without programmatic tool orchestration.</em></p>
+      <ul class="tight">
+        <li>Workflow agents are distinct classes: <code>SequentialAgent</code>, <code>LoopAgent</code>, <code>ParallelAgent</code>, alongside the model-driven <code>LlmAgent</code>. Determinism is a <em>type</em> — a genuinely good design idea (§7.3).</li>
+        <li><code>AgentTool</code> wraps an agent as a tool, with <code>skip_summarization</code> to return the sub-agent's output verbatim instead of paying for a summarising model pass.</li>
+        <li><strong>Six</strong> code-execution backends: <code>BuiltInCodeExecutor</code>, <code>ContainerCodeExecutor</code>, <code>GkeCodeExecutor</code> (a Kubernetes Job per execution), <code>UnsafeLocalCodeExecutor</code>, <code>VertexAiCodeExecutor</code>, <code>AgentEngineSandboxCodeExecutor</code>. Naming the local one <strong><code>Unsafe</code></strong><code>LocalCodeExecutor</code> is admirable API honesty.</li>
+        <li>Artifacts are a real service with pluggable backends (<code>in_memory</code>, <code>file</code>, <code>gcs</code>) plus a <strong><code>ForwardingArtifactService</code></strong> so a sub-agent's artifacts reach the parent — exactly the §8.4 provenance primitive, and the only surveyed framework naming it as such.</li>
+        <li>Policy hooks are plugins, including a <strong><code>context_filter_plugin</code></strong>: context filtering as installable policy rather than prompt discipline.</li>
+        <li><code>langgraph_agent.py</code> and <code>remote_a2a_agent.py</code> exist — ADK expects to wrap foreign orchestrators and remote agents.</li>
+      </ul>
+      <div class="callout open">
+        <h4>The finding that matters most</h4>
+        <p style="margin: 0 0 8px">
+          Inspection of <code>code_executors/</code> found <strong>no mechanism injecting ADK tools into
+          the generated-code namespace</strong>. ADK generated code computes; it does not compose
+          registered ADK capabilities. <span class="tag t-src">source-code observation</span> →
+          <span class="tag t-inf">inference</span>, Medium-High confidence.
+        </p>
+        <p style="margin: 0">
+          This is precisely the trap the handoff warned about: ADK has abundant code execution and, on this
+          evidence, <strong>not</strong> programmatic tool orchestration in the smolagents sense. Confirming
+          this negative against a full ADK release is the top §11 follow-up.
+        </p>
+      </div>
+
+      <h3>5.5 Microsoft AutoGen — v0.7.5 (<code>autogen-core</code>)</h3>
+      <p><em>The strongest treatment of code execution as swappable, cancellable infrastructure.</em></p>
+      <ul class="tight">
+        <li><strong>Five</strong> executors, not two: <code>LocalCommandLineCodeExecutor</code>, <code>DockerCommandLineCodeExecutor</code>, <code>ACADynamicSessionsCodeExecutor</code> (Azure Container Apps), <code>JupyterCodeExecutor</code>, <code>DockerJupyterCodeExecutor</code>. Local → container → managed-remote → stateful-kernel behind one interface.</li>
+        <li><strong>Cancellation is in the base contract.</strong> <code>CodeExecutor.execute_code_blocks</code> takes a <code>CancellationToken</code> and documents raising <code>asyncio.CancelledError</code>. <span class="tag t-src">source-code observation</span> High confidence. Of all surveyed systems, AutoGen treats “stop this now” as most fundamental — see §7.5.</li>
+        <li>Local execution carries a <code>.. danger::</code> directive: “This will execute code on the local machine. If being used with LLM generated code, caution should be used.” Commands are sanitised by regex against a dangerous-command list; a <code>UserWarning</code> fires at construction.</li>
+        <li>Executors are <code>Component</code>s with declarative config models, so the execution backend is serialisable configuration rather than code — the cleanest expression of trend 8 found anywhere.</li>
+        <li><strong>Correction:</strong> nesting is <code>SocietyOfMindAgent</code> (an agent whose responses come from an inner <em>team</em>), not <code>NestedChat</code>, which belonged to the v0.2 line. A <code>MessageFilterAgent</code> also exists for context control.</li>
+      </ul>
+      <div class="callout warn">
+        <p style="margin: 0">
+          Worth stating plainly: <strong>regex denylisting of dangerous commands is not a security
+          boundary</strong>, for the same reason smolagents says its AST filter is not one. Both projects
+          are honest about this; users routinely are not.
+          <span class="tag t-inf">inference</span> High confidence.
+        </p>
+      </div>
+
+      <h3>5.6 Anthropic Programmatic Tool Calling &amp; Code Execution</h3>
+      <p><em>The most operationally detailed managed inner loop, with the most explicit constraints — which is a point in its favour, not against it.</em></p>
+      <ul class="tight">
+        <li>Requires <code>code_execution_20260120</code> or later. Four versions exist: <code>20250522</code>, <code>20250825</code>, <code>20260120</code>, <code>20260521</code>. <code>20260120</code> added REPL state persistence and programmatic tool calling.</li>
+        <li>Both <code>20260120</code> and <code>20260521</code> are accepted in <code>allowed_callers</code> and are interchangeable; <strong>response blocks always tag the caller as <code>code_execution_20260120</code></strong> regardless of which was declared — a parsing trap worth recording.</li>
+        <li>Haiku 4.5 accepts the newer tool types but <strong>does not</strong> support programmatic tool calling or the REPL persistence that depends on it; there it behaves like <code>20250825</code>. Capability varies by model, not just version.</li>
+        <li>
+          <strong>How tools appear to the generated code:</strong> async Python functions, each taking a
+          <strong>single dict</strong> and returning a <strong>string</strong> (the <code>tool_result</code>
+          text). Top-level <code>await</code>; parallelism via <code>asyncio.gather</code>:
+          <pre style="margin: 8px 0 0"><code>rows = json.loads(await query_database({"sql": "&lt;sql&gt;"}))</code></pre>
+        </li>
+        <li>Container: <strong>5 GiB RAM, 5 GiB workspace, 1 CPU</strong>; internet access “completely disabled”, no outbound requests, full isolation from host and other containers. Python and Bash both available. <span class="tag t-doc">documented fact</span></li>
+        <li><strong>Continuation exists</strong> — correcting the draft's “no checkpoint/resume”. Containers expire <strong>30 days</strong> after creation, are checkpointed after ~5 minutes of inactivity, and resume by passing the prior <code>container.id</code> back. With <code>20260120</code>+ the <strong>Python interpreter state persists too</strong>, not just files. Expired containers cannot be restored.</li>
+        <li>Benchmarks: +11% average with 24% fewer input tokens on BrowseComp and DeepSearchQA <span class="tag t-vendor">vendor claim</span> Medium confidence — not independently reproduced here.</li>
+        <li><strong>Agent-as-tool:</strong> no first-party primitive in the PTC contract. A user-defined tool may itself wrap an agent; but MCP connector tools are excluded from programmatic calling, closing the most obvious route to composing foreign agents that way. <span class="tag t-inf">inference</span></li>
+      </ul>
+      <div class="callout open">
+        <h4>The ~4-minute deadline — the sharpest ownership consequence in the study</h4>
+        <p style="margin: 0 0 8px">
+          A pending programmatic tool call times out after about four minutes, raising
+          <code>TimeoutError</code> <em>inside</em> Claude's running code; Claude sees it in
+          <code>stderr</code> and typically retries. Documented stderr:
+          <code>TimeoutError: Calling tool ['query_database'] timed out (no response after 270s).</code>
+          <span class="tag t-doc">documented fact</span>
+        </p>
+        <p style="margin: 0">
+          <strong>The vendor's loop imposes a latency SLA on your local tools.</strong> A slow user-owned
+          tool becomes a correctness problem, not merely a slow one.
+        </p>
+      </div>
+      <div class="panel">
+        <h4>Documented constraints <span class="tag t-doc">documented fact</span></h4>
+        <ul class="tight" style="margin-bottom: 0">
+          <li><code>strict: true</code> structured-output tools unsupported.</li>
+          <li><code>tool_choice</code> cannot force programmatic calling of a specific tool.</li>
+          <li><code>disable_parallel_tool_use: true</code> unsupported.</li>
+          <li>Recursive <code>$ref</code> input schemas rejected — <code>400 invalid_request_error</code> with <code>Circular $ref detected</code> — though the <em>same</em> schema is fine for direct calling.</li>
+          <li><strong>MCP connector tools cannot be called programmatically.</strong></li>
+          <li>While programmatic calls are pending, the response message must contain <strong>only</strong> <code>tool_result</code> blocks — not even trailing text.</li>
+        </ul>
+      </div>
+
+      <h3>5.7 CodeAct — Wang et al., ICML 2024</h3>
+      <ul class="tight">
+        <li>“Executable Code Actions Elicit Better LLM Agents,” Xingyao Wang, Yangyi Chen, Lifan Yuan, Yizhe Zhang, Yunzhu Li, Hao Peng, Heng Ji. <strong>ICML 2024</strong>, PMLR v235. <span class="tag t-res">research finding</span> The draft gave no venue.</li>
+        <li><strong>17 LLMs</strong> on API-Bank plus a newly curated benchmark; CodeAct outperforms alternatives by <strong>up to 20% higher success rate</strong>. <span class="tag t-meas">measured result</span> Medium-High confidence.</li>
+        <li>Note the quantifier: <strong>“up to”</strong>, not “on average”. A ceiling, not an expectation.</li>
+        <li>Released <code>CodeActAgent</code> (fine-tuned from Llama2 and Mistral) and <code>CodeActInstruct</code> (7k multi-turn interactions).</li>
+        <li>This paper is the origin of <em>both</em> headline numbers in circulation: its own 20%, and the 30%-fewer-steps figure smolagents cites from it.</li>
+      </ul>
+
+      <!-- ============ 6 ============ -->
+      <h2 id="s6">6 · Comparison Matrix</h2>
+      <p>
+        Split into themed tables because seventeen dimensions across eight systems is unreadable as one
+        grid. The bridge runner is included as the local anchor (highlighted). Every dimension the handoff
+        required is present.
+      </p>
+
+      <h3>6.A Orchestration and loop ownership</h3>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Dimension</th><th>smolagents</th><th>LangGraph</th><th>OpenAI SDK</th><th>Google ADK</th><th>AutoGen</th><th>Anthropic PTC</th><th>CodeAct</th><th class="runner-col">Bridge runner</th></tr></thead>
+          <tbody>
+            <tr><td>Orchestration language</td><td>Generated Python</td><td>Python/JS graph</td><td>Python (+ generated <strong>JS</strong> for PTC)</td><td>Python workflow classes</td><td>Python + actors</td><td>Generated <strong>Python</strong> in vendor container</td><td>Generated Python</td><td class="runner-col">JS/Node loop + phased coordinator</td></tr>
+            <tr><td>Outer model loop owner</td><td class="yes">User</td><td class="yes">User</td><td class="yes">User</td><td class="yes">User</td><td class="yes">User</td><td class="yes">User (still calls Messages API)</td><td class="yes">User</td><td class="runner-col yes">User</td></tr>
+            <tr><td>Inner tool loop owner</td><td class="yes">User (AST or container)</td><td class="yes">User (graph engine)</td><td class="part">User for <code>function_tool</code>; <strong>vendor</strong> for PTC</td><td class="yes">User</td><td class="yes">User</td><td class="no">Vendor (container)</td><td class="yes">User</td><td class="runner-col yes">User</td></tr>
+            <tr><td>Deterministic workflow support</td><td class="part">Moderate (plain Python)</td><td class="yes">Native (<code>StateGraph</code>)</td><td class="part">Via ordinary code</td><td class="yes">Native (workflow <em>types</em>)</td><td class="yes">Native (actors)</td><td class="no">Low — model authors the script</td><td>N/A</td><td class="runner-col yes">Native (phases + dep batches)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>6.B Code as an action space — the axes usually conflated</h3>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Dimension</th><th>smolagents</th><th>LangGraph</th><th>OpenAI SDK</th><th>Google ADK</th><th>AutoGen</th><th>Anthropic PTC</th><th>CodeAct</th><th class="runner-col">Bridge runner</th></tr></thead>
+          <tbody>
+            <tr><td>Generated-code support</td><td class="yes">Primary (<code>CodeAgent</code>)</td><td>Not a codegen framework</td><td class="yes">Yes (hosted PTC / CodeInterpreter)</td><td class="yes">Yes — 6 backends</td><td class="yes">Primary (<code>CodeExecutor</code>)</td><td class="yes">Primary</td><td class="yes">Primary</td><td class="runner-col part">Indirect (write file, run via <code>bash</code>)</td></tr>
+            <tr><td><strong>Tools callable from generated code</strong></td><td class="yes">Yes — <code>send_tools({**tools, **managed_agents})</code></td><td>N/A</td><td class="yes">Yes (hosted PTC)</td><td class="no">No mechanism found</td><td class="no">No — executes blocks only</td><td class="yes">Yes — async fns, single dict</td><td class="yes">Yes (interpreter namespace)</td><td class="runner-col no">No</td></tr>
+            <tr><td><strong>Agents callable from generated code</strong></td><td class="yes">Yes — same injection</td><td>N/A</td><td class="no">Not documented for PTC</td><td class="no">No</td><td class="no">No</td><td class="no">No first-party primitive</td><td class="part">Conceptually</td><td class="runner-col no">No</td></tr>
+            <tr><td>Agents callable as tools (outside code)</td><td class="yes">Yes (<code>managed_agents</code>)</td><td class="yes">Yes (subgraphs)</td><td class="yes">Yes (<code>as_tool()</code>, richest)</td><td class="yes">Yes (<code>AgentTool</code>)</td><td class="yes">Yes (<code>SocietyOfMindAgent</code>)</td><td class="part">Only by user-wrapping a tool</td><td>N/A</td><td class="runner-col yes">Yes (<code>spawn_agent</code>, read-only, depth-1)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout key">
+        <p style="margin: 0">
+          The middle two rows are the whole point of this table. <strong>ADK and AutoGen have code
+          execution and no programmatic tool orchestration. smolagents has all three properties. Anthropic
+          and OpenAI have tool-composition but rent the runtime.</strong>
+        </p>
+      </div>
+
+      <h3>6.C Durability, concurrency, artifacts</h3>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Dimension</th><th>smolagents</th><th>LangGraph</th><th>OpenAI SDK</th><th>Google ADK</th><th>AutoGen</th><th>Anthropic PTC</th><th>CodeAct</th><th class="runner-col">Bridge runner</th></tr></thead>
+          <tbody>
+            <tr><td>Concurrency mechanism</td><td>Sequential; <code>gather</code> inside generated code</td><td class="yes"><code>Send</code> map-reduce, supersteps</td><td><code>asyncio.gather</code>; parallel tool calls</td><td><code>ParallelAgent</code></td><td>Event-driven actors</td><td class="part"><code>gather</code> in container, <strong>1 CPU</strong></td><td>Sequential</td><td class="runner-col">Dependency batches (Kahn), worktree slots, bg shell jobs</td></tr>
+            <tr><td>Checkpoint / resume</td><td class="no">Minimal</td><td class="yes">Native + tunable (SQLite/Postgres)</td><td class="part">Sessions, <code>previous_response_id</code></td><td class="part">Session + artifact services</td><td class="part">State snapshots</td><td class="part">Container reuse ≤30 days incl. REPL state</td><td>N/A</td><td class="runner-col part">Session store, run manifests, undo log</td></tr>
+            <tr><td>Artifact handling</td><td>In-memory / files</td><td>State + long-term stores</td><td>Object outputs</td><td class="yes">Artifact service + <code>ForwardingArtifactService</code></td><td>Temp files per block</td><td>5 GiB workspace, Files API</td><td>Disk / stdout</td><td class="runner-col"><code>.bridge-runner/</code> runs, backups, transcripts</td></tr>
+            <tr><td>Observability / replay</td><td>Prints, telemetry</td><td class="yes">Checkpoints + LangSmith</td><td>Tracing, <code>on_stream</code></td><td>Auto-tracing plugins</td><td>Component logs</td><td>API trace blocks</td><td>Research logs</td><td class="runner-col yes">Transcripts, human logs, golden-eval replay, loop autopsy</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>6.D Control, portability, maturity</h3>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Dimension</th><th>smolagents</th><th>LangGraph</th><th>OpenAI SDK</th><th>Google ADK</th><th>AutoGen</th><th>Anthropic PTC</th><th>CodeAct</th><th class="runner-col">Bridge runner</th></tr></thead>
+          <tbody>
+            <tr><td>Approvals &amp; permissions</td><td class="no">Import allowlist (<strong>not</strong> a boundary)</td><td class="yes"><code>interrupt()</code> / <code>Command(resume=)</code></td><td class="yes"><code>needs_approval</code> + <code>interruptions</code>, <code>is_enabled</code></td><td class="part">Plugin callbacks, context filter</td><td class="part">HITL agent; regex denylist</td><td class="part">Container isolation; user still executes tools</td><td>User's sandbox</td><td class="runner-col yes">Authority ceiling (monotonic), deny matrix, path confinement, redaction boundary, plan mode</td></tr>
+            <tr><td>Execution backends</td><td class="yes">Local AST, Docker, E2B, Modal, Blaxel</td><td>Local / platform</td><td>Local + hosted</td><td class="yes">Builtin, Container, GKE, UnsafeLocal, VertexAI, AgentEngineSandbox</td><td class="yes">Local, Docker, Azure ACA, Jupyter, DockerJupyter</td><td class="no">Vendor container only</td><td>Subprocess / Docker</td><td class="runner-col no">Local process; worktrees; <code>--no-network</code> best-effort only</td></tr>
+            <tr><td>Provider portability</td><td class="yes">High (any LLM)</td><td class="yes">High (agnostic)</td><td class="part">Moderate-High — LiteLLM/any-llm for models; hosted tools OpenAI-only</td><td class="part">Moderate (GCP lean; wraps LangGraph/A2A)</td><td class="yes">High</td><td class="no">Low (Anthropic only)</td><td class="yes">Model-agnostic</td><td class="runner-col part">Anthropic-native by design</td></tr>
+            <tr><td>Maturity (rubric §4)</td><td><strong>2</strong></td><td><strong>3</strong></td><td><strong>3</strong></td><td><strong>2–3</strong></td><td><strong>2</strong></td><td><strong>2</strong></td><td><strong>1</strong></td><td class="runner-col"><strong>2</strong> (single-user research lab)</td></tr>
+            <tr><td>Evidence / confidence</td><td>Src obs., High</td><td>Src obs., High</td><td>Src obs., High</td><td>Src obs., Med-High (the negative)</td><td>Src obs., High</td><td>Doc fact, High; benchmarks vendor claim, Med</td><td>Research, Med-High</td><td class="runner-col">Src obs., High</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>6.E Strongest lesson and principal limitation</h3>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>System</th><th>Strongest lesson</th><th>Principal limitation</th></tr></thead>
+          <tbody>
+            <tr><td>smolagents</td><td>Inject tools <em>and</em> agents into one namespace and code becomes a complete composition language</td><td>Default executor explicitly not a security boundary</td></tr>
+            <tr><td>LangGraph</td><td>Make durability an explicit dial; be honest that resume re-executes the node</td><td>No mid-node resume; side effects must be idempotent</td></tr>
+            <tr><td>OpenAI Agents SDK</td><td>Put bounds on the <em>tool contract</em>: turns, approval, visibility, output shaping</td><td>Hosted tools (incl. PTC) are OpenAI-only</td></tr>
+            <tr><td>Google ADK</td><td>Make determinism a <strong>type</strong>; forward artifacts across agent boundaries</td><td>Code execution ≠ tool orchestration; GCP gravity</td></tr>
+            <tr><td>AutoGen</td><td>Execution backend as swappable, declaratively-configured, <strong>cancellable</strong> component</td><td>Local executor dangerous; denylists aren't boundaries</td></tr>
+            <tr><td>Anthropic PTC</td><td>Keep side-effect authority local while renting only the loop</td><td>Vendor imposes ~4-min SLA on <em>your</em> tools; no network; not portable</td></tr>
+            <tr><td>CodeAct</td><td>Code as unified action space has real measured benefit</td><td>“Up to 20%”, older model generation, benchmark-scoped</td></tr>
+            <tr class="runner-col"><td><strong>Bridge runner</strong></td><td><strong>Freeze an authority ceiling at run start and only ever narrow it</strong></td><td>No programmatic tool orchestration; weak network isolation</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ 7 ============ -->
+      <h2 id="s7">7 · What Existing Systems Teach Us</h2>
+
+      <h3>7.1 The namespace is the interface</h3>
+      <p>
+        smolagents' power comes from one line: tools and managed agents enter the same Python namespace.
+        Composition is then just the language — loops, comprehensions, <code>try</code>,
+        <code>asyncio.gather</code> — with no orchestration DSL to design. Anthropic reaches the same place
+        differently, exposing tools as async functions taking a dict. <strong>Lesson: if generated code is
+        to orchestrate, the tool surface must be idiomatic in the host language, not a bespoke calling
+        convention.</strong>
+      </p>
+
+      <h3>7.2 Rent the loop, keep the authority</h3>
+      <p>
+        The most under-appreciated fact about Anthropic's PTC is that <strong>the user still executes every
+        tool</strong>. The container orchestrates; it does not gain your credentials or your filesystem.
+        That decomposition — vendor owns <em>sequencing</em>, user owns <em>side effects</em> — is genuinely
+        reusable, and means “provider-managed” is not the binary surrender the 07-29 framing implied. The
+        real costs are concrete and elsewhere: no network, a fixed machine, a ~4-minute tool SLA, and no
+        portability.
+      </p>
+
+      <h3>7.3 Determinism deserves to be a type</h3>
+      <p>
+        ADK's <code>SequentialAgent</code> / <code>LoopAgent</code> / <code>ParallelAgent</code> make “this
+        part does not think” a declared property rather than a hope. The runner's
+        <code>coordinator.js</code> phases express the same instinct. <strong>Lesson: name the
+        deterministic parts in the type system or the config, so nobody has to infer them from a
+        prompt.</strong>
+      </p>
+
+      <h3>7.4 Bound the sub-agent at the contract, not in the prompt</h3>
+      <p>
+        OpenAI's <code>as_tool()</code> is the best-designed object in this study because every bound is
+        structural: <code>max_turns</code> caps work, <code>needs_approval</code> gates side effects,
+        <code>is_enabled</code> controls visibility, <code>custom_output_extractor</code> shapes what
+        re-enters context. The runner's <code>spawn_agent</code> independently converges on the same shape —
+        read-only tools, depth-1, capped spawns, leased budget — meaningful corroboration from two unrelated
+        codebases.
+      </p>
+
+      <h3>7.5 Cancellation belongs in the base contract</h3>
+      <p>
+        AutoGen puts a <code>CancellationToken</code> in the abstract <code>CodeExecutor</code> signature.
+        Not a feature — a precondition of the interface. Anything that can run arbitrary code must be
+        stoppable at the same level of abstraction at which it is startable.
+      </p>
+
+      <div class="callout key">
+        <h4>7.6 The runner's authority ceiling is ahead of the field</h4>
+        <p style="margin: 0">
+          Every surveyed framework gates authority <strong>per call</strong>: approve this tool, allow this
+          import, filter this context. <code>authority.js</code> bounds the <strong>run</strong>: the
+          ceiling is frozen from CLI flags at start and can only narrow, so no downstream component can
+          widen it. Monotonicity is exactly what per-call gating fails to give you once generated code or a
+          nested agent is in the picture — because you can no longer enumerate the calls in advance.
+          <strong>This is the strongest control-plane idea found in this study, and it is already in this
+          repository.</strong> <span class="tag t-inf">inference</span> Medium-High confidence.
+        </p>
+      </div>
+
+      <h3>7.7 Honest APIs name their own dangers</h3>
+      <p>
+        <code>UnsafeLocalCodeExecutor</code>. <code>.. danger::</code>. “not a security sandbox … must not
+        be used as a security boundary.” Three independent projects chose to embarrass their own defaults
+        rather than let users assume safety. <strong>Lesson: the runner's “<code>--no-network</code> is
+        best-effort, not hard isolation” help text is the same discipline, and should be preserved verbatim
+        under any future rewording.</strong>
+      </p>
+
+      <!-- ============ 8 ============ -->
+      <h2 id="s8">8 · What Remains Genuinely Open</h2>
+      <p>All eight areas the handoff required. Stated as unsolved because they are unsolved — not as a to-do list.</p>
+
+      <h3>8.1 Authority below generated code <span class="tag t-open">open question</span></h3>
+      <p>
+        Per-tool approval collapses when a model emits a fifty-line program: either the user pre-approves a
+        script they have not read (ambient authority), or execution stops repeatedly for mid-script prompts
+        (unusable). Nobody surveyed has solved this. The partial answers: bound the <em>run</em> not the
+        call (runner's ceiling), or remove the choice by making the sandbox incapable (Anthropic's
+        zero-network container). Neither gives <em>fine-grained, reviewable</em> authority inside a
+        generated program. The runner's specific weak edge is network.
+      </p>
+
+      <div class="callout open">
+        <h4>8.2 Durability across a pause — the central unsolved problem</h4>
+        <ul class="tight" style="margin-bottom: 0">
+          <li>No surveyed system can pause a running generated program at an arbitrary point, consult a human, and resume that stack frame.</li>
+          <li>LangGraph — the most durable system surveyed — <strong>re-executes the entire node on resume</strong>. Anthropic can persist a container and REPL state for 30 days, but that is <em>between</em> requests, not mid-statement.</li>
+          <li>Therefore every side effect before a pause point must be <strong>idempotent</strong>, or it will happen twice.</li>
+          <li>Therefore “human in the loop” today means <strong>human between the steps</strong>, and step granularity is an architectural decision with correctness consequences.</li>
+        </ul>
+        <p style="margin: 10px 0 0">
+          Exactly-once execution across a resumable nested model loop remains unsolved in released
+          software. High confidence in the negative.
+        </p>
+      </div>
+
+      <h3>8.3 Concurrency, budgets, and backpressure <span class="tag t-open">open question</span></h3>
+      <p>
+        <code>Send</code> and <code>ParallelAgent</code> make fan-out trivial; nothing makes it
+        <em>safe</em>. Rate-limit storms, retry amplification, and nested cost blowups are left to the user.
+        The best answer found is the runner's <strong>budget leasing</strong> — children draw from the
+        parent's broker and reconcile on return, so nested spend cannot exceed the parent ceiling.
+        Generalising leasing across providers, and adding adaptive backpressure rather than fixed caps, is
+        open.
+      </p>
+
+      <h3>8.4 Context, artifacts, and provenance <span class="tag t-open">open question</span></h3>
+      <p>
+        The pattern is agreed: keep complete output in a vault, return summaries and stable references.
+        ADK's <code>ForwardingArtifactService</code> and Anthropic's container workspace are real
+        implementations. What is unsolved is <strong>provenance after filtering</strong>: once a model
+        reasons over a summary, the chain from conclusion back to raw bytes is conventional, not enforced.
+        No surveyed system can prove a summary faithfully represents the artifact it points at.
+      </p>
+
+      <h3>8.5 Worker contracts <span class="tag t-open">open question</span></h3>
+      <p>
+        Typed inputs/outputs are broadly available. Under-served: partial success (37 of 50 files succeeded
+        — what does the tool return?), calibrated confidence, schema versioning across long-lived workers,
+        and correlated-failure signalling. Anthropic's contract is notably narrow — a programmatic tool
+        returns <strong>a string</strong> — pushing all structure into ad-hoc JSON-in-string conventions.
+        And the standing trap: a single <code>run_anything</code> tool (the runner's <code>bash</code>,
+        AutoGen's local executor) is an unreviewable authority tunnel that makes every finer-grained
+        permission decorative.
+      </p>
+
+      <h3>8.6 Evaluation <span class="tag t-open">open question</span></h3>
+      <p>
+        Model quality and <em>system</em> quality are still routinely conflated. Decomposition, routing,
+        aggregation, recovery, cost, and provenance integrity each need separate measurement. LangGraph's
+        checkpoint <em>conformance</em> suite and the runner's golden-transcript replay are the two concrete
+        things found that evaluate the harness rather than the model. Detecting <strong>correlated worker
+        failure</strong> — every parallel worker wrong the same way because they share a model and a prompt
+        — has no established method.
+      </p>
+
+      <h3>8.7 Generated-code reliability <span class="tag t-open">open question</span></h3>
+      <p>
+        Syntax and runtime errors are handled by retry. Unbounded loops, resource exhaustion, and injection
+        are handled by the sandbox — which two projects state outright is not a boundary in default
+        configuration. Auditing ephemeral code is largely unaddressed: a program that ran once, mutated
+        state, and vanished is hard to review afterwards. The unanswered design question is
+        <strong>promotion</strong>: which generated logic should graduate into durable, reviewed, tested
+        application code, and what triggers that?
+      </p>
+
+      <h3>8.8 Human control <span class="tag t-open">open question</span></h3>
+      <p>
+        <code>interrupt()</code>, <code>needs_approval</code>, and <code>ask_user_question</code> all pause
+        well. What is missing is <em>comprehension</em>: a cost-and-authority preview before approving a
+        program whose fan-out is unknown, and legible nested activity when a manager calls an agent that
+        calls a tool that spawns a worker. Approving what you cannot understand is consent in form only.
+      </p>
+
+      <!-- ============ 9 ============ -->
+      <h2 id="s9">9 · Trends Assessment</h2>
+      <div class="scroll">
+        <table>
+          <caption>Each rated documented / strongly evidenced / weakly evidenced / speculative, per the handoff.</caption>
+          <thead><tr><th>#</th><th>Trend</th><th>Rating</th><th>Basis</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Code as action-composition language</td><td class="part">Strongly evidenced <em>(downgraded from draft's “measured”)</em></td><td>CodeAct ICML 2024: up to 20%, 17 LLMs. <strong>But</strong> smolagents' “30% fewer steps” <em>cites that same paper</em> — one lineage, not two. Vendor adoption is the stronger signal.</td></tr>
+            <tr><td>2</td><td>Managers retain control; specialists become bounded tools</td><td class="yes">Documented</td><td><code>as_tool()</code>, <code>AgentTool</code>, <code>managed_agents</code>, <code>SocietyOfMindAgent</code>, <code>spawn_agent</code> — 5 independent implementations.</td></tr>
+            <tr><td>3</td><td>Durable workflow engines around probabilistic models</td><td class="yes">Documented</td><td>LangGraph durability modes, SQLite/Postgres checkpointers + conformance suite.</td></tr>
+            <tr><td>4</td><td>Generated programs stay ephemeral optimisation layers</td><td class="part">Weakly evidenced</td><td>Consistent with all designs, but no vendor states it as policy and no promotion path is documented. Largely still inference.</td></tr>
+            <tr><td>5</td><td>Complete outputs to artifact stores; models see summaries/refs</td><td class="yes">Documented</td><td>ADK artifact services + <code>ForwardingArtifactService</code>; Anthropic 5 GiB workspace + context suppression.</td></tr>
+            <tr><td>6</td><td>Provider-neutral worker gateways</td><td class="no">Weakly evidenced — and actively fragmenting</td><td>Model layer portable (LiteLLM/any-llm). But the <em>orchestration</em> layer diverged in this very cycle: Anthropic PTC = Python, OpenAI PTC = <strong>JavaScript</strong>, mutually incompatible.</td></tr>
+            <tr><td>7</td><td>Explicit separation of functions / model calls / workflows / agents</td><td class="yes">Documented</td><td>ADK workflow-agent types; LangGraph nodes vs agents; runner capability groups.</td></tr>
+            <tr><td>8</td><td>Sandboxed execution as first-class runtime abstraction</td><td class="yes">Documented</td><td>AutoGen <code>Component</code>-configured executors (5), ADK backends (6), smolagents <code>executor_type</code> (5).</td></tr>
+            <tr><td>9</td><td>Evaluation shifting to trajectories, routing, cost, recovery, provenance</td><td class="part">Weakly evidenced</td><td>Direction is real (conformance suites, golden replay, cost telemetry) but no standard benchmark evaluates a control plane.</td></tr>
+            <tr><td>10</td><td>Tool discovery / deferred loading replacing static catalogs</td><td class="yes">Documented <em>(upgraded)</em></td><td>OpenAI <code>ToolSearchTool</code> <strong>and</strong> deferred-tool loading in this very harness — two independent implementations.</td></tr>
+            <tr><td>11</td><td>Policy, budgets, authority above models rather than in prompts</td><td class="yes">Documented</td><td><code>authority.js</code> ceiling, budget leasing, deny matrix, redaction boundary, ADK plugins, <code>needs_approval</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============ 10 ============ -->
+      <h2 id="s10">10 · Synthesis: A User-Owned Reference Architecture</h2>
+      <p>
+        Presented as synthesis, <strong>not an implementation plan</strong>. Each layer cites the system
+        that best evidences it, so the shape is traceable rather than invented.
+      </p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Layer</th><th>Responsibility</th><th>Best evidence found</th><th>Runner status</th></tr></thead>
+          <tbody>
+            <tr><td><strong>1. Authority ceiling</strong></td><td>Freeze authority at run start from explicit input; downstream may only narrow. Monotonic.</td><td>Runner <code>authority.js</code> — ahead of surveyed frameworks</td><td class="yes">Exists</td></tr>
+            <tr><td><strong>2. Policy &amp; redaction</strong></td><td>Deny matrix, path confinement, one central redaction boundary for every sink</td><td>Runner <code>redaction-boundary.js</code>; ADK <code>context_filter_plugin</code></td><td class="yes">Exists <em>(see §3.3 network gap)</em></td></tr>
+            <tr><td><strong>3. Orchestrator</strong></td><td>Declared phases; explicit dependencies; deterministic parts named as such</td><td>Runner <code>coordinator.js</code>; ADK workflow types; LangGraph <code>StateGraph</code></td><td class="yes">Exists</td></tr>
+            <tr><td><strong>4. Scheduler &amp; durability</strong></td><td>Concurrency, retries, timeouts, <strong>cancellation</strong>, tunable checkpointing</td><td>LangGraph durability modes; AutoGen <code>CancellationToken</code></td><td class="part">Partial — no tunable durability</td></tr>
+            <tr><td><strong>5. Budget broker</strong></td><td>Nested budgets <strong>leased</strong> and reconciled, never copied</td><td>Runner <code>spawn_agent</code> leasing</td><td class="yes">Exists</td></tr>
+            <tr><td><strong>6. Worker gateway</strong></td><td>Provider-neutral bounded workers; agents behind tool contracts with structural bounds</td><td>OpenAI <code>as_tool()</code>; smolagents <code>managed_agents</code></td><td class="part">Partial — Anthropic-native</td></tr>
+            <tr><td><strong>7. Execution substrate</strong></td><td>Swappable, declaratively configured, cancellable sandbox</td><td>AutoGen <code>Component</code> executors; ADK 6 backends</td><td class="no">Gap — local process; <code>--no-network</code> best-effort</td></tr>
+            <tr><td><strong>8. Artifact vault</strong></td><td>Complete evidence out of context; summaries + stable refs in; forwarding across agent boundaries</td><td>ADK <code>ForwardingArtifactService</code></td><td class="part">Partial — <code>.bridge-runner/</code></td></tr>
+            <tr><td><strong>9. Observability &amp; replay</strong></td><td>Trajectory capture, deterministic replay, harness-level conformance</td><td>Runner golden-eval + loop autopsy; LangGraph conformance suite</td><td class="yes">Exists</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout key">
+        <h4>What this says about the project</h4>
+        <p style="margin: 0">
+          Six of nine layers already exist in this repository, and two of them (<strong>authority
+          ceiling</strong>, <strong>budget leasing</strong>) are better than what the surveyed frameworks
+          ship. The honest gaps are <strong>execution substrate</strong> (layer 7) and <strong>tunable
+          durability</strong> (layer 4) — and notably <em>not</em> programmatic tool calling, which is an
+          optimisation on top of a control plane, not a substitute for one.
+        </p>
+      </div>
+      <div class="callout warn">
+        <h4>The corollary — stated plainly because it cuts against the obvious next move</h4>
+        <p style="margin: 0">
+          The efficiency prize (programmatic tool orchestration) sits on the layer the runner is weakest at
+          (a real sandbox). Injecting the runner's tools into a generated-code namespace <em>without</em>
+          first strengthening the execution substrate would take the runner's best property — bounded,
+          auditable authority — and hand it to an unsandboxed script.
+          <strong>Sequence matters here.</strong>
+        </p>
+      </div>
+
+      <!-- ============ 11 ============ -->
+      <h2 id="s11">11 · Second-Phase Research Agenda</h2>
+      <p>Ordered so each item's answer changes what the next should be. All research — no implementation.</p>
+      <ol>
+        <li>
+          <strong>Confirm the ADK negative.</strong> This study found no tool injection into ADK's
+          generated-code namespace, from a shallow clone. Confirm against a full release and live docs. If
+          ADK <em>does</em> have a route, the §6.B verdict and trend 6 both move.
+          <em>Highest priority: the one load-bearing negative claim.</em>
+        </li>
+        <li>
+          <strong>Can the runner get context suppression without renting a container?</strong> Anthropic's
+          win is that intermediates never enter context. A local orchestrator could do the same by keeping
+          intermediates in the vault and returning references. Determine how much of the 24%-fewer-tokens
+          effect is achievable locally — and whether it needs generated code at all, or just a batch
+          dispatcher as §2.4 suggests.
+        </li>
+        <li>
+          <strong>Idempotency and step granularity.</strong> Given §8.2, study how to make runner tool calls
+          idempotent enough that “resume re-executes the step” is safe, and what step size that implies.
+          Prerequisite to any durable pause.
+        </li>
+        <li>
+          <strong>A tool contract that survives partial success.</strong> Design (on paper) a worker result
+          type covering partial success, confidence, and schema version — then test it against the
+          string-only constraint Anthropic's programmatic tools impose.
+        </li>
+        <li>
+          <strong>Sandbox options for a single-user local lab.</strong> Compare Docker, microVM, and
+          OS-level sandboxing on cancellation, network denial that is <em>actual</em>, artifact extraction,
+          and startup cost. Layer 7 is the blocking gap.
+        </li>
+        <li>
+          <strong>Authority ceilings vs. generated code.</strong> Can the monotonic ceiling (§7.6) be made
+          to <em>bind</em> a generated program's tool calls — enforced beneath the code, not just around it?
+          The most interesting original question this study surfaced.
+        </li>
+        <li>
+          <strong>Correlated worker failure.</strong> Devise a detection method for parallel workers failing
+          identically due to shared model and prompt. Unsolved everywhere (§8.6).
+        </li>
+        <li>
+          <strong>Re-verify the two-vendor PTC split.</strong> Anthropic (Python) and OpenAI (JavaScript)
+          diverged during this cycle. Track whether anything converges; this determines whether a neutral
+          gateway is worth designing or premature.
+        </li>
+      </ol>
+
+      <!-- ============ 12 ============ -->
+      <h2 id="s12">12 · Source Appendix</h2>
+      <p>
+        All access dates 2026-07-30. Framework claims come from shallow clones of released source; version
+        and commit given where obtainable.
+      </p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Source</th><th>Version / commit</th><th>Type</th><th>Key claims</th><th>Label</th></tr></thead>
+          <tbody>
+            <tr><td>platform.claude.com … programmatic-tool-calling</td><td>live</td><td>Vendor docs</td><td>Tool versions &amp; interchangeability; async-fn/single-dict/string contract; ~4-min <code>TimeoutError</code>; all six constraints; +11%/−24% benchmark</td><td><span class="tag t-doc">doc</span> / benchmark <span class="tag t-vendor">vendor</span></td></tr>
+            <tr><td>platform.claude.com … code-execution-tool</td><td>live</td><td>Vendor docs</td><td>5 GiB RAM / 5 GiB disk / 1 CPU; no internet; 30-day expiry, ~5-min checkpoint, container reuse + REPL persistence; Python &amp; Bash; Haiku 4.5 caveat</td><td><span class="tag t-doc">doc</span></td></tr>
+            <tr><td>github.com/huggingface/smolagents</td><td><code>1.27.0.dev0</code>, <code>e3a5b89</code>, 2026-07-11</td><td>Source + README</td><td><code>agents.py:492</code> tool+agent injection; no <code>ManagedAgent</code> class; 5 executors; “not a security sandbox”; 30% claim cites CodeAct</td><td><span class="tag t-src">src</span> / <span class="tag t-doc">doc</span></td></tr>
+            <tr><td>github.com/langchain-ai/langgraph</td><td><code>1.2.10</code>, <code>4134145</code>, 2026-07-28</td><td>Source</td><td><code>Durability</code> literal; <code>interrupt</code> re-execution docstring; <code>Send</code>; <code>Command</code>; subgraph checkpointer ternary; superstep snapshot bound</td><td><span class="tag t-src">src</span></td></tr>
+            <tr><td>github.com/openai/openai-agents-python</td><td><code>0.19.1</code></td><td>Source + docs</td><td>Full <code>as_tool()</code> signature; <code>ProgrammaticToolCallingTool</code> (JavaScript, one per request); <code>ToolSearchTool</code>; LiteLLM/any-llm; <code>needs_approval</code> flow; code-vs-LLM orchestration</td><td><span class="tag t-src">src</span> / <span class="tag t-doc">doc</span></td></tr>
+            <tr><td>github.com/google/adk-python, adk-docs</td><td><code>2.5.0</code></td><td>Source + docs</td><td>Workflow agent types; <code>AgentTool</code> + <code>skip_summarization</code>; 6 executors incl. <code>UnsafeLocal</code>/<code>Gke</code>; artifact services + forwarding; <code>context_filter_plugin</code>; <strong>no tool injection into generated code</strong></td><td><span class="tag t-src">src</span>; negative <span class="tag t-inf">inference</span></td></tr>
+            <tr><td>github.com/microsoft/autogen</td><td><code>autogen-core 0.7.5</code>, <code>027ecf0a</code>, 2026-04-06</td><td>Source</td><td>5 executors incl. <code>ACADynamicSessions</code>; <code>CancellationToken</code> in base ABC; <code>.. danger::</code> + regex denylist; <code>SocietyOfMindAgent</code>; <code>Component</code> config</td><td><span class="tag t-src">src</span> / <span class="tag t-doc">doc</span></td></tr>
+            <tr><td>Wang et al., “Executable Code Actions Elicit Better LLM Agents”</td><td>arXiv 2402.01030; <strong>ICML 2024</strong>, PMLR v235</td><td>Paper</td><td>17 LLMs, API-Bank + new benchmark, <strong>up to</strong> 20% higher success; <code>CodeActAgent</code>, <code>CodeActInstruct</code> (7k)</td><td><span class="tag t-res">research</span> / <span class="tag t-meas">measured</span></td></tr>
+            <tr class="runner-col"><td>This repository</td><td>branch <code>claude/user-owned-ai-orchestration-ypiplp</code> @ <code>1446307</code></td><td>Source</td><td>No managed-execution surface; capability groups; <code>authority.js</code> ceiling; <code>coordinator.js</code> batching; <code>spawn_agent</code> bounds + budget leasing; <code>--no-network</code> best-effort</td><td><span class="tag t-src">src</span> / <span class="tag t-doc">doc</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warn">
+        <h4>12.1 Access limitations (disclosed)</h4>
+        <p>
+          The session's network policy blocked several hosts at the proxy CONNECT layer (HTTP 403, not an
+          origin refusal): <code>arxiv.org</code>, <code>export.arxiv.org</code>,
+          <code>docs.langchain.com</code>, <code>microsoft.github.io</code>, <code>api.github.com</code>,
+          <code>huggingface.co</code>, <code>openai.github.io</code>, <code>semanticscholar.org</code>.
+        </p>
+        <p style="margin-bottom: 0">
+          <strong>Mitigation:</strong> every affected claim was sourced from the project's <em>own released
+          source tree</em> via <code>github.com</code> / <code>raw.githubusercontent.com</code> clones — a
+          stronger primary source than rendered docs. The single exception is the CodeAct paper's
+          abstract-level facts, taken from search-result metadata corroborated across alphaXiv, PMLR v235,
+          ACM DL, OpenReview, and Illinois Experts rather than the PDF itself — hence Medium-High rather
+          than High confidence. Re-verifying against the PDF is a minor §11 follow-up.
+        </p>
+      </div>
+
+      <!-- ============ 13 ============ -->
+      <h2 id="s13">13 · Revision Log — What R2 Changed</h2>
+      <p>Recorded so a later session can see what was verification versus what was drafting. Nine material claims changed.</p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>#</th><th>07-29 draft said</th><th>R2 verified</th><th>Impact</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>smolagents multi-agent via <code>ManagedAgent</code></td><td>No such class; <code>managed_agents=[...]</code> with required <code>name</code>/<code>description</code></td><td>Corrected</td></tr>
+            <tr><td>2</td><td>smolagents executors: Local AST, Docker, E2B, Blaxel</td><td>Five — <strong>Modal</strong> omitted</td><td>Corrected</td></tr>
+            <tr><td>3</td><td>30% (smolagents) and 20% (CodeAct) as independent evidence</td><td>30% figure <strong>cites the CodeAct paper</strong>; one lineage</td><td>Trend 1 downgraded</td></tr>
+            <tr><td>4</td><td>OpenAI provider portability “Low (OpenAI focus)”</td><td>LiteLLM + any-llm adapters ship in <code>extensions/models/</code></td><td>Corrected to Moderate-High</td></tr>
+            <tr><td>5</td><td><em>(absent)</em></td><td>OpenAI ships <strong><code>ProgrammaticToolCallingTool</code></strong> — generated <strong>JavaScript</strong> orchestrating tools — and <code>ToolSearchTool</code></td><td class="yes">Major addition; reframes trends 6 &amp; 10</td></tr>
+            <tr><td>6</td><td>Anthropic checkpoint/resume “None (session-bound)”</td><td>Container reuse ≤30 days, ~5-min checkpointing, <strong>REPL state persists</strong> with <code>20260120</code>+</td><td>Corrected</td></tr>
+            <tr><td>7</td><td>AutoGen nesting via <code>NestedChat</code>; 2 executors</td><td><code>SocietyOfMindAgent</code>; <strong>5</strong> executors incl. Azure ACA; <code>CancellationToken</code> in base ABC</td><td>Corrected</td></tr>
+            <tr><td>8</td><td>ADK “Local / Vertex AI”, agent-as-tool supported</td><td><strong>6</strong> executors; artifact forwarding; and <strong>no tool injection into generated code</strong></td><td class="yes">Major addition — the code-execution ≠ tool-orchestration proof</td></tr>
+            <tr><td>9</td><td><em>(absent)</em></td><td>Runner's <code>authority.js</code> ceiling, <code>coordinator.js</code> dependency batching, <code>spawn_agent</code> budget <strong>leasing</strong></td><td class="yes">Reframed §10: six of nine layers already exist</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Also added in R2: the ~4-minute programmatic-tool timeout and all six documented Anthropic
+        constraints; CodeAct's ICML 2024 venue; the four missing handoff deliverables (§7, §8 as all eight
+        required areas, the full 17-dimension matrix in §6, and an expanded §11 agenda); and explicit
+        network-access disclosure (§12.1).
+      </p>
+
+      <p class="foot">
+        End of preliminary study. Research only — no runner, bridge, auth, or proxy behaviour was changed.
+        Next steps in §11 remain research. Markdown companion:
+        <code>docs/ai-orchestration-preliminary-study-2026-07-29.md</code> (authoritative).
+      </p>
+    </main>
+  </body>
 </html>
