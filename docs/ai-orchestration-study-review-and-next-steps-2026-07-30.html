@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Orchestration Study — Review, Deep-Review Findings, and Next Steps (2026-07-30)</title>
+  <style>
+    :root { --bg:#f7f8fa; --fg:#15202b; --muted:#5b6b7c; --card:#fff; --border:#e2e8f0;
+            --accent:#1d4ed8; --ok:#047857; --ok-bg:#ecfdf5; --warn:#b45309; --warn-bg:#fffbeb;
+            --bad:#b91c1c; --bad-bg:#fef2f2; --info:#0369a1; --info-bg:#e0f2fe;
+            --code-bg:#f1f5f9; --radius:12px;
+            --shadow:0 1px 2px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.04); }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+           color:var(--fg); background:var(--bg); line-height:1.65; }
+    header.hero { background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 55%,#1d4ed8 140%); color:#fff; padding:3rem 1.5rem 2.5rem; }
+    header.hero .wrap, main.wrap { max-width:1080px; margin:0 auto; }
+    header.hero h1 { margin:0 0 .5rem; font-size:clamp(1.6rem,3vw,2.2rem); letter-spacing:-.02em; }
+    header.hero p { margin:.35rem 0; color:rgba(255,255,255,.88); max-width:62rem; }
+    .meta-row { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1.25rem; }
+    .chip { display:inline-flex; align-items:center; padding:.28rem .7rem; border-radius:999px;
+            font-size:.82rem; font-weight:600; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18); }
+    nav.toc { position:sticky; top:0; z-index:20; background:rgba(247,248,250,.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); }
+    nav.toc .wrap { max-width:1080px; margin:0 auto; padding:.7rem 1.5rem; display:flex; flex-wrap:wrap; gap:.55rem .9rem; }
+    nav.toc a { color:var(--muted); text-decoration:none; font-size:.86rem; font-weight:600; }
+    nav.toc a:hover { color:var(--accent); }
+    main.wrap { padding:1.5rem 1.5rem 4rem; }
+    section { background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+              box-shadow:var(--shadow); padding:1.4rem 1.5rem 1.55rem; margin:1.1rem 0; }
+    section h2 { margin:0 0 .75rem; font-size:1.35rem; letter-spacing:-.015em; }
+    section h3 { margin:1.35rem 0 .55rem; font-size:1.05rem; }
+    p, li { color:#1f2937; }
+    .lede { font-size:1.05rem; color:#334155; }
+    table { width:100%; border-collapse:collapse; font-size:.92rem; margin:.7rem 0 .3rem; display:block; overflow-x:auto; }
+    th, td { border:1px solid var(--border); padding:.55rem .65rem; text-align:left; vertical-align:top; }
+    th { background:#f8fafc; font-size:.8rem; text-transform:uppercase; letter-spacing:.03em; color:#475569; }
+    tr:nth-child(even) td { background:#fcfcfd; }
+    code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; background:var(--code-bg); padding:.1rem .35rem; border-radius:5px; font-size:.88em; }
+    pre { background:#0b1220; color:#e2e8f0; padding:.95rem 1rem; border-radius:10px; overflow-x:auto; font-size:.84rem; line-height:1.5; }
+    pre code { background:transparent; color:inherit; padding:0; }
+    .badge { display:inline-block; padding:.12rem .48rem; border-radius:999px; font-size:.75rem; font-weight:750; letter-spacing:.02em; white-space:nowrap; }
+    .badge.ok { background:var(--ok-bg); color:var(--ok); }
+    .badge.warn { background:var(--warn-bg); color:var(--warn); }
+    .badge.bad { background:var(--bad-bg); color:var(--bad); }
+    .badge.info { background:var(--info-bg); color:var(--info); }
+    .callout { border-radius:10px; padding:.85rem 1rem; margin:.85rem 0; border:1px solid var(--border); }
+    .callout.ok { background:var(--ok-bg); border-color:#a7f3d0; }
+    .callout.warn { background:var(--warn-bg); border-color:#fcd34d; }
+    .callout.info { background:var(--info-bg); border-color:#7dd3fc; }
+    .callout strong.title { display:block; margin-bottom:.25rem; }
+    ul.tight > li, ol.tight > li { margin:.25rem 0; }
+    a { color:var(--accent); }
+    .muted { color:var(--muted); }
+    .small { font-size:.9rem; }
+    footer { border-top:1px solid var(--border); padding:1.5rem; color:var(--muted); font-size:.9rem; max-width:1080px; margin:0 auto; }
+  </style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <h1>AI Orchestration Study — Review &amp; Next Steps</h1>
+    <p>Review of the two 2026-07-29 preliminary-study drafts and the 2026-07-28 harness engineering
+    review, the consolidation record, a same-day <strong>deep-review pass that closed five of the six
+    carried open questions</strong>, five newly explored directions, and the updated phase-2 agenda.</p>
+    <p class="small" style="color:rgba(255,255,255,.75)">Research and documentation only. No runner,
+    bridge, auth, or proxy source was touched. No paid model calls were made (one local, model-free
+    LangGraph measurement ran in the session scratchpad).</p>
+    <div class="meta-row">
+      <span class="chip">Date: 2026-07-30</span>
+      <span class="chip">Repo: claude-local-bridge-playground</span>
+      <span class="chip">Branch: claude/user-owned-ai-orchestration-qaxol8</span>
+      <span class="chip">Open questions closed: 5 / 6</span>
+      <span class="chip">New directions assessed: 5</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Table of contents">
+  <div class="wrap">
+    <a href="#exec">Executive summary</a>
+    <a href="#review">Document review</a>
+    <a href="#convergence">Harness convergence</a>
+    <a href="#findings">Deep-review findings</a>
+    <a href="#directions">New directions</a>
+    <a href="#agenda">Updated phase-2 agenda</a>
+    <a href="#boundaries">Boundaries</a>
+    <a href="#handoff">Handoff</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<!-- ============================================================ -->
+<section id="exec">
+  <h2>1. Executive summary</h2>
+  <p class="lede">
+    The preliminary-study assignment is <strong>complete and in good shape</strong>. The two parallel
+    drafts agreed on substance; per Alan's decision they are now consolidated into one canonical study
+    at <code>docs/ai-orchestration-preliminary-study-2026-07-29.{md,html}</code>, with the old primary
+    archived and the better-sourced draft finally under version control. A same-day deep-review pass
+    then closed five of the six open questions the study carried into phase 2 — including one finding
+    that <strong>partially refutes</strong> a claim the study had marked as an inference.
+  </p>
+  <div class="callout ok">
+    <strong class="title">The three headline outcomes</strong>
+    <ol class="tight">
+      <li><strong>One canonical study now exists.</strong> The longer draft (evidence labels, confidence
+        scores, verified URLs) is the base; the shorter draft's trends table, per-framework maturity
+        levels, and fork-summary box were folded in; discrepancies were reconciled and recorded in the
+        study's new section 13.</li>
+      <li><strong>Five of six carried open questions are closed</strong>, each with primary sources dated
+        2026-07-30 — one by an actual local measurement (LangGraph interrupt semantics), one by
+        partial refutation (Anthropic PTC inner-loop visibility).</li>
+      <li><strong>The research validates the runner's direction.</strong> The study's user-owned
+        reference architecture maps almost one-to-one onto modules the runner already has; the most
+        actionable new discovery is that Anthropic open-sourced its own sandbox layer
+        (<code>@anthropic-ai/sandbox-runtime</code>), which targets exactly the runner's documented
+        "shell is unsandboxed" weakness.</li>
+    </ol>
+  </div>
+  <p>
+    <strong>What "phase 2" should now mean:</strong> mostly <em>not</em> more landscape reading. The
+    remaining high-value work is (a) the rename-workflow worker-contract study, (b) the "what to build
+    next" memo, and (c) two narrowly scoped prototypes that need Alan's explicit authorization —
+    a DBOS-vs-LangGraph durability comparison and an agent-as-tool bake-off. Section 5 has the full
+    prioritized list.
+  </p>
+</section>
+
+<!-- ============================================================ -->
+<section id="review">
+  <h2>2. Review of the three documents</h2>
+
+  <h3>2.1 Verdicts</h3>
+  <table>
+    <thead><tr><th>Document</th><th>Verdict</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Longer "superseding draft" (was <code>~/Downloads/</code> only)</td>
+        <td><span class="badge ok">Strong</span></td>
+        <td>Best evidence discipline of the three: per-claim labels + confidence, live-verified URLs,
+        honest negative findings (e.g. flagging API vocabulary it could <em>not</em> find), explicit
+        open questions. Now the base of the canonical study.</td>
+      </tr>
+      <tr>
+        <td>Shorter "primary" study (was <code>docs/</code>)</td>
+        <td><span class="badge warn">Good, looser sourcing</span></td>
+        <td>Correct on substance and had unique content (11-trend table, per-framework maturity levels),
+        but used older documentation URLs and over-labeled one vendor benchmark as a measured result.
+        Archived verbatim; unique content folded into the canonical study.</td>
+      </tr>
+      <tr>
+        <td>Harness engineering review (2026-07-28)</td>
+        <td><span class="badge ok">Strong</span></td>
+        <td>Its findings (HE-01…HE-11) are consistent with the study's conclusions and supply the
+        implementation-side prerequisites (section 3 below). No contradictions found between it and
+        the studies.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>2.2 Consolidation performed (2026-07-30)</h3>
+  <ul class="tight">
+    <li>Canonical study: <code>docs/ai-orchestration-preliminary-study-2026-07-29.md</code> +
+      regenerated self-contained HTML twin (Markdown is authoritative).</li>
+    <li>Old primary archived verbatim at
+      <code>docs/archive/ai-orchestration-study-2026-07-29/</code> with a superseded banner.</li>
+    <li>The <code>~/Downloads/</code> copies on Alan's Mac are no longer canonical and are safe to
+      delete (Alan's call — nothing in the repo references them).</li>
+    <li>Reconciliations recorded in the study's section 13.2 (URL vintages; the "30% fewer steps"
+      relabel from measured result to vendor claim; per-layer vs per-framework maturity both kept).</li>
+  </ul>
+
+  <h3>2.3 Completion criteria from the original handoff</h3>
+  <table>
+    <thead><tr><th>Criterion</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Exact and adjacent architectures separated</td><td><span class="badge ok">Met</span></td></tr>
+      <tr><td>Material current-product claims have primary sources</td><td><span class="badge ok">Met</span> (and re-verified where the deep review touched them)</td></tr>
+      <tr><td>Ownership of every major loop visible</td><td><span class="badge ok">Met</span> (diagrams + five-loop stack)</td></tr>
+      <tr><td>Maturity claims with evidence and confidence</td><td><span class="badge ok">Met</span> (layer scores + framework levels)</td></tr>
+      <tr><td>Unsolved problems remain explicitly unsolved</td><td><span class="badge ok">Met</span> (and two are now sharper: exactly-once is quantified; the gateway gap is reduced to four named pieces)</td></tr>
+      <tr><td>Local AI-renaming workflow mapped as worker/control-plane example</td><td><span class="badge ok">Met</span></td></tr>
+      <tr><td>Trends-to-test assessment</td><td><span class="badge ok">Met after consolidation</span> (was only in the shorter draft; now section 7 of the canonical study)</td></tr>
+      <tr><td>Markdown and HTML outputs validated</td><td><span class="badge ok">Met</span> (this turn's checks; see handoff)</td></tr>
+      <tr><td>Next steps remain research, not implementation</td><td><span class="badge ok">Met</span> (prototypes in section 5 are proposals requiring authorization)</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============================================================ -->
+<section id="convergence">
+  <h2>3. Convergence with the harness engineering review</h2>
+  <p>
+    The most important cross-document observation: <strong>the study's "user-owned reference
+    architecture" is not a blueprint for something new — it is a description of what the runner
+    already is.</strong> The five-loop stack and control-plane layers map almost one-to-one onto
+    existing modules:
+  </p>
+  <table>
+    <thead><tr><th>Study concept (canonical study §11)</th><th>Existing runner module</th></tr></thead>
+    <tbody>
+      <tr><td>Permissions &amp; policy above workers</td><td><code>permissions.js</code>, <code>authority.js</code> (monotonic ceiling)</td></tr>
+      <tr><td>Scheduler / budget enforcement</td><td><code>budget-tracker.js</code>, <code>budget-broker.js</code> (child leases)</td></tr>
+      <tr><td>Durability / checkpoints</td><td><code>session-store.js</code>, <code>session-ledger.js</code> (effect pairing)</td></tr>
+      <tr><td>Evidence outside model context</td><td>archive export, transcript, context projection vs canonical history</td></tr>
+      <tr><td>Redaction at sink boundaries</td><td><code>redaction-boundary.js</code></td></tr>
+      <tr><td>Approval loop</td><td>plan-mode proposals, confirmations, <code>ask_user_question</code></td></tr>
+    </tbody>
+  </table>
+  <div class="callout warn">
+    <strong class="title">Sequencing recommendation</strong>
+    Before any orchestration prototyping lands <em>in the runner</em>, the harness review's "do now"
+    items are prerequisites, in this order: <strong>HE-07</strong> (one-command
+    <code>make smoke/check/ci</code> wrappers), <strong>HE-05</strong> (living
+    <code>docs/ARCHITECTURE.md</code> — which should include the mapping table above — and
+    <code>docs/OBSERVABILITY.md</code>), and <strong>HE-01</strong> (path-gate uniformity +
+    the A5 symlink test matrix). Two deep-review findings feed directly into HE-05:
+    adopt OTel GenAI <code>gen_ai.*</code> names as the observability field vocabulary (section 4.7,
+    direction E), and record the sandbox-runtime assessment (direction D) in the threat model.
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="findings">
+  <h2>4. Deep-review findings — carried open questions</h2>
+  <p class="small muted">
+    All findings dated 2026-07-30; claim labels follow the canonical study's taxonomy. The canonical
+    study was annotated in place where a finding resolves one of its markers (see its section 13.3
+    changelog). Method note: research ran through this environment's egress proxy; where a primary
+    page 403'd, the GitHub source mirror or raw file was used and this is flagged in the agent
+    evidence retained below.
+  </p>
+
+  <h3>4.1 Status board</h3>
+  <table>
+    <thead><tr><th>#</th><th>Open question (from study §12/§14)</th><th>Outcome</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>AutoGen <code>bind_dir</code> remediation status</td>
+        <td><span class="badge bad">Closed — still vulnerable</span> Issue #7917 open, no fix on
+        <code>main</code>, repo in maintenance mode.</td></tr>
+      <tr><td>2</td><td>Anthropic PTC inner-loop surface</td>
+        <td><span class="badge warn">Closed — partially refuted</span> Client-tool calls are fully
+        visible per call; opacity holds server-side.</td></tr>
+      <tr><td>3</td><td>CodeAct follow-on corpus since 2024-02</td>
+        <td><span class="badge ok">Closed</span> 23-item annotated sweep; thesis strengthened with
+        measured complications.</td></tr>
+      <tr><td>4</td><td>LangGraph restart-from-top empirical count</td>
+        <td><span class="badge ok">Closed — measured</span> 2&times; per interrupt/resume; N+1 for N
+        interrupts (langgraph 1.2.10, local, no model).</td></tr>
+      <tr><td>5</td><td>Provider-neutral gateway minimum viable shape</td>
+        <td><span class="badge ok">Substantially closed</span> Coverage mapped; four unbuilt pieces
+        identified; MCP is the tool-contract half.</td></tr>
+      <tr><td>6</td><td>"What to build next" memo</td>
+        <td><span class="badge info">Open by design</span> Section 5 is the prioritized input to it.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4.2 AutoGen #7917 — still unremediated, and the project is winding down</h3>
+  <ul class="tight">
+    <li><strong>[documented fact]</strong> Issue microsoft/autogen#7917 (filed <strong>2026-07-05</strong>
+      — the study's "2025" date was wrong) is open with zero maintainer engagement and no linked PR.</li>
+    <li><strong>[source-code observation]</strong> Current <code>main</code> still mounts
+      <code>bind_dir</code> read-write with no allowlist:
+      <code>volumes={str(self.bind_dir.resolve()): {"bind": "/workspace", "mode": "rw"}, ...}</code>.
+      Latest release (python-v0.7.5) predates the report.</li>
+    <li><strong>[documented fact]</strong> The AutoGen README now declares <strong>maintenance mode</strong>,
+      pointing to Microsoft Agent Framework. A fix in this repo is unlikely.</li>
+    <li><strong>Consequence for us:</strong> treat AutoGen's docker executor as reference material only,
+      never a dependency; whether Microsoft Agent Framework's executors inherit the mount behavior is
+      a <em>new</em> open question (small, low priority).</li>
+  </ul>
+
+  <h3>4.3 Anthropic PTC inner loop — partially refuted, in the user's favor</h3>
+  <p>
+    The study's "inner-loop opacity" inference was too strong. <strong>[documented fact]</strong> For
+    <em>client</em> tools, every programmatic call pauses the request and surfaces a fully attributed
+    <code>tool_use</code> block whose <code>caller.tool_id</code> links it to the code cell; the
+    generated Python is fully visible in <code>server_tool_use.input.code</code>;
+    <code>TimeoutError</code>s appear verbatim in <code>stderr</code> with elapsed seconds; retries are
+    countable as repeated blocks. Opacity is <strong>confirmed</strong> for server-side execution: no
+    per-call wall-time or token/cost attribution (intermediate results are unbilled and unreported),
+    container hours are billed out-of-band and never appear in <code>usage</code> (a correction to the
+    study), and server tools invoked in-cell with <code>response_inclusion: "excluded"</code> can leave
+    no transcript trace at all.
+  </p>
+  <p class="small muted">
+    Why this matters for the user-owned thesis: the client is a <em>participant</em> in PTC's inner
+    loop for its own tools, not a blind bystander — the real cession of visibility is timing, cost
+    attribution, and in-cell server-tool activity. That is a narrower (and more precisely arguable)
+    trade than "the inner loop is invisible."
+  </p>
+
+  <h3>4.4 CodeAct follow-on corpus — thesis strengthened, with three measured complications</h3>
+  <ul class="tight">
+    <li><strong>Strengthened:</strong> OpenHands (ICLR 2025) platformized CodeActAgent;
+      DynaSaur (COLM 2025) topped GAIA by letting agents define new Python actions; CoAct-1 set an
+      OSWorld SOTA by adding code actions to a GUI agent; CodeTool (ACL 2025) showed code's
+      verifiability enables process supervision; by late 2025 even Anthropic ("code execution with
+      MCP", ~98.7% token-reduction example) and Cloudflare ("Code Mode") converged on
+      model-writes-code-that-calls-tools. <strong>No paper found shows JSON tool calling beating code
+      actions head-to-head on complex multi-tool tasks.</strong></li>
+    <li><strong>Complication 1 — interfaces beat freedom [research finding]:</strong> SWE-agent
+      (NeurIPS 2024) showed raw free-form shell/code action spaces fail without curated
+      agent-computer interfaces.</li>
+    <li><strong>Complication 2 — safety is measured, not hypothetical [research finding]:</strong>
+      RedCode (NeurIPS 2024) found code agents execute risky code at concerning rates across 19
+      agents under CodeAct-style scaffolds.</li>
+    <li><strong>Complication 3 — long horizons degrade [research finding, medium confidence]:</strong>
+      CodeDelegator (2026) documents context pollution from debugging traces; CaveAgent (2026) shows
+      text-bound code actions lose runtime state (+10.5% success when live objects persist).</li>
+    <li><strong>Verdict:</strong> code-as-action won as an architecture direction; the naive
+      single-loop CodeAct agent is now a baseline to be fixed with sandboxing, interface curation,
+      role separation, and persistent runtimes. No further dedicated corpus turn needed.</li>
+  </ul>
+
+  <h3>4.5 LangGraph interrupt semantics — measured locally</h3>
+  <p>
+    <strong>[measured result]</strong> langgraph 1.2.10, pure-Python graph, <code>InMemorySaver</code>,
+    no model calls, session scratchpad (script: <code>lg_interrupt_test.py</code>, preserved in the
+    session transcript): a side effect placed before <code>interrupt()</code> inside a node executed
+    <strong>exactly twice</strong> for one interrupt-and-resume, and <strong>exactly N+1 times</strong>
+    for a node containing N interrupts (3&times; for two). The docs' "must be idempotent" guidance is
+    exact, and the re-execution cost scales linearly with interrupts per node — a stronger, quantified
+    statement than the documentation makes. Design consequence: <em>one interrupt per node, side
+    effects after it or in separately journaled tasks.</em>
+  </p>
+
+  <h3>4.6 Provider-neutral gateway — the gap is now four named pieces</h3>
+  <table>
+    <thead><tr><th>Contract element</th><th>LiteLLM (proxy)</th><th>any-llm / Otari</th><th>Portkey OSS</th></tr></thead>
+    <tbody>
+      <tr><td>Provider routing</td><td>100+ providers</td><td>~40+ providers</td><td>1,600+ models</td></tr>
+      <tr><td>Retry / timeout</td><td>Yes (verify jitter defaults)</td><td>Partial (Otari hybrid)</td><td>Yes (&le;5, exp. backoff)</td></tr>
+      <tr><td>Budgets / cost tracking</td><td><strong>Yes, OSS</strong> (key/user/team, Postgres)</td><td>Yes (Otari, per key/user)</td><td>Hosted/Enterprise only</td></tr>
+      <tr><td>Idempotency keys + dedup</td><td>No</td><td>No</td><td>No</td></tr>
+      <tr><td>Structured-output parity</td><td>Passthrough, uneven</td><td>Typed shapes, no enforcement</td><td>Passthrough</td></tr>
+      <tr><td>Audit log (per request, keyed)</td><td>Enterprise, admin-scope</td><td>Usage log only</td><td>Hosted only</td></tr>
+    </tbody>
+  </table>
+  <p>
+    <strong>[documented fact]</strong> MCP is the converged tool-contract half: JSON Schema
+    <code>inputSchema</code>/<code>outputSchema</code>, <code>tools/list</code> discovery, date-based
+    spec revisions, OAuth 2.1 resource-server auth; natively consumed by Anthropic, OpenAI, and Google
+    as of mid-2026; governed under the Linux Foundation since 2025-12. Caveat: the
+    <strong>2026-07-28 spec revision is a major simplification</strong> (protocol sessions removed,
+    initialize handshake dropped, HTTP+SSE deprecated) — consume MCP behind a thin adapter.
+  </p>
+  <div class="callout info">
+    <strong class="title">What a user-owned gateway still has to build itself</strong>
+    After adopting LiteLLM-or-similar + MCP: (1) an <strong>idempotency layer</strong> — keyed
+    write-dedup store that doubles as the audit log; (2) a <strong>worker manifest</strong> binding
+    each typed worker to its declared cost ceiling/timeout via a per-worker budget key; (3) an
+    <strong>output validation-and-repair layer</strong> for cross-provider structured-output parity;
+    (4) a <strong>durable job wrapper</strong> so retries survive process death. Small, well-bounded
+    slice — not a second gateway. This reframes study §12 item 6 from "survey" to "design memo for
+    four components."
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="directions">
+  <h2>4.7 Deep-review findings — five new directions</h2>
+  <p class="small muted">Directions the two drafts did not cover; each ends with a
+  "worth a dedicated phase-2 turn?" verdict.</p>
+
+  <h3>A. Claude Agent SDK / Claude Code — the missing 8th system</h3>
+  <ul class="tight">
+    <li><strong>Loop ownership [documented fact]:</strong> the SDK owns the outer loop
+      (<code>query()</code> runs the whole lifecycle); user code interleaves only via hooks
+      (<code>PreToolUse</code>, <code>PostToolUse</code>, <code>Stop</code>…), the 6-step permission
+      flow ending in a <code>canUseTool</code> callback, and streaming input. Custom tools run
+      in-process via an SDK-hosted MCP server; subagents are bounded (fresh context, parent sees only
+      the final text) and user-definable.</li>
+    <li><strong>Durability [documented fact]:</strong> sessions persist to disk with resume /
+      continue / fork semantics and a pluggable <code>SessionStore</code> — the most complete
+      session story in the comparison set.</li>
+    <li><strong>Observability [documented fact]:</strong> OTel traces/metrics/events built in;
+      hooks double as event taps; per-run cost surfaced on the result.</li>
+    <li><strong>Portability:</strong> Anthropic-only (multi-cloud is not multi-model).</li>
+    <li><strong>Maturity:</strong> level 2–3. <strong>Principal limitation for the user-owned
+      thesis:</strong> you configure the loop (modes, budgets, hooks) but do not own it — no
+      user-swappable orchestration strategy above the model.</li>
+    <li><strong>What the runner should copy:</strong> the layered permission flow
+      (hook → deny → mode → allow → callback), sessions-as-first-class, hooks-as-taps, and bounded
+      subagent context isolation — most of which the runner already approximates; the comparison
+      confirms rather than redirects.</li>
+    <li><strong>Verdict:</strong> <span class="badge ok">Fold into study as §4.8 in a future editorial
+      turn</span> — the research is done (retained in this doc); no new investigation needed.</li>
+  </ul>
+
+  <h3>B. Durable-execution engines (Temporal, Restate, Inngest, DBOS)</h3>
+  <ul class="tight">
+    <li><strong>[documented fact]</strong> All four journal every declared step by default and resume
+      mid-function after a crash — finer-grained than LangGraph's per-superstep checkpointing, with
+      automatic crash detection (bare LangGraph OSS leaves re-invocation to you). Side effects remain
+      at-least-once everywhere; DBOS uniquely gets exactly-once for DB transactions by committing the
+      checkpoint in the same Postgres transaction.</li>
+    <li><strong>Ownership ranking [documented fact + inference]:</strong> DBOS is the strongest
+      user-owned story (MIT library + your own Postgres, no server); Restate is a single self-hostable
+      binary (BUSL-1.1); Inngest single binary (SSPL/delayed-Apache); Temporal is MIT but the heaviest
+      to operate. All four now ship official AI-agent integrations.</li>
+    <li><strong>Context:</strong> LangGraph's Agent Server (the managed equivalent) is Elastic-licensed
+      with a commercial key beyond the free Lite tier — the "durability" the study attributed to
+      LangGraph partly lives behind that line. ADK 2.0's graph-based workflow runtime is now GA
+      (Python 2026-05-19, Go 2026-06-30), closing the study's ADK deployment open question.</li>
+    <li><strong>Verdict:</strong> <span class="badge warn">Yes — the single most promising phase-2
+      prototype</span>: a DBOS-wrapped agent loop vs the same loop on a LangGraph checkpointer, with
+      kill-mid-tool-call crash tests counting re-executed side effects and re-spent tokens. Needs
+      Alan's authorization (runs code; may use small paid model calls or a stub model).</li>
+  </ul>
+
+  <h3>C. MCP as the tool-contract standard</h3>
+  <p>Covered in section 4.6: yes for the tool-exposure plane, orthogonal to routing/budgets/durability,
+  currently churning (2026-07-28 revision). <strong>Verdict:</strong>
+  <span class="badge ok">No separate turn</span> — consume behind an adapter; revisit when the
+  2026-07-28 revision stabilizes.</p>
+
+  <h3>D. Sandboxing for a Mac-local runner</h3>
+  <ul class="tight">
+    <li><strong>Ranked shortlist:</strong>
+      (1) <strong>Anthropic <code>@anthropic-ai/sandbox-runtime</code></strong> ("srt", beta research
+      preview) — Seatbelt profiles on macOS, bubblewrap+seccomp on Linux, deny-read/allow-write lists,
+      domain-allowlist proxy; this is the sandbox under Claude Code's own Bash tool and maps almost
+      one-to-one onto the runner's <code>safety.js</code> vocabulary, <em>including symlink-resolving
+      deny rules — the exact class of the Safari-2 gap</em>.
+      (2) <strong>Apple <code>container</code> 1.0</strong> (per-container lightweight VMs; requires
+      macOS 26 + Apple silicon).
+      (3) <strong>Docker Desktop / OrbStack / Colima</strong> (boring, works today, shared-VM boundary).</li>
+    <li><strong>Excluded with reasons [documented facts]:</strong> Firecracker and gVisor are
+      Linux-only; wasmtime cannot run a shell; cloud sandboxes (E2B/Modal/Daytona) surrender the
+      control plane and break the local-folders premise; <code>sandbox-exec</code> is
+      deprecated-but-load-bearing (Anthropic and OpenAI both ship on it).</li>
+    <li><strong>Verdict:</strong> <span class="badge warn">Yes — a short evaluation turn</span>:
+      assess srt against the runner's threat model (docs update only, or a gated experiment with
+      Alan's authorization). This is the single most direct research-to-runner payoff found today.</li>
+  </ul>
+
+  <h3>E. OpenTelemetry GenAI semantic conventions</h3>
+  <ul class="tight">
+    <li><strong>[documented fact]</strong> Status: experimental ("Development"), moved to a dedicated
+      repo (<code>open-telemetry/semantic-conventions-genai</code>) as of semconv v1.42.0; covers
+      inference spans, <code>execute_tool</code>, agent operations
+      (<code>invoke_agent</code>, <code>invoke_workflow</code>), token-usage attributes, and MCP
+      conventions. Langfuse/OpenLIT/OpenLLMetry already speak it.</li>
+    <li><strong>Verdict:</strong> <span class="badge ok">Adopt as vocabulary, pin the version</span> —
+      when <code>docs/OBSERVABILITY.md</code> (HE-05) is written, name fields after
+      <code>gen_ai.*</code> attributes and record the semconv version; treat future renames as a
+      documented migration. No dedicated turn needed.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="agenda">
+  <h2>5. Updated phase-2 agenda (merged and prioritized)</h2>
+  <p class="small muted">
+    Supersedes the separate agendas in the two drafts (now merged in canonical study §12). Ordering
+    reflects value &times; cheapness. "Authorization" = Alan's explicit go-ahead required because the
+    item runs code beyond docs work or spends model tokens.
+  </p>
+  <table>
+    <thead><tr><th>Priority</th><th>Item</th><th>Type</th><th>Authorization?</th></tr></thead>
+    <tbody>
+      <tr><td>P1</td><td><strong>Rename-workflow worker-contract study</strong> — write the typed
+        contract for the existing Shortcut→Python→Gemini pipeline (input/output schema, declared cost,
+        timeout, authority) and show the same contract served by Claude / Gemini / local model /
+        deterministic regex with no dispatcher change. The user-owned thesis's existence proof, made
+        precise.</td><td>Docs/research</td><td>No</td></tr>
+      <tr><td>P1</td><td><strong>"What to build next" memo</strong> — using this doc's findings: which
+        three prototypes are most worth building in the playground, what would each prove. Inputs are
+        now all in hand.</td><td>Docs</td><td>No</td></tr>
+      <tr><td>P1</td><td><strong>Harness prerequisites</strong> — HE-07 wrappers, HE-05
+        ARCHITECTURE/OBSERVABILITY (with §3 mapping table + OTel <code>gen_ai.*</code> vocabulary),
+        HE-01 path-gate uniformity + A5 tests. Not orchestration work, but gates it.</td>
+        <td>Implementation (runner repo, non-runtime + safety tests)</td><td>Per harness-review handoff</td></tr>
+      <tr><td>P2</td><td><strong>DBOS-vs-LangGraph durability prototype</strong> — crash-test both
+        wrappers around the same agent loop; count re-executed side effects and re-spent tokens
+        (baseline numbers from §4.5 already in hand).</td><td>Prototype (scratch project)</td><td><strong>Yes</strong></td></tr>
+      <tr><td>P2</td><td><strong>sandbox-runtime (srt) evaluation</strong> — assess Anthropic's
+        open-source sandbox layer against the runner threat model; docs first, gated experiment
+        second.</td><td>Docs, then gated experiment</td><td>Experiment: <strong>yes</strong></td></tr>
+      <tr><td>P2</td><td><strong>Gateway design memo</strong> — the four unbuilt pieces (idempotency +
+        audit store, worker manifest → budget-key binding, output validation/repair, durable job
+        wrapper) as a design doc against LiteLLM/Otari + MCP-behind-adapter.</td><td>Docs</td><td>No</td></tr>
+      <tr><td>P3</td><td><strong>Agent-as-tool bake-off</strong> — one canonical task through OpenAI
+        Agents SDK, Google ADK, smolagents with identical model params; capture contract shape,
+        output extraction, approvals.</td><td>Prototype</td><td><strong>Yes</strong> (paid model calls)</td></tr>
+      <tr><td>P3</td><td><strong>Local zero-round-trip execution &amp; mid-script checkpointing</strong>
+        (study §12 items 9–10) — design notes first; prototypes only after the P2 durability results
+        land.</td><td>Docs → prototype</td><td>Prototype: <strong>yes</strong></td></tr>
+      <tr><td>P4</td><td><strong>Small residuals:</strong> Microsoft Agent Framework executor mount
+        behavior; MCP 2026-07-28 revision stabilization; LangGraph Lite-vs-Enterprise exact feature
+        matrix; direct verification of three proxy-blocked 2026 arXiv papers (2601.01569, 2601.14914,
+        2606.00579).</td><td>Docs/research</td><td>No</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">
+    Registered here rather than in a new tracker; if any item graduates to runner work, register it in
+    the concordance tracker per <code>CLAUDE.md</code> (single-tracker rule), using FD-* style IDs —
+    not a third P0 namespace.
+  </p>
+</section>
+
+<!-- ============================================================ -->
+<section id="boundaries">
+  <h2>6. Standing boundaries (unchanged)</h2>
+  <ul class="tight">
+    <li>No runner/bridge/auth/proxy source edits from research turns; prototypes live in scratch
+      projects until explicitly promoted.</li>
+    <li>No live paid model calls or local bridge startup without explicit authorization.</li>
+    <li>Safari 3 Phase B live probes remain gated on Alan's explicit budget/window confirmation.</li>
+    <li>Do not let any vendor's product definition monopolize "programmatic tool calling"; do not
+      assume agents outperform bounded model calls or deterministic programs; no unbounded agent
+      swarms.</li>
+    <li>Claude and Codex playgrounds stay separate.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ -->
+<section id="handoff">
+  <h2>7. Handoff</h2>
+  <table>
+    <tbody>
+      <tr><td>Folder</td><td>Remote-session clone of <code>alankatanoisi/claude-local-bridge-playground</code>
+        (Claude Code on the web). Alan's local clone: <code>~/Developer/claude-local-bridge-playground</code> —
+        run <code>git pull</code> there after the PR merges.</td></tr>
+      <tr><td>Branch</td><td><code>claude/user-owned-ai-orchestration-qaxol8</code> → draft PR into <code>main</code>.</td></tr>
+      <tr><td>Files changed</td><td>
+        <code>docs/ai-orchestration-preliminary-study-2026-07-29.md</code> (consolidated + deep-review
+        annotations), <code>.html</code> twin (regenerated),
+        <code>docs/archive/ai-orchestration-study-2026-07-29/…-original.{md,html}</code> (archived
+        verbatim with superseded banners), and this file. No <code>src/**</code>, <code>bin/**</code>,
+        or <code>test/**</code> changes.</td></tr>
+      <tr><td>Checks run</td><td><code>npm run check:docs</code>, <code>npm run format:check</code>
+        (see PR for results).</td></tr>
+      <tr><td>Skipped</td><td><code>npm test</code>, <code>npm run lint</code> — documentation-only
+        change, no JS source touched. No bridge startup; no paid model calls.</td></tr>
+      <tr><td>Method</td><td>Seven parallel web-research agents (primary sources, access date
+        2026-07-30) + one local model-free LangGraph measurement in the session scratchpad. Egress
+        proxy blocked some primary pages (arxiv.org, opentelemetry.io, docs.docker.com,
+        modelcontextprotocol.io); GitHub source mirrors were used instead and findings are labeled
+        accordingly.</td></tr>
+      <tr><td>Risks</td><td>(1) Consolidation is editorial; both source drafts preserved verbatim.
+        (2) Deep-review findings are snapshots of moving targets (MCP spec churn, AutoGen successor,
+        srt is a beta research preview). (3) Three 2026 arXiv items verified via mirrors only
+        (medium confidence, listed at P4). </td></tr>
+      <tr><td>Next steps</td><td>Section 5 table. Cheapest high-value next turn: the rename-workflow
+        worker-contract study (P1, no authorization needed).</td></tr>
+    </tbody>
+  </table>
+</section>
+
+</main>
+<footer>
+  Review &amp; next-steps companion · Claude Local Bridge Playground · 2026-07-30 · research-only turn.
+  Canonical study: <code>docs/ai-orchestration-preliminary-study-2026-07-29.{md,html}</code> (its §13
+  records the consolidation and this deep-review pass).
+</footer>
+</body>
+</html>
