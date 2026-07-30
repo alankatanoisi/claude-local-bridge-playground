@@ -3,637 +3,1795 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preliminary Study: User-Owned AI Orchestration, Programmatic Tool Calling & Agent-as-Tool Architectures</title>
+  <title>User-Owned AI Orchestration: A Preliminary Study (Consolidated)</title>
   <style>
-    :root {
-      --bg-primary: #0f172a;
-      --bg-card: #1e293b;
-      --bg-card-hover: #334155;
-      --text-primary: #f8fafc;
-      --text-secondary: #94a3b8;
-      --accent-blue: #38bdf8;
-      --accent-indigo: #818cf8;
-      --accent-purple: #c084fc;
-      --accent-emerald: #34d399;
-      --accent-amber: #fbbf24;
-      --accent-rose: #f87171;
-      --border-color: #334155;
-      --code-bg: #090d16;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: var(--bg-primary);
-      color: var(--text-primary);
-      line-height: 1.6;
-      display: flex;
-      min-height: 100vh;
-    }
-
-    /* Sidebar Navigation */
-    .sidebar {
-      width: 280px;
-      background-color: #0b1120;
-      border-right: 1px solid var(--border-color);
-      position: fixed;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      overflow-y: auto;
-      padding: 1.5rem 1rem;
-    }
-
-    .sidebar h2 {
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--text-secondary);
-      margin-bottom: 1rem;
-      padding-left: 0.5rem;
-    }
-
-    .sidebar nav ul {
-      list-style: none;
-    }
-
-    .sidebar nav li {
-      margin-bottom: 0.25rem;
-    }
-
-    .sidebar nav a {
-      display: block;
-      padding: 0.5rem;
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-size: 0.9rem;
-      border-radius: 6px;
-      transition: all 0.2s ease;
-    }
-
-    .sidebar nav a:hover {
-      background-color: var(--bg-card);
-      color: var(--accent-blue);
-    }
-
-    /* Main Content */
-    .main-content {
-      margin-left: 280px;
-      flex: 1;
-      padding: 2.5rem 3rem;
-      max-width: 1200px;
-    }
-
-    .header-banner {
-      background: linear-gradient(135deg, #1e1b4b 0%, #1e293b 100%);
-      border: 1px solid var(--accent-indigo);
-      border-radius: 12px;
-      padding: 2rem;
-      margin-bottom: 2.5rem;
-    }
-
-    .header-banner h1 {
-      font-size: 2rem;
-      color: var(--text-primary);
-      margin-bottom: 0.75rem;
-    }
-
-    .header-banner p {
-      color: var(--text-secondary);
-      font-size: 1rem;
-    }
-
-    .meta-tags {
-      display: flex;
-      gap: 0.75rem;
-      margin-top: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 0.25rem 0.6rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-
-    .badge-blue { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); border: 1px solid var(--accent-blue); }
-    .badge-indigo { background: rgba(129, 140, 248, 0.15); color: var(--accent-indigo); border: 1px solid var(--accent-indigo); }
-    .badge-emerald { background: rgba(52, 211, 153, 0.15); color: var(--accent-emerald); border: 1px solid var(--accent-emerald); }
-    .badge-amber { background: rgba(251, 191, 36, 0.15); color: var(--accent-amber); border: 1px solid var(--accent-amber); }
-    .badge-rose { background: rgba(248, 113, 113, 0.15); color: var(--accent-rose); border: 1px solid var(--accent-rose); }
-
-    section {
-      margin-bottom: 3rem;
-      scroll-margin-top: 2rem;
-    }
-
-    h2.section-title {
-      font-size: 1.5rem;
-      border-bottom: 2px solid var(--border-color);
-      padding-bottom: 0.5rem;
-      margin-bottom: 1.5rem;
-      color: var(--accent-blue);
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    h3 {
-      font-size: 1.2rem;
-      margin: 1.25rem 0 0.75rem 0;
-      color: var(--text-primary);
-    }
-
-    p, li {
-      color: var(--text-secondary);
-      margin-bottom: 0.75rem;
-    }
-
-    ul, ol {
-      padding-left: 1.5rem;
-      margin-bottom: 1rem;
-    }
-
-    /* Cards & Containers */
-    .card {
-      background-color: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      padding: 1.5rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .analogy-box {
-      background: rgba(129, 140, 248, 0.08);
-      border-left: 4px solid var(--accent-indigo);
-      padding: 1.25rem;
-      border-radius: 0 8px 8px 0;
-      margin: 1rem 0;
-    }
-
-    /* Tables */
-    .table-container {
-      overflow-x: auto;
-      margin: 1.5rem 0;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: var(--bg-card);
-      border-radius: 8px;
-      overflow: hidden;
-      font-size: 0.88rem;
-    }
-
-    th, td {
-      padding: 0.85rem 1rem;
-      text-align: left;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    th {
-      background-color: #162032;
-      color: var(--accent-blue);
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 0.75rem;
-      letter-spacing: 0.05em;
-    }
-
-    tr:hover td {
-      background-color: var(--bg-card-hover);
-    }
-
-    /* Code & Diagrams */
-    pre, code {
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-      background-color: var(--code-bg);
-      border-radius: 6px;
-    }
-
-    code {
-      padding: 0.2rem 0.4rem;
-      font-size: 0.85rem;
-      color: var(--accent-amber);
-    }
-
-    pre {
-      padding: 1rem;
-      overflow-x: auto;
-      border: 1px solid var(--border-color);
-      margin: 1rem 0;
-      color: #e2e8f0;
-      font-size: 0.85rem;
-    }
-
-    .diagram-box {
-      background-color: var(--code-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 1.5rem;
-      margin: 1.5rem 0;
-      text-align: center;
-    }
-
-    .flow-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1rem;
-      margin: 1rem 0;
-    }
-
-    .flow-step {
-      background: #131d2e;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 1rem;
-    }
-
-    .flow-step h4 {
-      color: var(--accent-blue);
-      margin-bottom: 0.5rem;
-      font-size: 0.95rem;
-    }
-
-    footer {
-      margin-top: 4rem;
-      padding-top: 1.5rem;
-      border-top: 1px solid var(--border-color);
-      color: var(--text-secondary);
-      font-size: 0.85rem;
-      text-align: center;
-    }
-  </style>
+:root { --bg:#f7f8fa; --fg:#15202b; --muted:#5b6b7c; --card:#fff; --border:#e2e8f0;
+        --accent:#1d4ed8; --code-bg:#f1f5f9; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+       color:var(--fg); background:var(--bg); line-height:1.65; }
+header { background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 55%,#1d4ed8 140%); color:#fff; padding:2.5rem 1.5rem; }
+header .wrap, main { max-width:1080px; margin:0 auto; }
+header h1 { margin:0 0 .5rem; font-size:clamp(1.5rem,3vw,2.1rem); letter-spacing:-.02em; }
+header p { margin:.3rem 0; color:rgba(255,255,255,.88); }
+main { padding:1.5rem 1.5rem 4rem; background:var(--card); border:1px solid var(--border);
+       border-radius:12px; margin-top:1rem; margin-bottom:2rem; }
+h1 { display:none; } /* body H1 duplicated by the hero header */
+h2 { margin:2.2rem 0 .8rem; font-size:1.4rem; letter-spacing:-.015em; border-bottom:2px solid var(--border); padding-bottom:.3rem; }
+h3 { margin:1.5rem 0 .5rem; font-size:1.08rem; }
+table { width:100%; border-collapse:collapse; font-size:.92rem; margin:.7rem 0; display:block; overflow-x:auto; }
+th,td { border:1px solid var(--border); padding:.5rem .6rem; text-align:left; vertical-align:top; }
+th { background:#f8fafc; font-size:.8rem; text-transform:uppercase; letter-spacing:.03em; color:#475569; }
+tr:nth-child(even) td { background:#fcfcfd; }
+code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; background:var(--code-bg);
+       padding:.1rem .35rem; border-radius:5px; font-size:.88em; }
+pre { background:#0b1220; color:#e2e8f0; padding:.95rem 1rem; border-radius:10px;
+      overflow-x:auto; font-size:.82rem; line-height:1.5; }
+pre code { background:transparent; color:inherit; padding:0; }
+blockquote { border-left:4px solid var(--accent); margin:1rem 0; padding:.5rem 1rem;
+             background:#eff6ff; border-radius:0 8px 8px 0; color:#1e3a5f; }
+a { color:var(--accent); }
+footer { max-width:1080px; margin:0 auto; padding:0 1.5rem 2rem; color:var(--muted); font-size:.9rem; }
+</style>
 </head>
 <body>
-<!--
-Provenance: this file in `docs/` is the **primary** preliminary study (smaller,
-"Completed Preliminary Study"). A separate, longer draft from a parallel session
-lives at `~/Downloads/ai-orchestration-preliminary-study-2026-07-29.{md,html}`
-(marked "Superseding draft — provenance only"). Both pairs are kept per user
-decision on 2026-07-29; do not delete either without checking with the user.
--->
-<div style="background:#fffbe6;border:1px solid #d4a373;padding:0.6rem 1rem;border-radius:6px;margin:1rem 0;font-size:0.88rem;color:#5a4a2a;font-family:system-ui,sans-serif;">
-  <strong>Provenance note (2026-07-29).</strong>
-  This <code>docs/</code> copy is the <b>primary</b> preliminary study.
-  A longer <i>superseding draft</i> from a parallel session is kept at
-  <code>~/Downloads/ai-orchestration-preliminary-study-2026-07-29.{md,html}</code>
-  for reference only. Do not delete either pair without checking with the user.
-</div>
-
-  <!-- Sidebar -->
-  div class="sidebar">
-    <h2>Table of Contents</h2>
-    <nav>
-      <ul>
-        <li><a href="#exec-summary">1. Executive Summary</a></li>
-        <li><a href="#ontology">2. Ontology & Loops</a></li>
-        <li><a href="#landscape">3. Landscape Deep-Dives</a></li>
-        <li><a href="#matrix">4. Comparison Matrix</a></li>
-        <li><a href="#open-problems">5. Open Problems</a></li>
-        <li><a href="#trends">6. Industry Trends</a></li>
-        <li><a href="#architecture">7. Reference Architecture</a></li>
-        <li><a href="#agenda">8. Research Agenda</a></li>
-        <li><a href="#appendix">9. Source Appendix</a></li>
-      </ul>
-    </nav>
-  </div>
-
-  <!-- Main Content -->
-  <div class="main-content">
-
-    <div class="header-banner">
-      <h1>Preliminary Study: User-Owned AI Orchestration</h1>
-      <p>Programmatic Tool Calling, Code-as-Action, and Agent-as-Tool Architectures</p>
-      <div class="meta-tags">
-        <span class="badge badge-blue">Date: 2026-07-29</span>
-        <span class="badge badge-emerald">Phase 1 Synthesis</span>
-        <span class="badge badge-indigo">User-Owned Control Plane</span>
-        <span class="badge badge-amber">Research & Architecture Map</span>
-      </div>
-    </div>
-
-    <!-- Section 1 -->
-    <section id="exec-summary">
-      <h2 classsection-title">1. Executive Summary</h2>
-
-      <div class="card">
-        <h3>The Shift: From Micro-Management to Automated Scripts</h3>
-        <p>In early AI applications, language models operated via <strong>Direct Tool Calling</strong>. Every time an AI needed information, it had to make a single tool request, wait for a response across the network, read the answer, and then decide its next step. Imagine an executive who walks to a assistant's desk 50 times in an hour for individual papers—the back-and-forth travel time (latency) and consultation fees (token costs) quickly become prohibitive.</p>
-
-        <p>Modern orchestration shifts to <strong>Programmatic Tool Calling</strong> (also known as <i>Code-as-Action</i> or <i>CodeAct</i>). Instead of micro-managing each step, the AI writes a complete, self-contained Python script or configures an automated graph workflow. The local system executes the script in one pass and returns only the final answer. Research proves this reduces agent steps by up to 30% and boosts complex task success rates by up to 20%.</p>
-
-        <div class="analogy-box">
-          <strong>Intuitive Analogy:</strong><br>
-          • <i>Direct Tool Calling:</i> Asking an assistant to read line 1 of a file, then line 2, then line 3.<br>
-          • <i>Programmatic Execution:</i> Giving the assistant a script that says: "Filter all 100 documents by date, summarize each, and give me a consolidated table." The assistant delivers the final table in one trip.
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>The Core Decision: Who Owns the Control Plane?</h3>
-        <p>As programmatic tool execution grows, developers face a crucial decision regarding ownership and infrastructure:</p>
-
-        <div class="flow-grid">
-          <div class="flow-step">
-            <h4>Vendor-Managed Execution (e.g. Anthropic)</h4>
-            <p>The vendor hosts the code sandbox in their cloud container (5 GiB RAM, 1 CPU, 0 internet access). Claude calls tools as async Python functions without intermediate model round-trips. Highly optimized, but hardware and network policies are vendor-controlled.</p>
-          </div>
-          <div class="flow-step">
-            <h4>User-Owned Control Plane (e.g. Local Runner / LangGraph)</h4>
-            <p>The user operates the outer loop, local sandbox, state checkpoints, and credential storage. The AI model is treated as a replaceable cognitive worker rather than the owner of the control plane.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Section 2 -->
-    <section id="ontology">
-      <h2 class="section-title">2. Working Ontology & Loop Ownership</h2>
-
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Term</th>
-              <th>Definition</th>
-              <th>Architectural Role</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Direct Tool Calling</strong></td>
-              <td>Model emits a structured tool request (JSON); harness executes and resamples the model.</td>
-              <td>High-latency, multi-turn interaction.</td>
-            </tr>
-            <tr>
-              <td><strong>Programmatic Tool Execution</strong></td>
-              <td>Executable script or graph logic controls tool invocation and intermediate state in one pass.</td>
-              <td>Low-latency, token-efficient batch execution.</td>
-            </tr>
-            <tr>
-              <td><strong>Batch Dispatcher</strong></td>
-              <td>Deterministic software that fans out jobs to workers and aggregates results without model calls.</td>
-              <td>High-throughput deterministic execution.</td>
-            </tr>
-            <tr>
-              <td><strong>Worker</strong></td>
-              <td>Bounded capability (a deterministic script or a focused model prompt).</td>
-              <td>Execution of a single discrete task.</td>
-            </tr>
-            <tr>
-              <td><strong>Agent-as-Tool</strong></td>
-              <td>An autonomous agent hidden behind a single tool interface (e.g. <code>sub_agent.as_tool()</code>).</td>
-              <td>Context-isolated multi-turn specialization.</td>
-            </tr>
-            <tr>
-              <td><strong>Control Plane</strong></td>
-              <td>User-owned state storage, policy enforcement, secret redaction, and execution management.</td>
-              <td>Ultimate authority and system governance.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="card">
-        <h3>User-Owned Benchmark Workflow (Apple Shortcut + Python + Gemini)</h3>
-        <p>The user already operates a production-proven user-owned control plane: a local Python script triggered via Apple Shortcuts that uses the Gemini API to rename 100+ files in roughly 1-2 minutes.</p>
-
-        <pre>
-Finder Action / Apple Shortcut
-  └── Local Python Program (Scheduler &amp; Batch Orchestrator)
-        ├── Gemini Model API (Bounded Cognitive Judgment per File)
-        └── Local Filesystem (Direct Mutation &amp; Audit Logging)
-        </pre>
-        <p><i>Key Insight:</i> The model provides bounded cognitive judgment, while deterministic local code owns the loop, rate-limiting, and filesystem operations.</p>
-      </div>
-    </section>
-
-    <!-- Section 3 -->
-    <section id="landscape">
-      <h2 class="section-title">3. Source-Grounded Landscape Analysis</h2>
-
-      <div class="card">
-        <h3>1. Hugging Face <code>smolagents</code></h3>
-        <p>Pioneers the <code>CodeAgent</code> paradigm where actions are generated as Python code. Benchmarks confirm a <strong>30% step reduction</strong> over JSON tool calls. Offers a local AST interpreter (<code>LocalPythonExecutor</code>) for fast non-mutating code, alongside container backends (Docker, E2B, Blaxel) for production security.</p>
-      </div>
-
-      <div class="card">
-        <h3>2. LangGraph (LangChain Inc.)</h3>
-        <p>Models workflows as explicit graphs (<code>StateGraph</code>) with Bulk Synchronous Parallel (BSP) super-step checkpointers. When execution halts via an <code>interrupt()</code> call, resuming re-executes the node function from the top rather than mid-line. Dynamic fan-out is managed via <code>Send</code> map-reduce primitives.</p>
-      </div>
-
-      <div class="card">
-        <h3>3. OpenAI Agents SDK (Replacing Swarm)</h3>
-        <p>OpenAI has deprecated the experimental <code>Swarm</code> prototype and launched the production-grade <code>OpenAI Agents SDK</code>. Features <code>Agent.as_tool()</code> to encapsulate sub-agent loops into bounded function tools.</p>
-      </div>
-
-      <div class="card">
-        <h3>4. Microsoft AutoGen &amp; Anthropic Programmatic Tool Calling</h3>
-        <p><strong>AutoGen:</strong> Operates statelessly via <code>CommandLineCodeExecutor</code>. Running code directly on the host machine presents severe security risks; Docker containment is recommended.<br>
-        <strong>Anthropic Programmatic Calling:</strong> Runs user tools inside a provider container (5 GiB RAM, 1 CPU, zero network) as async Python functions, eliminating intermediate model round-trips.</p>
-      </div>
-    </section>
-
-    <!-- Section 4 -->
-    <section id="matrix">
-      <h2 class="section-title">4. Comprehensive Comparison Matrix</h2>
-
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Framework</th>
-              <th>Language</th>
-              <th>Outer Loop</th>
-              <th>Inner Loop</th>
-              <th>Agent-as-Tool</th>
-              <th>Execution Backend</th>
-              <th>Maturity</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>smolagents</strong></td>
-              <td>Python (Code)</td>
-              <td>User</td>
-              <td>AST / E2B</td>
-              <td><code>ManagedAgent</code></td>
-              <td>Local AST, Docker, E2B</td>
-              <td><span class="badge badge-amber">Level 2</span></td>
-            </tr>
-            <tr>
-              <td><strong>LangGraph</strong></td>
-              <td>Python / TS</td>
-              <td>User</td>
-              <td>Graph Engine</td>
-              <td><code>Sub-Graph Tool</code></td>
-              <td>Local / LangGraph Cloud</td>
-              <td><span class="badge badge-emerald">Level 3</span></td>
-            </tr>
-            <tr>
-              <td><strong>OpenAI Agents SDK</strong></td>
-              <td>Python</td>
-              <td>User</td>
-              <td>SDK Runtime</td>
-              <td><code>Agent.as_tool()</code></td>
-              <td>Local Runtime</td>
-              <td><span class="badge badge-emerald">Level 3</span></td>
-            </tr>
-            <tr>
-              <td><strong>Google ADK</strong></td>
-              <td>Python</td>
-              <td>User</td>
-              <td>ADK Engine</td>
-              <td><code>AgentTool</code></td>
-              <td>Local / Vertex AI</td>
-              <td><span class="badge badge-amber">Level 2</span></td>
-            </tr>
-            <tr>
-              <td><strong>Microsoft AutoGen</strong></td>
-              <td>Python / .NET</td>
-              <td>User</td>
-              <td>Subprocess</td>
-              <td><code>NestedChat</code></td>
-              <td>Subprocess, Docker</td>
-              <td><span class="badge badge-amber">Level 2</span></td>
-            </tr>
-            <tr>
-              <td><strong>Anthropic Programmatic</strong></td>
-              <td>Python Container</td>
-              <td>Model / Vendor</td>
-              <td>Provider Container</td>
-              <td>Not Supported</td>
-              <td>Provider Cloud Sandbox</td>
-              <td><span class="badge badge-amber">Level 2</span></td>
-            </tr>
-            <tr>
-              <td><strong>CodeAct Research</strong></td>
-              <td>Executable Python</td>
-              <td>Model Loop</td>
-              <td>Subprocess</td>
-              <td>Conceptual</td>
-              <td>Local Subprocess</td>
-              <td><span class="badge badge-indigo">Level 1</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Section 5 -->
-    <section id="open-problems">
-      <h2 class="section-title">5. Difficult &amp; Unsolved Engineering Problems</h2>
-
-      <div class="card">
-        <h3>1. Authority Delegation below Code</h3>
-        <p>When an LLM generates a 30-line Python script that invokes multiple tools, traditional per-tool permissions fail. Users must either grant blind upfront approval or endure disruptive mid-script confirmation prompts.</p>
-      </div>
-
-      <div class="card">
-        <h3>2. Imperative Execution vs. Graph Checkpointing</h3>
-        <p>Graph engines snapshot state cleanly at node boundaries. However, pausing inside an imperative Python loop requires microVM state serialization (e.g. Firecracker memory dumps) to avoid re-executing nodes from line 1 upon resumption.</p>
-      </div>
-    </section>
-
-    <!-- Section 6 -->
-    <section id="trends">
-      <h2 class="section-title">6. Emerging Industry Trends</h2>
-
-      <ul>
-        <li><span class="badge badge-emerald">Verified</span> <strong>Code as Action Language:</strong> CodeAct research (20% benchmark gain) proves Python code outperforms static JSON tool calls.</li>
-        <li><span class="badge badge-emerald">Verified</span> <strong>Specialists as Bounded Tools:</strong> Adopted across OpenAI Agents SDK, Google ADK, and LangGraph.</li>
-        <li><span class="badge badge-indigo">Observed</span> <strong>Sandboxed Execution Runtimes:</strong> First-class integration of E2B microVMs and Docker directly into SDKs.</li>
-        <li><span class="badge badge-amber">Open Question</span> <strong>Provider-Neutral Gateways:</strong> Cross-provider harmonization remains unsettled due to conflicting vendor API schemas.</li>
-      </ul>
-    </section>
-
-    <!-- Section 7 -->
-    <section id="architecture">
-      <h2 class="section-title">7. Synthesis: User-Owned Reference Architecture</h2>
-
-      <div class="card">
-        <h3>Layered Architecture Model</h3>
-        <ol>
-          <td><strong>1. Policy &amp; Security Layer:</strong> Secret redaction boundary, path confinement, deny matrix, explicit permission toggles.</td>
-          <td><strong>2. Deterministic Scheduler &amp; State Engine:</strong> Bulk Synchronous Parallel (BSP) checkpointers, human approval pause points, rate-limiting.</td>
-          <td><strong>3. Provider-Neutral Worker Gateway:</strong> Unified model adapters (Claude, Gemini, Local LLMs) and bounded Agent-as-Tool interfaces.</td>
-          <td><strong>4. Isolated Execution Sandbox:</strong> Local AST interpreter for non-mutating logic; Docker/E2B microVMs for script execution.</td>
-          <td><strong>5. Artifact &amp; Evidence Vault:</strong> Disk-backed storage for full outputs; returning concise markdown summaries to LLM context windows.</td>
-        </ol>
-      </div>
-    </section>
-
-    <!-- Section 8 -->
-    <section id="agenda">
-      <h2 class="section-title">8. Second-Phase Research Agenda</h2>
-      <div class="card">
-        <ul>
-          <li>Evaluate local AST execution latency versus containerized E2B sandboxes.</li>
-          <li>Design state-freezing mechanisms for pausing local Python script loops.</li>
-          <li>Construct a provider-neutral gateway translating Anthropic programmatic tool schemas to OpenAI tool definitions.</li>
-        </ul>
-      </div>
-    </section>
-
-    <!-- Section 9 -->
-    <section id="appendix">
-      <h2 class="section-title">9. Primary Source Appendix</h2>
-
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Source Title &amp; URL</th>
-              <th>Access Date</th>
-              <th>Key Verified Claims</th>
-              <th>Label</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><a href="https://docs.anthropic.com/en/docs/build-with-claude/tool-use/programmatic-tool-calling" style="color:var(--accent-blue);">Anthropic Programmatic Tool Calling</a></td>
-              <td>2026-07-29</td>
-              <td>Container specs (5 GiB RAM, 1 CPU, 0 internet), async Python tools, context suppression.</td>
-              <td><span class="badge badge-emerald">Documented Fact</span></td>
-            </tr>
-            <tr>
-              <td><a href="https://github.com/huggingface/smolagents" style="color:var(--accent-blue);">Hugging Face smolagents</a></td>
-              <td>2026-07-29</td>
-              <td>CodeAgent Python AST execution, 30% step reduction benchmark, E2B backends.</td>
-              <td><span class="badge badge-emerald">Source-Code Observation</span></td>
-            </tr>
-            <tr>
-              <td><a href="https://langchain-ai.github.io/langgraph/concepts/persistence/" style="color:var(--accent-blue);">LangGraph Persistence Concepts</a></td>
-              <td>2026-07-29</td>
-              <td>StateGraph BSP super-steps, checkpointers vs stores, node restart behavior.</td>
-              <td><span class="badge badge-emerald">Documented Fact</span></td>
-            </tr>
-            <tr>
-              <td><a href="https://arxiv.org/abs/2402.01030" style="color:var(--accent-blue);">CodeAct Research Paper</a></td>
-              <td>2026-07-29</td>
-              <td>20% success boost of executable code actions over JSON tool calls across 17 LLMs.</td>
-              <td><span class="badge badge-indigo">Measured Result</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <footer>
-      <p>Prepared for Alan Man | Preliminary Research Study on User-Owned AI Orchestration | July 2026</p>
-    </footer>
-
-  </div>
-
+  <header><div class="wrap">
+    <h1>User-Owned AI Orchestration: A Preliminary Study (Consolidated)</h1>
+    <p>Canonical consolidated study (2026-07-30) &middot; branch <code>main</code> destination &middot; research-only, no runner changes.</p>
+    <p>This HTML is generated from the canonical Markdown twin at the same path; the Markdown is authoritative. Mermaid diagrams are included as labeled sources (repo HTML stays self-contained, no CDN scripts).</p>
+  </div></header>
+  <main>
+<h1 id="user-owned-ai-orchestration-a-preliminary-study">User-Owned AI Orchestration: A Preliminary Study</h1>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prepared</td>
+<td>2026-07-29</td>
+</tr>
+<tr>
+<td>Consolidated</td>
+<td>2026-07-30 (two parallel drafts merged; see section 13)</td>
+</tr>
+<tr>
+<td>Status</td>
+<td><strong>Preliminary.</strong> Source-grounded but bounded; not a final report.</td>
+</tr>
+<tr>
+<td>Phase</td>
+<td>Learning and research only. No implementation.</td>
+</tr>
+<tr>
+<td>Project</td>
+<td><code>~/Developer/claude-local-bridge-playground</code> (branch <code>main</code>)</td>
+</tr>
+<tr>
+<td>Location</td>
+<td><code>docs/ai-orchestration-preliminary-study-2026-07-29.md</code> (canonical; HTML companion alongside; superseded originals in <code>docs/archive/ai-orchestration-study-2026-07-29/</code>)</td>
+</tr>
+<tr>
+<td>Governing principle</td>
+<td>At every layer where practical, the user should own the loop.</td>
+</tr>
+<tr>
+<td>Source handoff</td>
+<td><code>Downloads/ai-orchestration-study-preliminary-research-handoff-2026-07-29.md</code></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Read this first.</strong> Every claim in this report carries an evidence label, a
+primary URL, an access date (2026-07-29), and a confidence score. The labels
+are: <code>documented fact</code>, <code>source-code observation</code>, <code>measured result</code>,
+<code>vendor claim</code>, <code>research finding</code>, <code>inference</code>, <code>open question</code>. Claims I
+could not verify against a live URL are explicitly downgraded to
+<code>inference</code> or <code>open question</code> — this is by design, not a failure.</p>
+</blockquote>
+<hr />
+<h2 id="1-executive-summary-for-a-non-programmer">1. Executive summary (for a non-programmer)</h2>
+<p>Modern AI systems can do far more than chat: they can call external tools,
+write and run code, schedule work, and delegate to other AI "workers." The
+question this report investigates is: <strong>who owns the loop that ties all of
+this together?</strong></p>
+<p>There are now three coherent positions in the market:</p>
+<ol>
+<li><strong>Vendor-managed inner loop.</strong> Anthropic's <em>Programmatic Tool Calling</em> and
+   <em>Code Execution Tool</em> let a model write code, call your tools, and run for
+   minutes — but the sandbox, the cost metering, the timeouts, and the
+   transcript are all owned by the vendor. It is the easiest path. It is also
+   the path on which you can see the least.</li>
+<li><strong>Open-source code-action loop.</strong> Hugging Face's <em>smolagents</em> lets a model
+   write Python that directly calls your tools by name. You pick the executor
+   (a local AST filter, Docker, E2B, Modal, Blaxel). The generated code can
+   branch, loop, and compose tools with native Python — much closer to
+   "the model writes the program."</li>
+<li><strong>Durable workflow engine.</strong> LangGraph (and to a lesser extent Google's
+   <em>ADK</em> and Microsoft's <em>AutoGen</em> 0.4+) treats the LLM call as <strong>one node
+   in a graph</strong> rather than the whole program. You own the graph, the
+   checkpoints, the retries, and the durable state; the model is a replaceable
+   worker.</li>
+</ol>
+<p>In compressed form, the fork looks like this (summary box carried over from
+the 2026-07-29 primary draft):</p>
+<pre><code class="language-text">+--------------------------------------------------------------------------+
+|                          THE CONTROL PLANE FORK                          |
++--------------------------------------+-----------------------------------+
+|   VENDOR-MANAGED (e.g. Anthropic)    |   USER-OWNED (e.g. local runner)  |
++--------------------------------------+-----------------------------------+
+| Inner tool loop in vendor sandbox    | User runs the loop and executor   |
+| Zero intermediate model round-trips  | User holds credentials            |
+| Fixed hardware (5 GiB RAM, 1 CPU,    | Custom hardware and networks      |
+|   no internet)                       | Full state and audit storage      |
+| Vendor controls logs and context     |                                   |
+|   suppression                        |                                   |
++--------------------------------------+-----------------------------------+
+</code></pre>
+<p>The user's own Gemini-powered file-renaming workflow — Finder action → local
+Python → Gemini API → filesystem rename, processing 100+ files per minute —
+already instantiates a user-owned control plane. The Shortcut is the trigger.
+The Python is the deterministic batch dispatcher. The Gemini call is a
+<strong>bounded cognitive worker</strong>, not an agent. The model does not decide what to
+do next, when to stop, or what to write back. The user owns every one of
+those decisions through code the user can read.</p>
+<p>That is the thesis: the most important design choice in 2026 AI orchestration
+is not which model to call but <strong>where the control plane lives.</strong> Owning the
+loop, in practice, means owning the executor, the durable state, the approval
+points, and the artifact store — not the model.</p>
+<p>The rest of this report is the evidence for that claim and a sober map of
+which pieces are mature, which are still research, and which remain
+genuinely unsolved.</p>
+<hr />
+<h2 id="2-working-ontology-precise">2. Working ontology (precise)</h2>
+<p>These are the working terms for the rest of the report. They are intentionally
+narrower than the broader AI literature; the goal is to be able to say
+"this system does X but not Y" without ambiguity.</p>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Direct tool calling</td>
+<td>The model requests a structured tool; the harness executes it, returns a result, and resamples the model.</td>
+</tr>
+<tr>
+<td>Agent-authored scripting</td>
+<td>The model writes Python, shell, JavaScript, or another program to automate work.</td>
+</tr>
+<tr>
+<td>Programmatic tool orchestration</td>
+<td>Executable logic, rather than repeated model turns, controls multiple tool calls and intermediate processing. Runtime location is not part of the definition.</td>
+</tr>
+<tr>
+<td>Self-hosted programmatic tool calling</td>
+<td>The user controls the generated-code runtime and tool-call protocol.</td>
+</tr>
+<tr>
+<td>Provider-managed programmatic tool calling</td>
+<td>A vendor manages the generated program and some or all of the inner tool loop.</td>
+</tr>
+<tr>
+<td>Batch dispatcher</td>
+<td>Deterministic software that fans bounded jobs out to workers and aggregates results.</td>
+</tr>
+<tr>
+<td>Worker</td>
+<td>A bounded deterministic or model-backed capability.</td>
+</tr>
+<tr>
+<td>Agent</td>
+<td>A worker with its own model loop, tools, state, or repeated decisions.</td>
+</tr>
+<tr>
+<td>Agent-as-tool</td>
+<td>An agent hidden behind a bounded tool contract while the manager retains control.</td>
+</tr>
+<tr>
+<td>Orchestrator</td>
+<td>Chooses jobs, dependencies, sequencing, and composition.</td>
+</tr>
+<tr>
+<td>Scheduler</td>
+<td>Enforces queues, concurrency, retries, timeouts, cancellation, and limits.</td>
+</tr>
+<tr>
+<td>Control plane</td>
+<td>User-owned policy, state, authority, observability, and lifecycle management above workers.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Important distinction.</strong> <em>Programmatic invocation of a model</em> (calling an
+LLM from a Python loop) is <strong>not</strong> the same thing as <em>programmatic
+orchestration of tools</em> (the model itself running multiple tool calls in a
+generated program). The first is a 2023-era pattern; the second is the
+question this report investigates.</p>
+<hr />
+<h2 id="3-loop-ownership-diagram">3. Loop-ownership diagram</h2>
+<p>The diagrams below show who owns the outer model loop, the inner tool/code
+loop, and the durable state, for each architecture in the study set.</p>
+<h3 id="31-vendor-managed-inner-loop-anthropic-programmatic">3.1 Vendor-managed inner loop (Anthropic programmatic)</h3>
+<pre><code class="language-text">%% mermaid diagram source (renders on mermaid.live or in a mermaid-enabled viewer)
+sequenceDiagram
+    participant U as User / Harness
+    participant API as Anthropic API
+    participant S as Managed Sandbox
+    participant T as User Tool(s)
+    U-&gt;&gt;API: messages.create(tools=[...], allowed_callers=[...])
+    API--&gt;&gt;U: server_tool_use (code block) + tool_use (paused)
+    U-&gt;&gt;API: messages.create(tool_result blocks, container=...)
+    loop inside the sandbox (user-invisible)
+        API-&gt;&gt;S: run code cell
+        S-&gt;&gt;T: async function call
+        T--&gt;&gt;S: result
+        S--&gt;&gt;API: stdout/stderr/return_code
+    end
+    API--&gt;&gt;U: final text or another code block
+    Note over U,T: User owns the request envelope; Anthropic owns&lt;br/&gt;the sandbox, the inner loop, the transcript shape,&lt;br/&gt;the cost, the timeout, and the cancellation.
+</code></pre>
+<h3 id="32-open-source-code-action-loop-smolagents-codeagent">3.2 Open-source code-action loop (smolagents CodeAgent)</h3>
+<pre><code class="language-text">%% mermaid diagram source (renders on mermaid.live or in a mermaid-enabled viewer)
+sequenceDiagram
+    participant U as User
+    participant M as smolagents MultiStepAgent
+    participant C as CodeAgent
+    participant E as PythonExecutor&lt;br/&gt;(local | docker | e2b | modal | blaxel)
+    participant T as User Tools&lt;br/&gt;(bound as Python names)
+    U-&gt;&gt;M: agent.run(prompt)
+    loop up to max_steps
+        M-&gt;&gt;C: self.step()
+        C-&gt;&gt;C: build prompt&lt;br/&gt;(tools_namespace injected)
+        C-&gt;&gt;E: model output parsed as Python
+        E-&gt;&gt;T: tool invocation&lt;br/&gt;(treated as ordinary Python call)
+        T--&gt;&gt;E: return value
+        E--&gt;&gt;C: step memory
+    end
+    C--&gt;&gt;U: final_answer
+    Note over U,T: User owns the executor, the tools namespace,&lt;br/&gt;the model, and the prompt; smolagents owns&lt;br/&gt;the outer ReAct loop.
+</code></pre>
+<h3 id="33-durable-workflow-engine-langgraph">3.3 Durable workflow engine (LangGraph)</h3>
+<pre><code class="language-text">%% mermaid diagram source (renders on mermaid.live or in a mermaid-enabled viewer)
+flowchart LR
+    A([Start]) --&gt; N1[Node:&lt;br/&gt;classify intent]
+    N1 --&gt;|route| N2[Node:&lt;br/&gt;LLM worker A]
+    N1 --&gt;|route| N3[Node:&lt;br/&gt;LLM worker B]
+    N2 --&gt; N4[Node:&lt;br/&gt;aggregator]
+    N3 --&gt; N4
+    N4 --&gt; H{human approval?}
+    H --&gt;|approve| N5[Node:&lt;br/&gt;side effect]
+    H --&gt;|reject| A
+    N5 --&gt; Z([End])
+    N1 -. checkpoint .-&gt; CK[(PostgresSaver /&lt;br/&gt;SqliteSaver)]
+    N2 -. checkpoint .-&gt; CK
+    N3 -. checkpoint .-&gt; CK
+    N4 -. checkpoint .-&gt; CK
+    H -. interrupt/resume .-&gt; CK
+    Note[Each node restarts from the top on resume.&lt;br/&gt;Side effects before interrupt() must be idempotent.]
+</code></pre>
+<h3 id="34-autogen-actor-model">3.4 AutoGen actor model</h3>
+<pre><code class="language-text">%% mermaid diagram source (renders on mermaid.live or in a mermaid-enabled viewer)
+flowchart LR
+    H[SingleThreadedAgentRuntime] --&gt;|register| A1[RoutedAgent: planner]
+    H --&gt;|register| A2[RoutedAgent: coder]
+    H --&gt;|register| A3[RoutedAgent: critic]
+    A1 &lt;--&gt;|TopicId| A2
+    A2 &lt;--&gt;|TopicId| A3
+    A2 -. uses .-&gt; E[CodeExecutor&lt;br/&gt;(local / docker / jupyter / docker_jupyter / azure)]
+    A3 -. uses .-&gt; T[BaseTool list]
+    Note[Tools page shows the executor is wrapped by&lt;br/&gt;PythonCodeExecutionTool; executor state does NOT&lt;br/&gt;cross the distributed runtime by default.]
+</code></pre>
+<h3 id="35-the-users-existing-file-renaming-pipeline">3.5 The user's existing file-renaming pipeline</h3>
+<pre><code class="language-text">%% mermaid diagram source (renders on mermaid.live or in a mermaid-enabled viewer)
+flowchart LR
+    F[Finder action] --&gt; S[Apple Shortcut&lt;br/&gt;= trigger &amp; UI]
+    S --&gt; P[local Python&lt;br/&gt;= batch dispatcher]
+    P --&gt;|file contents| G[Gemini API&lt;br/&gt;= bounded cognitive worker]
+    G --&gt;|suggested filename| P
+    P --&gt;|os.rename| FS[(filesystem)]
+    P --&gt;|progress| UI[shortcut UI]
+    Note[No agent loop. No dynamic fan-out.&lt;br/&gt;No model-side planning. The Python is the&lt;br/&gt;control plane; the model is a single function call.]
+</code></pre>
+<hr />
+<h2 id="4-source-grounded-landscape-analysis">4. Source-grounded landscape analysis</h2>
+<p>For each system in the study set, the following sections summarize the
+evidence and assign a maturity estimate. The rubric is defined in section 5.</p>
+<h3 id="41-hugging-face-smolagents">4.1 Hugging Face <code>smolagents</code></h3>
+<p><strong>What it is.</strong> A small Python library with two top-level agent classes
+sharing a <code>MultiStepAgent</code> base. <code>CodeAgent</code> is the default: it asks the
+model to emit a Python source string, which a <code>PythonExecutor</code> parses and
+runs. <code>ToolCallingAgent</code> is the JSON-only variant.
+<em>(documented fact, high confidence)</em></p>
+<p><strong>The code-action trick.</strong> <code>CodeAgent</code> injects a flat namespace into the
+executor so that registered tools are callable as ordinary Python names.
+<code>get_tools_definition_code</code> emits a <code>Tool</code> class stub whose <code>__call__</code>
+delegates to <code>forward</code>, followed by <code>&lt;name&gt; = &lt;ToolClass&gt;()</code> bindings.
+Generated code therefore composes tools with native Python control flow
+(loops, conditionals, intermediate variables) rather than via a JSON
+dispatcher. <em>(source-code observation, high confidence)</em></p>
+<p><strong>Sandbox story — explicit "this is not a security boundary."</strong>
+<code>LocalPythonExecutor</code> parses the AST, applies an <code>authorized_imports</code>
+allowlist, blocks dangerous modules and dunder access, and caps operations
+(10M), <code>while</code> iterations (1M), output length (50 000), and wall time
+(30s default). The official documentation states this can be bypassed and
+<strong>must not be used as a security boundary.</strong> <em>(documented fact, high
+confidence)</em></p>
+<p>For real isolation, <code>CodeAgent</code> supports <code>executor_type</code> in
+<code>["local", "blaxel", "e2b", "modal", "docker"]</code> — five backends behind one
+loop. The docs explicitly warn about a two-mode tradeoff: "code snippets
+only in a remote sandbox" breaks <code>managed_agents</code> (credentials aren't
+forwarded into the sandbox), while "entire agent runs inside the sandbox"
+supports multi-agent but requires shipping secrets into the sandbox.
+<em>(documented fact, high confidence)</em></p>
+<p><strong>The outer loop is not pluggable.</strong> <code>MultiStepAgent.run</code> / <code>_run_stream</code>
+iterates <code>step_number</code> up to <code>max_steps</code> (default 20) and calls <code>self.step()</code>
+which calls the model, parses an action, executes it, and appends a memory
+step. Users can hook via <code>step_callbacks</code>, <code>reset()</code>, and <code>replay()</code> but
+<strong>cannot interleave custom logic between steps without subclassing</strong>.
+<em>(source-code observation, high confidence)</em></p>
+<p><strong>Composition pattern.</strong> <code>managed_agents</code> is the hierarchical mode: a child
+agent gets a name + description that are injected into the manager's system
+prompt, and the manager invokes the child by generating a Python call to
+that name. The same mechanism composes tools — a managed agent is
+literally just another callable name in the generated code's namespace.
+<em>(documented fact, high confidence)</em></p>
+<p><strong>What an unprivileged user can customize.</strong> Swap the model
+(InferenceClient / LiteLLM / OpenAI / Transformers / Azure / Bedrock),
+customize the prompt (<code>prompt_templates</code> / <code>PromptTemplates</code> / <code>instructions</code>),
+plug in a custom <code>PythonExecutor</code>, define tools with <code>@tool</code> or <code>Tool</code>
+subclassing, set <code>planning_interval</code>, <code>final_answer_checks</code>, and
+<code>step_callbacks</code>. ToDict / save / <code>push_to_hub</code> lets you serialize the
+entire agent+tools+prompt graph. <em>(documented fact, high confidence)</em></p>
+<p><strong>Durability gap.</strong> <code>smolagents</code> has no built-in checkpoint/resume API for
+in-progress runs. <code>AgentMemory.steps</code> is in-memory; the only persistence is
+saving the agent <em>definition</em> to the Hub and reconstructing it via
+<code>from_folder</code> / <code>from_hub</code>. An interrupted run cannot be resumed from a
+saved step list. <em>(inference, medium-high confidence — open question
+pending deeper source read.)</em></p>
+<blockquote>
+<p><strong>Resolved 2026-07-30 — verified (source-code observation, high
+confidence).</strong> Read directly from current <code>main</code>: <code>AgentMemory.steps</code> is a
+plain in-process list with serialize-only <code>dict()</code> methods and no
+deserializer; <code>save()</code>/<code>push_to_hub()</code> persist the agent definition only;
+<code>interrupt()</code> discards run state. Feature request huggingface/smolagents</p>
+<h1 id="1216-saveload-agent-memory-2025-04-remains-open-and-unimplemented">1216 ("Save/Load agent memory", 2025-04) remains open and unimplemented</h1>
+<p>as of v1.26.0. Nuance: manual resume is achievable by hand-reconstructing
+step objects and calling <code>run(reset=False)</code> — the gap is "no built-in
+API," not "impossible." Evidence in <code>docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html</code>.</p>
+</blockquote>
+<p><strong>Principal limitation.</strong> The outer loop is library-owned, the executor is
+the only true isolation boundary, and the abstraction level is "model emits
+Python." If you want explicit graphs, durable checkpoints, or human-in-the-loop
+outside the model prompt, you have to build that yourself or pick a
+different framework.</p>
+<p><strong>Strongest lesson.</strong> The injection of a flat Python namespace that maps
+each tool to a callable name is a remarkably compact way to make generated
+code feel like ordinary programming — <em>much</em> more composable than the
+JSON-tool-calling idiom that dominates direct tool calling.</p>
+<h3 id="42-langgraph">4.2 LangGraph</h3>
+<p><strong>What it is.</strong> A low-level orchestration framework for long-running,
+stateful agents, MIT-licensed, primarily Python (with a separate
+LangGraph.js for TypeScript). Inspired by Pregel and Apache Beam, with a
+public interface inspired by NetworkX. <em>(documented fact, high confidence)</em></p>
+<p><strong>Two parallel APIs.</strong> The <strong>Graph API</strong> is explicit nodes and edges
+(<code>StateGraph</code>, <code>add_node</code>, <code>add_edge</code>, <code>add_conditional_edges</code>). The
+<strong>Functional API</strong> is <code>@task</code> and <code>@entrypoint</code> decorators that run
+concurrently and return futures. Both are first-class.
+<em>(documented fact, high confidence)</em></p>
+<p><strong>Nodes, not LLM calls.</strong> A graph node is a unit of work — an LLM
+invocation, a gate function, an aggregator, or a prebuilt helper like
+<code>ToolNode</code>. <strong>LLM calls are wrapped in nodes, not the graph itself.</strong>
+This is the most important architectural statement in the framework.
+<em>(documented fact, high confidence)</em></p>
+<p><strong>Durability story.</strong> <code>Checkpointers</code> persist thread-scoped graph state
+snapshots identified by <code>thread_id</code> in the run config. They support
+conversation continuity, human-in-the-loop, time travel, and fault
+tolerance. <code>InMemorySaver</code> / <code>MemorySaver</code> do not survive process restarts;
+<code>PostgresSaver</code> and <code>SqliteSaver</code> do. Postgres thread IDs must stay under
+255 characters. <em>(documented fact, high confidence)</em></p>
+<p><strong>Interrupts and resume.</strong> Dynamic interrupts are raised by calling
+<code>interrupt()</code> inside a node with a JSON-serializable value; the value
+supplied via <code>Command(resume=...)</code> becomes the return value of
+<code>interrupt()</code>. The node <strong>restarts from the beginning on resume</strong>, so
+side effects before the call must be idempotent. Multiple outstanding
+interrupts are matched by strict index-based order; non-deterministic
+looping causes index mismatches. <em>(documented fact, high confidence)</em></p>
+<p><strong>Dynamic fan-out.</strong> The <code>Send</code> API lets an <code>assign_workers</code>-style node
+return a list of <code>Send</code> invocations, each with its own state, and worker
+outputs are written to a shared state key via the reducer pattern
+<code>Annotated[list, operator.add]</code>. <em>(documented fact, high confidence)</em></p>
+<p><strong>Multi-agent.</strong> Modeled as orchestrator-worker with a shared state key
+plus <code>Send</code>, or as a router using structured output to classify input and
+a conditional edge to dispatch to specialized subgraphs. The framework
+explicitly distinguishes <strong>workflows</strong> (predetermined code paths) from
+<strong>agents</strong> (dynamic, self-directed process and tool usage).
+<em>(documented fact, high confidence)</em></p>
+<p><strong>Crash recovery is conditional.</strong> The README claims agents
+"automatically resum[e] from exactly where they left off" after failures,
+but that claim is conditional on the chosen checkpointer backend. With
+<code>InMemorySaver</code>, it does not survive a process restart; with <code>PostgresSaver</code>
+or the LangGraph Platform Agent Server, it does. <em>(documented fact,
+high confidence)</em></p>
+<p><strong>Managed runtime.</strong> When using the LangGraph Platform Agent Server,
+persistence infrastructure is handled automatically with no manual
+configuration. On self-hosted deployments, the developer selects and
+configures the checkpointer backend. The full self-host-vs-managed
+tradeoff is not exhaustively documented on a single page. <em>(documented
+fact + open question)</em></p>
+<p><strong>Principal limitation.</strong> The framework is explicit, durable, and
+provider-agnostic — but it requires you to <em>think</em> in graphs. The
+abstraction cost is real: simple linear prompts become graphs, the
+mental model shifts from "model loop with tools" to "graph of work units
+where the model is one type of unit."</p>
+<p><strong>Strongest lesson.</strong> The clearest separation of <em>model</em> (replaceable
+cognitive worker) from <em>control plane</em> (the graph, the checkpointer, the
+interrupts) of any system in this study. This is the user-owned thesis
+embodied.</p>
+<h3 id="43-openai-agents-sdk">4.3 OpenAI Agents SDK</h3>
+<p><strong>Agent-as-tool.</strong> <code>Agent.as_tool()</code> requires <code>tool_name</code> and
+<code>tool_description</code>; it returns a <code>FunctionTool</code>-shaped object that launches
+a nested <code>Runner.run</code> for the sub-agent. <em>(documented fact, high
+confidence)</em></p>
+<p><strong>Typed nested input.</strong> <code>Agent.as_tool()</code> accepts a Pydantic <code>parameters</code>
+model and an optional <code>include_input_schema=True</code> to embed the JSON schema
+in the generated nested tool input. The parsed payload is available at
+<code>RunContextWrapper.tool_input</code> inside the nested run.
+<em>(documented fact, high confidence)</em></p>
+<p><strong>Output extraction.</strong> <code>custom_output_extractor(run_result: RunResult) -&gt;
+str</code> lets you post-process the nested run — for example, walking the
+reversed <code>new_items</code> stream looking for a <code>ToolCallOutputItem</code> whose output
+starts with <code>'{'</code> to pull out a JSON payload.
+<em>(documented fact, high confidence)</em></p>
+<p><strong>Handoffs vs. tool wrapping.</strong> The <code>handoff()</code> helper supports
+<code>tool_name_override</code>, <code>tool_description_override</code>, <code>on_handoff(ctx,
+input_data)</code>, <code>input_type</code> (Pydantic), <code>input_filter</code>, <code>is_enabled</code>, and
+<code>nest_handoff_history</code>. By default, <strong>the entire prior conversation
+history</strong> is passed to the new agent; <code>input_filter</code> can replace or filter
+<code>new_items</code> via <code>HandoffInputData</code> (input_history, pre_handoff_items,
+new_items, input_items, run_context). Per-handoff <code>input_filter</code> takes
+precedence over <code>RunConfig.handoff_input_filter</code>. <em>(documented fact, high
+confidence)</em></p>
+<p><strong>Tracing.</strong> Built-in with spans for agents, generations, function calls,
+guardrails, handoffs, transcriptions, and speech. Default
+<code>BatchTraceProcessor</code> ships to OpenAI's backend; <code>set_tracing_export_api_key()</code>
+attaches a free OpenAI key for tracing even with non-OpenAI models. Long
+list of third-party exporters (W&amp;B, Arize-Phoenix, MLflow, Braintrust,
+Logfire, AgentOps, LangSmith, Maxim, Comet Opik, Langfuse, Langtrace,
+Galileo, Portkey, PostHog, Datadog). <strong>Tracing is unavailable under
+OpenAI ZDR.</strong> <em>(documented fact, high confidence)</em></p>
+<p><strong>Human-in-the-loop.</strong> <code>needs_approval: bool</code> or callable; when triggered,
+the run surfaces <code>FunctionToolResult.interruptions: list[ToolApprovalItem]</code>
+and pauses until <code>RunState.approve()</code> or <code>RunState.reject()</code> is called.
+Also covers <code>MCPToolApprovalFunction</code>, <code>ShellApprovalFunction</code>,
+<code>ApplyPatchApprovalFunction</code>, and <code>CustomToolOnApprovalFunction</code>. Works for
+nested agent-as-tool runs. <em>(documented fact, high confidence)</em></p>
+<p><strong>Sessions and memory.</strong> Automatic Sessions for conversation history; the
+<code>redis</code> extra (<code>pip install 'openai-agents[redis]'</code>) enables a Redis-backed
+session store. Other persistence backends beyond Redis are not enumerated
+on the repo landing page. <em>(documented fact, medium-high confidence)</em></p>
+<p><strong>Provider portability.</strong> Repo claims support for OpenAI Responses, OpenAI
+Chat Completions, and 100+ other LLMs via <code>any-llm</code> and <code>LiteLLM</code> as
+optional integrations. Realtime agents are pinned to <code>gpt-realtime-2.1</code>.
+The "100+ LLMs" figure is a vendor claim. <em>(documented fact + vendor
+claim, medium-high confidence)</em></p>
+<p><strong>Deployment.</strong> No managed cloud deployment service described on the repo
+landing page; deployment is left to the developer. Sandbox options
+include <code>UnixLocalSandboxClient</code>, <code>DockerSandboxClient</code>, and a hosted
+sandbox client for long-horizon tasks. <em>(documented fact, high
+confidence)</em></p>
+<p><strong>Principal limitation.</strong> The most polished agent-as-tool interface in the
+study, but tracing is unavailable under OpenAI ZDR (zero data retention)
+and the framework's "free tracing" comes with an implicit data
+relationship to OpenAI's backend.</p>
+<p><strong>Strongest lesson.</strong> <code>Agent.as_tool()</code> with a Pydantic <code>parameters</code>
+schema and a <code>custom_output_extractor</code> is the cleanest pattern in the
+study for "hide a nested LLM run behind a typed function call." It is the
+shape of a well-designed agent-as-tool contract.</p>
+<h3 id="44-google-adk">4.4 Google ADK</h3>
+<p><strong>Two flavors of agent composition.</strong> <code>sub_agents</code> (parent-owned children,
+delegation via the <code>transfer_to_agent</code> mechanism) and <code>AgentTool</code> (an
+agent instance placed in <code>tools=[...]</code> so the LLM calls it as a function).
+The page enumerates <code>FunctionTool</code> / <code>BaseTool</code> / <code>AgentTool</code> as the
+accepted <code>tools</code> parameter types. <em>(documented fact, high confidence)</em></p>
+<p><strong>Template workflow agents.</strong> <code>SequentialAgent</code> (ordered pipeline),
+<code>ParallelAgent</code> (concurrent fan-out), <code>LoopAgent</code> (iterative refinement
+until a termination condition). In ADK 2.0 (Python and Go) these template
+workflows are described as superseded by graph-based and dynamic
+workflows; treat as legacy-but-supported. <em>(documented fact, high
+confidence)</em></p>
+<p><strong>Artifacts.</strong> <code>BaseArtifactService</code> with <code>InMemoryArtifactService</code> and
+<code>GcsArtifactService</code> for persistent named, versioned binary data; values
+are <code>google.genai.types.Part</code> objects; scope is per-session (default) or
+per-user (filename prefix <code>user:</code>). Missing service raises <code>ValueError</code> on
+save / load / list. <em>(documented fact, high confidence)</em></p>
+<p><strong>Sessions and memory.</strong> Separates <code>Session</code> (single ongoing interaction,
+scoped to a user and a conversation) from <code>Memory</code> (a searchable
+cross-session store), each managed by its own service. In-memory
+implementations are described as ephemeral; persistence backends are
+"cloud-based and database" — not enumerated by name on the docs page.
+<em>(documented fact, medium-high confidence)</em></p>
+<p><strong>Local-first execution.</strong> <code>adk run path/to/my_agent</code> (interactive CLI)
+and <code>adk web path/to/agents_dir</code> (web UI). The GitHub README does not
+document managed cloud deployment; deployment guidance is deferred to the
+external docs site. Vertex AI Agent Engine deployment is advertised
+elsewhere but was not present on the page that was fetched.
+<em>(source-code observation + open question)</em></p>
+<p><strong>Principal limitation.</strong> The docs and the repo land on different things
+when it comes to deployment. The model is sound — explicit artifact
+service, explicit session/memory service, three template workflow agents
+— but the operational story is incomplete on the public surface.</p>
+<p><strong>Strongest lesson.</strong> The explicit split between <code>Session</code> and <code>Memory</code>
+is a cleaner abstraction than most frameworks offer, and the artifact
+service is the right shape for "complete outputs move to an artifact
+store while the model consumes summaries and references."</p>
+<h3 id="45-microsoft-autogen">4.5 Microsoft AutoGen</h3>
+<p><strong>Five code executors.</strong> <code>LocalCommandLineCodeExecutor</code> (host process, per-
+block subprocess), <code>DockerCommandLineCodeExecutor</code> (stateless container),
+<code>JupyterCodeExecutor</code> (stateful local kernel via <code>nbclient</code>),
+<code>DockerJupyterCodeExecutor</code> (stateful kernel inside a container), and
+<code>ACADynamicSessionsCodeExecutor</code> (remote Azure-managed sandbox). Local
+and Jupyter variants carry explicit "Danger" callouts about host
+execution. <em>(documented fact, high confidence)</em></p>
+<p><strong>Uniform async lifecycle.</strong> Every executor exposes <code>start()</code>, <code>stop()</code>,
+<code>restart()</code>, and <code>execute_code_blocks(code_blocks, cancellation_token) -&gt;
+CodeResult</code>. The recommended pattern is <code>async with Executor() as ex:</code>
+so stop/cleanup run even on error. The local executor cleans up its temp
+<code>work_dir</code> on stop; the docker executor waits for cancellation tasks to
+finish on stop; the Azure executor's <code>restart()</code> generates a fresh
+session_id. <em>(documented fact, high confidence)</em></p>
+<p><strong>Cooperative cancellation.</strong> Through <code>autogen_core.CancellationToken</code>
+passed to <code>execute_code_blocks</code>. The Jupyter variant is described as
+<strong>cooperative, not OS-level enforced</strong>. Local relies on per-block
+subprocess timeouts. Docker's <code>stop()</code> "waits for cancellation tasks to
+finish," suggesting token-aware join semantics rather than SIGKILL.
+<em>(documented fact, medium-high confidence)</em></p>
+<p><strong>Isolation is graded.</strong> Only Azure (<code>ACADynamicSessions</code>) and Docker-
+family executors provide an external trust boundary. <code>Local</code> and
+<code>Jupyter</code> run on the host with at most a regex-based dangerous-command
+filter and an <code>output_dir</code> scope. The local executor docs explicitly
+disclose "regular expression match against a list of dangerous commands"
+as the only host-side mitigation. <em>(documented fact, high confidence)</em></p>
+<p><strong>Security advisory.</strong> <code>DockerCommandLineCodeExecutor</code>'s <code>bind_dir</code> mounts
+a host directory into the container <strong>without an allowlist</strong>. GitHub
+issue #7917 (2025) classified this as OWASP ASI10 trust-boundary violation
+at CRITICAL severity. The advisory names
+<code>autogen_ext/code_executors/docker/_docker_code_executor.py</code> and
+recommends default-deny mounts, validated path allowlists, and read-only
+mounts where possible. Found by AgentGuard v0.6.1. <em>(documented fact,
+high confidence)</em></p>
+<blockquote>
+<p><strong>Update 2026-07-30 — still unremediated (documented fact + source-code
+observation).</strong> Two corrections and a status: (1) issue #7917 was filed
+<strong>2026-07-05</strong>, not 2025; (2) current <code>main</code> still mounts <code>bind_dir</code>
+read-write with no allowlist or default-deny, and the latest release
+(python-v0.7.5) predates the report; (3) the AutoGen repo now declares
+<strong>maintenance mode</strong>, pointing new work at Microsoft Agent Framework —
+a fix in this repo is unlikely. Whether the successor framework's
+executors share the mount behavior is a new open question. Evidence in
+<code>docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html</code>.</p>
+</blockquote>
+<p><strong>Tools wrap executors, not the other way around.</strong> Code executors are
+<strong>not</strong> <code>BaseTool</code> subclasses and are not registered into the model's
+tool list directly. An executor is wrapped by <code>PythonCodeExecutionTool</code> (or
+consumed by <code>CodeExecutorAgent</code>) so the LLM sees a JSON-schema function
+whose runtime delegates into the executor. <em>(documented fact, high
+confidence)</em></p>
+<p><strong>Generated code cannot import agent tools.</strong> Tool/function calling is a
+model-client contract, not a runtime import path. To make user-defined
+Python callables reachable from generated code, the executor must be
+initialized with a <code>functions=[...]</code> list (which is exposed via
+<code>FUNCTION_PROMPT_TEMPLATE</code> rather than Python import), or the callables
+must be installed in the executor's environment as a real Python module.
+The original 0.2 <code>register_function</code> / <code>FUNCTION_PROMPT_TEMPLATE</code> is
+deprecated in 0.4, but the executor still holds a functions list for
+prompting. <em>(source-code observation, medium-high confidence)</em></p>
+<p><strong>Actor model.</strong> AutoGen 0.4+ is built on an actor model: agents subclass
+<code>RoutedAgent</code> and are registered into a <code>SingleThreadedAgentRuntime</code> (or
+its gRPC distributed variant) via <code>MyAgent.register(runtime, "type",
+factory)</code>, yielding an <code>AgentType</code>. Messages are routed to instances by
+<code>AgentId(type, key)</code>. <em>(documented fact, high confidence)</em></p>
+<p><strong>Distributed runtime is experimental.</strong> <code>GrpcWorkerAgentRuntimeHost</code> +
+<code>GrpcWorkerAgentRuntime</code> is the cross-process / cross-host variant. It is
+explicitly marked "experimental" and "expect breaking changes." The
+distributed runtime page <strong>does not document how code executors behave
+across worker boundaries</strong> — executors are typically instantiated per
+worker process, not serialized over gRPC. <em>(documented fact, high
+confidence)</em></p>
+<p><strong>Open question.</strong> There is no documented "remote code executor over the
+actor runtime." The gRPC transport carries agent messages, not executor
+invocation results. The Azure executor is the only "remote" option, and
+it uses a Microsoft-managed sandbox, not the actor runtime. <em>(open
+question, medium confidence)</em></p>
+<p><strong>Component composition.</strong> Built around <code>Component[TConfig]</code> with
+<code>_to_config()</code> / <code>_from_config()</code> for serialization; model clients, tools,
+and code executors all implement this base. The composition graph is:
+<code>ModelClient → (RoutedAgent holding List[BaseTool]) → CodeExecutor wrapped
+as PythonCodeExecutionTool</code>, all registered into a runtime. <em>(source-code
+observation, high confidence)</em></p>
+<p><strong>Principal limitation.</strong> The 0.4+ actor model is the right abstraction
+for distributed agents, but the documentation of how code execution
+behaves across worker boundaries is missing. The trust-boundary
+weakness in the docker executor (issue #7917) is real and CRITICAL.</p>
+<p><strong>Strongest lesson.</strong> The clearest separation of "the executor is a
+resource" from "the tool is the LLM-facing schema" from "the agent is the
+router" in the study. The recommended user flow
+(<code>async with Executor() as ex: tool = PythonCodeExecutionTool(ex); agent =
+AssistantAgent(..., tools=[tool])</code>) is a clean composition.</p>
+<h3 id="46-anthropic-programmatic-tool-calling-and-code-execution-tool">4.6 Anthropic Programmatic Tool Calling and Code Execution Tool</h3>
+<p><strong>What PTC is.</strong> A per-tool <code>allowed_callers</code> array on the user's tool
+definition. Values are <code>"direct"</code>, <code>"code_execution_20260120"</code>, or both.
+The two code-execution version strings are accepted interchangeably; the
+response block always tags the caller as <code>code_execution_20260120</code>.
+<em>(documented fact, very high confidence)</em></p>
+<p><strong><code>allowed_callers</code> is presentation guidance, not a security boundary.</strong>
+The doc warns: <strong>"Do not rely on <code>allowed_callers</code> as a security
+boundary"</strong> — Claude may still issue a direct <code>tool_use</code> even when a tool
+lists only the code-execution caller. <em>(documented fact, very high
+confidence)</em></p>
+<p><strong><code>caller</code> metadata.</strong> Every programmatic <code>tool_use</code> block carries a
+<code>caller</code> object whose <code>tool_id</code> matches the id of the parent
+<code>server_tool_use</code> code-execution block. This is the <strong>only</strong> metadata that
+links an awaited tool call back to the code that issued it. <em>(documented
+fact, high confidence)</em></p>
+<p><strong>Context suppression.</strong> Intermediate tool results from a programmatic
+call are <strong>not</strong> added to Claude's context window; only the final code-
+execution output (<code>stdout</code> / <code>stderr</code> / <code>return_code</code>) is. Anthropic's
+published numbers: ~38% billed-input-token reduction on a 75-tool PM
+benchmark, ~24% fewer input tokens on BrowseComp / DeepSearchQA, 20-40%
+typical savings on requests with 10-49 tool definitions. <em>(documented
+fact, high confidence)</em></p>
+<p><strong>Message-formatting restriction.</strong> The user's reply to a paused
+programmatic <code>tool_use</code> <strong>must</strong> be a user message whose content is
+<strong>exclusively</strong> <code>tool_result</code> blocks (no text, no images, no other
+content types) and each <code>tool_result.content</code> must be a string or <code>text</code>
+block; other block types are rejected. Hard server-side contract.
+<em>(documented fact, very high confidence)</em></p>
+<p><strong>Container lifecycle.</strong> A pending programmatic tool call inside a
+container times out at about 4 minutes (the example shows 270 s) and
+raises a <code>TimeoutError</code> inside Claude's running code. Idle containers
+are checkpointed after about 5 minutes. <strong>No container can be reused
+more than 30 days after creation.</strong> <em>(documented fact, high confidence)</em></p>
+<p><strong>Container parameter becomes required.</strong> Programmatic tool calling
+requires the code-execution container to be passed back on the
+continuation request while a programmatic call is pending; the API
+rejects the request without the <code>container</code> ID in that case. <code>tool_choice</code>
+cannot name a tool whose <code>allowed_callers</code> does not include <code>"direct"</code>.
+<em>(documented fact, high confidence)</em></p>
+<p><strong>Code Execution Tool sandbox limits.</strong> Linux/x86_64, no internet access,
+5 GiB RAM, 5 GiB workspace storage, 1 CPU. For
+<code>code_execution_20260521</code>, a 90-second wall-clock limit per REPL cell is
+surfaced to Claude via a <code>detection_timeout</code> status; a whole tool
+invocation can still fail with <code>execution_time_exceeded</code>. <em>(documented
+fact, very high confidence)</em></p>
+<p><strong>Platform availability.</strong> Code Execution Tool is unavailable on Amazon
+Bedrock and Google Cloud. On Microsoft Foundry, it requires a
+"Hosted on Anthropic" deployment. Programmatic tool calling shares that
+footprint and is not available on Bedrock or GCP at all. <em>(documented
+fact, high confidence)</em></p>
+<p><strong>Model compatibility.</strong> Claude Haiku 4.5 accepts the
+<code>code_execution_20260120</code> and <code>code_execution_20260521</code> tool types but
+<strong>does not</strong> get programmatic tool calling or REPL state persistence; the
+newer versions degrade to <code>code_execution_20250825</code> behavior on that
+model. The tool type string does not tell the client whether PTC is
+actually active — model matters. <em>(documented fact, high confidence)</em></p>
+<p><strong>File retrieval.</strong> <code>bash_code_execution_result.content</code> carries a list
+of <code>file_id</code> values for any files Claude created, retrievable only via
+the Files API (<code>client.beta.files.download</code>); the Files API integration
+with code execution still requires the <code>files-api-2025-04-14</code> beta
+header. <em>(documented fact, high confidence)</em></p>
+<p><strong>No internet; fixed package set.</strong> Code execution containers are
+workspace-scoped to the API key and run without internet; the Python
+environment is fixed (pandas, numpy, scipy, scikit-learn, matplotlib,
+etc.) and packages cannot be installed at runtime. <em>(documented fact,
+very high confidence)</em></p>
+<p><strong>Pricing.</strong> Code execution is free when bundled with
+<code>web_search_20260209</code> / <code>web_fetch_20260209</code>; otherwise billed at
+$0.05/hr per container with a 5-minute minimum, plus 1,550 free
+org-hours per month. Execution time is metered even when files were
+uploaded but Claude did not call the tool. <em>(documented fact, high
+confidence)</em></p>
+<p><strong>The honest admission.</strong> Programmatic tool calling is documented as one
+of three implementations of the same pattern; "Client-side direct
+execution" (the user's own code-execution tool with local functions)
+and "Self-managed sandboxed execution" are listed as alternatives, and
+Anthropic warns that client-side execution "Executes untrusted code
+outside of a sandbox" and "Tool invocations can be vectors for code
+injection." <em>(documented fact, very high confidence)</em></p>
+<p><strong>Multicomputer environment.</strong> When the user provides a client-side
+shell tool alongside the managed code execution tool, Claude is operating
+in a "multicomputer environment." The doc recommends explicit
+system-prompt instructions because "Variables, files, and state do NOT
+persist between different execution environments" and Claude can
+otherwise confuse them. <em>(documented fact, very high confidence)</em></p>
+<p><strong>API-surface note (negative).</strong> The PTC doc does not mention any of:
+a separate <code>response_model</code> parameter, a <code>response.create_with_tool_stream</code>
+method, or async functions exposed at the API surface. PTC's async
+behavior is purely inside the sandbox. The vocabulary used is
+<code>allowed_callers</code> + <code>caller.tool_id</code> + a paused <code>tool_use</code> round-trip.
+The user-supplied focus list mentioned those terms; I could not find any
+of them in the current PTC or CET docs. They may be older API names,
+draft specifications, or a different vendor's vocabulary.
+<em>(inference, medium confidence)</em></p>
+<p><strong>Inner-loop visibility (inference).</strong> Inner-loop timeout, cost, and
+sandboxing are user-invisible. A user reading a transcript sees the
+<code>server_tool_use</code> code block and its single <code>code_execution_tool_result</code>,
+with no record of how many client-tool round-trips the model made
+inside the cell, how long the cell ran, or how many retries on
+<code>TimeoutError</code> occurred. The only "inner" evidence is the per-block
+<code>return_code</code>, <code>stdout</code>, <code>stderr</code>, and (for <code>code_execution_20260521</code>) the
+<code>detection_timeout</code> marker. Container hours and <code>code_execution_requests</code>
+are at the top-level <code>usage</code> object, not per inner call. <em>(inference,
+high confidence)</em></p>
+<blockquote>
+<p><strong>Resolved 2026-07-30 — partially refuted (documented fact).</strong> For
+<strong>client tools</strong>, the inner loop is not opaque: every programmatic call
+pauses the request and surfaces a fully attributed <code>tool_use</code> block
+(<code>caller.tool_id</code> links it to its code cell), the generated Python source
+is fully visible in <code>server_tool_use.input.code</code>, <code>TimeoutError</code>s appear
+verbatim in <code>stderr</code> with elapsed seconds, and retries are countable as
+repeated blocks. Opacity is <strong>confirmed</strong> for server-side execution:
+no per-call wall-time or token/cost attribution, and — correcting the
+paragraph above — container hours do <strong>not</strong> appear in <code>usage</code> at all
+(billing is out-of-band; only <code>code_execution_requests</code> is in-band).
+Server tools invoked in-cell with <code>response_inclusion: "excluded"</code> can
+leave no transcript trace. Net: visibility per awaited client-tool call;
+opacity for server-side timing, cost, and in-cell server-tool activity.
+Evidence in <code>docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html</code>.</p>
+</blockquote>
+<p><strong>Principal limitation.</strong> You get context suppression, you get async
+inside the sandbox, you do <strong>not</strong> get visibility into the inner loop.
+For research, observability, and replay, this is the most opaque
+architecture in the study.</p>
+<p><strong>Strongest lesson.</strong> The PTC doc itself is the strongest single piece
+of evidence in the study for the <em>user-owned thesis</em>: the vendor is
+telling the user that client-side direct execution and self-managed
+sandboxed execution are real alternatives. The "easy" path is not the
+only path.</p>
+<h3 id="47-codeact-research-lineage">4.7 CodeAct (research lineage)</h3>
+<p><strong>The paper.</strong> Wang et al., "Executable Code Actions Elicit Better LLM
+Agents," arXiv:2402.01030, v1 2024-02-01, v4 2024-06-07. Accepted at
+ICML 2024. Open-source code at <code>github.com/xingyaoww/code-act</code>.
+<em>(research finding, high confidence — verified against the canonical
+arXiv page)</em></p>
+<p><strong>The claim.</strong> CodeAct proposes executable Python code as a unified
+action space, integrated with a Python interpreter, able to execute code
+actions and dynamically revise prior actions or emit new actions upon
+new observations through multi-turn interactions. The paper analyzes
+<strong>17 LLMs on API-Bank and a newly curated benchmark</strong> and reports
+<strong>up to 20% higher success rate</strong> vs. widely used alternatives (JSON /
+text in pre-defined format). The paper also releases <strong>CodeActInstruct</strong>,
+a 7k multi-turn instruction-tuning dataset, and shows that fine-tuning
+Llama2 and Mistral with it improves agent-oriented tasks without
+compromising general capability. CodeActAgent, the fine-tuned model, is
+integrated with a Python interpreter and can perform sophisticated tasks
+(e.g., model training) using existing libraries and autonomously self-
+debug. <em>(research finding, high confidence)</em></p>
+<p><strong>Research lineage gap.</strong> Without a web search MCP available in this
+environment, I cannot list follow-on papers (e.g., on the lineage
+through OpenCodeInterpreter, OpenHands, Aider, or specific
+self-debug / self-evolve variants). <strong>Marked as open question</strong> —
+second-phase research should enumerate the follow-on corpus and the
+specific self-debug / self-evolve evidence.</p>
+<blockquote>
+<p><strong>Resolved 2026-07-30 — corpus enumerated (research findings).</strong> A
+23-item sweep (OpenHands/ICLR 2025, OpenCodeInterpreter, DynaSaur/COLM
+2025, CoAct-1, CodeTool/ACL 2025, SICA, Darwin Gödel Machine, Aider
+Polyglot, RedCode/NeurIPS 2024, SWE-agent/NeurIPS 2024, CodeDelegator,
+CaveAgent, Anthropic "code execution with MCP", Cloudflare "Code Mode",
+and more) finds the code-as-action thesis <strong>strengthened</strong> — no paper
+shows JSON tool calling beating code actions head-to-head — but
+<strong>complicated</strong> three ways: unconstrained action spaces fail without
+curated interfaces (SWE-agent), execute risky code at measured rates
+(RedCode), and degrade on long horizons from context pollution and lost
+runtime state (CodeDelegator, CaveAgent). Full annotated list in
+<code>docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html</code>.</p>
+</blockquote>
+<p><strong>Why this matters.</strong> CodeAct is the <em>primary citation</em> in the study
+for "code is a unified action space." It is also the academic
+underpinning of <code>smolagents</code>' <code>CodeAgent</code>. If a future agent questions
+the thesis "generated code is the right action-composition language,"
+the CodeAct paper is the answer to point them at — with the caveat that
+its evidence is "up to 20%," not "always," and that the comparison is
+against JSON/text tool-calling, not against deterministic code.</p>
+<hr />
+<h2 id="5-maturity-rubric-and-scoring">5. Maturity rubric and scoring</h2>
+<h3 id="51-rubric">5.1 Rubric</h3>
+<table>
+<thead>
+<tr>
+<th>Score</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>Research concept. Idea in a paper, no working implementation.</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Experimental implementation. Working but not production-tested.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Usable feature with material caveats. Documented, can be deployed, but has known gaps or risks that need mitigation.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Repeated production pattern with operational guidance. Multiple adopters, ops runbooks, public incident lore.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Interoperable or standardized infrastructure. Multiple competing implementations, or a formal standard, or a single dominant one with public failure modes.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-scoring">5.2 Scoring</h3>
+<p>The following table is the preliminary score for each layer. Every cell
+carries the evidence anchor and a confidence note. "Anchor" is a
+short tag that points to one or more claims in the landscape analysis.</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Score</th>
+<th>Anchor</th>
+<th>Confidence</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Structured model-to-tool calling</td>
+<td><strong>4</strong></td>
+<td>OpenAI Agents SDK FunctionTool; smolagents @tool</td>
+<td>high</td>
+<td>Mature, multiple competing implementations, public failure modes documented.</td>
+</tr>
+<tr>
+<td>Agent exposed as a bounded tool</td>
+<td><strong>3</strong></td>
+<td><code>Agent.as_tool()</code>; <code>AgentTool</code>; managed_agents</td>
+<td>high</td>
+<td>Production pattern; the handoff itself maps this layer as "common in modern SDKs."</td>
+</tr>
+<tr>
+<td>Developer-authored parallel worker fan-out</td>
+<td><strong>3</strong></td>
+<td>LangGraph <code>Send</code>; ADK <code>ParallelAgent</code></td>
+<td>high</td>
+<td>Mature as a workflow/distributed-systems pattern; integration with LLM agents is the "still research" part.</td>
+</tr>
+<tr>
+<td>Provider-neutral model adapters</td>
+<td><strong>3</strong></td>
+<td>LiteLLM, any-llm, OpenAI Agents SDK 100+ claim</td>
+<td>medium</td>
+<td>Common but behavioral parity is incomplete; vendor-specific tool types and structured output differ.</td>
+</tr>
+<tr>
+<td>Generated code composing multiple tools</td>
+<td><strong>2</strong></td>
+<td>smolagents CodeAgent; AutoGen executors</td>
+<td>high</td>
+<td>Demonstrated and usable, but harder to secure, persist, and replay. Local executors are explicitly <strong>not</strong> a security boundary.</td>
+</tr>
+<tr>
+<td>Generated code invoking nested agents</td>
+<td><strong>2</strong></td>
+<td>smolagents managed_agents; AutoGen composed tools</td>
+<td>medium-high</td>
+<td>Implemented, still specialized; the agent-as-tool pattern lives at the LLM-schema level, not the code-import level.</td>
+</tr>
+<tr>
+<td>Durable cross-provider worker orchestration</td>
+<td><strong>2</strong></td>
+<td>LangGraph PostgresSaver; AutoGen gRPC runtime (experimental)</td>
+<td>medium</td>
+<td>Active engineering territory without a settled standard. LangGraph Platform Agent Server is the closest thing to "managed" but ties you to the LangChain ecosystem.</td>
+</tr>
+<tr>
+<td>Dependable autonomous agent organizations</td>
+<td><strong>1</strong></td>
+<td>None of the studied systems</td>
+<td>high</td>
+<td>Unsolved and often overclaimed. The OpenAI Agents SDK and Google ADK both hide the multi-agent boundaries behind typed contracts precisely because the open research question is whether that can be reliable.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="53-reading-the-table">5.3 Reading the table</h3>
+<ul>
+<li>Layers at score 3-4 are <em>safe to build on</em> with the standard caveats.</li>
+<li>Layers at score 2 are <em>usable but require you to bring the operational
+  story yourself</em> — durability, observability, security, and recovery.</li>
+<li>The layer at score 1 (autonomous agent organizations) is the place
+  where vendor marketing exceeds evidence by the widest margin. The
+  study's central recommendation is to <strong>not</strong> attempt that layer as
+  an end goal; if a use case appears to require it, the right answer is
+  almost always to back out and build it as a deterministic workflow
+  with bounded model calls.</li>
+</ul>
+<hr />
+<h2 id="6-comparison-matrix">6. Comparison matrix</h2>
+<p>The matrix below uses one row per framework. Cells summarize the most
+material property in that column. "—" means "not part of the design
+surface." "open" means "explicitly left to the user."</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><strong>smolagents</strong></th>
+<th><strong>LangGraph</strong></th>
+<th><strong>OpenAI Agents SDK</strong></th>
+<th><strong>Google ADK</strong></th>
+<th><strong>Microsoft AutoGen</strong></th>
+<th><strong>Anthropic PTC / CET</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Orchestration language</td>
+<td>generated Python</td>
+<td>explicit graph DSL</td>
+<td>Python with <code>as_tool</code>/<code>handoff</code></td>
+<td>Python with <code>sub_agents</code> / <code>AgentTool</code></td>
+<td>Python with actor model</td>
+<td>generated Python inside managed sandbox</td>
+</tr>
+<tr>
+<td>Owner of outer model loop</td>
+<td>smolagents (<code>MultiStepAgent.run</code>)</td>
+<td>user (graph nodes)</td>
+<td>OpenAI SDK (<code>Runner.run</code>)</td>
+<td>ADK (per-agent run)</td>
+<td>AutoGen runtime</td>
+<td>Anthropic API</td>
+</tr>
+<tr>
+<td>Owner of inner tool loop</td>
+<td>smolagents executor</td>
+<td>user (graph node)</td>
+<td>nested <code>Runner.run</code> for <code>as_tool</code></td>
+<td>nested ADK run for <code>AgentTool</code></td>
+<td><code>PythonCodeExecutionTool</code> wraps executor</td>
+<td>Anthropic sandbox</td>
+</tr>
+<tr>
+<td>Generated-code support</td>
+<td>yes (Python, default <code>CodeAgent</code>)</td>
+<td>no (graph nodes are user-authored)</td>
+<td>limited (model emits JSON tool calls)</td>
+<td>limited (workflow agents are deterministic)</td>
+<td>yes (model emits Python, executor runs it)</td>
+<td>yes (model emits Python, sandbox runs it)</td>
+</tr>
+<tr>
+<td>Tools callable from generated code</td>
+<td>yes — by name, via injected namespace</td>
+<td>no — tools are graph nodes</td>
+<td>no — JSON tool calls</td>
+<td>no — JSON tool calls</td>
+<td>yes — via <code>functions=[...]</code> prompting only; not Python-importable</td>
+<td>yes — async functions, with <code>allowed_callers</code> declaration</td>
+</tr>
+<tr>
+<td>Agents callable as tools</td>
+<td>yes — <code>managed_agents</code></td>
+<td>yes — subgraph</td>
+<td>yes — <code>Agent.as_tool()</code></td>
+<td>yes — <code>AgentTool</code></td>
+<td>yes — agent-as-tool composition</td>
+<td>no (no nested managed execution surface)</td>
+</tr>
+<tr>
+<td>Deterministic workflow support</td>
+<td>no</td>
+<td>yes — <code>Sequential</code>, <code>Parallel</code>, <code>Loop</code>-shaped graphs</td>
+<td>partial — workflow traces</td>
+<td>yes — <code>SequentialAgent</code> / <code>ParallelAgent</code> / <code>LoopAgent</code></td>
+<td>yes — actor-message ordering is deterministic per topic</td>
+<td>no — generated code is the workflow</td>
+</tr>
+<tr>
+<td>Concurrency mechanism</td>
+<td><code>asyncio</code> inside the executor; <code>max_steps</code> for the outer loop</td>
+<td><code>Send</code> API for fan-out; <code>Annotated[list, operator.add]</code> for aggregation</td>
+<td><code>asyncio.gather</code>-style tracing; not a first-class workflow primitive</td>
+<td><code>ParallelAgent</code> for fan-out</td>
+<td>actor messages on topics; <code>RoutedAgent</code> is single-threaded per instance</td>
+<td><code>asyncio.gather</code> inside the sandbox only</td>
+</tr>
+<tr>
+<td>Checkpoint / resume</td>
+<td>no (in-memory <code>AgentMemory.steps</code> only)</td>
+<td>yes — <code>PostgresSaver</code> / <code>SqliteSaver</code> / Agent Server</td>
+<td>sessions (Redis extra)</td>
+<td>session + memory services (in-memory or cloud/db)</td>
+<td>not built-in to the executor; runtime-level via gRPC</td>
+<td>no (container resumed via <code>container=...</code> parameter)</td>
+</tr>
+<tr>
+<td>Artifact handling</td>
+<td>generated code writes to local filesystem / E2B / Docker</td>
+<td>graph state; long-term memory via <code>Store</code></td>
+<td>trace spans ship to OpenAI backend or third-party exporter</td>
+<td><code>BaseArtifactService</code> (in-memory or GCS)</td>
+<td>component config; no first-class artifact service</td>
+<td><code>file_id</code>s via Files API</td>
+</tr>
+<tr>
+<td>Approvals and permissions</td>
+<td><code>step_callbacks</code>; no first-class approval</td>
+<td><code>interrupt()</code> + <code>Command(resume=...)</code></td>
+<td><code>needs_approval</code> / <code>RunState.approve()</code></td>
+<td>guardrails on tools (not deeply verified here)</td>
+<td>not built-in to the executor</td>
+<td>none inside the sandbox; system prompt only</td>
+</tr>
+<tr>
+<td>Execution backends</td>
+<td>local AST / Docker / E2B / Modal / Blaxel</td>
+<td>user-supplied nodes; ToolNode calls user tools</td>
+<td>user-supplied tool implementations</td>
+<td>user-supplied tool implementations</td>
+<td>local / Docker / Jupyter / DockerJupyter / Azure (ACADynamicSessions)</td>
+<td>managed Linux/x86_64, no internet, fixed package set</td>
+</tr>
+<tr>
+<td>Provider portability</td>
+<td>high — <code>LiteLLMModel</code>, <code>OpenAIModel</code>, <code>TransformersModel</code>, <code>BedrockModel</code>, <code>AzureOpenAIModel</code>, <code>InferenceClientModel</code></td>
+<td>high — model client is a node implementation</td>
+<td>high via LiteLLM / any-llm; realtime is OpenAI-only</td>
+<td>Gemini-native; other providers via integration</td>
+<td>model client is a <code>Component</code>; <code>AzureOpenAI</code> and others supported</td>
+<td>Anthropic-only (Claude); not on Bedrock or GCP</td>
+</tr>
+<tr>
+<td>Observability and replay</td>
+<td><code>replay()</code> / <code>write_memory_to_messages()</code>; Hub save/restore</td>
+<td>traces via LangSmith; checkpoint time travel</td>
+<td>built-in tracing with many exporters</td>
+<td>traces via Vertex AI Agent Engine</td>
+<td>runtime-level event log</td>
+<td>per-block <code>return_code</code> / <code>stdout</code> / <code>stderr</code>; inner loop opaque</td>
+</tr>
+<tr>
+<td>Maturity level (rubric of section 5; framework view from the primary draft)</td>
+<td><strong>2</strong> — usable with caveats</td>
+<td><strong>3</strong> — production pattern</td>
+<td><strong>3</strong> — production pattern</td>
+<td><strong>2</strong> — usable with caveats</td>
+<td><strong>2</strong> — usable with caveats</td>
+<td><strong>2</strong> — usable with caveats</td>
+</tr>
+<tr>
+<td>Maturity / stability signals</td>
+<td>ICML-style research lineage via CodeAct; multiple executor backends; rapid iteration</td>
+<td>38.4k GitHub stars; v1.0 API; LangGraph Platform managed runtime</td>
+<td>OSS SDK, multiple exporters, OpenAI ZDR caveat</td>
+<td>active OSS repo, Vertex AI Agent Engine deployment</td>
+<td>OSS, 0.4+ actor model, distributed runtime marked experimental</td>
+<td>production feature on Anthropic API; PTC has known inner-loop opacity</td>
+</tr>
+<tr>
+<td>Strongest lesson</td>
+<td>inject a flat Python namespace so generated code composes tools as ordinary calls</td>
+<td>nodes, not LLM calls; the graph is the control plane</td>
+<td><code>Agent.as_tool()</code> + Pydantic <code>parameters</code> + <code>custom_output_extractor</code> is the cleanest agent-as-tool contract in the study</td>
+<td>separate <code>Session</code> from <code>Memory</code>; first-class <code>BaseArtifactService</code></td>
+<td><code>async with Executor() as ex: tool = PythonCodeExecutionTool(ex); agent = AssistantAgent(..., tools=[tool])</code> — clean composition</td>
+<td>the vendor itself lists client-side direct execution and self-managed sandboxed execution as real alternatives</td>
+</tr>
+<tr>
+<td>Principal limitation</td>
+<td>no checkpoint / resume; outer loop not pluggable</td>
+<td>mental model shift from "model loop" to "graph of work units"</td>
+<td>tracing unavailable under OpenAI ZDR; managed runtime absent</td>
+<td>deployment story incomplete on the public surface</td>
+<td>distributed runtime is experimental; docker executor has a CRITICAL trust-boundary issue (issue #7917)</td>
+<td>inner loop is user-invisible; per-call cost / retries / timeout are not in the transcript</td>
+</tr>
+<tr>
+<td>Evidence type</td>
+<td>documented fact + source-code observation</td>
+<td>documented fact</td>
+<td>documented fact</td>
+<td>documented fact + source-code observation</td>
+<td>documented fact + source-code observation + measured result (issue #7917)</td>
+<td>documented fact + inference (inner-loop opacity)</td>
+</tr>
+<tr>
+<td>Confidence (overall)</td>
+<td>0.90</td>
+<td>0.90</td>
+<td>0.90</td>
+<td>0.80</td>
+<td>0.90</td>
+<td>0.95</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-emerging-engineering-trends-assessment">7. Emerging engineering trends assessment</h2>
+<p>Carried over from the 2026-07-29 primary draft and re-labeled during
+consolidation with this report's stricter claim taxonomy (the primary draft
+labeled the smolagents step-reduction figure a measured result; it is a
+vendor-reported benchmark and is downgraded accordingly).</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Trend</th>
+<th>Status</th>
+<th>Evidence and impact</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Code as the action-composition language</td>
+<td><code>research finding</code> (strong) + <code>vendor claim</code></td>
+<td>CodeAct reports up to 20% higher success vs JSON/text tool calling across 17 LLMs (arXiv:2402.01030). smolagents' "~30% fewer steps" figure is a vendor-reported benchmark from Hugging Face documentation.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Specialists encapsulated as bounded tools</td>
+<td><code>documented fact</code></td>
+<td>Standardized in OpenAI Agents SDK (<code>Agent.as_tool()</code>), Google ADK (<code>AgentTool</code>), smolagents (<code>managed_agents</code>). Prevents context bloat in multi-agent systems.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Durable workflow engines surrounding probabilistic models</td>
+<td><code>documented fact</code> (conditional)</td>
+<td>LangGraph checkpointers and super-steps; durability is conditional on the chosen backend (<code>InMemorySaver</code> does not survive restarts).</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Generated programs remaining ephemeral optimization layers</td>
+<td><code>inference</code></td>
+<td>No studied framework persists generated code as a source of truth; durable logic is promoted to application code or graph definitions.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Complete artifacts moving to external storage</td>
+<td><code>documented fact</code></td>
+<td>ADK <code>BaseArtifactService</code>; Anthropic container workspace + Files API; LangGraph <code>Store</code>. Context windows stay lean; models consume summaries and references.</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Provider-neutral worker gateways</td>
+<td><code>open question</code></td>
+<td>LiteLLM / any-llm exist, but behavioral parity across providers is incomplete and no settled standard has emerged.</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Explicit separation of deterministic and cognitive nodes</td>
+<td><code>documented fact</code></td>
+<td>LangGraph's workflows-vs-agents distinction; ADK workflow agents; graph nodes isolate deterministic routing from probabilistic generation.</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Sandboxed execution as a first-class runtime abstraction</td>
+<td><code>documented fact</code></td>
+<td>smolagents <code>executor_type</code> family; AutoGen's five executors; Anthropic's managed sandbox; E2B/Docker/microVM integration in agent SDKs.</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Evaluation shifting to trajectories, routing, cost, recovery</td>
+<td><code>research finding</code> (early)</td>
+<td>CodeAct separates action format from model quality; SDK tracing spans exist; no framework yet separates decomposition/routing/recovery quality as first-class metrics.</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Deferred tool loading and discovery replacing static catalogs</td>
+<td><code>inference</code> (weakly evidenced)</td>
+<td>On-demand tool-schema loading appears in vendor harnesses; not yet a documented cross-framework standard. Flagged for the phase-2 Claude Agent SDK / MCP review.</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Policy, budgets, and authority above models, not in prompts</td>
+<td><code>documented fact</code> as principle; <code>open question</code> as standard</td>
+<td>Approval surfaces exist (<code>interrupt()</code>, <code>needs_approval</code>); budget and authority enforcement remains user-built in every studied system (see sections 8.1 and 8.3).</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-difficult-and-unsolved-areas">8. Difficult and unsolved areas</h2>
+<h3 id="81-authority">8.1 Authority</h3>
+<p><strong>What it means.</strong> Separating planning from execution authority;
+enforcing permissions below generated code and workers; avoiding
+ambient credentials, filesystem, and network access.</p>
+<p><strong>Current state.</strong> smolagents explicitly states <code>LocalPythonExecutor</code> is
+not a security boundary. AutoGen issue #7917 is a CRITICAL trust-boundary
+violation. Anthropic PTC's "multicomputer environment" warning says
+"Variables, files, and state do NOT persist between different execution
+environments" — i.e., even Anthropic is not promising that the model
+will not confuse the boundaries. LangGraph has the cleanest story here:
+nodes own the side effects, the user owns the graph, <code>interrupt()</code> is
+the explicit approval point. <em>(documented fact across the study.)</em></p>
+<p><strong>Open question.</strong> There is no mature cross-framework authority model.
+A "model issued a tool call, the tool call is denied, the model needs to
+know" loop exists in pieces in each framework but is not standardized.
+In particular, <em>what does the model see when a tool is denied?</em> The
+answer varies from framework to framework and is rarely documented.</p>
+<h3 id="82-durability">8.2 Durability</h3>
+<p><strong>What it means.</strong> Checkpointing nested loops; resuming without
+duplicated side effects; idempotency; exactly-once versus at-least-once
+execution.</p>
+<p><strong>Current state.</strong> LangGraph <code>PostgresSaver</code> is the most mature.
+LangGraph's own docs warn that the node restarts from the top on resume,
+so side effects before <code>interrupt()</code> must be idempotent. smolagents has
+no built-in checkpointing for in-progress runs. AutoGen's executor has
+<code>restart()</code> but no automatic snapshotting. Anthropic PTC has the
+container parameter, but the inner loop is opaque and retry semantics
+inside the sandbox are not documented. <em>(documented fact + inference.)</em></p>
+<p><strong>Open question.</strong> Exactly-once execution across a model call, a tool
+call, and a side effect is <strong>not solved</strong> in any of the studied systems.
+LangGraph's restart-from-the-top pattern is at-least-once, not
+exactly-once; idempotency is the developer's problem.</p>
+<blockquote>
+<p><strong>Measured 2026-07-30 (measured result, langgraph 1.2.10, local
+no-model experiment).</strong> A side effect placed before <code>interrupt()</code> inside
+a node executed <strong>twice</strong> for a single interrupt-and-resume (once on the
+initial invoke, once on resume) and <strong>N+1 times</strong> for a node containing
+N interrupts (once per resume — 3x for two interrupts). The docs'
+"must be idempotent" warning is exact, and the cost scales linearly with
+interrupts per node. Method and script noted in <code>docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html</code>.</p>
+</blockquote>
+<h3 id="83-concurrency">8.3 Concurrency</h3>
+<p><strong>What it means.</strong> Quotas, backpressure, cancellation, retry storms,
+adaptive limits, and nested cost/token budgets.</p>
+<p><strong>Current state.</strong> AutoGen's <code>CancellationToken</code> is the most explicit
+public surface — but cancellation is <em>cooperative</em> (not OS-level) in the
+Jupyter variant and the local executor relies on per-block subprocess
+timeouts. LangGraph's <code>Send</code> API supports dynamic fan-out with a
+<code>Annotated[list, operator.add]</code> reducer; cancellation propagates via the
+graph runtime. ADK's <code>ParallelAgent</code> is a fan-out primitive; its
+cancellation story is less explicit. Anthropic PTC is single-cell at a
+time — there is no outer fan-out inside the sandbox. <em>(documented fact.)</em></p>
+<p><strong>Open question.</strong> Nested cost/token budgets (one orchestrator spending
+across N sub-agents, each of which has its own model client) are
+<strong>not</strong> a first-class concept in any of the studied systems. The user
+must compose this themselves.</p>
+<h3 id="84-context-and-artifacts">8.4 Context and artifacts</h3>
+<p><strong>What it means.</strong> Keeping complete evidence outside model context;
+returning summaries and stable references; preserving provenance after
+filtering.</p>
+<p><strong>Current state.</strong> Anthropic PTC's whole selling point is context
+suppression — intermediate tool results do not enter Claude's context.
+The cost is opacity: there is no per-tool-call record in the transcript.
+Google ADK's <code>BaseArtifactService</code> is the cleanest explicit
+implementation. LangGraph's <code>Store</code> primitive is the most flexible.
+smolagents' only context store is the in-memory <code>AgentMemory.steps</code>.
+<em>(documented fact.)</em></p>
+<p><strong>Open question.</strong> Provenance across filtering — "where did this summary
+come from and which exact tool call produced it?" — is not a first-class
+concept. Anthropic PTC's <code>caller.tool_id</code> is a partial answer; LangGraph
+traces are a partial answer; neither is a complete answer.</p>
+<h3 id="85-worker-contracts">8.5 Worker contracts</h3>
+<p><strong>What it means.</strong> Typed inputs/outputs, partial success, timeouts,
+confidence, schema versions, and avoiding an unreviewable <code>run_anything</code>
+authority tunnel.</p>
+<p><strong>Current state.</strong> OpenAI Agents SDK's <code>Agent.as_tool()</code> with Pydantic
+<code>parameters</code> and <code>custom_output_extractor</code> is the cleanest contract in
+the study. Google ADK's <code>AgentTool</code> provides a similar shape. smolagents
+tools are typed via the JSON schema derived from the Python signature.
+Anthropic PTC's <code>allowed_callers</code> is presentation guidance, not a
+security boundary. <em>(documented fact.)</em></p>
+<p><strong>Open question.</strong> Confidence scores and schema versioning on worker
+outputs are not first-class. A <code>run_anything</code> authority tunnel — a tool
+whose description is "do whatever needs doing" — is the single biggest
+threat to the user-owned thesis, and none of the studied frameworks
+prevent it.</p>
+<h3 id="86-evaluation">8.6 Evaluation</h3>
+<p><strong>What it means.</strong> Separating model quality from decomposition, routing,
+aggregation, recovery, cost, and provenance quality; detecting
+correlated worker failures.</p>
+<p><strong>Current state.</strong> The CodeAct paper separates model quality from the
+action format. None of the studied SDKs separate "the model was wrong"
+from "the decomposition was wrong" from "the routing was wrong" from
+"the recovery was wrong." The user must instrument this themselves.
+<em>(documented fact + open question.)</em></p>
+<p><strong>Open question.</strong> Correlated worker failures (e.g., the same model
+vendor having an outage that affects N workers at once) is not
+addressed by any framework. Multi-vendor fan-out is the obvious
+mitigation; none of the studied systems make this easy.</p>
+<h3 id="87-generated-code-reliability">8.7 Generated-code reliability</h3>
+<p><strong>What it means.</strong> Syntax/runtime errors, unbounded loops, auditing
+ephemeral code, injection, sandboxing, and deciding what logic must
+become durable application code.</p>
+<p><strong>Current state.</strong> smolagents has hard limits on operations (10M), while
+iterations (1M), output length (50 000), and wall time (30 s). AutoGen
+has per-block subprocess timeouts on the local executor. Anthropic PTC
+has a 90-second REPL cell limit (for <code>code_execution_20260521</code>) and a
+~4-minute container pause timeout. None of these is sufficient for
+untrusted code. <em>(documented fact.)</em></p>
+<p><strong>Open question.</strong> "What logic must become durable application code
+rather than generated code" is a design heuristic, not a measured
+property. The CodeAct paper's self-debug capability is a research
+result, not a production guarantee.</p>
+<h3 id="88-human-control">8.8 Human control</h3>
+<p><strong>What it means.</strong> Useful approval points, cost/authority previews,
+pause / stop / redirection, and understandable nested activity.</p>
+<p><strong>Current state.</strong> LangGraph's <code>interrupt()</code> is the most explicit
+approval primitive. OpenAI Agents SDK's <code>needs_approval</code> is similar.
+Anthropic PTC has none inside the sandbox. smolagents has no
+first-class approval. ADK has guardrails on tools. <em>(documented fact.)</em></p>
+<p><strong>Open question.</strong> "Understandable nested activity" — can a human read
+a transcript of a multi-agent system and know what happened and why? —
+is a research question, not a solved problem. LangGraph traces are
+closest; Anthropic PTC is farthest.</p>
+<hr />
+<h2 id="9-what-existing-systems-teach-us">9. What existing systems teach us</h2>
+<p>Six lessons that hold across the study set.</p>
+<ol>
+<li>
+<p><strong>The most important abstraction is not "agent" or "tool" — it is
+   "node."</strong> LangGraph is the clearest example, but every framework
+   eventually lands on a graph-of-nodes mental model because that is the
+   shape that lets the user own the loop.</p>
+</li>
+<li>
+<p><strong>Generated Python is a real action language.</strong> CodeAct (Wang et
+   al., 2024) and smolagents both demonstrate that "model emits Python
+   that calls tools by name" outperforms "model emits JSON tool calls"
+   on standard benchmarks. The claim is "up to 20%" — not always — and
+   the comparison is against JSON tool calling, not against
+   deterministic code.</p>
+</li>
+<li>
+<p><strong>The vendor-managed inner loop is a real cost-saving tool, and a
+   real loss of visibility.</strong> Anthropic PTC's context suppression
+   numbers (~38% on a 75-tool benchmark) are real. The corresponding
+   loss — no per-call record, no inner-loop transcript, container
+   timeouts that are not surfaced — is also real. The trade is
+   documented; the choice should be the user's, not the model's.</p>
+</li>
+<li>
+<p><strong>Isolation is graded, not uniform.</strong> smolagents' <code>LocalPythonExecutor</code>
+   is explicitly "not a security boundary." AutoGen's <code>bind_dir</code> is a
+   CRITICAL trust-boundary violation per issue #7917. The only mature
+   isolation story in the study is "use Docker" or "use a managed
+   sandbox."</p>
+</li>
+<li>
+<p><strong>Provider-neutral is real but not symmetric.</strong> LiteLLM, any-llm, and
+   the OpenAI Agents SDK 100+ claim all exist. They do not eliminate
+   per-vendor surface: tool types, structured output shapes, audio /
+   realtime APIs, and managed features (Anthropic PTC, Google Vertex
+   Agent Engine) remain vendor-specific. The mental model should be
+   "model call is replaceable; managed runtime is not."</p>
+</li>
+<li>
+<p><strong>Durability is the unsolved primitive.</strong> Exactly-once execution,
+   cross-vendor checkpointing, and provenance after filtering are all
+   open. LangGraph's <code>PostgresSaver</code> is the most mature local answer;
+   LangGraph Platform Agent Server is the most mature managed answer;
+   neither is a standard. Everything else in the study is at most
+   "save the agent definition and replay from the start."</p>
+</li>
+</ol>
+<hr />
+<h2 id="10-what-remains-genuinely-open">10. What remains genuinely open</h2>
+<p>The following are not implementation gaps. They are research questions
+that the user-owned thesis needs answered before it can be considered
+mature.</p>
+<ol>
+<li><strong>Exactly-once execution across model + tool + side effect.</strong> No
+   framework has this. The current state of the art is "be idempotent
+   and accept at-least-once."</li>
+<li><strong>Cross-vendor checkpointing.</strong> A PostgresSaver-equivalent that
+   snapshots a run across Claude + Gemini + local model + Python
+   worker, with replay, does not exist.</li>
+<li><strong>Provenance across filtering.</strong> Once you summarize a tool result
+   before passing it to the model, the model's downstream claims
+   cannot be traced back to the original bytes. The handoff's
+   principle "complete evidence outside model context" is the right
+   framing, but the tooling to enforce it is not standardized.</li>
+<li><strong>Nested cost and token budgets.</strong> An orchestrator with N sub-agents,
+   each with its own model client, needs a parent budget that
+   propagates and a child exhaustion story that is visible. None of
+   the studied systems ship this.</li>
+<li><strong>Reliable autonomous agent organizations.</strong> The single most over-
+   claimed area in vendor marketing. CodeAct's 20% improvement is on
+   single-agent action format, not on multi-agent cooperation. The
+   state of the art on "cooperating agents" is bounded worker
+   contracts (AgentTool, handoff, managed_agents) with explicit
+   check-in points, not autonomous coordination.</li>
+<li><strong>Authority as a first-class concept.</strong> A standard for "this tool
+   call is denied; the model needs to know; the model needs to
+   adjust." Each framework implements a piece. None of them implements
+   the whole.</li>
+</ol>
+<hr />
+<h2 id="11-a-user-owned-reference-architecture-synthesis-not-implementation">11. A user-owned reference architecture (synthesis, not implementation)</h2>
+<p>This section is the synthesis the handoff asks for. It is <strong>not</strong> an
+implementation plan and it is <strong>not</strong> something the runner will adopt
+on this turn. It is the shape a user-owned system could take if the
+open questions above were answered.</p>
+<h3 id="111-layers-owners-and-surfaces">11.1 Layers, owners, and surfaces</h3>
+<pre><code class="language-text">%% mermaid diagram source (renders on mermaid.live or in a mermaid-enabled viewer)
+flowchart TB
+    subgraph CP[User-owned control plane]
+        ORC[Orchestrator&lt;br/&gt;user code]
+        SCH[Scheduler&lt;br/&gt;user code]
+        PERM[Permissions &amp;amp; Policy&lt;br/&gt;user code]
+        ART[Artifact Store&lt;br/&gt;user filesystem / DB]
+        OBS[Observability&lt;br/&gt;user code]
+        DUR[Durability&lt;br/&gt;checkpoints, idempotency]
+    end
+    subgraph COG[Replaceable cognitive workers]
+        W1[Worker: Claude&lt;br/&gt;typed contract]
+        W2[Worker: Gemini&lt;br/&gt;typed contract]
+        W3[Worker: local model&lt;br/&gt;typed contract]
+        W4[Worker: deterministic Python&lt;br/&gt;no model]
+        W5[Worker: external API&lt;br/&gt;typed contract]
+    end
+    subgraph GATE[Provider-neutral worker gateway]
+        GW[gateway.py&lt;br/&gt;common schema, retry, cost]
+    end
+    ORC --&gt; SCH
+    ORC --&gt; PERM
+    ORC --&gt; ART
+    ORC --&gt; OBS
+    ORC --&gt; DUR
+    ORC --&gt; W1
+    ORC --&gt; W2
+    ORC --&gt; W3
+    ORC --&gt; W4
+    ORC --&gt; W5
+    W1 -. typed contract .-&gt; GW
+    W2 -. typed contract .-&gt; GW
+    W3 -. typed contract .-&gt; GW
+    W5 -. typed contract .-&gt; GW
+</code></pre>
+<h3 id="112-the-five-loop-stack">11.2 The five-loop stack</h3>
+<p>The user-owned thesis implies five nested loops, each with a clear owner:</p>
+<ol>
+<li><strong>Application loop</strong> (user code). What the user actually wants done.
+   Pure code, no model.</li>
+<li><strong>Orchestration loop</strong> (user code, possibly LangGraph-shaped).
+   Decomposes work, schedules workers, enforces policy, checkpoints.</li>
+<li><strong>Worker loop</strong> (each worker). A bounded contract: typed input,
+   typed output, declared cost, declared timeout, declared authority.</li>
+<li><strong>Model loop</strong> (the vendor). The model itself, on the model's
+   infrastructure, behind a contract.</li>
+<li><strong>Approval loop</strong> (user code, possibly via <code>interrupt()</code>-equivalent).
+   The places where the user can pause, inspect, redirect, or stop.</li>
+</ol>
+<p>The non-trivial claim is that <strong>loop 1, 2, 3, and 5 are all user code</strong>
+— that is what "user owns the loop" means in practice. Loop 4 is the
+only loop the vendor owns.</p>
+<h3 id="113-what-this-looks-like-against-the-studied-systems">11.3 What this looks like against the studied systems</h3>
+<ul>
+<li><strong>smolagents</strong> is a good fit for the <em>worker</em> layer (loop 3) when
+  the worker is a generated-Python cognitive loop, and a poor fit
+  for loop 2 (no durable graph).</li>
+<li><strong>LangGraph</strong> is a good fit for loop 2 (the orchestration loop)
+  with built-in durability, and a poor fit for loop 3 (no built-in
+  code executor).</li>
+<li><strong>OpenAI Agents SDK</strong> is a good fit for loop 3 (the <code>Agent.as_tool()</code>
+  pattern) and a poor fit for loop 2 (no graph primitive).</li>
+<li><strong>Google ADK</strong> has the right <em>vocabulary</em> for loop 2 (<code>SequentialAgent</code>
+  / <code>ParallelAgent</code> / <code>LoopAgent</code>) but the deployment story is not
+  fully public, and the artifact/session/memory split is right.</li>
+<li><strong>AutoGen</strong> is a good fit for loop 3 in the docker executor mode
+  (with the bind_dir fix from issue #7917) and a poor fit for loop 2
+  in the cross-process case (distributed runtime is experimental).</li>
+<li><strong>Anthropic PTC / CET</strong> is a good fit for loop 4 <em>if and only if</em>
+  the user is willing to give up inner-loop visibility. For research
+  and audit-heavy workflows, this is a non-starter.</li>
+</ul>
+<h3 id="114-the-users-local-ai-renaming-pipeline-as-the-proof">11.4 The user's local AI-renaming pipeline as the proof</h3>
+<pre><code class="language-text">%% mermaid diagram source (renders on mermaid.live or in a mermaid-enabled viewer)
+flowchart LR
+    F[Finder] --&gt;|trigger| S[Shortcut]
+    S --&gt;|call| P[Python&lt;br/&gt;loop 1: application]
+    P --&gt;|typed call| G[Gemini&lt;br/&gt;loop 4: model]
+    G --&gt;|typed response| P
+    P --&gt;|os.rename| FS[(filesystem&lt;br/&gt;artifact store)]
+    P --&gt;|progress| UI
+    P --&gt;|log| LOG[local log]
+</code></pre>
+<p>The user's pipeline is already the shape: application loop (Python) →
+typed worker call (Gemini) → typed response → side effect on the
+artifact store (filesystem) → log. There is no model-side planning
+beyond "give me a filename." The user owns every loop. This is
+<strong>the existence proof</strong> of the user-owned thesis, in production, at
+100+ files per minute. The interesting question is not "does it
+work" but "how do we keep the same shape when the worker needs to
+call N tools, and the model needs to think for longer than one
+filenames-worth of context?"</p>
+<p>The reference architecture is the answer to that question: add an
+orchestration loop above the application loop, and a gateway in
+front of the workers. Do not add a model-side planning loop.</p>
+<hr />
+<h2 id="12-second-phase-research-agenda">12. Second-phase research agenda</h2>
+<p>A bounded list of open questions for the next phase. Each is sized to
+fit one focused research turn, with named primary sources.</p>
+<ol>
+<li><strong>Re-verify the bind_dir fix in AutoGen 0.4+.</strong> Confirm whether
+   the docker executor in the current release uses default-deny
+   mounts, validated path allowlists, or read-only mounts by default,
+   or whether the user still has to opt in. Primary source: the
+   AutoGen 0.4.x release notes and the resolved-state of issue
+   #7917.</li>
+<li><strong>Map the Anthropic PTC inner-loop surface.</strong> Use the Anthropic
+   cookbook notebooks and the latest release notes to enumerate
+   exactly which fields are visible in the transcript for a
+   programmatic call: number of inner client-tool round-trips, wall
+   time, retry counts, <code>TimeoutError</code> frequency, <code>return_code</code>,
+   <code>detection_timeout</code>. The current study marks inner-loop opacity
+   as an inference; this would convert it to a documented fact.</li>
+<li><strong>Enumerate the CodeAct follow-on corpus.</strong> The current study
+   marks this as an open question. A focused arXiv pass on
+   executable-code-action research since 2024-02 would close it.
+   Target papers: OpenHands (formerly OpenDevin), OpenCodeInterpreter,
+   Aider, Self-Debug, Self-Evolve, and the ICML / NeurIPS 2024-2025
+   track on agent benchmarks.</li>
+<li><strong>Compare OpenAI Agents SDK, Google ADK, and smolagents on the
+   same agent-as-tool contract.</strong> Pick one canonical example (e.g.,
+   "translate a paragraph to French, then summarize the
+   translation") and run it through all three with the same model
+   parameters. Capture: tool-call shape, output extraction, session
+   continuation, approval surface. Goal: convert the comparison-
+   matrix row "agent-as-tool contract" from "described" to
+   "measured."</li>
+<li><strong>Measure LangGraph restart-from-the-top semantics in practice.</strong>
+   A side-effect (file write, network call) just before an
+   <code>interrupt()</code> runs how many times on resume? The docs say "must be
+   idempotent." A measured answer ("exactly N times in K runs") is a
+   more useful piece of evidence.</li>
+<li><strong>Document the provider-neutral worker gateway shape.</strong> The
+   reference architecture implies a gateway. What does its minimum
+   viable shape look like? A typed-input / typed-output contract,
+   per-worker cost and timeout, retry-with-jitter, an audit log
+   keyed by an idempotency key. None of this is novel; the
+   question is what the existing libraries (LiteLLM, any-llm,
+   Portkey) do and do not cover.</li>
+<li><strong>A short study on the local AI-renaming workflow as a
+   reference worker.</strong> The handoff explicitly asks for this. The
+   current study maps the pipeline to the ontology. A second-phase
+   deliverable could enumerate the contract surface (typed input =
+   <code>{path, content_hash}</code>, typed output = <code>{suggested_name,
+   confidence}</code>, declared cost = <code>tokens / file</code>, declared timeout
+   = <code>5s</code>, declared authority = <code>read file by hash</code>) and show how
+   the same contract could be served by Claude, Gemini, a local
+   model, or a deterministic Python regex — with no change to the
+   Python dispatcher.</li>
+<li><strong>A "what to build next" memo.</strong> The current study is research.
+   The next deliverable should be a short memo: "Of the open
+   questions, which three are most worth a prototype in the
+   playground runner, and what would each prototype prove?" The
+   answer is constrained by the handoff's "no implementation"
+   rule, but the memo can be written now.</li>
+<li><strong>Local zero-round-trip execution</strong> <em>(carried from the primary draft).</em>
+   How can a user-owned local runner replicate Anthropic PTC's
+   context-suppression efficiency — intermediate tool results staying out
+   of model context — without ceding execution to provider containers?
+   Candidate shape: a local code-action executor that returns only a
+   bounded stdout summary to the model, with complete results written to
+   the artifact store.</li>
+<li><strong>Mid-script checkpointing</strong> <em>(carried from the primary draft).</em> Can
+    local code-action execution be paired with lightweight state freezing
+    (interpreter snapshot, VM memory snapshot, or re-entrant generated
+    code) so a paused generated script resumes mid-loop instead of
+    restarting? Directly related to open question 1 (exactly-once) and
+    LangGraph's restart-from-the-top semantics.</li>
+</ol>
+<p><em>(The primary draft's third question — cross-provider schema
+harmonization — is subsumed by item 6, the worker-gateway shape.)</em></p>
+<hr />
+<h2 id="13-consolidation-notes-and-changelog">13. Consolidation notes and changelog</h2>
+<h3 id="131-what-was-consolidated">13.1 What was consolidated</h3>
+<p>Two drafts answered the same 2026-07-29 research handoff in parallel
+sessions. On 2026-07-30, per the user's decision, they were merged into
+this single canonical study:</p>
+<ul>
+<li><strong>Base:</strong> the longer "superseding draft" (sections 1-12 and 14-15 here
+  are its text, lightly renumbered), chosen for its per-claim evidence
+  labels, confidence scores, and live-verified sources.</li>
+<li><strong>Carried in from the shorter "primary" draft:</strong> the emerging-trends
+  assessment (section 7), the per-framework maturity row in the
+  comparison matrix (section 6), the control-plane fork summary box
+  (section 1), and two second-phase agenda items (section 12, items 9-10).</li>
+<li><strong>Archived verbatim:</strong> the previous primary study pair, at
+  <code>docs/archive/ai-orchestration-study-2026-07-29/</code>.</li>
+</ul>
+<h3 id="132-discrepancies-reconciled">13.2 Discrepancies reconciled</h3>
+<table>
+<thead>
+<tr>
+<th>Discrepancy</th>
+<th>Resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The primary draft cited older <code>docs.anthropic.com</code> documentation paths; this draft cites current <code>platform.claude.com</code> paths.</td>
+<td>Current paths kept.</td>
+</tr>
+<tr>
+<td>The primary draft labeled smolagents' "30% fewer steps" a <code>measured result</code>.</td>
+<td>Downgraded to <code>vendor claim</code> (a vendor-reported benchmark, not independently reproduced).</td>
+</tr>
+<tr>
+<td>The primary draft scored maturity per framework; this draft scores per layer (section 5.2).</td>
+<td>Both views kept: layer scores in section 5.2, framework levels as a matrix row in section 6.</td>
+</tr>
+<tr>
+<td>The primary draft's matrix listed Anthropic PTC checkpoint/resume as "None (session-bound)".</td>
+<td>The more precise container-parameter nuance from section 4.6 kept.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="133-changelog">13.3 Changelog</h3>
+<table>
+<thead>
+<tr>
+<th>Date</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>2026-07-29</td>
+<td>Two parallel drafts produced against the research handoff.</td>
+</tr>
+<tr>
+<td>2026-07-30</td>
+<td>Drafts consolidated into this canonical study; original primary archived; trends assessment, matrix maturity row, fork summary, and agenda items 9-10 folded in; labels tightened per section 13.2.</td>
+</tr>
+<tr>
+<td>2026-07-30</td>
+<td>Deep-review pass resolved five carried open questions in place (sections 4.1, 4.5, 4.6, 4.7, 8.2 update blocks; appendix status list). One prior inference was partially refuted (PTC inner-loop visibility) and one section-4.6 detail corrected (container hours are not reported in <code>usage</code>). Evidence: the review-and-next-steps companion doc.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="14-source-appendix">14. Source appendix</h2>
+<p>Access date: 2026-07-29.</p>
+<h3 id="primary-sources-live-urls-verified-this-session">Primary sources (live URLs verified this session)</h3>
+<ul>
+<li>smolagents</li>
+<li><a href="https://huggingface.co/docs/smolagents/reference/agents">https://huggingface.co/docs/smolagents/reference/agents</a></li>
+<li><a href="https://github.com/huggingface/smolagents/blob/main/src/smolagents/tools.py">https://github.com/huggingface/smolagents/blob/main/src/smolagents/tools.py</a></li>
+<li><a href="https://huggingface.co/docs/smolagents/tutorials/secure_code_execution">https://huggingface.co/docs/smolagents/tutorials/secure_code_execution</a></li>
+<li><a href="https://github.com/huggingface/smolagents/blob/main/docs/source/en/guided_tour.md">https://github.com/huggingface/smolagents/blob/main/docs/source/en/guided_tour.md</a></li>
+<li>LangGraph</li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/workflows-agents">https://docs.langchain.com/oss/python/langgraph/workflows-agents</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/persistence">https://docs.langchain.com/oss/python/langgraph/persistence</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/interrupts">https://docs.langchain.com/oss/python/langgraph/interrupts</a></li>
+<li><a href="https://github.com/langchain-ai/langgraph">https://github.com/langchain-ai/langgraph</a></li>
+<li>OpenAI Agents SDK</li>
+<li><a href="https://openai.github.io/openai-agents-python/tools/">https://openai.github.io/openai-agents-python/tools/</a></li>
+<li><a href="https://openai.github.io/openai-agents-python/handoffs/">https://openai.github.io/openai-agents-python/handoffs/</a></li>
+<li><a href="https://openai.github.io/openai-agents-python/tracing/">https://openai.github.io/openai-agents-python/tracing/</a></li>
+<li><a href="https://openai.github.io/openai-agents-python/ref/tool/">https://openai.github.io/openai-agents-python/ref/tool/</a></li>
+<li><a href="https://github.com/openai/openai-agents-python">https://github.com/openai/openai-agents-python</a></li>
+<li>Google ADK</li>
+<li><a href="https://adk.dev/tools/function-tools/">https://adk.dev/tools/function-tools/</a></li>
+<li><a href="https://adk.dev/agents/llm-agents/">https://adk.dev/agents/llm-agents/</a></li>
+<li><a href="https://adk.dev/agents/workflow-agents/">https://adk.dev/agents/workflow-agents/</a></li>
+<li><a href="https://adk.dev/artifacts/">https://adk.dev/artifacts/</a></li>
+<li><a href="https://adk.dev/sessions/">https://adk.dev/sessions/</a></li>
+<li><a href="https://github.com/google/adk-python">https://github.com/google/adk-python</a></li>
+<li>Microsoft AutoGen</li>
+<li><a href="https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/components/tools.html">https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/components/tools.html</a></li>
+<li><a href="https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/components/command-line-code-executors.html">https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/components/command-line-code-executors.html</a></li>
+<li><a href="https://microsoft.github.io/autogen/stable/reference/python/autogen_ext.code_executors.local.html">https://microsoft.github.io/autogen/stable/reference/python/autogen_ext.code_executors.local.html</a></li>
+<li><a href="https://microsoft.github.io/autogen/stable/reference/python/autogen_ext.code_executors.docker.html">https://microsoft.github.io/autogen/stable/reference/python/autogen_ext.code_executors.docker.html</a></li>
+<li><a href="https://microsoft.github.io/autogen/stable/reference/python/autogen_ext.code_executors.azure.html">https://microsoft.github.io/autogen/stable/reference/python/autogen_ext.code_executors.azure.html</a></li>
+<li><a href="https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/framework/distributed-agent-runtime.html">https://microsoft.github.io/autogen/stable/user-guide/core-user-guide/framework/distributed-agent-runtime.html</a></li>
+<li><a href="https://github.com/microsoft/autogen/issues/7917">https://github.com/microsoft/autogen/issues/7917</a></li>
+<li>Anthropic programmatic + code execution</li>
+<li><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling">https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling</a></li>
+<li><a href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/code-execution-tool">https://platform.claude.com/docs/en/agents-and-tools/tool-use/code-execution-tool</a></li>
+<li>CodeAct</li>
+<li><a href="https://arxiv.org/abs/2402.01030">https://arxiv.org/abs/2402.01030</a> (Wang et al., v4 2024-06-07, ICML 2024)</li>
+<li><a href="https://github.com/xingyaoww/code-act">https://github.com/xingyaoww/code-act</a></li>
+</ul>
+<h3 id="claim-label-legend">Claim label legend</h3>
+<table>
+<thead>
+<tr>
+<th>Label</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>documented fact</code></td>
+<td>Found in official docs or repository, verified live this session.</td>
+</tr>
+<tr>
+<td><code>source-code observation</code></td>
+<td>Read directly from the source; not necessarily documented.</td>
+</tr>
+<tr>
+<td><code>measured result</code></td>
+<td>A number, threshold, or quantitative finding reported by a primary source.</td>
+</tr>
+<tr>
+<td><code>vendor claim</code></td>
+<td>A claim from a vendor's marketing or landing page.</td>
+</tr>
+<tr>
+<td><code>research finding</code></td>
+<td>A claim from a peer-reviewed paper or arXiv preprint.</td>
+</tr>
+<tr>
+<td><code>inference</code></td>
+<td>A reasonable conclusion from the evidence, but not directly stated.</td>
+</tr>
+<tr>
+<td><code>open question</code></td>
+<td>Could not be verified this session; flagged for second-phase research.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="open-questions-carried-into-phase-two">Open questions carried into phase two</h3>
+<p>Statuses updated by the 2026-07-30 deep review (details in
+<code>docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html</code>):</p>
+<ul>
+<li>CodeAct follow-on corpus since 2024-02. — <strong>Closed 2026-07-30</strong> (23-item sweep; see section 4.7 update).</li>
+<li>Anthropic PTC inner-loop surface (per-call round-trips, wall time, retries). — <strong>Closed 2026-07-30</strong> (partially refuted; see section 4.6 update).</li>
+<li>AutoGen docker executor <code>bind_dir</code> remediation status. — <strong>Closed 2026-07-30</strong> (still unremediated; repo in maintenance mode; see section 4.5 update).</li>
+<li>LangGraph restart-from-the-top empirical count. — <strong>Closed 2026-07-30</strong> (measured: 2x per interrupt/resume, N+1 for N interrupts; see section 8.2 update).</li>
+<li>Provider-neutral worker gateway minimum viable shape. — <strong>Substantially closed 2026-07-30</strong> (LiteLLM/Otari/Portkey coverage mapped; MCP is the converged tool-contract half; four genuinely unbuilt pieces identified: idempotency+audit store, worker manifest, output validation/repair, durable job wrapper).</li>
+<li>"What to build next" memo constrained to the playground runner. — <strong>Open</strong>; the review-and-next-steps companion carries the prioritized agenda toward it.</li>
+</ul>
+<hr />
+<h2 id="15-handoff">15. Handoff</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Folder</td>
+<td>Remote-session clone of <code>alankatanoisi/claude-local-bridge-playground</code> (Claude Code on the web); Alan's local clone is <code>~/Developer/claude-local-bridge-playground</code>.</td>
+</tr>
+<tr>
+<td>Branch</td>
+<td><code>claude/user-owned-ai-orchestration-qaxol8</code> (draft PR into <code>main</code>).</td>
+</tr>
+<tr>
+<td>Files</td>
+<td>This file consolidated in place; HTML companion regenerated; originals archived at <code>docs/archive/ai-orchestration-study-2026-07-29/</code>; review-and-next-steps deliverable at <code>docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html</code>.</td>
+</tr>
+<tr>
+<td>Checks run</td>
+<td><code>npm run check:docs</code>, <code>npm run format:check</code>.</td>
+</tr>
+<tr>
+<td>Skipped</td>
+<td><code>npm test</code>, <code>npm run lint</code> (documentation-only change; no runner/bridge source touched).</td>
+</tr>
+<tr>
+<td>Boundaries kept</td>
+<td>No runner/bridge/auth/proxy edits; no live paid model calls; Safari 3 Phase B remains gated.</td>
+</tr>
+<tr>
+<td>Risks</td>
+<td>Consolidation is editorial: both source drafts are preserved verbatim (archive + the user's <code>~/Downloads/</code> copies) so any merge mistake is recoverable. Deep-review findings in the companion doc are web-research-grounded snapshots dated 2026-07-30 and can drift.</td>
+</tr>
+<tr>
+<td>Next steps</td>
+<td>See <code>docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html</code> (review verdict, merged phase-2 agenda, deep-review findings).</td>
+</tr>
+</tbody>
+</table>
+  </main>
+  <footer>Generated 2026-07-30 from the Markdown twin. Provenance and consolidation record: section 13.</footer>
 </body>
 </html>
