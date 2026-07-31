@@ -66,6 +66,12 @@ describe('child-inherit (P1-10)', () => {
     assert.doesNotMatch(joined, /caller-token|sk-|token=/i);
   });
 
+  it('applies --max-tokens from inherit (A3-F2)', () => {
+    const args = ['bin.js'];
+    applyInheritToArgs(args, { maxTokens: 8000 });
+    assert.match(args.join(' '), /--max-tokens 8000/);
+  });
+
   it('puts correlation ids and caller token only in env', () => {
     const env = applyInheritToEnv(
       {},

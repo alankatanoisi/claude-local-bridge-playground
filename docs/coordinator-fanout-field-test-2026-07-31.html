@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Coordinator Fan-out Field Test — 2026-07-31</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1a1f26;
+        --muted: #5a6570;
+        --line: #d7dee6;
+        --bg: #f7f9fb;
+        --panel: #fff;
+        --ok: #0d7a3f;
+        --warn: #a04a00;
+      }
+      body {
+        margin: 0;
+        font:
+          16px/1.55 system-ui,
+          -apple-system,
+          sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+      }
+      main {
+        max-width: 52rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .small {
+        font-size: 0.9rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--panel);
+        margin: 1rem 0;
+        font-size: 0.92rem;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 0.5rem 0.6rem;
+        text-align: left;
+      }
+      th {
+        background: #eef2f6;
+      }
+      code {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 0.88em;
+      }
+      .ok {
+        color: var(--ok);
+        font-weight: 600;
+      }
+      .warn {
+        color: var(--warn);
+        font-weight: 600;
+      }
+      .callout {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--warn);
+        padding: 0.75rem 1rem;
+        margin: 1rem 0;
+        border-radius: 4px;
+      }
+      h1 {
+        font-size: 1.6rem;
+        margin-bottom: 0.25rem;
+      }
+      h2 {
+        font-size: 1.2rem;
+        margin-top: 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Coordinator Fan-out Field Test — 2026-07-31</h1>
+      <p class="muted small">
+        A3 step 2 · live bridge, real tokens · Markdown twin is authoritative:
+        <code>docs/coordinator-fanout-field-test-2026-07-31.md</code>
+      </p>
+
+      <p>
+        First live exercise of the round-3 coordinator work: budget
+        <strong>leasing</strong> (<code>_spawnLeasedWorker</code>) and dependency-batched research
+        <strong>fan-out</strong> (<code>--research-plan</code>), previously verified only by unit tests. Four read-only
+        research lanes over this repo, run twice with identical prompts and budgets (<code
+          >--budget-input-tokens 400000 --budget-output-tokens 20000</code
+        >): once dependency-free (one batch of 4), once dep-chained (four batches of 1). Phases
+        <code>research,synthesize</code> only — no repo edits.
+      </p>
+
+      <h2>Headline numbers</h2>
+      <table>
+        <tr>
+          <th>Measure</th>
+          <th>Parallel (batch [4])</th>
+          <th>Sequential (batches [1,1,1,1])</th>
+        </tr>
+        <tr>
+          <td>Wall clock</td>
+          <td class="ok">12.4 s</td>
+          <td>51.2 s</td>
+        </tr>
+        <tr>
+          <td>Workers succeeded</td>
+          <td>4/4</td>
+          <td>4/4</td>
+        </tr>
+        <tr>
+          <td>Summed worker time</td>
+          <td>48.5 s</td>
+          <td>51.2 s</td>
+        </tr>
+        <tr>
+          <td>Child input tokens</td>
+          <td>58,568</td>
+          <td><strong>58,568 (identical)</strong></td>
+        </tr>
+        <tr>
+          <td>Child output tokens</td>
+          <td>3,492</td>
+          <td>3,474</td>
+        </tr>
+        <tr>
+          <td>Active leases / incomplete children at exit</td>
+          <td>0 / 0</td>
+          <td>0 / 0</td>
+        </tr>
+      </table>
+      <p>
+        <strong>Speedup 4.13× at token parity.</strong> Input tokens are byte-identical across arms because the
+        read-only research paths are deterministic — fan-out buys wall clock, not token savings. Per-worker wall time
+        was ~12–14&nbsp;s in both arms: essentially ideal 4-way overlap.
+        <strong>The budget invariant held in the field:</strong> 8 distinct leases across the two runs, each concurrent
+        sibling got the unleased remainder ÷ batch size (100k/5k each), every lease released and reconciled,
+        <code>budget.used</code> equal to summed child usage.
+      </p>
+
+      <div class="callout small">
+        <strong>The failed first attempt is data too.</strong> With library defaults (<code>maxSteps: 6</code>, worker
+        output hard-capped at 2,000 tokens/request) all four workers died at a ceiling — three <code>max_steps</code>,
+        one <code>model_max_tokens</code> — burning 91,702 input tokens for zero usable summaries, <em>more</em> than
+        the successful run cost (58,568). With fan-out, a ceiling misconfiguration multiplies by the node count. Size
+        ceilings before fanning out.
+      </div>
+
+      <h2>Findings</h2>
+      <table>
+        <tr>
+          <th>ID</th>
+          <th>Finding</th>
+        </tr>
+        <tr>
+          <td>A3-F1</td>
+          <td>
+            The coordinator CLI exits 1 for any run without an <code>execute</code> phase, so research-only runs look
+            like failures to shell scripts despite <code>error: null</code>.
+          </td>
+        </tr>
+        <tr>
+          <td>A3-F2</td>
+          <td>
+            Worker children are pinned to the runner CLI default of 2,000 output tokens/request; no plan or inherit knob
+            raises it (live <code>model_max_tokens</code> failure observed). The coordinator's
+            <code>--max-tokens</code> only reaches the execute-phase kernel.
+          </td>
+        </tr>
+        <tr>
+          <td>A3-F3</td>
+          <td>
+            Default <code>maxSteps: 6</code> is too small for broad research prompts on this repo (3/4 live workers hit
+            it); per-node <code>maxSteps</code> in the plan is the practical knob.
+          </td>
+        </tr>
+        <tr>
+          <td>A3-F4</td>
+          <td>
+            The broker meters uncached input/output only; live workers also reported 4k–51k
+            <code>cache_read_input_tokens</code> each, so real upstream cost diverges from metered cost.
+          </td>
+        </tr>
+      </table>
+
+      <p class="muted small">
+        Raw results and plans: <code>~/Developer/orchestration-prototypes/a3-fanout-live/</code> (outside git).
+        Sessions: <code>a3-fanout-live-20260731</code>, <code>a3-fanout-live2-20260731</code>,
+        <code>a3-seq-live-20260731</code>. Worker summaries fed <code>docs/ARCHITECTURE.md</code>.
+      </p>
+    </main>
+  </body>
+</html>

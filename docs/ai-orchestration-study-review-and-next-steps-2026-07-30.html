@@ -1091,8 +1091,9 @@
               <td>N1</td>
               <td>Permission gate keys only on <code>args.path</code> — other path-shaped args unguarded</td>
               <td>
-                <span class="badge warn">Still open</span> — needs catalog-driven path-arg contract test; not fixed by
-                execute-path patches
+                <span class="badge ok">Closed 2026-07-31 (evening)</span> — <code>pathArgKeysFor</code> in
+                <code>tool-catalog.js</code>; gate loops all catalogued keys; contract test
+                <code>test/runner/path-arg-contract.test.js</code>
               </td>
             </tr>
             <tr>
@@ -1140,6 +1141,7 @@
             call <code>safety.resolveFileTarget</code> in <code>execute</code>. Writes refuse symlink targets. Tests:
             <code>test/runner/he01-tool-layer-symlink.test.js</code>. Gate-level Safari-2 fix was already present; this
             restores defense-in-depth. Residual tracker item for N1 only.
+            <em class="small">[N1 closed same day — see §7.2 and §7.6.]</em>
           </p>
         </div>
 
@@ -1148,6 +1150,10 @@
           <li>
             <strong>N1 contract test</strong> — catalog-driven assertion that every filesystem tool's path argument(s)
             are visible to the gate (cheap, high leverage).
+            <em class="small"
+              >[Closed 2026-07-31 evening — <code>pathArgKeysFor</code> + gate loop +
+              <code>test/runner/path-arg-contract.test.js</code>.]</em
+            >
           </li>
           <li>
             <strong>Gateway design memo (P2)</strong> — especially output validation/repair, motivated by W1's
@@ -1160,12 +1166,198 @@
           <li>
             <strong>DBOS vs LangGraph durability (P2)</strong> — still the top unpaid durability prototype; L1 stub
             harness is the right mock substrate.
+            <em class="small"
+              >[2026-07-31 round 3: largely paid — A1 crash bake-off measured the runner against LangGraph
+              <code>SqliteSaver</code> (see §7.5); DBOS arm still gated on Postgres, which is not installed.]</em
+            >
           </li>
           <li>
             <strong>HE-05 ARCHITECTURE/OBSERVABILITY</strong> — natural home for N1/N4 and the §3 mapping table + OTel
             <code>gen_ai.*</code> vocabulary.
+            <em class="small"
+              >[2026-07-31 round 3: <code>docs/ARCHITECTURE.md</code> now exists (layer map, durability quartet, broker
+              invariant, orchestration stack); the observability half remains open.]</em
+            >
           </li>
         </ol>
+
+        <h3>7.5 Round 3 (C3 → A1 → A3): findings F1–F8 and results</h3>
+        <p class="small">
+          Round-3 handoff: <code>HANDOFF-c3-a1-a3-round3-2026-07-31.md</code>. The unverified A3-step-1 code was
+          verified (suite green), then C3, A1, and A3 step 2 all executed the same day. Three of the eight findings (F1,
+          F2, F5) shared one shape — machinery built, exported, unit-tested, never wired into the run path — and all
+          three are now wired or exercised.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Finding (short)</th>
+              <th>Status after 2026-07-31</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>F1</td>
+              <td>Fan-out machinery (<code>runPhasePlan</code>) called only from tests; run path spawned one worker</td>
+              <td>
+                <span class="badge ok">Closed</span> — wired into <code>Coordinator.run</code> via
+                <code>--research-plan</code>; live 4-way batch observed
+              </td>
+            </tr>
+            <tr>
+              <td>F2</td>
+              <td>Spec-compiler's own <code>phasePlan</code> is a serial chain by design</td>
+              <td>
+                <span class="badge info">Reframed</span> — research fan-out now arrives as explicit plan input; the
+                compiled execute-phase plan remains serial
+              </td>
+            </tr>
+            <tr>
+              <td>F3</td>
+              <td>Coordinator copied the budget ceiling to every child instead of leasing</td>
+              <td>
+                <span class="badge ok">Closed</span> — <code>_spawnLeasedWorker</code> (acquire → spawn →
+                release/reconcile); invariant field-verified under real 4-way concurrency
+              </td>
+            </tr>
+            <tr>
+              <td>F4</td>
+              <td>Coordinator CLI had no cost/token ceiling flags</td>
+              <td><span class="badge ok">Closed</span> — ceiling + plan flags added and used live</td>
+            </tr>
+            <tr>
+              <td>F5</td>
+              <td>Crash recovery never tested against process death</td>
+              <td>
+                <span class="badge ok">Closed</span> — <code>test/runner/ledger-crash-recovery.test.js</code> (first
+                <code>process.kill</code> test) + 74-trial A1 matrix
+              </td>
+            </tr>
+            <tr>
+              <td>F6</td>
+              <td><code>applyRepair</code> is a stub (detect ✓ plan ✓ apply ✗)</td>
+              <td>
+                <span class="badge warn">Open by instruction</span> — now backed by two measured failure shapes it would
+                fix (stale-checkpoint replay; dangling-tool_use stranding)
+              </td>
+            </tr>
+            <tr>
+              <td>F7</td>
+              <td>Corpus is 141 ledgers, not 306 sessions (raw file count included cursors/autopsies)</td>
+              <td><span class="badge ok">Confirmed</span> — C3 swept exactly 141 ledgers, 4,175 events</td>
+            </tr>
+            <tr>
+              <td>F8</td>
+              <td>
+                Durability surfaces disagree under signal death: sync ledger vs debounced checkpoint; no SIGTERM
+                handler; killed runs write no health record
+              </td>
+              <td>
+                <span class="badge ok">Confirmed &amp; fixed for SIGTERM</span> — pre-fix SIGTERM ≡ SIGKILL (18/18 stale
+                checkpoint + double-execution); post-fix 18/18 clean. SIGKILL residual remains (see A1-F2/F3)
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <table>
+          <thead>
+            <tr>
+              <th>Experiment</th>
+              <th>Headline</th>
+              <th>Doc</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>C3 ledger forensics</td>
+              <td>
+                141 ledgers, 0 corrupt tails; 187 <code>pending_effect</code> across 69 sessions, all pre-2026-07-19;
+                guard asymmetry measured
+              </td>
+              <td><code>docs/ledger-forensics-sweep-2026-07-31.md</code></td>
+            </tr>
+            <tr>
+              <td>A1 crash bake-off</td>
+              <td>
+                74 kill trials + LangGraph <code>SqliteSaver</code> arm; default debounce → 18/18 silent
+                double-execution; SIGTERM fix landed and re-measured 18/18 clean; new findings A1-F1…A1-F5
+              </td>
+              <td><code>docs/durability-crash-bakeoff-2026-07-31.md</code></td>
+            </tr>
+            <tr>
+              <td>A3 step 2 live field test</td>
+              <td>
+                4-way fan-out vs sequential baseline: 4.13× wall-clock speedup at byte-identical input tokens (58,568);
+                broker invariant held; new findings A3-F1…A3-F4
+              </td>
+              <td><code>docs/coordinator-fanout-field-test-2026-07-31.md</code></td>
+            </tr>
+            <tr>
+              <td>Architecture reference</td>
+              <td>
+                Durable layer map (partial HE-05 payment); four sections cross-checked by the live research workers
+              </td>
+              <td><code>docs/ARCHITECTURE.md</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3>7.6 Follow-through (N1 + A3-F1/F2), same day</h3>
+        <p class="small">
+          After round 3, the cheapest independent slice was N1 plus the two small A3 findings (exit code + worker
+          <code>maxTokens</code>). F6 / ledger-aware resume was deliberately left for a later chunk. Handoff:
+          <code>HANDOFF-n1-a3-followthrough-2026-07-31.md</code>. Session report:
+          <code>docs/session-report-round3-followthrough-2026-07-31.html</code>.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Change</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>N1</td>
+              <td>
+                <code>pathArgKeysFor</code> + gate checks every catalogued path key;
+                <code>test/runner/path-arg-contract.test.js</code>
+              </td>
+              <td><span class="badge ok">Closed</span></td>
+            </tr>
+            <tr>
+              <td>A3-F1</td>
+              <td>
+                <code>exitCodeForCoordinatorResult</code> — research-only runs exit 0 when <code>error: null</code> (no
+                longer keys solely on missing <code>kernelResult</code>)
+              </td>
+              <td><span class="badge ok">Closed</span></td>
+            </tr>
+            <tr>
+              <td>A3-F2</td>
+              <td>
+                <code>maxTokens</code> on child inherit + plan-node override; workers no longer pinned to the 2,000
+                default when the coordinator/plan raises it
+              </td>
+              <td><span class="badge ok">Closed</span></td>
+            </tr>
+            <tr>
+              <td>A3-F3 / A3-F4</td>
+              <td>Per-node <code>maxSteps</code> already works; cache telemetry still unmetered in the broker</td>
+              <td><span class="badge info">Unchanged</span> — F3 operational, F4 still open</td>
+            </tr>
+            <tr>
+              <td>F6</td>
+              <td>Ledger-aware resume / <code>applyRepair</code></td>
+              <td>
+                <span class="badge warn">Still open</span> — next structural durability chunk; needs explicit
+                authorization
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       <!-- ============================================================ -->
@@ -1226,16 +1418,16 @@
             <tr>
               <td>Next steps</td>
               <td>
-                Section 5 table + §7.4 directions. Cheapest high-value next turn: N1 path-arg contract test, or the
-                rename-workflow worker-contract study (P1) using the W1 dispatcher as a template. H2/W1/H1 results
-                already on disk.
+                Sharpest open item: <strong>F6 ledger-aware resume / <code>applyRepair</code></strong> (needs explicit
+                authorization). Also unpaid: A3-F4 cache telemetry in the broker, A1-F4/A1-F5 small cleanup, DBOS arm
+                (Postgres), HE-05 observability half. N1 and A3-F1/F2 closed in §7.6.
               </td>
             </tr>
             <tr>
               <td>2026-07-31 follow-up</td>
               <td>
-                L1/H2/H1/W1 executed; HE-01 tool-layer closed; threat-model + CLAUDE.md path-safety corrected; this HTML
-                annotated (§7). Working tree may include those runner/docs edits pending Alan's commit.
+                L1/H2/H1/W1 executed; HE-01 tool-layer closed; threat-model + CLAUDE.md path-safety corrected; round 3
+                (C3/A1/A3) + evening follow-through (N1, A3-F1/F2) annotated in §7.5–§7.6.
               </td>
             </tr>
           </tbody>

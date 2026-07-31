@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Durability Crash Bake-off — 2026-07-31</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1a1f26;
+        --muted: #5a6570;
+        --line: #d7dee6;
+        --bg: #f7f9fb;
+        --panel: #fff;
+        --ok: #0d7a3f;
+        --warn: #a04a00;
+      }
+      body {
+        margin: 0;
+        font:
+          16px/1.55 system-ui,
+          -apple-system,
+          sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+      }
+      main {
+        max-width: 52rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .small {
+        font-size: 0.9rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--panel);
+        margin: 1rem 0;
+        font-size: 0.92rem;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 0.5rem 0.6rem;
+        text-align: left;
+      }
+      th {
+        background: #eef2f6;
+      }
+      code {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 0.88em;
+      }
+      .ok {
+        color: var(--ok);
+        font-weight: 600;
+      }
+      .warn {
+        color: var(--warn);
+        font-weight: 600;
+      }
+      .callout {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--warn);
+        padding: 0.75rem 1rem;
+        margin: 1rem 0;
+        border-radius: 4px;
+      }
+      h1 {
+        font-size: 1.6rem;
+        margin-bottom: 0.25rem;
+      }
+      h2 {
+        font-size: 1.2rem;
+        margin-top: 2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Durability Crash Bake-off — 2026-07-31</h1>
+      <p class="muted small">
+        Experiment A1 · Markdown twin is authoritative:
+        <code>docs/durability-crash-bakeoff-2026-07-31.md</code> · Harness under
+        <code>~/Developer/orchestration-prototypes/a1-durability/</code> (outside git)
+      </p>
+
+      <table>
+        <tr>
+          <th>Type</th>
+          <td>Crash-recovery experiment (A1) with a landed fix</td>
+        </tr>
+        <tr>
+          <th>Data</th>
+          <td>74 runner kill trials + 3 LangGraph trials, all against local mocks</td>
+        </tr>
+        <tr>
+          <th>Fix</th>
+          <td>SIGTERM finalizer in <code>src/runner/run.js</code> (hypothesis F8)</td>
+        </tr>
+        <tr>
+          <th>Test</th>
+          <td><code>test/runner/ledger-crash-recovery.test.js</code> — first process-kill test in the repo</td>
+        </tr>
+        <tr>
+          <th>Token cost</th>
+          <td>Zero real tokens (mock bridge only; token figures are deterministic fakes used as a relative meter)</td>
+        </tr>
+      </table>
+
+      <h2>The question</h2>
+      <p>
+        When a runner process dies mid-task, what does each durability layer retain, and does
+        <code>--resume-session</code> re-execute side effects that already happened? C3's corpus sweep (same date)
+        showed crashes leave <code>pending_effect</code> residue in real ledgers; A1 reproduces the crash on purpose and
+        measures the consequences end to end.
+      </p>
+
+      <h2>Method</h2>
+      <p>
+        One trial = throwaway workspace + session, a scripted mock bridge issuing
+        <strong>three side-effecting <code>write_file</code> calls</strong>, one kill, one resume, full forensics.
+        Effect filenames carry the server request number, so a re-executed effect leaves a second file with the same
+        effect number — double-execution is counted from files on disk, never from timing. Matrix: {SIGKILL, SIGTERM} ×
+        {debounce 75&nbsp;ms default, 0&nbsp;ms control} × three kill triggers (watched on a 2&nbsp;ms ledger poll) × 3
+        repeats, run before and after the fix. Clean baseline: 4 requests, 3 effects; clean-completion resume adds
+        exactly 1 request.
+      </p>
+      <div class="callout small">
+        <strong>Honesty caveat:</strong> the mock answers instantly, so an entire run fits inside one 75&nbsp;ms
+        debounce window — checkpoint loss below is the worst case. The exact invariant: whatever entered the checkpoint
+        during the last debounce window before signal death is lost.
+      </div>
+
+      <h2>Pre-fix (36 kill trials)</h2>
+      <table>
+        <tr>
+          <th>Arm (9 trials each)</th>
+          <th>Stale checkpoint</th>
+          <th>Double-executed effects</th>
+          <th>Resume failed</th>
+          <th>Mean excess requests</th>
+        </tr>
+        <tr>
+          <td>SIGKILL, debounce 75</td>
+          <td class="warn">9/9</td>
+          <td class="warn">9/9</td>
+          <td>0/9</td>
+          <td>+2.1</td>
+        </tr>
+        <tr>
+          <td>SIGTERM, debounce 75</td>
+          <td class="warn">9/9</td>
+          <td class="warn">9/9</td>
+          <td>0/9</td>
+          <td>+2.1</td>
+        </tr>
+        <tr>
+          <td>SIGKILL, debounce 0</td>
+          <td>0/9</td>
+          <td>0/9</td>
+          <td class="warn">8/9</td>
+          <td>−1.8</td>
+        </tr>
+        <tr>
+          <td>SIGTERM, debounce 0</td>
+          <td>0/9</td>
+          <td>0/9</td>
+          <td class="warn">7/9</td>
+          <td>−1.6</td>
+        </tr>
+      </table>
+      <p>
+        Two failure shapes. <strong>Default debounce → silent double-execution:</strong> the checkpoint died holding
+        only the opening prompt; resume exited 0 but re-executed already-completed side effects, 18/18.
+        <strong>Debounce 0 → loud unresumable session:</strong> the synchronous checkpoint saved a conversation ending
+        in a dangling <code>tool_use</code>; resume failed the message-contract check and exited 1 after zero requests
+        (hence the negative excess). No double-execution — but only because resume was broken. In both shapes the ledger
+        knew the truth (<code>pending_effect</code> reported, correct repair actions proposed) and nothing on the resume
+        path consults it; <code>applyRepair</code> is a stub (F6). <strong>F8 confirmed:</strong> SIGTERM rows are
+        identical to SIGKILL rows.
+      </p>
+
+      <h2>The fix</h2>
+      <p>
+        <code>run.js</code> now installs a SIGTERM handler mirroring SIGINT: it funnels through the run's single
+        idempotent finalizer — synchronous checkpoint flush, <code>run_stopped</code> ledger event, health record,
+        autopsy, exit 143. Node delivers signals on the event loop, after the current synchronous tool batch, so the
+        flushed checkpoint is always contract-valid.
+      </p>
+
+      <h2>Post-fix (36 kill trials)</h2>
+      <table>
+        <tr>
+          <th>Arm (9 trials each)</th>
+          <th>Stale checkpoint</th>
+          <th>Double-executed effects</th>
+          <th>Resume failed</th>
+          <th>Ledger tail</th>
+        </tr>
+        <tr>
+          <td>SIGKILL, debounce 75</td>
+          <td class="warn">9/9</td>
+          <td class="warn">9/9</td>
+          <td>0/9</td>
+          <td>mid-run</td>
+        </tr>
+        <tr>
+          <td>SIGKILL, debounce 0</td>
+          <td>0/9</td>
+          <td>0/9</td>
+          <td class="warn">7/9</td>
+          <td>mid-run</td>
+        </tr>
+        <tr>
+          <td>SIGTERM, debounce 75</td>
+          <td class="ok">0/9</td>
+          <td class="ok">0/9</td>
+          <td class="ok">0/9</td>
+          <td class="ok"><code>run_stopped</code></td>
+        </tr>
+        <tr>
+          <td>SIGTERM, debounce 0</td>
+          <td class="ok">0/9</td>
+          <td class="ok">0/9</td>
+          <td class="ok">0/9</td>
+          <td class="ok"><code>run_stopped</code></td>
+        </tr>
+      </table>
+      <p>
+        All 18 SIGTERM trials: consistent ledger, contract-valid checkpoint, health record written, clean resume with
+        zero double-executions at the cost of exactly one extra request — identical to resuming a cleanly finished
+        session. SIGKILL rows unchanged, as expected: an uncatchable signal can only be survived by better recovery, not
+        handled. Regression check: full suite 799/799.
+      </p>
+
+      <h2>Comparison arms</h2>
+      <p>
+        <strong>LangGraph 1.0.x + SqliteSaver</strong> (throwaway <code>uv</code> venv; same protocol; 3 trials):
+        completed nodes preserved exactly-once, the interrupted node <span class="warn">re-executed 3/3</span>, resume
+        works by design. That equals our debounce-0 checkpoint currency plus a functioning resume — better than our
+        pre-fix default on both axes, still at-least-once for the step it was killed inside. Our post-fix SIGTERM path
+        beats it for catchable signals; for SIGKILL our runner is currently worse. <strong>DBOS:</strong> not run —
+        requires Postgres, which is not installed on this machine; its exactly-once claim stays a literature citation.
+      </p>
+
+      <h2>Findings</h2>
+      <table>
+        <tr>
+          <th>ID</th>
+          <th>Finding</th>
+        </tr>
+        <tr>
+          <td>A1-F1</td>
+          <td>
+            F8 confirmed and fixed for SIGTERM (pre-fix SIGTERM ≡ SIGKILL; post-fix 18/18 clean). SIGKILL unchanged by
+            definition.
+          </td>
+        </tr>
+        <tr>
+          <td>A1-F2</td>
+          <td>
+            Default debounce turns crash-resume into silent at-least-twice execution (18/18 pre-fix trials re-executed a
+            completed side effect).
+          </td>
+        </tr>
+        <tr>
+          <td>A1-F3</td>
+          <td>
+            A contract-valid checkpoint ≠ a resumable one: mid-tool checkpoints strand the session on the
+            message-contract check; resume never consults the ledger or <code>planRepair</code>.
+            <code>applyRepair</code> (F6) is the missing bridge.
+          </td>
+        </tr>
+        <tr>
+          <td>A1-F4</td>
+          <td>
+            Replay's <code>orphaned_tool_use</code> detection is dead code on real ledgers — the runner's 10-type ledger
+            vocabulary never includes the message-level events it looks for.
+          </td>
+        </tr>
+        <tr>
+          <td>A1-F5</td>
+          <td>
+            A failed resume leaves a misleading health record: <code>message_contract_error</code> is not in the
+            degraded set, so health says <code>resume_ok</code> immediately after resume failed.
+          </td>
+        </tr>
+      </table>
+
+      <h2>What this feeds</h2>
+      <p class="small">
+        F6 (<code>applyRepair</code>) now has two measured failure shapes it would fix, still deliberately unimplemented
+        this round. The structural recommendation is <strong>ledger-aware resume</strong>: reconcile the checkpoint
+        against the ledger, which survived byte-perfect in all 74 trials (consistent with C3's 141-ledger corpus, zero
+        corrupt tails). A1-F4/A1-F5 are small testable follow-ups for the concordance backlog.
+      </p>
+
+      <p class="muted small">
+        Raw per-trial JSON: <code>results/pre-fix-*</code>, <code>results/post-fix-*</code>,
+        <code>results/langgraph-crash.json</code> in the A1 workspace. Repo changes: SIGTERM handler in
+        <code>src/runner/run.js</code>; <code>test/runner/ledger-crash-recovery.test.js</code>.
+      </p>
+    </main>
+  </body>
+</html>

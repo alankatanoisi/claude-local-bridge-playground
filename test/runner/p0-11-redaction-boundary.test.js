@@ -133,9 +133,13 @@ describe('P0-11 redaction boundary', () => {
     // Use a pattern that scrubSecrets would redact in display copies.
     const body = 'const TOKEN="supersecret_token_value_xyz";\n';
     const writeFile = require('../../src/runner/tools/write-file');
-    const result = writeFile.execute({ path: 'secretish.js', content: body }, { cwd: tmp, cwdRealpath: tmp });
+    // This test is about CONTENT (verbatim on disk, scrubbed in display), so the
+    // fixture NAME must not collide with the deny-matrix basename tier — the
+    // HE-01 execute-path re-check rejects basenames matching /secret/i, /^token/i,
+    // etc. before content is ever considered. Hence a deliberately boring name.
+    const result = writeFile.execute({ path: 'config-values.js', content: body }, { cwd: tmp, cwdRealpath: tmp });
     assert.equal(result.ok, true, result.text);
-    const written = fs.readFileSync(path.join(tmp, 'secretish.js'), 'utf8');
+    const written = fs.readFileSync(path.join(tmp, 'config-values.js'), 'utf8');
     assert.equal(written, body);
     // Display copy is scrubbed.
     const display = scrubDeepSecrets({ content: body });

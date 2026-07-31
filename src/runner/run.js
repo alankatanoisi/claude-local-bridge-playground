@@ -932,10 +932,32 @@ async function run(options) {
   }
   process.once('SIGINT', onSigint);
 
+  // F8 fix (A1 crash bakeoff, 2026-07-31): SIGTERM previously had NO handler,
+  // so a polite `kill` behaved exactly like `kill -9` — the debounced session
+  // checkpoint died inside its 75 ms window and every resume double-executed
+  // the last side effect (measured: 18/18 pre-fix SIGTERM trials lost the
+  // checkpoint; docs/durability-crash-bakeoff-2026-07-31.md). Funnelling
+  // SIGTERM through the same finalizer gives it what SIGINT already had:
+  // synchronous checkpoint flush (via the store's process-exit hook),
+  // `run_stopped` ledger event, health record, and autopsy. SIGKILL remains
+  // unfixable by definition. 143 = 128 + SIGTERM(15), the conventional code.
+  function onSigterm() {
+    const result = finalizeRun({
+      stopReason: STOP_REASONS.CANCELLED,
+      finalText: 'Terminated (SIGTERM).',
+      steps: currentStep,
+      usage: totalUsage,
+    });
+    process.exitCode = result && result.stopReason === STOP_REASONS.SUCCESS ? 0 : 143;
+    process.exit();
+  }
+  process.once('SIGTERM', onSigterm);
+
   function finalizeRun(partial) {
     if (runFinalized) return partial;
     runFinalized = true;
     process.removeListener('SIGINT', onSigint);
+    process.removeListener('SIGTERM', onSigterm);
 
     const stopReason = partial.stopReason || STOP_REASONS.SUCCESS;
     const success = stopReason === STOP_REASONS.SUCCESS;

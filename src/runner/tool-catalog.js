@@ -158,6 +158,41 @@ const TOOL_GROUPS = buildGroupIndex(CAPABILITY_GROUPS, TOOLS);
 // harmless but pointless); `shell` is deliberately excluded — see above.
 const OPTIONAL_CAPABILITIES = Object.freeze(['edits', 'recovery', 'agents', 'worktrees', 'skills', 'lsp']);
 
+/**
+ * N1 — filesystem target argument names the permission gate must inspect.
+ *
+ * Historically permissions.check only looked at `args.path`. A tool whose
+ * target arrives under another key (or a second path key) skipped
+ * resolveFileTarget entirely. These are the canonical aliases; tools may also
+ * declare an explicit `meta.pathArgs` array when they need something else.
+ */
+const CANONICAL_PATH_ARG_KEYS = Object.freeze(['path', 'file_path', 'filepath', 'target_path']);
+
+/**
+ * Which argument keys are filesystem targets for this tool?
+ *
+ * Prefer explicit `meta.pathArgs` when present. Otherwise infer from the
+ * tool's input_schema: any top-level property whose name is in
+ * CANONICAL_PATH_ARG_KEYS. The contract test in
+ * test/runner/path-arg-contract.test.js fails closed if a schema grows a
+ * path-shaped key that neither list covers.
+ */
+function pathArgKeysFor(toolName) {
+  const mod = TOOLS[toolName];
+  if (!mod || !mod.meta) return [];
+  if (Array.isArray(mod.meta.pathArgs)) {
+    return mod.meta.pathArgs.filter((k) => typeof k === 'string' && k);
+  }
+  let props = {};
+  try {
+    const def = mod.definition();
+    props = (def.input_schema && def.input_schema.properties) || {};
+  } catch {
+    props = {};
+  }
+  return CANONICAL_PATH_ARG_KEYS.filter((k) => Object.prototype.hasOwnProperty.call(props, k));
+}
+
 module.exports = {
   TOOLS,
   CATEGORIES,
@@ -171,4 +206,6 @@ module.exports = {
   TOOL_GROUPS,
   OPTIONAL_CAPABILITIES,
   buildGroupIndex,
+  CANONICAL_PATH_ARG_KEYS,
+  pathArgKeysFor,
 };

@@ -219,6 +219,8 @@ These preferences are **universal for this repo**: every agent surface that read
 - At P0/P1 chunk stop points, prefer annotated concordance/roadmap updates plus a dedicated agent-facing handoff (not only chat summary); commit/push/sync when he asks in the same turn.
 - Technical guardrails and safety checks are not disrespect: Alan owns goal-level and executive decisions; agents own developer-intelligence guardrails (cwd/branch checks, risky-flag warnings, refuse unsafe shortcuts).
 - Prefer over-explaining Terminal/Git/app ownership (Terminal vs VS Code vs Cursor vs GitHub browser) over assuming Alan already knows the workflow.
+- Multiple agents (Cursor, Claude Code, Codex) work in this repo concurrently; keep agent-facing docs and status synchronized across surfaces so every agent starts on the same contextual footing.
+- When verifying another agent's unexecuted or unverified work, run the checks and report the real pass/fail output first; never quietly fix and report as if it passed on the first try.
 
 ## Learned Workspace Facts
 
@@ -227,3 +229,5 @@ Keep this block mirrored in `CLAUDE.md` whenever it changes.
 - A sibling Codex lab lives at `/Users/alanman/Developer/codex-local-bridge-playground`; keep that work separate from this Claude playground unless Alan explicitly asks to cross-apply.
 - Local runner session artifacts often live under `~/.bridge-runner`; prefer a unified transcript/index layout when changing logging rather than inventing a second parallel scheme.
 - Runtime concordance / P0–P1 remediation status is tracked in dated docs under `docs/` (assessment HTML plus agent-facing handoffs); annotate those when closing items rather than inventing a parallel tracker.
+- Orchestration prototype scratch code lives in `~/Developer/orchestration-prototypes/` (outside git); only dated result docs belong in the repo's `docs/`.
+- Runner session ledgers under `~/.bridge-runner` can contain prompts and file paths; when analyzing them, report aggregate counts only and never quote ledger payload text.

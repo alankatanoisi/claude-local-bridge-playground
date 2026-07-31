@@ -7,7 +7,7 @@
 const path = require('path');
 const safety = require('./safety');
 // CATEGORIES is derived from each tool module's own meta — see tool-catalog.js.
-const { CATEGORIES } = require('./tool-catalog');
+const { CATEGORIES, pathArgKeysFor } = require('./tool-catalog');
 const { normalizeSlot, inspectWorktreeStatus } = require('./worktree-utils');
 const { SHELL_AUTHORITY_SHORT } = require('./shell-policy');
 const { effectiveFlags, toolAboveCeiling } = require('./authority');
@@ -188,10 +188,28 @@ function check(toolName, args, ctx) {
   return decision;
 }
 
+/**
+ * Collect filesystem targets from every catalogued path-arg key (N1).
+ * Falls back to the historical `path` / `file_path` aliases only when the
+ * tool is unknown to the catalog — known tools with no pathArgs stay empty.
+ */
+function collectRequestedPaths(toolName, args) {
+  if (!args || typeof args !== 'object') return [];
+  let keys = pathArgKeysFor(toolName);
+  if (!keys.length && !CATEGORIES[toolName]) {
+    keys = ['path', 'file_path'];
+  }
+  const out = [];
+  for (const key of keys) {
+    const value = args[key];
+    if (typeof value === 'string' && value) out.push({ key, value });
+  }
+  return out;
+}
+
 function _checkUncached(toolName, args, ctx) {
   const mode = activeMode(ctx);
   const category = CATEGORIES[toolName];
-  const requestedPath = args && args.path;
   // WP2: flags clamped to the immutable per-run authority ceiling. A mid-run
   // mutation of ctx.allowShell / ctx.noNetwork / ctx.plan can narrow but never
   // widen what the operator selected on the command line.
@@ -211,11 +229,17 @@ function _checkUncached(toolName, args, ctx) {
     );
   }
 
-  if (requestedPath) {
+  // N1: check every catalogued path argument, not only a key literally named
+  // `path`. A tool that puts its target under `file_path` (or a second path
+  // key) must still hit resolveFileTarget.
+  for (const { key, value: requestedPath } of collectRequestedPaths(toolName, args)) {
     const resolved = safety.resolveFileTarget(ctx, requestedPath);
     if (!resolved.allowed) {
       return enrichDecision(
-        { decision: 'deny', reason: 'Path not allowed: ' + resolved.reason + ' (' + requestedPath + ')' },
+        {
+          decision: 'deny',
+          reason: 'Path not allowed: ' + resolved.reason + ' (' + key + '=' + requestedPath + ')',
+        },
         {
           category: category || 'unknown',
           mode,

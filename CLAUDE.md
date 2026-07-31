@@ -258,10 +258,17 @@ items rather than starting a parallel tracker.
     HE-01 **tool-layer residual closed 2026-07-31** (see Path-safety status). Carries two known
     errata (E1 line-count summary card, E2 HE-03 example list) — read the validation record before
     quoting it.
-  - Prioritized agenda (annotated): `docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html`
-    §5 + **§7 follow-through** (prototype results, N1–N6, directions).
-  - Fact-check: `docs/runner-claims-validation-2026-07-31.md` — 62 runner claims verified; N2/N3/N5
-    addressed; **N1 still open**.
+- Prioritized agenda (annotated): `docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html`
+  §5 + **§7 follow-through** (prototype results, N1–N6, directions, **§7.5 round-3 F1–F8**).
+- Fact-check: `docs/runner-claims-validation-2026-07-31.md` — 62 runner claims verified; N2/N3/N5
+  addressed; **N1 closed 2026-07-31 evening** (`pathArgKeysFor` + contract test).
+- **Round 3 (C3→A1→A3) executed 2026-07-31**: C3 `docs/ledger-forensics-sweep-2026-07-31.md`;
+  A1 `docs/durability-crash-bakeoff-2026-07-31.md` (SIGTERM finalizer landed in `run.js`, first
+  process-kill test added); A3 `docs/coordinator-fanout-field-test-2026-07-31.md` (live 4-way
+  fan-out, 4.13× at token parity) + `docs/ARCHITECTURE.md`. Results handoff:
+  `HANDOFF-round3-results-2026-07-31.md`. Evening follow-through: N1 + A3-F1/F2 closed —
+  `HANDOFF-n1-a3-followthrough-2026-07-31.md`, session report
+  `docs/session-report-round3-followthrough-2026-07-31.html`. **F6 (`applyRepair`) still open.**
 
 **Three ID namespaces exist in `docs/`.** The runtime-concordance series `P0-01…P0-12` is closed; the
 future-directions band `FD-01…FD-05` is _also_ labelled P0 by the 07-22 handoff; the 2026-07-28 harness
@@ -296,6 +303,8 @@ These preferences are **universal for this repo** (same content as `AGENTS.md`).
 - At P0/P1 chunk stop points, prefer annotated concordance/roadmap updates plus a dedicated agent-facing handoff (not only chat summary); commit/push/sync when he asks in the same turn.
 - Technical guardrails and safety checks are not disrespect: Alan owns goal-level and executive decisions; agents own developer-intelligence guardrails (cwd/branch checks, risky-flag warnings, refuse unsafe shortcuts).
 - Prefer over-explaining Terminal/Git/app ownership (Terminal vs VS Code vs Cursor vs GitHub browser) over assuming Alan already knows the workflow.
+- Multiple agents (Cursor, Claude Code, Codex) work in this repo concurrently; keep agent-facing docs and status synchronized across surfaces so every agent starts on the same contextual footing.
+- When verifying another agent's unexecuted or unverified work, run the checks and report the real pass/fail output first; never quietly fix and report as if it passed on the first try.
 
 ## Learned Workspace Facts
 
@@ -304,6 +313,8 @@ Same content as `AGENTS.md` — keep mirrored.
 - A sibling Codex lab lives at `/Users/alanman/Developer/codex-local-bridge-playground`; keep that work separate from this Claude playground unless Alan explicitly asks to cross-apply.
 - Local runner session artifacts often live under `~/.bridge-runner`; prefer a unified transcript/index layout when changing logging rather than inventing a second parallel scheme.
 - Runtime concordance / P0–P1 remediation status is tracked in dated docs under `docs/` (assessment HTML plus agent-facing handoffs); annotate those when closing items rather than inventing a parallel tracker.
+- Orchestration prototype scratch code lives in `~/Developer/orchestration-prototypes/` (outside git); only dated result docs belong in the repo's `docs/`.
+- Runner session ledgers under `~/.bridge-runner` can contain prompts and file paths; when analyzing them, report aggregate counts only and never quote ledger payload text.
 
 ## Handoff
 

@@ -10,8 +10,13 @@ const { createEventBus } = require('./event-bus');
 const { WorkerRuntime } = require('./worker-runtime');
 const { SessionStore, resolveSessionPath, makeSessionId, sessionPathFor } = require('./session-store');
 const { compileSpec } = require('./coordinator-spec-compiler');
+const { createBudgetBroker } = require('./budget-broker');
 
 const PHASES = Object.freeze(['research', 'synthesize', 'execute', 'verify']);
+
+// Read-only tool set shared by the research and verify workers. Previously
+// duplicated inline at both spawn sites.
+const RESEARCH_TOOLS = Object.freeze(['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks']);
 
 /**
  * D1: Group a phasePlan by dependency-free batches using Kahn-style topological
@@ -70,12 +75,115 @@ async function runPhasePlan(phasePlan, runFn) {
   return results;
 }
 
+/**
+ * How big a slice of the unleased remainder a single child should request.
+ *
+ * This matters only for concurrent spawns. `broker.acquire(usage)` with no
+ * request claims the WHOLE unleased remainder, which is right when children run
+ * one at a time (see tools/spawn-agent.js) but wrong for a fan-out: the first
+ * child would take everything and its siblings would be refused. Dividing by
+ * the batch size gives every concurrent sibling a usable, reserved slice.
+ *
+ * Returns {} when uncapped or when there is nothing to divide, which makes
+ * acquire() behave exactly as it does today.
+ */
+function computeLeaseRequest(broker, totalUsage, divisor) {
+  if (!broker || !divisor || divisor <= 1) return {};
+  const rem = broker.unleasedRemaining(totalUsage);
+  const request = {};
+  if (typeof rem.input_tokens === 'number') request.input_tokens = Math.floor(rem.input_tokens / divisor);
+  if (typeof rem.output_tokens === 'number') request.output_tokens = Math.floor(rem.output_tokens / divisor);
+  return request;
+}
+
+/**
+ * Map each phasePlan node id to the size of the batch it runs in, so a
+ * concurrent sibling knows how many ways the remainder must be split.
+ */
+function batchSizeById(phasePlan) {
+  const sizes = new Map();
+  for (const batch of groupPhasePlanByDeps(phasePlan)) {
+    for (const id of batch) sizes.set(id, batch.length);
+  }
+  return sizes;
+}
+
+/** Shape returned in place of a worker result when the budget refuses a spawn. */
+function refusedWorkerResult(phase, reason) {
+  return {
+    workerId: null,
+    state: 'refused',
+    phase,
+    finalText: '',
+    summary: 'refused: ' + reason,
+    claims: [],
+    evidencePaths: [],
+    confidence: 'low',
+    exitCode: 1,
+    stderr: '',
+    events: [],
+    usage: null,
+    stopReason: 'budget_refused',
+    duration_ms: 0,
+    leaseId: null,
+    refused: true,
+  };
+}
+
 class Coordinator {
   constructor(options = {}) {
     this.eventBus = options.eventBus || createEventBus({ emitStdout: options.streamEvents });
     this.workers = options.workerRuntime || new WorkerRuntime(options.workerOptions);
     this.sessionBaseDir =
       options.sessionBaseDir || require('path').join(process.env.HOME || process.cwd(), '.bridge-runner', 'sessions');
+  }
+
+  /**
+   * Spawn a worker against a budget lease instead of a copied ceiling.
+   *
+   * Before this existed the coordinator passed `inherit.maxCostUsd` (a copy of
+   * the parent ceiling) to every child and never touched the broker, so N
+   * concurrent children could each spend up to the full ceiling. Leasing
+   * reserves a slice up front and reconciles the child's real usage on return,
+   * which is the invariant budget-broker.js was written to hold:
+   * sum(active leases) + totalUsage never exceeds the caps.
+   *
+   * Mirrors the proven pattern in tools/spawn-agent.js (acquire → spawn →
+   * release/reconcile) rather than inventing a second scheme.
+   */
+  async _spawnLeasedWorker(spec, options, budget) {
+    const { broker, totalUsage, divisor } = budget || {};
+    const phase = spec.phase || 'research';
+
+    let lease = null;
+    if (broker) {
+      lease = broker.acquire(totalUsage, computeLeaseRequest(broker, totalUsage, divisor));
+      // Refuse loudly. Running unbudgeted would defeat the ceiling entirely.
+      if (!lease) return refusedWorkerResult(phase, 'no unleased budget remainder for this worker');
+    }
+
+    const budgetRemaining =
+      lease && !lease.unconstrained ? { input_tokens: lease.input_tokens, output_tokens: lease.output_tokens } : null;
+
+    let result;
+    try {
+      result = await this.workers.spawnWorker({ ...spec, budgetRemaining, leaseId: lease && lease.leaseId }, options);
+    } catch (err) {
+      // Release with no usage so the child is recorded as incomplete rather
+      // than silently holding a reservation for the rest of the run.
+      if (broker && lease) broker.release(lease.leaseId, null);
+      throw err;
+    }
+
+    if (broker && lease) {
+      const released = broker.release(lease.leaseId, result.usage || null);
+      if (released && released.reconciled && released.usage) {
+        totalUsage.input_tokens += released.usage.input_tokens || 0;
+        totalUsage.output_tokens += released.usage.output_tokens || 0;
+      }
+    }
+    result.leaseId = (lease && lease.leaseId) || null;
+    return result;
   }
 
   async run(input) {
@@ -91,6 +199,42 @@ class Coordinator {
     const startedAt = Date.now();
     const artifacts = { sessionPath, sessionId, workerResults: [], synthesis: null, structured: null };
 
+    // Budget leases for child workers. Caps of null/undefined mean "no ceiling
+    // on this dimension" and leasing becomes a no-op, so the uncapped path
+    // behaves exactly as it did before leases existed.
+    const broker = createBudgetBroker({
+      inputCap: input.budgetInputTokens,
+      outputCap: input.budgetOutputTokens,
+    });
+    const totalUsage = { input_tokens: 0, output_tokens: 0 };
+    const budgetOf = (divisor) => ({ broker, totalUsage, divisor });
+
+    // Options shared by every worker spawn in this run.
+    const workerOptions = {
+      callerToken: input.callerToken || null,
+      parentCeiling: input.parentCeiling || null,
+    };
+    const inheritFor = (overrides = {}) => ({
+      model: input.model || null,
+      effort: input.effort || null,
+      thinking: input.thinking || null,
+      bridgeUrl: input.bridgeUrl || null,
+      noNetwork: !!input.noNetwork,
+      maxWallClockMs: input.maxWallClockMs || null,
+      maxCostUsd: input.maxCostUsd || null,
+      // A3-F2: pass the coordinator --max-tokens ceiling to workers (plan nodes
+      // may override per-node via node.maxTokens below).
+      maxTokens:
+        typeof overrides.maxTokens === 'number'
+          ? overrides.maxTokens
+          : typeof input.maxTokens === 'number'
+            ? input.maxTokens
+            : null,
+      traceLevel: input.traceLevel || null,
+      parentRunId: sessionId,
+      hasCallerToken: !!input.callerToken,
+    });
+
     this.eventBus.emit('system', {
       subtype: 'coordinator_init',
       sessionId,
@@ -101,36 +245,79 @@ class Coordinator {
     if (phases.includes('research')) {
       this.eventBus.emit('phase', { phase: 'research', status: 'started' });
       if (input.useWorkers !== false) {
-        const workerResult = await this.workers.spawnWorker(
-          {
-            prompt:
-              'Research-only: list and read key files relevant to this objective. Do not edit. Objective: ' +
-              input.objective,
-            cwd: input.cwd,
-            phase: 'research',
-            allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks'],
-            maxSteps: 6,
-            // P1-10: coordinator workers inherit the same model/bridge/network ceilings.
-            inherit: {
-              model: input.model || null,
-              effort: input.effort || null,
-              thinking: input.thinking || null,
-              bridgeUrl: input.bridgeUrl || null,
-              noNetwork: !!input.noNetwork,
-              maxWallClockMs: input.maxWallClockMs || null,
-              maxCostUsd: input.maxCostUsd || null,
-              traceLevel: input.traceLevel || null,
-              parentRunId: sessionId,
-              hasCallerToken: !!input.callerToken,
+        const plan = Array.isArray(input.researchPlan) && input.researchPlan.length ? input.researchPlan : null;
+
+        if (plan) {
+          // D1 wired: dependency-free nodes now actually run concurrently through
+          // runPhasePlan. Before this, runPhasePlan/groupPhasePlanByDeps existed
+          // and were unit-tested but nothing in the run path ever called them.
+          const nodesById = new Map(plan.map((n) => [n.id, n]));
+          const sizes = batchSizeById(plan);
+          this.eventBus.emit('system', {
+            subtype: 'research_fanout',
+            nodes: plan.map((n) => n.id),
+            batches: groupPhasePlanByDeps(plan).map((b) => b.length),
+          });
+
+          const results = await runPhasePlan(plan, async (id) => {
+            const node = nodesById.get(id);
+            const workerResult = await this._spawnLeasedWorker(
+              {
+                prompt:
+                  'Research-only: list and read key files relevant to this task. Do not edit. Task: ' +
+                  (node.prompt || node.description || id) +
+                  '\nOverall objective: ' +
+                  input.objective,
+                cwd: input.cwd,
+                phase: 'research',
+                allowedTools: Array.isArray(node.allowedTools) ? node.allowedTools : [...RESEARCH_TOOLS],
+                maxSteps: node.maxSteps || 6,
+                inherit: inheritFor({
+                  maxTokens: typeof node.maxTokens === 'number' ? node.maxTokens : undefined,
+                }),
+              },
+              workerOptions,
+              // Split the remainder across this node's concurrent batch.
+              budgetOf(sizes.get(id) || 1),
+            );
+            this.eventBus.emit('worker_finished', {
+              workerId: workerResult.workerId,
+              phase: 'research',
+              node: id,
+              leaseId: workerResult.leaseId || null,
+              refused: !!workerResult.refused,
+            });
+            return workerResult;
+          });
+
+          for (const id of plan.map((n) => n.id)) {
+            const r = results.get(id);
+            if (r) artifacts.workerResults.push({ ...r, node: id });
+          }
+        } else {
+          // Unchanged single-worker path (now leased rather than copy-of-ceiling).
+          const workerResult = await this._spawnLeasedWorker(
+            {
+              prompt:
+                'Research-only: list and read key files relevant to this objective. Do not edit. Objective: ' +
+                input.objective,
+              cwd: input.cwd,
+              phase: 'research',
+              allowedTools: [...RESEARCH_TOOLS],
+              maxSteps: 6,
+              // P1-10: coordinator workers inherit the same model/bridge/network ceilings.
+              inherit: inheritFor(),
             },
-          },
-          {
-            callerToken: input.callerToken || null,
-            parentCeiling: input.parentCeiling || null,
-          },
-        );
-        artifacts.workerResults.push(workerResult);
-        this.eventBus.emit('worker_finished', { workerId: workerResult.workerId, phase: 'research' });
+            workerOptions,
+            budgetOf(1),
+          );
+          artifacts.workerResults.push(workerResult);
+          this.eventBus.emit('worker_finished', {
+            workerId: workerResult.workerId,
+            phase: 'research',
+            leaseId: workerResult.leaseId || null,
+          });
+        }
       }
       this.eventBus.emit('phase', { phase: 'research', status: 'completed' });
     }
@@ -154,6 +341,10 @@ class Coordinator {
           objective: input.objective,
           cwd: input.cwd,
           model: input.model,
+          // Research workers may already have spent tokens before the spec was
+          // rejected, so report the same budget telemetry as the success path.
+          budget: broker.snapshot(totalUsage),
+          childUsage: { ...totalUsage },
         };
       }
       synthesisSpec = compiled.spec;
@@ -191,7 +382,7 @@ class Coordinator {
 
     if (phases.includes('verify') && kernelResult) {
       this.eventBus.emit('phase', { phase: 'verify', status: 'started' });
-      const verifyResult = await this.workers.spawnWorker(
+      const verifyResult = await this._spawnLeasedWorker(
         {
           prompt:
             'Verify-only: inspect the repo state and confirm whether the objective appears satisfied. Read-only. Objective: ' +
@@ -200,25 +391,12 @@ class Coordinator {
             (kernelResult.finalText || '').slice(0, 1500),
           cwd: input.cwd,
           phase: 'verify',
-          allowedTools: ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks'],
+          allowedTools: [...RESEARCH_TOOLS],
           maxSteps: 4,
-          inherit: {
-            model: input.model || null,
-            effort: input.effort || null,
-            thinking: input.thinking || null,
-            bridgeUrl: input.bridgeUrl || null,
-            noNetwork: !!input.noNetwork,
-            maxWallClockMs: input.maxWallClockMs || null,
-            maxCostUsd: input.maxCostUsd || null,
-            traceLevel: input.traceLevel || null,
-            parentRunId: sessionId,
-            hasCallerToken: !!input.callerToken,
-          },
+          inherit: inheritFor(),
         },
-        {
-          callerToken: input.callerToken || null,
-          parentCeiling: input.parentCeiling || null,
-        },
+        workerOptions,
+        budgetOf(1),
       );
       artifacts.workerResults.push(verifyResult);
       this.eventBus.emit('phase', { phase: 'verify', status: 'completed' });
@@ -240,6 +418,10 @@ class Coordinator {
       objective: input.objective,
       cwd: input.cwd,
       model: input.model,
+      // Lease telemetry so a field test can check the broker invariant
+      // (sum of active leases + usage never exceeded the caps) after the run.
+      budget: broker.snapshot(totalUsage),
+      childUsage: { ...totalUsage },
       error: null,
     };
 
@@ -275,8 +457,11 @@ function synthesizeSpec(objective, researchDigest) {
 
 module.exports = {
   PHASES,
+  RESEARCH_TOOLS,
   Coordinator,
   synthesizeSpec,
   groupPhasePlanByDeps,
   runPhasePlan,
+  computeLeaseRequest,
+  batchSizeById,
 };

@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Session report — Round 3 + follow-through — 2026-07-31</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1a1f26;
+        --muted: #5a6570;
+        --line: #d7dee6;
+        --bg: #f4f7fa;
+        --panel: #fff;
+        --ok: #0d7a3f;
+        --warn: #a04a00;
+        --info: #1a5f8a;
+        --accent: #2c5f7c;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font:
+          17px/1.55 'Source Serif 4',
+          'Iowan Old Style',
+          Palatino,
+          Georgia,
+          serif;
+        color: var(--ink);
+        background:
+          radial-gradient(ellipse 80% 50% at 10% 0%, #e8f0f5 0%, transparent 55%),
+          radial-gradient(ellipse 60% 40% at 100% 10%, #efe8e0 0%, transparent 50%), var(--bg);
+      }
+      main {
+        max-width: 46rem;
+        margin: 0 auto;
+        padding: 2.5rem 1.35rem 5rem;
+      }
+      h1 {
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        font-size: 1.85rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin: 0 0 0.35rem;
+        color: var(--accent);
+      }
+      h2 {
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        font-size: 1.2rem;
+        margin: 2.25rem 0 0.65rem;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 0.35rem;
+      }
+      h3 {
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        font-size: 1.05rem;
+        margin: 1.4rem 0 0.4rem;
+      }
+      .lede {
+        font-size: 1.05rem;
+        color: var(--muted);
+        margin: 0 0 1.5rem;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .small {
+        font-size: 0.9rem;
+      }
+      .ok {
+        color: var(--ok);
+        font-weight: 600;
+      }
+      .warn {
+        color: var(--warn);
+        font-weight: 600;
+      }
+      .info {
+        color: var(--info);
+        font-weight: 600;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--panel);
+        margin: 0.75rem 0 1.25rem;
+        font-size: 0.92rem;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 0.55rem 0.65rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: #eef3f7;
+      }
+      code {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 0.86em;
+        background: #eef2f6;
+        padding: 0.1em 0.3em;
+        border-radius: 3px;
+      }
+      .callout {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--accent);
+        padding: 0.85rem 1.1rem;
+        margin: 1.1rem 0;
+        border-radius: 0 6px 6px 0;
+      }
+      .callout.warn {
+        border-left-color: var(--warn);
+      }
+      .callout.ok {
+        border-left-color: var(--ok);
+      }
+      ul.tight li {
+        margin: 0.25rem 0;
+      }
+      footer {
+        margin-top: 3rem;
+        font-size: 0.85rem;
+        color: var(--muted);
+        font-family: 'Segoe UI', system-ui, sans-serif;
+      }
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Today’s session, in plain language</h1>
+      <p class="lede">
+        2026-07-31 · Claude Local Bridge Playground · Round 3 experiments (morning) + N1 / A3 follow-through (evening).
+        This page is for Alan — not an agent brief. Agent handoffs:
+        <code>HANDOFF-round3-results-2026-07-31.md</code> and <code>HANDOFF-n1-a3-followthrough-2026-07-31.md</code>.
+      </p>
+
+      <div class="callout ok">
+        <strong>Bottom line.</strong> We verified unfinished coordinator code, ran three experiments (ledger forensics,
+        crash recovery, live 4-way fan-out), fixed a real crash bug (SIGTERM), then closed three leftover items
+        (path-arg safety contract, coordinator exit code, worker token ceiling). Suite ends at
+        <strong>810/810 tests passing</strong>. The one big durability repair (<code>applyRepair</code> / F6) is still
+        deliberately open until you authorize it.
+      </div>
+
+      <h2>1. What we were trying to learn</h2>
+      <p>
+        The runner can already do a lot on paper — fan-out workers, budget leases, crash ledgers — but several pieces
+        had never been proven under real process death or live model spend. Today answered:
+      </p>
+      <ul class="tight">
+        <li>Do old session ledgers on disk look healthy? (C3)</li>
+        <li>If the runner is killed mid-task, does resume double-run side effects? (A1)</li>
+        <li>Does parallel research actually save wall-clock without burning extra tokens? (A3)</li>
+        <li>Can we close the cheap leftover safety/CLI gaps without opening F6? (evening)</li>
+      </ul>
+
+      <h2>2. Morning — Round 3 experiments</h2>
+
+      <h3>C3 — Ledger forensics (read-only)</h3>
+      <p>
+        Swept every session ledger under <code>~/.bridge-runner</code>. Report:
+        <a href="ledger-forensics-sweep-2026-07-31.html"><code>docs/ledger-forensics-sweep-2026-07-31.html</code></a>
+        (Markdown twin is authoritative for agents).
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Ledgers scanned</td>
+            <td>141 (not “306 sessions” — that count mixed in cursors/autopsies)</td>
+          </tr>
+          <tr>
+            <td>Events</td>
+            <td>4,175</td>
+          </tr>
+          <tr>
+            <td>Corrupt tails</td>
+            <td class="ok">0</td>
+          </tr>
+          <tr>
+            <td>Pending incomplete effects</td>
+            <td>187 across 69 sessions — all dated before 2026-07-19</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="small muted">
+        Privacy rule: when anyone analyzes ledgers, report <em>counts only</em> — never quote prompts or file paths from
+        the payload.
+      </p>
+
+      <h3>A1 — Crash-recovery bake-off</h3>
+      <p>
+        Built a mock bridge that does three file writes, then killed the runner on purpose (polite kill vs force-kill)
+        and resumed. Compared with LangGraph’s SQLite checkpointer. Report:
+        <a href="durability-crash-bakeoff-2026-07-31.html"><code>docs/durability-crash-bakeoff-2026-07-31.html</code></a
+        >.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Scenario</th>
+            <th>Before fix</th>
+            <th>After SIGTERM fix</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Polite kill (SIGTERM), default 75&nbsp;ms debounce</td>
+            <td class="warn">18/18 stale checkpoint + silent double-execution</td>
+            <td class="ok">18/18 clean (flush + exit 143)</td>
+          </tr>
+          <tr>
+            <td>Force kill (SIGKILL)</td>
+            <td colspan="2">Uncatchable by design — residual risk remains; resume can still strand or replay</td>
+          </tr>
+          <tr>
+            <td>LangGraph SqliteSaver arm</td>
+            <td colspan="2">Same “replay by design” shape — good company; runner ledger at least <em>detects</em></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <strong>What we shipped.</strong> <code>src/runner/run.js</code> now handles SIGTERM the same way as Ctrl-C:
+        flush the session checkpoint, write a clean ledger stop event, exit. First <code>process.kill</code> integration
+        tests live in <code>test/runner/ledger-crash-recovery.test.js</code>.
+      </div>
+
+      <h3>A3 — Live 4-way fan-out</h3>
+      <p>
+        Real bridge, real tokens. Four research workers in parallel vs the same four one-after-another. Report:
+        <a href="coordinator-fanout-field-test-2026-07-31.html"
+          ><code>docs/coordinator-fanout-field-test-2026-07-31.html</code></a
+        >.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Parallel</th>
+            <th>Sequential</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Wall-clock</td>
+            <td class="ok">~12.4 s</td>
+            <td>~51.2 s</td>
+          </tr>
+          <tr>
+            <td>Speedup</td>
+            <td colspan="2" class="ok">4.13×</td>
+          </tr>
+          <tr>
+            <td>Input tokens</td>
+            <td colspan="2">58,568 both ways (byte-identical spend)</td>
+          </tr>
+          <tr>
+            <td>Budget leases</td>
+            <td colspan="2" class="ok">8 issued, all reconciled, 0 leaked</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="small muted">
+        Expensive lesson kept in the doc: the first attempt without ceilings burned ~92k input tokens for zero usable
+        output. Set ceilings <em>before</em> fanning out.
+      </p>
+
+      <h2>3. Evening — N1 + A3-F1/F2 follow-through</h2>
+      <p>
+        After round 3 we deliberately skipped the big durability repair (F6). Instead we closed three smaller items that
+        do not depend on each other.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Problem (in English)</th>
+            <th>Fix</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>N1</td>
+            <td>
+              The permission gate only looked at an argument named <code>path</code>. A tool that put its filesystem
+              target under another name would skip the deny-matrix check.
+            </td>
+            <td>
+              Catalog of path-arg keys + gate loops all of them + contract test
+              (<code>path-arg-contract.test.js</code>).
+            </td>
+          </tr>
+          <tr>
+            <td>A3-F1</td>
+            <td>
+              Research-only coordinator runs always exited with code 1, so shell scripts thought they failed even when
+              nothing was wrong.
+            </td>
+            <td><code>exitCodeForCoordinatorResult</code> — exit 0 when there was no execute phase and no error.</td>
+          </tr>
+          <tr>
+            <td>A3-F2</td>
+            <td>
+              Research workers were stuck at 2,000 output tokens per request. Raising
+              <code>--max-tokens</code> on the coordinator only helped the later execute phase.
+            </td>
+            <td><code>maxTokens</code> now travels through child inherit; plan JSON can override per node.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>4. Findings scoreboard (end of day)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Family</th>
+            <th>Closed today</th>
+            <th>Still open</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Round-3 F1–F8</td>
+            <td>F1, F3, F4, F5, F7, F8 (SIGTERM); F2 reframed</td>
+            <td class="warn">F6 applyRepair / ledger-aware resume</td>
+          </tr>
+          <tr>
+            <td>A1 extras</td>
+            <td>A1-F1 (SIGTERM)</td>
+            <td>A1-F2 residual under SIGKILL; A1-F3–F5 smaller cleanups</td>
+          </tr>
+          <tr>
+            <td>A3 extras</td>
+            <td class="ok">A3-F1, A3-F2</td>
+            <td>A3-F3 (operational); A3-F4 cache telemetry</td>
+          </tr>
+          <tr>
+            <td>Validation N1–N6</td>
+            <td class="ok">N1 closed evening; N2/N3/N5 earlier</td>
+            <td>N4/N6 mostly documentation</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>5. Tests &amp; checks</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Check</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>npm test</code> (end of day)</td>
+            <td class="ok">810 pass / 0 fail</td>
+          </tr>
+          <tr>
+            <td><code>npm run lint</code></td>
+            <td class="ok">Clean</td>
+          </tr>
+          <tr>
+            <td>New / notable tests</td>
+            <td>
+              <code>ledger-crash-recovery.test.js</code>, <code>coordinator-lease.test.js</code>,
+              <code>path-arg-contract.test.js</code>, <code>coordinator-exit-code.test.js</code>
+            </td>
+          </tr>
+          <tr>
+            <td>Live model spend</td>
+            <td>A3 field test only (authorized); A1 used a mock bridge (no paid tokens)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>6. What to open next (your call)</h2>
+      <div class="callout warn">
+        <strong>Sharpest unpaid item:</strong> F6 — ledger-aware resume / implement <code>applyRepair</code>. That is
+        the structural answer to “SIGKILL left a checkpoint resume rejects.” It needs an explicit yes from you; agents
+        are instructed not to start it on their own.
+      </div>
+      <ol>
+        <li>Authorize F6 (big durability chunk), or</li>
+        <li>Smaller: A3-F4 cache telemetry column, or A1-F4/A1-F5 cleanup, or</li>
+        <li>
+          Park code and read <a href="ARCHITECTURE.md"><code>docs/ARCHITECTURE.md</code></a> + study §7.
+        </li>
+      </ol>
+
+      <h2>7. Where everything lives</h2>
+      <ul class="tight">
+        <li>Study tracker: <code>docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html</code> §7.5–§7.6</li>
+        <li>Architecture map: <code>docs/ARCHITECTURE.md</code></li>
+        <li>
+          Agent handoffs: <code>HANDOFF-round3-results-2026-07-31.md</code>,
+          <code>HANDOFF-n1-a3-followthrough-2026-07-31.md</code>
+        </li>
+        <li>Prototype scratch (outside git): <code>~/Developer/orchestration-prototypes/</code></li>
+      </ul>
+
+      <footer>
+        Claude Local Bridge Playground · session report 2026-07-31 · written so a non-programmer can re-read the day’s
+        results without digging through chat.
+      </footer>
+    </main>
+  </body>
+</html>

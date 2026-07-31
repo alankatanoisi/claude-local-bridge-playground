@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ledger Forensics Sweep — 2026-07-31</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1a1f26;
+        --muted: #5a6570;
+        --line: #d7dee6;
+        --bg: #f7f9fb;
+        --panel: #fff;
+        --ok: #0d7a3f;
+        --warn: #a04a00;
+      }
+      body {
+        margin: 0;
+        font:
+          16px/1.55 system-ui,
+          -apple-system,
+          sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+      }
+      main {
+        max-width: 52rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .small {
+        font-size: 0.9rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--panel);
+        margin: 1rem 0;
+        font-size: 0.92rem;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 0.5rem 0.6rem;
+        text-align: left;
+      }
+      th {
+        background: #eef2f6;
+      }
+      code {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 0.88em;
+      }
+      .ok {
+        color: var(--ok);
+        font-weight: 600;
+      }
+      .warn {
+        color: var(--warn);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="small muted">
+        C3 read-only forensics · 2026-07-31 · authoritative twin: <code>docs/ledger-forensics-sweep-2026-07-31.md</code>
+      </p>
+      <h1>Ledger Forensics Sweep</h1>
+      <p>
+        Every real session ledger under <code>~/.bridge-runner/sessions</code> replayed through the repo's own
+        <code>replayFromLedger</code>, counts only — real ledgers contain prompts and paths, so no payload text, ids, or
+        paths appear here. Sweep script and raw per-ledger JSON live in
+        <code>~/Developer/orchestration-prototypes/c3-ledger-forensics/</code> (outside git).
+      </p>
+
+      <h2>Headline numbers</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Measure</th>
+            <th>Count</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Ledgers found (events total)</td>
+            <td>141 (4,175)</td>
+          </tr>
+          <tr>
+            <td>— with <code>.state.json</code> sibling / <code>.cursor.json</code> sidecar</td>
+            <td>57 / 57</td>
+          </tr>
+          <tr>
+            <td>Replayed successfully</td>
+            <td class="ok">141 (0 errored)</td>
+          </tr>
+          <tr>
+            <td>Corrupt / truncated tails</td>
+            <td class="ok">0</td>
+          </tr>
+          <tr>
+            <td>Clean (no issues)</td>
+            <td>72 (51.1%)</td>
+          </tr>
+          <tr>
+            <td>With ≥1 issue (all <code>pending_effect</code>, the only kind seen)</td>
+            <td>69 (48.9%) — 187 occurrences</td>
+          </tr>
+          <tr>
+            <td>Guard-rule divergent sessions</td>
+            <td class="warn">60 (42.6%)</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="small muted">
+        Corrects F7 in the round-3 handoff: 57 (not 60) ledgers have a <code>.state.json</code> sibling. The 141-ledger
+        figure is confirmed.
+      </p>
+
+      <h2>The 187 pending effects are two populations</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Population</th>
+            <th>Sessions</th>
+            <th>Occurrences</th>
+            <th>Dates</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Phantoms — intent events with no <code>effectId</code>; only the unguarded scan rule opens them</td>
+            <td>60</td>
+            <td>84</td>
+            <td>all 2026-05-24</td>
+          </tr>
+          <tr>
+            <td>Genuine unresolved intents — have <code>effectId</code>, no matching result</td>
+            <td>9</td>
+            <td>103</td>
+            <td>2026-05-25 → 2026-06-12</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        In all 141 ledgers, replay's reported count equals the <strong>unguarded</strong> count, so
+        <span class="warn">45% of what replay reports as pending (84 of 187) is phantom</span> — the guard asymmetry in
+        <code>session-ledger.js</code> (<code>append()</code> requires <code>effectId</code>;
+        <code>_loadLastSeq()</code> does not) is empirically real, not theoretical.
+      </p>
+
+      <h2>Issues are historical, not current</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Era (ledger mtime)</th>
+            <th>Sessions</th>
+            <th>With issues</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>2026-05-24 (oldest cohort)</td>
+            <td>84</td>
+            <td>71.4%</td>
+          </tr>
+          <tr>
+            <td>2026-05-25 → 2026-06-12</td>
+            <td>10</td>
+            <td>90.0%</td>
+          </tr>
+          <tr>
+            <td>2026-06-28 → 2026-07-29</td>
+            <td>47</td>
+            <td class="ok">0.0%</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Findings</h2>
+      <ol>
+        <li>
+          <strong>C3-1</strong> — Physical durability is perfect in this corpus: 0 corrupt tails, 0 replay errors.
+        </li>
+        <li>
+          <strong>C3-2</strong> — The guard asymmetry diverges on 60 real ledgers; candidate fix (not made this round):
+          give <code>_loadLastSeq()</code> the same <code>effectId</code> guard as <code>append()</code>.
+        </li>
+        <li>
+          <strong>C3-3</strong> — Replay inherits the unguarded rule; repair tooling fed those counts would over-repair.
+        </li>
+        <li>
+          <strong>C3-4</strong> — <code>applyRepair</code> remains a stub (F6, documented not fixed) — currently safer
+          than a real implementation fed 45%-phantom input.
+        </li>
+        <li>
+          <strong>C3-5</strong> — 84 of 141 ledgers have no state checkpoint, so ledger-only recovery is the majority
+          case in the real corpus.
+        </li>
+      </ol>
+
+      <h2>Implication for A1</h2>
+      <p>
+        The durability risk is not ledger corruption — it is the debounced <code>state.json</code> checkpoint losing
+        writes on signal death while the synchronous ledger survives (F8). A healthy modern session shows zero pending
+        intents, so any pending intent after a <code>kill -9</code> is signal, not noise — but a repair experiment must
+        reconcile the two pending rules first.
+      </p>
+    </main>
+  </body>
+</html>

@@ -35,6 +35,10 @@ function buildChildInheritSpec(ctx, live = {}) {
           ? src.maxWallClockMs
           : null,
     maxCostUsd: typeof src.maxCostUsd === 'number' ? src.maxCostUsd : null,
+    // A3-F2: workers were pinned to the runner CLI default (2,000 output tokens)
+    // because neither inherit nor the plan carried maxTokens. Propagate it so
+    // research/verify children can raise the per-request ceiling.
+    maxTokens: typeof src.maxTokens === 'number' ? src.maxTokens : null,
     temperature: typeof src.temperature === 'number' ? src.temperature : null,
     traceLevel: src.traceLevel && src.traceLevel !== 'off' ? src.traceLevel : null,
     parentRunId: src.parentRunId || null,
@@ -59,6 +63,9 @@ function applyInheritToArgs(args, inherit) {
   }
   if (typeof inherit.maxCostUsd === 'number' && inherit.maxCostUsd > 0) {
     args.push('--max-cost-usd', String(inherit.maxCostUsd));
+  }
+  if (typeof inherit.maxTokens === 'number' && inherit.maxTokens > 0) {
+    args.push('--max-tokens', String(Math.floor(inherit.maxTokens)));
   }
   if (typeof inherit.temperature === 'number') {
     args.push('--temperature', String(inherit.temperature));
@@ -119,6 +126,7 @@ function buildChildManifest({ workerResult, inherit, leaseId, phase }) {
           noNetwork: !!inherit.noNetwork,
           maxWallClockMs: inherit.maxWallClockMs,
           maxCostUsd: inherit.maxCostUsd,
+          maxTokens: inherit.maxTokens,
           temperature: inherit.temperature,
           traceLevel: inherit.traceLevel,
           parentRunId: inherit.parentRunId,
