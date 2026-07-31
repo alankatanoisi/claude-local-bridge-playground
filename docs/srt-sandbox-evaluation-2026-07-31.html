@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>srt Sandbox Evaluation — 2026-07-31</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1a1f26;
+        --muted: #5a6570;
+        --line: #d7dee6;
+        --bg: #f7f9fb;
+        --panel: #fff;
+        --ok: #0d7a3f;
+        --bad: #b42318;
+        --warn: #9a6700;
+      }
+      body {
+        margin: 0;
+        font:
+          16px/1.55 system-ui,
+          -apple-system,
+          sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+      }
+      main {
+        max-width: 52rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      h1,
+      h2 {
+        line-height: 1.25;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .small {
+        font-size: 0.9rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--panel);
+        margin: 1rem 0;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 0.55rem 0.65rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: #eef2f6;
+      }
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.88em;
+      }
+      pre {
+        background: #111827;
+        color: #e5e7eb;
+        padding: 1rem;
+        overflow: auto;
+        border-radius: 8px;
+      }
+      .deny {
+        color: var(--bad);
+        font-weight: 600;
+      }
+      .allow {
+        color: var(--ok);
+        font-weight: 600;
+      }
+      .badge {
+        display: inline-block;
+        padding: 0.1rem 0.45rem;
+        border-radius: 999px;
+        background: #e8eef5;
+        font-size: 0.8rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="small muted">
+        H2 gated experiment · Claude Local Bridge Playground · 2026-07-31 · twin:
+        <code>docs/srt-sandbox-evaluation-2026-07-31.md</code>
+      </p>
+      <h1>srt Sandbox Evaluation</h1>
+      <p>
+        Assess Anthropic's open-source <code>@anthropic-ai/sandbox-runtime</code> (<code>srt</code>) against the
+        Safari-2 symlink attack shapes. Zero Anthropic tokens. macOS Seatbelt.
+      </p>
+
+      <h2>Method</h2>
+      <ul>
+        <li>
+          Local install only (never <code>-g</code>) in <code>~/Developer/orchestration-prototypes/h2-srt-eval/</code>.
+        </li>
+        <li>Package <code>0.0.67</code>; CLI <code>--version</code> prints <code>1.0.0</code>.</li>
+        <li>
+          Fixtures: direct <code>.env</code>, in-root alias <code>notes.txt → .env</code>, out-of-root
+          <code>escape.txt → real.env</code>, out-of-root <code>escape-dotenv.txt → ../outside-target/.env</code>,
+          control <code>allowed.txt</code>.
+        </li>
+        <li>Handoff settings needed a required <code>network</code> block before srt would run.</li>
+      </ul>
+      <pre>
+{
+  "network": { "allowedDomains": [], "deniedDomains": [] },
+  "filesystem": {
+    "denyRead": ["**/.env"],
+    "allowWrite": ["."],
+    "denyWrite": ["**/.env"]
+  }
+}</pre
+      >
+
+      <h2>Probe matrix</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Attack shape</th>
+            <th>Bare OS</th>
+            <th>srt</th>
+            <th>Runner gate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Direct <code>cat .env</code></td>
+            <td class="allow">allow</td>
+            <td class="deny">deny — <code>Operation not permitted</code></td>
+            <td class="deny">deny</td>
+          </tr>
+          <tr>
+            <td>In-root alias <code>notes.txt → .env</code> (Safari-2)</td>
+            <td class="allow">allow</td>
+            <td class="deny">deny — <code>Operation not permitted</code></td>
+            <td class="deny">deny (realpath basename)</td>
+          </tr>
+          <tr>
+            <td>Escape to <code>real.env</code> (non-deny basename)</td>
+            <td class="allow">allow</td>
+            <td class="allow">allow</td>
+            <td class="deny">deny if out of cwd</td>
+          </tr>
+          <tr>
+            <td>Escape to outside <code>.env</code></td>
+            <td class="allow">allow</td>
+            <td class="allow">allow (secret printed)</td>
+            <td class="deny">deny</td>
+          </tr>
+          <tr>
+            <td>Write via alias <code>echo x &gt;&gt; notes.txt</code></td>
+            <td class="allow">allow</td>
+            <td class="deny">deny</td>
+            <td class="deny">deny</td>
+          </tr>
+          <tr>
+            <td>Control <code>allowed.txt</code></td>
+            <td class="allow">allow</td>
+            <td class="allow">allow</td>
+            <td class="allow">allow</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Verdict</h2>
+      <p><span class="badge">complement, not replacement</span></p>
+      <p>
+        <strong>THE question answered:</strong> srt <em>does</em> block the in-root innocent-basename symlink to
+        <code>.env</code>. That is the Safari-2 shape.
+      </p>
+      <p>
+        <strong>Gap:</strong> with only <code>denyRead: ["**/.env"]</code>, an out-of-root symlink to a deny-listed
+        <code>.env</code> still succeeded under srt. The runner's <code>resolveFileTarget</code> gate is stricter on
+        that escape.
+      </p>
+      <p>
+        Use srt to wrap shell / CodeAct child processes. Keep the runner permission gate as primary for file tools. Do
+        not edit <code>docs/threat-model.md</code> here (HE-05).
+      </p>
+
+      <h2>Integration sketch</h2>
+      <ol>
+        <li>Optional flag: prefix bash/CodeAct with <code>srt --settings …</code>.</li>
+        <li>
+          Ship a settings template that includes required <code>network</code> keys plus broader deny regions if
+          workspace confinement is desired (<code>denyRead: ["/Users"]</code> + <code>allowRead: ["."]</code>).
+        </li>
+        <li>Fail closed if srt is missing when the flag is set.</li>
+      </ol>
+    </main>
+  </body>
+</html>

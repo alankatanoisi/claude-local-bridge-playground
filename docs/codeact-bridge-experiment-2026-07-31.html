@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CodeAct-on-the-bridge Experiment — 2026-07-31</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1a1f26;
+        --muted: #5a6570;
+        --line: #d7dee6;
+        --bg: #f7f9fb;
+        --panel: #fff;
+        --ok: #0d7a3f;
+      }
+      body {
+        margin: 0;
+        font:
+          16px/1.55 system-ui,
+          -apple-system,
+          sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+      }
+      main {
+        max-width: 54rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .small {
+        font-size: 0.9rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--panel);
+        margin: 1rem 0;
+        font-size: 0.92rem;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 0.5rem 0.6rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: #eef2f6;
+      }
+      code {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 0.88em;
+      }
+      .ok {
+        color: var(--ok);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="small muted">
+        H1 authorized live probe · 2026-07-31 · twin: <code>docs/codeact-bridge-experiment-2026-07-31.md</code>
+      </p>
+      <h1>CodeAct-on-the-bridge Experiment</h1>
+      <p>
+        Same task through (A) the classic runner tool loop and (B) one Messages call that emits a Node script executed
+        under <code>srt</code>. Answer key: <strong>10</strong> TODO/FIXME matches across the fixture.
+      </p>
+
+      <h2>Metrics</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Run</th>
+            <th>Leg</th>
+            <th>Round-trips</th>
+            <th>Wall</th>
+            <th>Tokens (in/out/cache_read)</th>
+            <th>Correct?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td>A classic</td>
+            <td>4 turns</td>
+            <td>14473 ms</td>
+            <td>474 / 804 / 9617</td>
+            <td class="ok">yes</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>A classic</td>
+            <td>4 turns</td>
+            <td>12273 ms</td>
+            <td>911 / 1044 / 12802</td>
+            <td class="ok">yes</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>A classic</td>
+            <td>3 turns</td>
+            <td>9678 ms</td>
+            <td>422 / 787 / 9150</td>
+            <td class="ok">yes</td>
+          </tr>
+          <tr>
+            <td>1</td>
+            <td>B CodeAct</td>
+            <td>1 + local exec</td>
+            <td>15424 + 1470 ms</td>
+            <td>255 / 1412 / 0</td>
+            <td class="ok">yes</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td>B CodeAct</td>
+            <td>1 + local exec</td>
+            <td>11541 + 490 ms</td>
+            <td>255 / 1205 / 0</td>
+            <td class="ok">yes</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>B CodeAct</td>
+            <td>1 + local exec</td>
+            <td>14480 + 475 ms</td>
+            <td>255 / 1553 / 0</td>
+            <td class="ok">yes</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Limitations</h2>
+      <ul>
+        <li>Probe only: one micro-task, N=3.</li>
+        <li>Leg A cache reads dominate token accounting; not apples-to-apples with leg B's single call.</li>
+        <li>Leg B confinement = srt + fs/path-only prompt, not the runner permission gate.</li>
+      </ul>
+
+      <h2>Takeaway</h2>
+      <p>
+        For this bounded count-and-write job, CodeAct matched classic correctness with one model round-trip. The classic
+        loop still owns permissions, transcripts, and tool policy.
+      </p>
+    </main>
+  </body>
+</html>

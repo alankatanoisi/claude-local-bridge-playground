@@ -11,11 +11,11 @@ Claude-specific instructions for this repository. Read `AGENTS.md` first; it con
 Three agent surfaces read this repo and **they do not load the same files**. Know which one you are
 before assuming your context is complete.
 
-| Surface | Auto-loads | Does NOT auto-load |
-| --- | --- | --- |
-| **Claude Code** (this file's audience) | `CLAUDE.md` | `AGENTS.md`, `.cursor/**` |
-| **Cursor** | `AGENTS.md`, `.cursor/rules/**` | `CLAUDE.md` |
-| **Codex** | `AGENTS.md` | `CLAUDE.md`, `.cursor/**` |
+| Surface                                | Auto-loads                      | Does NOT auto-load        |
+| -------------------------------------- | ------------------------------- | ------------------------- |
+| **Claude Code** (this file's audience) | `CLAUDE.md`                     | `AGENTS.md`, `.cursor/**` |
+| **Cursor**                             | `AGENTS.md`, `.cursor/rules/**` | `CLAUDE.md`               |
+| **Codex**                              | `AGENTS.md`                     | `CLAUDE.md`, `.cursor/**` |
 
 Consequences that have caused real problems:
 
@@ -255,9 +255,13 @@ items rather than starting a parallel tracker.
   - Backlog: `docs/HANDOFF-safari-future-directions-2026-07-22.md` (authoritative; the `.html` is derived
     and truncated — do not treat differences as a second opinion).
 - **Active thread: harness-engineering and orchestration follow-through.**
-  - Execution handoff for the approved prototype slice (L1/H2/H1/W1, Alan-authorized incl. small
-    token budget): `HANDOFF-orchestration-prototypes-2026-07-31.md` — assigned to a Cursor agent;
-    check its results docs in `docs/` before assuming the slice is still pending.
+  - Orchestration prototype slice (**L1/H2/H1/W1**) **executed 2026-07-31**. Scratch code lives under
+    `~/Developer/orchestration-prototypes/` (not in git). Results docs:
+    - L1 stub harness notes: `~/Developer/orchestration-prototypes/l1-stub-harness/notes.md`
+    - H2 srt eval: `docs/srt-sandbox-evaluation-2026-07-31.{html,md}`
+    - H1 CodeAct: `docs/codeact-bridge-experiment-2026-07-31.{html,md}`
+    - W1 worker bakeoff: `docs/worker-bakeoff-2026-07-31.{html,md}`
+  - Prior execution handoff (historical): `HANDOFF-orchestration-prototypes-2026-07-31.md`
   - Findings backlog: `docs/harness-engineering-runner-runtime-review-2026-07-28.html` (HE-01…HE-11).
     Carries two known errata (E1 line-count summary card, E2 HE-03 example list) — read the
     validation record before quoting it.
@@ -266,7 +270,7 @@ items rather than starting a parallel tracker.
     verified 54 true / 6 imprecise / 2 wrong, plus new findings N1–N6 and open questions Q1–Q5.
 
 **Three ID namespaces exist in `docs/`.** The runtime-concordance series `P0-01…P0-12` is closed; the
-future-directions band `FD-01…FD-05` is *also* labelled P0 by the 07-22 handoff; the 2026-07-28 harness
+future-directions band `FD-01…FD-05` is _also_ labelled P0 by the 07-22 handoff; the 2026-07-28 harness
 review uses `HE-01…HE-11`. Write the specific ID you mean (`FD-01`, `HE-01`, never a bare "P0"). Register
 graduated items inside the concordance tracker rather than creating another tracker.
 
@@ -284,7 +288,7 @@ When changing runner behavior or CLI options, update:
 These preferences are **universal for this repo** (same content as `AGENTS.md`). Follow them in Claude Code sessions too; do not treat them as Cursor-only memory. When continual-learning updates `AGENTS.md`, keep this block in sync.
 
 > **Mirror verified in sync with `AGENTS.md` on 2026-07-25.** Both Learned blocks matched bullet-for-bullet.
-> The mirroring rule is holding; the drift in this repo is in the *non-mirrored* sections, which were written
+> The mirroring rule is holding; the drift in this repo is in the _non-mirrored_ sections, which were written
 > independently in each file. A `check:agent-docs` script that fails the gate on divergence would make this
 > verification automatic instead of manual — recommended, not yet built.
 

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Worker Bakeoff — 2026-07-31</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1a1f26;
+        --muted: #5a6570;
+        --line: #d7dee6;
+        --bg: #f7f9fb;
+        --panel: #fff;
+        --ok: #0d7a3f;
+      }
+      body {
+        margin: 0;
+        font:
+          16px/1.55 system-ui,
+          -apple-system,
+          sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+      }
+      main {
+        max-width: 52rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .small {
+        font-size: 0.9rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--panel);
+        margin: 1rem 0;
+        font-size: 0.92rem;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 0.5rem 0.6rem;
+        text-align: left;
+      }
+      th {
+        background: #eef2f6;
+      }
+      code {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 0.88em;
+      }
+      .ok {
+        color: var(--ok);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="small muted">W1 thesis demo · 2026-07-31 · twin: <code>docs/worker-bakeoff-2026-07-31.md</code></p>
+      <h1>Worker Bakeoff</h1>
+      <p>
+        Same TODO/FIXME count task through three workers behind one contract: <strong>stub</strong> (canned),
+        <strong>regex</strong> (deterministic Node), <strong>live</strong> (H1 CodeAct replay). Reframe of study P3: the
+        contract boundary matters, not the SDK.
+      </p>
+
+      <h2>Results</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Worker</th>
+            <th>Runs</th>
+            <th>Schema</th>
+            <th>Correct</th>
+            <th>Wall</th>
+            <th>Cost (declared → actual)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>stub</td>
+            <td>3</td>
+            <td class="ok">ok</td>
+            <td class="ok">10/10</td>
+            <td>~0 ms</td>
+            <td>0 → 0</td>
+          </tr>
+          <tr>
+            <td>regex</td>
+            <td>3</td>
+            <td class="ok">ok</td>
+            <td class="ok">10/10</td>
+            <td>9–10 ms</td>
+            <td>0 → 0</td>
+          </tr>
+          <tr>
+            <td>live (replay)</td>
+            <td>3</td>
+            <td class="ok">ok</td>
+            <td class="ok">10/10</td>
+            <td>~1–3 ms</td>
+            <td>2000 → 1460 / 1667 / 1808</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Takeaway</h2>
+      <p>
+        A bounded deterministic program is a legitimate worker peer of a model. The dispatcher has zero worker-specific
+        branches; schema validation is the shared gate.
+      </p>
+    </main>
+  </body>
+</html>
