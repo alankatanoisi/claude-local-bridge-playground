@@ -26,16 +26,16 @@ category below requires an explicit opt-in: `--capabilities edits,recovery,agent
 `--tools` exact allowlist. The system prompt's capability prose is generated from the same visibility
 function as the offered definitions, so the prompt cannot advertise a hidden tool (P2-02).
 
-| Category          | Tools                                                                       | Scope                                                                                                                                                                                                                                                                                                                                                               |
-| ----------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Read**          | `list_files`, `read_file`, `search_text`, `glob`, `git_status`, `lsp_query` | Text reads are path-confined. `read_file` also supports images/PDF as multimodal blocks (size caps; logs redact base64). `lsp_query` is opt-in (`--enable-lsp`) and spawns a local language-server subprocess.                                                                                                                                                      |
-| **Session**       | `manage_tasks`, `ask_user_question`                                         | Task checklist in the session file; structured operator questions (TTY-only, fail closed in workers and `--dont-ask`).                                                                                                                                                                                                                                              |
-| **Orchestration** | `spawn_agent`                                                               | Spawns a generic read-only child runner with an explicit seven-tool set. Top-level only (`spawnDepth === 0`). Asks by default; capped at 8 spawns per run. Child inherits cwd deny matrix; cannot recurse.                                                                                                                                                          |
-| **Worktree**      | `enter_worktree`, `exit_worktree`, `list_worktrees`                         | Multiple named **slots** per run (`slot` parameter); each creates an isolated git worktree on a fresh branch and switches cwd. Re-enter a slot to switch between parallel worktrees. `list_worktrees` lists active slots and orphan dirs under `~/.bridge-runner/worktrees/`. Requires a git repo. Asks by default; `cleanup=true` removes the worktree and branch. |
-| **Skills**        | `run_skill`                                                                 | Loads a skill Markdown body by name from `.bridge-runner/skills/` or `.cursor/skills/`. Read-only text return — does not execute embedded shell or network instructions.                                                                                                                                                                                            |
-| **Write**         | `edit_file`, `write_file`                                                   | Any file inside `cwd` that passes the deny matrix. Backups saved before mutation. Requires user confirmation (or `--accept-edits`).                                                                                                                                                                                                                                 |
-| **Recovery**      | `undo`, `undo_edit`                                                         | Restore files from `.bridge-runner/backups/` or the in-memory undo log. Auto-approved.                                                                                                                                                                                                                                                                              |
-| **Advanced**      | `apply_patch`                                                               | **Hidden by default** (opt in via `--tools apply_patch`). Pure-JS unified-diff apply: no shell, full hunk validation, hash-aware backup, atomic write, rollback on failure (P0-06 repaired). Prefer `edit_file` / `write_file` for ordinary edits.                                                                                                                                                                                    |
+| Category          | Tools                                                                       | Scope                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ----------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Read**          | `list_files`, `read_file`, `search_text`, `glob`, `git_status`, `lsp_query` | Text reads are path-confined. `read_file` also supports images/PDF as multimodal blocks (size caps; logs redact base64). `lsp_query` is opt-in (`--enable-lsp`) and spawns a local language-server subprocess.                                                                                                                                                                                                                               |
+| **Session**       | `manage_tasks`, `ask_user_question`                                         | Task checklist in the session file; structured operator questions (TTY-only, fail closed in workers and `--dont-ask`).                                                                                                                                                                                                                                                                                                                       |
+| **Orchestration** | `spawn_agent`                                                               | Spawns a generic read-only child runner with an explicit seven-tool set. Top-level only (`spawnDepth === 0`). Asks by default; capped at 8 spawns per run. Child inherits cwd deny matrix; cannot recurse.                                                                                                                                                                                                                                   |
+| **Worktree**      | `enter_worktree`, `exit_worktree`, `list_worktrees`                         | Multiple named **slots** per run (`slot` parameter); each creates an isolated git worktree on a fresh branch and switches cwd. Re-enter a slot to switch between parallel worktrees. `list_worktrees` lists active slots and orphan dirs under `~/.bridge-runner/worktrees/`. Requires a git repo. Asks by default; `cleanup=true` removes the worktree and branch.                                                                          |
+| **Skills**        | `run_skill`                                                                 | Loads a skill Markdown body by name from `.bridge-runner/skills/` or `.cursor/skills/`. Read-only text return — does not execute embedded shell or network instructions.                                                                                                                                                                                                                                                                     |
+| **Write**         | `edit_file`, `write_file`                                                   | Any file inside `cwd` that passes the deny matrix. Backups saved before mutation. Requires user confirmation (or `--accept-edits`).                                                                                                                                                                                                                                                                                                          |
+| **Recovery**      | `undo`, `undo_edit`                                                         | Restore files from `.bridge-runner/backups/` or the in-memory undo log. Auto-approved.                                                                                                                                                                                                                                                                                                                                                       |
+| **Advanced**      | `apply_patch`                                                               | **Hidden by default** (opt in via `--tools apply_patch`). Pure-JS unified-diff apply: no shell, full hunk validation, hash-aware backup, atomic write, rollback on failure (P0-06 repaired). Prefer `edit_file` / `write_file` for ordinary edits.                                                                                                                                                                                           |
 | **Shell**         | `bash`, `manage_shell_jobs`                                                 | **Opt-in only** (`--allow-shell`). Unsandboxed **local-account authority**: the process starts in `--cwd`, but commands are **not** cwd-confined — absolute/parent paths, process spawn, and network remain possible. Timeout (default 30s) and output caps apply. Regex shell-policy scanning blocks some sensitive path/env patterns as defense-in-depth. `--no-network` is a best-effort proxy env guard, **not** hard network isolation. |
 
 ## Retired profile loaders
@@ -131,12 +131,19 @@ Path patterns that are **always denied** for both read and write:
 - **Absolute paths** (`/etc/passwd`) → denied before realpath check
 - **`../` traversal** that escapes `cwd` → caught by realpath containment
 - **Symlink escapes** → `fs.realpathSync` resolves the true path and checks against `cwd`
+- **In-root symlink to a deny-listed basename** (Safari-2: `notes.txt` → `.env`) →
+  `resolveFileTarget` checks lexical basename **and** realpath basename; denied at
+  `permissions.check` and again in tool `execute` paths (`read_file`, `edit_file`,
+  `list_files`, `write_file`, `glob`)
 
-**Observed in the 2026-07-21 permission safari:** realpath containment blocked a symlink whose target escaped `cwd`,
-but a safe-looking symlink whose target stayed inside `cwd` and had a deny-listed basename could be opened by
-`read_file`. Central result redaction masked the fake secret-shaped values in that run, so defense in depth prevented
-disclosure. The deny matrix should not yet be described as target-basename-aware; resolved-target enforcement and
-sibling write-tool behavior remain explicit follow-up work. See `docs/permission-safari-2-findings-2026-07-21.md`.
+**Status (updated 2026-07-31):** the 2026-07-21 permission safari observed that realpath
+containment alone blocked out-of-cwd symlink escapes, but an in-root alias to a deny-listed
+basename could still be opened by a thin `read_file` execute path. That gate gap is closed:
+`resolveFileTarget` (`src/runner/safety.js`) is used by `permissions.check`, and the file tools
+above re-check in `execute` for defense-in-depth. `edit_file` / `write_file` also refuse writing
+through a symlink (backup-laundering). Residual: the gate still keys only on an argument named
+`path` (validation finding N1 — catalog-driven path-arg contract test still open). Historical
+safari write-up: `docs/permission-safari-2-findings-2026-07-21.md`.
 
 ### Shell restrictions (when `bash` is enabled)
 
@@ -157,14 +164,14 @@ User prompt
       - one atomic result batch immediately after each assistant tool batch
       - reject duplicate, orphaned, missing, or misplaced IDs before network I/O
   → permissions.check():
-      1. confinePath() — realpath containment → deny on escape
-      2. isPathBlockedByDenyMatrix() — glob patterns → deny on match (severity: hard_deny)
-      3. Shell arg scanning — command text inspection → deny on pattern (severity: hard_deny)
-      4. Category-based decision — allow/ask/deny with severity metadata
+      1. resolveFileTarget() — confinePath + deny matrix on lexical **and** realpath basename + realpath containment
+      2. Shell arg scanning — command text inspection → deny on pattern (severity: hard_deny)
+      3. Category-based decision — allow/ask/deny with severity metadata
   → If ask: user confirms interactively
-  → tool.execute() runs with:
+  → tool.execute() re-checks resolveFileTarget for file tools (HE-01 defense-in-depth) and runs with:
       - safeEnv for shell commands (stripped process.env)
       - cwdRealpath confinement
+      - write tools refuse symlink targets (no backup laundering)
   → runAndScrub() redacts secrets from result text
   → Result flows into messages, transcript, stream-json
 ```
@@ -184,7 +191,7 @@ Before any tool runs, the runner checks whether `--cwd` has been explicitly trus
 **What trust is — and is not (P1-15):** Workspace trust is a **consent record for a folder identity**, not a
 security scan. The stored fingerprint is derived from the resolved real path of `--cwd`, so renaming, moving, or
 symlink-swapping the folder produces a new identity and a fresh consent prompt. Trust does **not** hash, scan, or
-attest the folder's *contents*: files added or changed after consent are still covered by the original decision, and
+attest the folder's _contents_: files added or changed after consent are still covered by the original decision, and
 a hostile file inside a trusted folder is constrained only by the runtime guards above (deny matrix, confinement,
 shell policy), not by the trust record. Treat trust as "I chose to point tools at this folder," never as "this
 folder was verified safe." Similarly, `--no-network` is a best-effort proxy-environment guard and the shell policy
@@ -273,13 +280,13 @@ without it is recorded as **denied** (fail closed, visible in the hook log) rath
 Malformed hook entries are dropped with a recorded reason, and the effective decision is reported
 at session start.
 
-| Risk                                   | Mitigation                                                                         |
-| -------------------------------------- | ---------------------------------------------------------------------------------- |
+| Risk                                   | Mitigation                                                                               |
+| -------------------------------------- | ---------------------------------------------------------------------------------------- |
 | Arbitrary command execution            | Requires workspace trust, `--trusted-workspace`, **and** `"trusted": true` in hooks.json |
-| Secret exfiltration via hook output    | Hook stdout/stderr pass through `scrubSecrets()` before logging                    |
-| Reading `.env` / keys via hook command | Same `scanShellCommand()` hard-deny patterns as `bash`                             |
-| Network egress                         | Hook env inherits scrubbed `buildSafeEnv()`; `--no-network` proxy guard applies    |
-| Runaway hook                           | `spawnSync` timeout (default 120s, max 120s); output capped at 8KB in hook results |
+| Secret exfiltration via hook output    | Hook stdout/stderr pass through `scrubSecrets()` before logging                          |
+| Reading `.env` / keys via hook command | Same `scanShellCommand()` hard-deny patterns as `bash`                                   |
+| Network egress                         | Hook env inherits scrubbed `buildSafeEnv()`; `--no-network` proxy guard applies          |
+| Runaway hook                           | `spawnSync` timeout (default 120s, max 120s); output capped at 8KB in hook results       |
 
 Exec hooks are **user-configured**, not model-callable. The model cannot add or modify hook commands mid-run.
 

@@ -47,11 +47,14 @@ function execute(args, ctx) {
     return { ok: false, text: 'Missing required content argument for write_file.' };
   }
 
-  const confined = safety.confinePath(ctx, args.path);
-  if (!confined) {
-    return { ok: false, text: 'Path escapes working directory: ' + args.path };
+  const resolved = safety.resolveFileTarget(ctx, args.path);
+  if (!resolved.allowed) {
+    return { ok: false, text: resolved.reason || 'Path not allowed: ' + args.path };
   }
-  const target = confined;
+  // Use lexical path for create/overwrite so we do not follow a symlink when
+  // writing (lstat refuse below). resolveFileTarget already denied deny-listed
+  // realpath targets and out-of-tree escapes.
+  const target = resolved.lexical;
   const content = args.content;
 
   if (Buffer.byteLength(content, 'utf8') > MAX_CONTENT_BYTES) {

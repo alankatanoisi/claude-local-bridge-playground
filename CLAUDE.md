@@ -187,34 +187,26 @@ Keep these invariants:
   `docs/archive/runner-profiles/`. (This invariant was present in `AGENTS.md` but missing here until
   2026-07-25 — a Claude Code session had no way to know.)
 
-### Path-safety status (corrected 2026-07-31)
+### Path-safety status (updated 2026-07-31, tool-layer pass)
 
-**The Safari-2 symlink gap is substantially closed at the permission gate.** This section previously
-(2026-07-25 through 2026-07-31) described it as observed and unremediated; that went stale after
-`resolveFileTarget` landed. Verified directly against source on 2026-07-31; full verification record:
-`docs/runner-claims-validation-2026-07-31.md` (§2.2 and §5).
+**Safari-2 in-root symlink-to-deny-listed-basename is closed at gate and tool execute.**
 
-- `resolveFileTarget` (`src/runner/safety.js:366`) checks the lexical path, lexical basename,
-  **realpath basename**, and realpath containment. `permissions.check` (`src/runner/permissions.js:215`)
-  calls it, so the deny matrix **is** target-aware at the gate: an in-root symlink with an innocent
-  name pointing at `.env` is refused before any tool executes.
-- `write_file` additionally refuses symlinks in its own execute path (`confinePath` + `lstat`,
-  `src/runner/tools/write-file.js:50,84`), which also closes the old plaintext-backup leak into
-  `.bridge-runner/backups/`.
+- `resolveFileTarget` (`src/runner/safety.js`) checks lexical path, lexical basename, **realpath
+  basename**, and realpath containment. `permissions.check` calls it, so the deny matrix is
+  target-aware at the gate.
+- File tools re-check in `execute` (HE-01 defense-in-depth, aligned with `glob.js` / N3):
+  `read_file`, `edit_file`, `list_files`, `write_file`. `list_files` also hides deny-listed
+  basenames and aliases from directory listings. `edit_file` / `write_file` refuse writing through
+  a symlink (backup-laundering). Tests: `test/runner/he01-tool-layer-symlink.test.js`.
+- Verification record: `docs/runner-claims-validation-2026-07-31.md` (§2.2 and §5). Threat-model
+  path-escape section updated the same day (no longer narrates the pre-`resolveFileTarget` state).
 
-Residual gaps are defense-in-depth (one layer of protection instead of two, not zero), tracked as
-HE-01 in `docs/harness-engineering-runner-runtime-review-2026-07-28.html`:
+**Residual (not the Safari-2 gap):**
 
-- `read_file` and `edit_file` still use bare `path.resolve` in their execute paths (gate-only
-  protection; `edit_file` follows symlinks).
-- `list_files` makes no confinement call in execute and can leak deny-listed basenames.
-- The gate only inspects an argument literally named `path`; a tool whose filesystem target arrives
-  under a different key gets no target-aware check (validation finding N1).
-
-`docs/threat-model.md` still narrates the pre-`resolveFileTarget` state — do not cite it on this
-topic until it is updated (that staleness is flagged under HE-08b; the rewrite belongs with HE-05).
-Safari-3 background: `HANDOFF-safari-3-remediation-plan-2026-07-25.md` (historical analysis of the
-gap as it stood on 07-25).
+- The gate still inspects an argument literally named `path` (validation finding **N1**). A tool
+  whose filesystem target arrives under a different key gets no target-aware gate check — needs a
+  catalog-driven path-arg contract test, not more execute-path patches.
+- Safari 3 Phase B live probes remain gated: `HANDOFF-safari-3-remediation-plan-2026-07-25.md`.
 
 ## Checks
 
@@ -263,11 +255,13 @@ items rather than starting a parallel tracker.
     - W1 worker bakeoff: `docs/worker-bakeoff-2026-07-31.{html,md}`
   - Prior execution handoff (historical): `HANDOFF-orchestration-prototypes-2026-07-31.md`
   - Findings backlog: `docs/harness-engineering-runner-runtime-review-2026-07-28.html` (HE-01…HE-11).
-    Carries two known errata (E1 line-count summary card, E2 HE-03 example list) — read the
-    validation record before quoting it.
-  - Prioritized agenda: `docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html` §5.
-  - Fact-check of both (start here): `docs/runner-claims-validation-2026-07-31.md` — 62 runner claims
-    verified 54 true / 6 imprecise / 2 wrong, plus new findings N1–N6 and open questions Q1–Q5.
+    HE-01 **tool-layer residual closed 2026-07-31** (see Path-safety status). Carries two known
+    errata (E1 line-count summary card, E2 HE-03 example list) — read the validation record before
+    quoting it.
+  - Prioritized agenda (annotated): `docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html`
+    §5 + **§7 follow-through** (prototype results, N1–N6, directions).
+  - Fact-check: `docs/runner-claims-validation-2026-07-31.md` — 62 runner claims verified; N2/N3/N5
+    addressed; **N1 still open**.
 
 **Three ID namespaces exist in `docs/`.** The runtime-concordance series `P0-01…P0-12` is closed; the
 future-directions band `FD-01…FD-05` is _also_ labelled P0 by the 07-22 handoff; the 2026-07-28 harness

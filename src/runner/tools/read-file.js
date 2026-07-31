@@ -9,8 +9,8 @@
  */
 
 const fs = require('fs');
-const path = require('path');
 const fileCache = require('./_file-cache');
+const safety = require('../safety');
 const { detectMediaKind, readImageResult, readPdfResult } = require('../media-read');
 
 const MAX_BYTES_DEFAULT = 50000;
@@ -198,11 +198,17 @@ function definition() {
 }
 
 function execute(args, ctx) {
-  const cwd = ctx.cwd || process.cwd();
   if (!args || typeof args.path !== 'string' || args.path.trim() === '') {
     return { ok: false, text: 'Missing required path argument for read_file.' };
   }
-  const target = path.resolve(cwd, args.path);
+  // HE-01: defense-in-depth — same target-aware check as permissions.check /
+  // glob.js, so a gate miss or future path-key drift cannot open a deny-listed
+  // realpath through an innocent basename.
+  const resolved = safety.resolveFileTarget(ctx, args.path);
+  if (!resolved.allowed) {
+    return { ok: false, text: resolved.reason || 'Path not allowed: ' + args.path };
+  }
+  const target = resolved.real || resolved.lexical;
 
   try {
     const stats = fs.statSync(target);

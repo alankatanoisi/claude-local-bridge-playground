@@ -12,7 +12,7 @@
  */
 
 const fs = require('fs');
-const path = require('path');
+const safety = require('../safety');
 const { atomicWriteFile, recordUndo, saveBackup, sha256Text } = require('./file-write-utils');
 
 function definition() {
@@ -147,10 +147,25 @@ function materializeEdit(original, args) {
 }
 
 function execute(args, ctx) {
+  if (!args || typeof args.path !== 'string' || args.path.trim() === '') {
+    return { ok: false, text: 'Missing required path argument for edit_file.' };
+  }
+  // HE-01: target-aware confinement (N3 pattern from glob.js) before any read/write.
+  const resolved = safety.resolveFileTarget(ctx, args.path);
+  if (!resolved.allowed) {
+    return { ok: false, text: resolved.reason || 'Path not allowed: ' + args.path };
+  }
+  const target = resolved.lexical;
   const cwd = ctx.cwd || process.cwd();
-  const target = path.resolve(cwd, args.path);
 
   try {
+    // FD-01 / write_file parity: refuse editing through a symlink so an
+    // innocent name cannot launder a deny-listed target into backups.
+    const lstat = fs.lstatSync(target);
+    if (lstat.isSymbolicLink()) {
+      return { ok: false, text: 'Cannot edit through symlink (possible path-security bypass)' };
+    }
+
     // Read the current file
     const original = fs.readFileSync(target, 'utf8');
     const oldStr = args.old_string;
