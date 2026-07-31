@@ -187,20 +187,34 @@ Keep these invariants:
   `docs/archive/runner-profiles/`. (This invariant was present in `AGENTS.md` but missing here until
   2026-07-25 — a Claude Code session had no way to know.)
 
-### Known live gaps (as of 2026-07-25)
+### Path-safety status (corrected 2026-07-31)
 
-Two path-safety gaps are **observed and unremediated**. Redaction is the only thing standing behind the
-first one, so do not treat the deny matrix as target-aware:
+**The Safari-2 symlink gap is substantially closed at the permission gate.** This section previously
+(2026-07-25 through 2026-07-31) described it as observed and unremediated; that went stale after
+`resolveFileTarget` landed. Verified directly against source on 2026-07-31; full verification record:
+`docs/runner-claims-validation-2026-07-31.md` (§2.2 and §5).
 
-- An in-root symlink whose own basename is innocent but whose **resolved target** basename is deny-listed
-  (`.env`) is opened by `read_file`. `confinePath` resolves the link only to test containment, then returns
-  the lexical path, so the deny matrix never sees the real target.
-- `write_file` on such a symlink causes the backup step to read the denied file and write a **plaintext
-  copy** into `.bridge-runner/backups/`, which is not covered by the deny matrix (shell-policy does block
-  it). Gitignored, so it never appears in `git status`.
+- `resolveFileTarget` (`src/runner/safety.js:366`) checks the lexical path, lexical basename,
+  **realpath basename**, and realpath containment. `permissions.check` (`src/runner/permissions.js:215`)
+  calls it, so the deny matrix **is** target-aware at the gate: an in-root symlink with an innocent
+  name pointing at `.env` is refused before any tool executes.
+- `write_file` additionally refuses symlinks in its own execute path (`confinePath` + `lstat`,
+  `src/runner/tools/write-file.js:50,84`), which also closes the old plaintext-backup leak into
+  `.bridge-runner/backups/`.
 
-Full analysis and the remediation plan: `HANDOFF-safari-3-remediation-plan-2026-07-25.md`.
-`src/runner/safety.js` `isFileCandidateAllowed` is the correct reference pattern already in-tree.
+Residual gaps are defense-in-depth (one layer of protection instead of two, not zero), tracked as
+HE-01 in `docs/harness-engineering-runner-runtime-review-2026-07-28.html`:
+
+- `read_file` and `edit_file` still use bare `path.resolve` in their execute paths (gate-only
+  protection; `edit_file` follows symlinks).
+- `list_files` makes no confinement call in execute and can leak deny-listed basenames.
+- The gate only inspects an argument literally named `path`; a tool whose filesystem target arrives
+  under a different key gets no target-aware check (validation finding N1).
+
+`docs/threat-model.md` still narrates the pre-`resolveFileTarget` state — do not cite it on this
+topic until it is updated (that staleness is flagged under HE-08b; the rewrite belongs with HE-05).
+Safari-3 background: `HANDOFF-safari-3-remediation-plan-2026-07-25.md` (historical analysis of the
+gap as it stood on 07-25).
 
 ## Checks
 
@@ -228,22 +242,30 @@ three closed, and every agent that read this file was misinformed on arrival.
 **Single tracker:** `docs/runner-runtime-concordance-assessment-2026-07-17.html`. Annotate it when closing
 items rather than starting a parallel tracker.
 
-**Status as of 2026-07-25:**
+**Status as of 2026-07-31:**
 
 - **P0-01 … P0-12: all closed** (P0-10 on 07-18; P0-11 and P0-12 on 07-19). Record:
   `docs/runner-p0-10-12-agent-handoff-2026-07-18.md`.
-- **Active thread: the permission safaris.** Two adversarial field tests of the permission machinery have
-  run. Safari 1 (flag-composition ladder) passed everywhere. Safari 2 (Codex, rounds A–P) found the symlink
-  gap above and made no source fix. Safari 3 (remediation) is **planned and explicitly not authorized to
-  execute** — read the banner in the handoff before acting.
-  - Start here: `HANDOFF-safari-3-remediation-plan-2026-07-25.md` (and its `.html` twin for humans).
+- **Permission safaris: field tests done, gate fix landed.** Safari 1 (flag-composition ladder) passed
+  everywhere. Safari 2 (Codex, rounds A–P) found the symlink gap; the gate-level fix
+  (`resolveFileTarget`) has since landed — see "Path-safety status" under Safety Rules above.
+  Safari 3 Phase B live probes remain **gated on Alan's explicit authorization** — read the banner in
+  `HANDOFF-safari-3-remediation-plan-2026-07-25.md` before acting.
   - Findings: `docs/permission-safari-2-findings-2026-07-21.md` (authoritative).
   - Backlog: `docs/HANDOFF-safari-future-directions-2026-07-22.md` (authoritative; the `.html` is derived
     and truncated — do not treat differences as a second opinion).
+- **Active thread: harness-engineering and orchestration follow-through.**
+  - Findings backlog: `docs/harness-engineering-runner-runtime-review-2026-07-28.html` (HE-01…HE-11).
+    Carries two known errata (E1 line-count summary card, E2 HE-03 example list) — read the
+    validation record before quoting it.
+  - Prioritized agenda: `docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html` §5.
+  - Fact-check of both (start here): `docs/runner-claims-validation-2026-07-31.md` — 62 runner claims
+    verified 54 true / 6 imprecise / 2 wrong, plus new findings N1–N6 and open questions Q1–Q5.
 
-**Two colliding `P0` namespaces exist in `docs/`.** The runtime-concordance series `P0-01…P0-12` is closed;
-the future-directions band `FD-01…FD-05` is *also* labelled P0 by the 07-22 handoff. Write `FD-01` when you
-mean `FD-01`. Register FD-* inside the concordance tracker rather than creating a third tracker.
+**Three ID namespaces exist in `docs/`.** The runtime-concordance series `P0-01…P0-12` is closed; the
+future-directions band `FD-01…FD-05` is *also* labelled P0 by the 07-22 handoff; the 2026-07-28 harness
+review uses `HE-01…HE-11`. Write the specific ID you mean (`FD-01`, `HE-01`, never a bare "P0"). Register
+graduated items inside the concordance tracker rather than creating another tracker.
 
 ## Docs To Keep Updated
 
