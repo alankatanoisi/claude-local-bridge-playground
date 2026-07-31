@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Validation of Runner Claims in Four Research Reports (2026-07-31)</title>
+    <style>
+      :root {
+        --ok: #1a7f37;
+        --partly: #9a6700;
+        --bad: #b42318;
+        --info: #0b6bcb;
+        --line: #d8dee4;
+        --bg: #ffffff;
+        --soft: #f6f8fa;
+        --ink: #1f2328;
+        --muted: #57606a;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+      }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 96px; }
+      h1 { font-size: 30px; line-height: 1.25; margin: 0 0 8px; }
+      h2 { font-size: 22px; margin: 44px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+      h3 { font-size: 17px; margin: 26px 0 8px; }
+      p, li { max-width: 78ch; }
+      code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13.5px; }
+      code { background: var(--soft); padding: 1px 5px; border-radius: 4px; }
+      pre { background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 14px; overflow-x: auto; }
+      table { border-collapse: collapse; width: 100%; margin: 14px 0 22px; font-size: 14.5px; }
+      th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+      th { background: var(--soft); font-weight: 600; }
+      tbody tr:nth-child(even) { background: #fcfcfd; }
+      .tag { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .3px; padding: 2px 7px; border-radius: 999px; white-space: nowrap; color: #fff; }
+      .t-ok { background: var(--ok); }
+      .t-partly { background: var(--partly); }
+      .t-bad { background: var(--bad); }
+      .t-info { background: var(--info); }
+      .t-stale { background: #6e40c9; }
+      .meta { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin: 18px 0 26px; }
+      .meta dl { display: grid; grid-template-columns: 190px 1fr; gap: 6px 16px; margin: 0; }
+      .meta dt { font-weight: 600; color: var(--muted); }
+      .meta dd { margin: 0; }
+      .callout { border-left: 4px solid var(--info); background: #f0f6ff; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; }
+      .callout.warn { border-left-color: var(--partly); background: #fff8e6; }
+      .callout.bad { border-left-color: var(--bad); background: #fff1f0; }
+      .callout.good { border-left-color: var(--ok); background: #f0fbf3; }
+      .callout p:first-child { margin-top: 0; }
+      .callout p:last-child { margin-bottom: 0; }
+      .scoreboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 20px 0 8px; }
+      .card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--soft); }
+      .card .n { font-size: 26px; font-weight: 700; line-height: 1.1; }
+      .card .l { font-size: 12.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+      nav.toc { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 22px 0 8px; }
+      nav.toc ol { margin: 6px 0 0; padding-left: 22px; }
+      nav.toc a { color: var(--info); text-decoration: none; }
+      nav.toc a:hover { text-decoration: underline; }
+      footer { margin-top: 60px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13.5px; }
+      .nowrap { white-space: nowrap; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Validation of Runner Claims in Four Research Reports</h1>
+      <p style="color: var(--muted); margin-top: 0">
+        A read-only fact-check of every assertion the four attached reports make about
+        <em>our own</em> bridge runner — checked line by line against the source tree.
+      </p>
+
+      <div class="meta">
+        <dl>
+          <dt>Date</dt><dd>2026-07-31</dd>
+          <dt>Folder</dt><dd><code>/Users/alanman/Developer/claude-local-bridge-playground</code></dd>
+          <dt>Branch</dt><dd><code>main</code></dd>
+          <dt>Mode</dt><dd>Read-only verification. No source, config, or existing doc was modified. Two new files created (this report and its agent-facing twin).</dd>
+          <dt>Scope</dt>
+          <dd>
+            Only claims about <strong>our runner / this repo</strong>. Claims about smolagents, LangGraph,
+            OpenAI Agents SDK, Google ADK, AutoGen, Anthropic PTC/CET and the CodeAct paper were
+            <strong>not</strong> checked — they are about third-party systems and would need live web access.
+          </dd>
+          <dt>Checks run</dt><dd>Source inspection only. No <code>npm test</code>, no lint, no model calls, no bridge startup.</dd>
+        </dl>
+      </div>
+
+      <nav class="toc">
+        <strong>Contents</strong>
+        <ol>
+          <li><a href="#tldr">Bottom line</a></li>
+          <li><a href="#which">Which report says what about us</a></li>
+          <li><a href="#inventory">Verdicts — inventory &amp; numbers</a></li>
+          <li><a href="#safety">Verdicts — safety &amp; permissions</a></li>
+          <li><a href="#arch">Verdicts — architecture &amp; control loop</a></li>
+          <li><a href="#packaging">Verdicts — packaging, CI, docs</a></li>
+          <li><a href="#orch">Verdicts — the orchestration study's runner mapping</a></li>
+          <li><a href="#corrections">Corrections: where the reports are wrong or imprecise</a></li>
+          <li><a href="#new">New findings the reports did not make</a></li>
+          <li><a href="#open">Open questions</a></li>
+          <li><a href="#handoff">Handoff</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="tldr">1. Bottom line</h2>
+
+      <div class="scoreboard">
+        <div class="card"><div class="n">62</div><div class="l">Runner claims checked</div></div>
+        <div class="card"><div class="n">54</div><div class="l">Confirmed true</div></div>
+        <div class="card"><div class="n">6</div><div class="l">Partly true / imprecise</div></div>
+        <div class="card"><div class="n">2</div><div class="l">Wrong</div></div>
+        <div class="card"><div class="n">0</div><div class="l">Materially misleading</div></div>
+      </div>
+
+      <div class="callout good">
+        <p>
+          <strong>The reports are accurate about our runner.</strong> The 2026-07-28 harness engineering
+          review — the one written with full local repo access — is the only document that makes a large
+          number of concrete, checkable claims about us, and it is right on essentially all of them,
+          including the awkward ones. Every line count, every module name, every safety gap it named,
+          and every missing packaging artifact it listed checks out against the current tree.
+        </p>
+      </div>
+
+      <div class="callout warn">
+        <p>
+          <strong>The two defects worth knowing about are small and both are over-statements of scope,
+          not invented facts.</strong>
+        </p>
+        <ul>
+          <li>
+            One executive-summary caption mislabels a line count (<code>~13.1k LOC top-level + tools</code>
+            — 13.1k is <em>top-level only</em>; adding <code>tools/</code> makes it ~16.7k, and the whole
+            <code>src/runner</code> tree is ~19.7k). The report's own appendix states this correctly, so the
+            error is a caption, not an analysis.
+          </li>
+          <li>
+            One finding (HE-03) lists five CLI options as "silently dropped" on the coordinator→kernel path.
+            Four of the five really are dropped; <code>sessionExtract</code> is in fact threaded through.
+          </li>
+        </ul>
+      </div>
+
+      <div class="callout">
+        <p>
+          <strong>One important framing point for a non-programmer.</strong> The three
+          "AI orchestration" documents are studies of <em>other people's</em> systems. They contain almost
+          no claims about our runner at all — about a dozen sentences total, mostly in the 2026-07-30
+          review-and-next-steps companion. So "3 of 4 reports were written without broad local
+          permissions" is a smaller problem than it sounds: those three reports mostly did not need
+          local permissions, because they were not describing us. The one that <em>did</em> describe us
+          had full access and used it well.
+        </p>
+      </div>
+
+      <h2 id="which">2. Which report says what about us</h2>
+
+      <table>
+        <thead>
+          <tr><th>Report</th><th>Runner-specific claims?</th><th>Verification burden</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>docs/harness-engineering-runner-runtime-review-2026-07-28.html</code></td>
+            <td><span class="tag t-info">Very high</span> — this is a review <em>of</em> our runner. ~55 checkable claims.</td>
+            <td>The bulk of this validation.</td>
+          </tr>
+          <tr>
+            <td><code>docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html</code></td>
+            <td><span class="tag t-info">Low</span> — one mapping table (§3) asserting that six study concepts already exist as runner modules, plus two sentences about our documented shell weakness and <code>safety.js</code> vocabulary.</td>
+            <td>7 claims.</td>
+          </tr>
+          <tr>
+            <td><code>docs/ai-orchestration-preliminary-study-2026-07-29.md</code></td>
+            <td><span class="tag t-info">Minimal</span> — "user-owned (e.g. local runner)" as a thesis illustration; a handoff line saying no runner/bridge source was touched.</td>
+            <td>2 claims.</td>
+          </tr>
+          <tr>
+            <td><code>docs/ai-orchestration-preliminary-study-2026-07-29.html</code></td>
+            <td><span class="tag t-info">Minimal</span> — HTML companion of the above; same content.</td>
+            <td>Same 2 claims.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn">
+        <p>
+          <strong>Path correction.</strong> The fourth attachment was given as
+          <code>ai-orchestration-preliminary-study-2026-07-29.html</code> at the repo root. No such file
+          exists there. The file is at <code>docs/ai-orchestration-preliminary-study-2026-07-29.html</code>
+          and is the HTML twin of the Markdown study, not a separate fourth study. In substance there are
+          <strong>three</strong> distinct documents, not four.
+        </p>
+      </div>
+
+      <h2 id="inventory">3. Verdicts — inventory and numbers</h2>
+      <p>All from the 2026-07-28 harness review. Counted today against the working tree.</p>
+
+      <table>
+        <thead>
+          <tr><th style="width: 34%">Claim</th><th style="width: 12%">Verdict</th><th>Measured</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>bin/local-bridge-runner.js</code> ≈ 825 lines</td><td><span class="tag t-ok">TRUE</span></td><td>825 exactly.</td></tr>
+          <tr><td><code>src/runner/run.js</code> = 1,709 lines</td><td><span class="tag t-ok">TRUE</span></td><td>1,709 exactly.</td></tr>
+          <tr><td><code>tool-pipeline.js</code> 601 / <code>safety.js</code> 741 / <code>permissions.js</code> 485</td><td><span class="tag t-ok">TRUE</span></td><td>601 / 741 / 485 exactly.</td></tr>
+          <tr><td><code>src/runner/tools</code> = 24 modules / ~3.5k lines</td><td><span class="tag t-ok">TRUE</span></td><td>24 files, 3,554 lines.</td></tr>
+          <tr><td>~111 runner JS modules</td><td><span class="tag t-ok">TRUE</span></td><td>111 <code>.js</code> files under <code>src/runner</code> (recursive).</td></tr>
+          <tr>
+            <td>"~13.1k LOC top-level + tools"</td>
+            <td><span class="tag t-partly">IMPRECISE</span></td>
+            <td>13,141 is <em>top-level only</em> (64 files). Top-level + tools = 16,695. Whole tree = 19,705. The report's appendix gets this right; only the summary caption is wrong.</td>
+          </tr>
+          <tr><td>105 runner test files</td><td><span class="tag t-ok">TRUE</span></td><td>105 <code>test/runner/*.test.js</code> (106 <code>.js</code> including one helper).</td></tr>
+          <tr><td>25 stop reasons in <code>kernel/contract.js</code></td><td><span class="tag t-ok">TRUE</span></td><td>Exactly 25 keys in the frozen <code>STOP_REASONS</code> object.</td></tr>
+          <tr><td>7 core default tools</td><td><span class="tag t-ok">TRUE</span></td><td><code>tool-catalog.js:113-121</code> — list_files, read_file, search_text, glob, git_status, manage_tasks, ask_user_question.</td></tr>
+          <tr><td>Only 2 golden eval cases checked in, named <code>read-list-then-answer.json</code> and <code>plan-mode-write-blocked.json</code></td><td><span class="tag t-ok">TRUE</span></td><td>Exactly those two files under <code>test/runner/golden/</code>.</td></tr>
+          <tr><td><code>spawn_agent</code>: depth 0 only, max 8 per run</td><td><span class="tag t-ok">TRUE</span></td><td><code>tools/spawn-agent.js:17</code> <code>MAX_SPAWNS_PER_RUN = 8</code>; depth refusal at line 103.</td></tr>
+          <tr><td><code>docs/</code> ≈ 2.3 MB</td><td><span class="tag t-ok">TRUE</span></td><td>2.72 MB today; subtracting the 227 KB of 07-30 orchestration docs and the 120 KB archive added afterward gives ≈2.32 MB at review time. Bang on.</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="safety">4. Verdicts — safety and permissions</h2>
+
+      <table>
+        <thead>
+          <tr><th style="width: 36%">Claim (HE-01 / HE-08b / §7.4)</th><th style="width: 12%">Verdict</th><th>Evidence</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>resolveFileTarget()</code> is the unified path gate and checks lexical path <em>and</em> realpath against deny/escape rules</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>safety.js:366-399</code>. Denies on: invalid input, lexical escape, deny-matrix on lexical basename, deny-matrix on <em>realpath</em> basename, realpath escape.</td>
+          </tr>
+          <tr>
+            <td><code>permissions.check</code> uses it, so normal registry dispatch is target-aware</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>permissions.js:214-215</code>.</td>
+          </tr>
+          <tr>
+            <td><code>write-file.js</code> = <code>confinePath</code> + <code>lstat</code> symlink refuse (good partial), around lines 50-87</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>tools/write-file.js:50</code> confinePath; <code>:83-86</code> lstat symlink refuse in the backup branch, commented FD-01.</td>
+          </tr>
+          <tr>
+            <td><code>apply-patch.js</code> and the undo tools use <code>confinePath</code> only</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>apply-patch.js:269</code>, <code>undo.js:100</code>, <code>undo-edit.js:90,137</code>. No realpath deny check, no lstat refuse.</td>
+          </tr>
+          <tr>
+            <td><code>read-file.js</code> / <code>edit-file.js</code> use plain <code>path.resolve</code> and trust the gate entirely</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>read-file.js:205</code>, <code>edit-file.js:151</code>. Neither file mentions confinePath, realpath, lstat, or the deny matrix.</td>
+          </tr>
+          <tr>
+            <td><code>edit_file</code> still follows symlinks on read/write (no lstat refuse)</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td>Confirmed by absence in <code>edit-file.js</code>; <code>write-file.js</code> is the only file actuator with the refuse.</td>
+          </tr>
+          <tr>
+            <td><code>list_files</code> can still reveal deny-matrix basenames (existence leak)</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>tools/list-files.js:39</code> skips only <code>BLOCKED_DIRS</code>. A <code>.env</code> in the listed directory is printed as <code>file: .env</code>.</td>
+          </tr>
+          <tr>
+            <td>Redaction patterns miss modern token shapes (<code>github_pat_</code>, <code>ghs_</code>, Slack <code>xox*</code>)</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>safety.js:197-224</code> covers private-key blocks, <code>sk-ant-</code>, generic <code>sk-</code>, <code>ghp_</code>, <code>gho_</code>, <code>AKIA</code>, <code>aws_secret_access_key=</code>, <code>Bearer</code>, JWT, and <code>SECRET|TOKEN|PASSWORD|API_KEY=</code> lines. It does <strong>not</strong> cover <code>github_pat_</code>, <code>ghs_</code>, <code>ghu_</code>, <code>ghr_</code>, Slack <code>xox*</code>, Google <code>AIza</code>, or Stripe <code>sk_live_</code> (underscore form escapes the hyphenated <code>sk-</code> pattern).</td>
+          </tr>
+          <tr>
+            <td>Multimodal <code>contentBlocks</code> are outside the text scrub chokepoint</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>tool-registry.js:155-177</code> scrubs <code>result.text</code>, streamed text, and <code>result.diff</code>. <code>result.contentBlocks</code> from <code>media-read.js:61,94</code> (base64 image / PDF) passes through untouched.</td>
+          </tr>
+          <tr>
+            <td>No durable chaos-ok audit marker in run artifacts</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>chaosOk</code> appears only in <code>bootstrap.js:54</code>, <code>run.js:463,541</code>, <code>shell-policy.js:142</code>. Zero hits in <code>recovery/run-manifest.js</code>, <code>session-store.js</code>, <code>transcript.js</code>, or <code>archive/</code>.</td>
+          </tr>
+          <tr>
+            <td><code>docs/threat-model.md</code> still narrates the pre-<code>resolveFileTarget</code> Safari state</td>
+            <td><span class="tag t-stale">TRUE — STALE DOC</span></td>
+            <td><code>threat-model.md:135-140</code> still says "The deny matrix should not yet be described as target-basename-aware; resolved-target enforcement … remain explicit follow-up work." <code>resolveFileTarget</code> is not mentioned anywhere in that file.</td>
+          </tr>
+          <tr>
+            <td>Authority ceiling freezes shell/plan/network/tools at run start; monotonic</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>run.js:531</code> <code>ctx.authorityCeiling = createAuthorityCeiling(ctx)</code>; <code>permissions.js:195-213</code> clamps via <code>effectiveFlags</code> and hard-denies <code>authority_ceiling</code> violations.</td>
+          </tr>
+          <tr>
+            <td>Shell requires <code>--allow-shell</code>; never reachable via <code>--capabilities</code>; <code>--dont-ask</code> does not grant it</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>tool-visibility.js:32</code> hard gate; <code>tool-catalog.js:159</code> <code>OPTIONAL_CAPABILITIES</code> excludes <code>shell</code>; <code>normalizeCapabilityList</code> rejects it by name.</td>
+          </tr>
+          <tr>
+            <td>Central redaction boundary at <code>redaction-boundary.js</code> (P0-11)</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td>File exists; consumed by <code>tool-pipeline.js:73</code>, <code>session-store.js:13</code>, <code>run.js:49</code>.</td>
+          </tr>
+          <tr>
+            <td>Private FS modes for sensitive artifacts (<code>private-fs.js</code>, P0-12)</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td>File exists; <code>session-ledger.js:15</code> imports <code>ensurePrivateDir</code>, <code>privateAtomicWriteSync</code>, <code>openPrivateAppend</code>.</td>
+          </tr>
+          <tr>
+            <td>Hooks need workspace trust <em>and</em> exec hooks need <code>"trusted": true</code></td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>hooks/hook-dispatcher.js:10-15,60-61,102-105</code>. Strict boolean: <code>trusted: "yes"</code> or <code>1</code> does not authorize exec.</td>
+          </tr>
+          <tr>
+            <td>Shell is honestly documented as unsandboxed local-account authority</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>threat-model.md:297</code> ("Known limitations §1"), <code>README.md:315,433</code>, <code>tools/bash.js:4</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 id="arch">5. Verdicts — architecture and control loop</h2>
+
+      <table>
+        <thead>
+          <tr><th style="width: 36%">Claim</th><th style="width: 12%">Verdict</th><th>Evidence</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>HE-03</strong> "Kernel abstraction is inverted": <code>runKernel()</code> is a thin option-map over <code>run()</code>; the CLI never goes through the kernel; the coordinator does</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>kernel/agent-kernel.js:10</code> requires <code>run</code> from <code>../run</code>; the whole function is one hand-written options object. <code>bin/local-bridge-runner.js:16,616</code> imports and calls <code>run()</code> directly. Only <code>coordinator.js:7,173</code> calls <code>runKernel</code>.</td>
+          </tr>
+          <tr>
+            <td>Contract normalization pattern-matches legacy <code>finalText</code> strings for stop reasons</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>kernel/contract.js:146-154</code> — string matching on "Reached max_steps", "Context token budget exceeded", "Tool call limit exceeded", "User denied", "consecutive tool failures".</td>
+          </tr>
+          <tr>
+            <td>CLI-only options <code>capabilities</code>, <code>budgetInputTokens</code>, <code>enableLsp</code>, <code>testWatch</code>, <code>sessionExtract</code> can be silently dropped on the coordinator→kernel path</td>
+            <td><span class="tag t-partly">4 of 5 TRUE</span></td>
+            <td>The kernel option map (<code>agent-kernel.js:25-73</code>) has 0 references to <code>capabilities</code>, <code>budgetInputTokens</code>, <code>budgetOutputTokens</code>, <code>enableLsp</code>, <code>testWatch</code> — all real CLI options that <code>run.js</code> accepts. But <code>sessionExtract</code> <strong>is</strong> present in the map. The finding is right; one of its five examples is not.</td>
+          </tr>
+          <tr>
+            <td><strong>HE-08</strong> <code>context-compactor.js</code> exists, is unit-tested, and is <em>not</em> on the live hot path</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td>Zero <code>require</code> of it anywhere in <code>src/</code> or <code>bin/</code> (the single <code>src</code> hit is a comment in <code>tool-catalog.js:19</code>). Six test files import it: <code>tool-catalog</code>, <code>harness-architecture</code>, <code>cost-aware-compaction</code>, <code>reactive-compaction</code>, <code>context-compactor-memo</code>, <code>message-contract</code>.</td>
+          </tr>
+          <tr>
+            <td><strong>HE-09</strong> Coordinator <code>runPhasePlan</code> / dependency batching is implemented and tested but not wired into live <code>Coordinator.run</code></td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td>Defined <code>coordinator.js:63</code>, exported <code>:281</code>. Only consumer is <code>test/runner/coordinator-parallel.test.js</code>. <code>Coordinator.run</code> (<code>:81</code>) walks phases sequentially and calls <code>this.workers.spawnWorker</code> directly.</td>
+          </tr>
+          <tr>
+            <td>Tool pipeline enforces effect pairing: <code>tool_effect_intent</code> then exactly one <code>tool_effect_result</code></td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>tool-pipeline.js:33-34</code> (contract comment), <code>:223</code> intent append, <code>:276</code> result append, both carrying the same <code>effectId</code>.</td>
+          </tr>
+          <tr>
+            <td>Capability groups are exactly core / edits / recovery / agents / worktrees / skills / lsp / shell with the listed members</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>tool-catalog.js:112-129</code>, verbatim match. Plus <code>buildGroupIndex</code> throws if any tool is in two groups or in none — a genuinely strong invariant the review under-sold.</td>
+          </tr>
+          <tr>
+            <td><code>apply_patch</code> still needs exact <code>--tools</code> (not enabled by <code>--capabilities edits</code>)</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>tools/apply-patch.js:382</code> <code>meta: { …, hidden: true }</code> → <code>DEFAULT_HIDDEN_TOOLS</code> → <code>tool-visibility.js:77</code> returns false unless <code>ctx.allowedTools</code> names it.</td>
+          </tr>
+          <tr>
+            <td>Session resume is first-class; transcript resume is deprecated and rejected</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>bin/local-bridge-runner.js:57</code> help text; <code>:533</code> hard error "<code>--resume &lt;transcript&gt; is deprecated and no longer accepted</code>".</td>
+          </tr>
+          <tr>
+            <td>Retired-profile rejection lives in <code>run.js</code></td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>run.js:415-419</code> rejects <code>agentProfile</code>, <code>toolProfileName</code>, <code>toolProfile</code>, <code>profileContext</code>.</td>
+          </tr>
+          <tr>
+            <td>Trace levels are off / summary / redacted / full</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>bin/local-bridge-runner.js:411</code> validates against exactly that list.</td>
+          </tr>
+          <tr>
+            <td>Transcript JSONL under <code>~/.bridge-runner/logs/</code>; run manifest at <code>.bridge-runner/runs/&lt;id&gt;/manifest.json</code></td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>bin/local-bridge-runner.js:47,546</code>; <code>recovery/run-manifest.js:14</code>.</td>
+          </tr>
+          <tr>
+            <td>Budgets: input tokens, output tokens, wall clock, estimated USD; broker leases slices to children; child-inherit narrows authority</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>budget-tracker.js:90-131</code>; <code>budget-broker.js:4-15</code> documents the invariant <em>sum(active leases) + totalUsage never exceeds the parent hard caps</em>; <code>child-inherit.js</code> present and used by <code>coordinator.js</code> inherit bundle.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 id="packaging">6. Verdicts — packaging, CI, docs</h2>
+
+      <table>
+        <thead>
+          <tr><th style="width: 40%">Claim</th><th style="width: 12%">Verdict</th><th>Evidence</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>PLANS.md</code> missing</td><td><span class="tag t-ok">TRUE</span></td><td>Not present at repo root.</td></tr>
+          <tr><td><code>docs/ARCHITECTURE.md</code> missing</td><td><span class="tag t-ok">TRUE</span></td><td>Not present.</td></tr>
+          <tr><td><code>docs/OBSERVABILITY.md</code> missing</td><td><span class="tag t-ok">TRUE</span></td><td>Not present.</td></tr>
+          <tr><td><code>Makefile.harness</code> / <code>make smoke|check|ci</code> missing</td><td><span class="tag t-ok">TRUE</span></td><td>No <code>Makefile</code> or <code>Makefile.harness</code> anywhere.</td></tr>
+          <tr>
+            <td>CI is CodeQL + a manual self-hosted read-only POC; no PR gate running the unit suite</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td>Only two workflows: <code>codeql.yml</code> and <code>bridge-runner-readonly-poc.yml</code>, the latter triggered by <code>workflow_dispatch</code> only.</td>
+          </tr>
+          <tr>
+            <td>npm scripts: <code>test</code>, <code>lint</code>, <code>format:check</code>, <code>check:docs</code>, <code>runner:eval</code>; no typecheck</td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td>Exact match, plus <code>lint:fix</code>, <code>format</code>, and a stray <code>test:keploy</code>. devDependencies are eslint/prettier/jest/globals only — no TypeScript, no <code>tsc</code>.</td>
+          </tr>
+          <tr>
+            <td>Test runner is <code>node:test</code>; <code>npm test</code> = setup + <code>test/**/*.test.js</code></td>
+            <td><span class="tag t-ok">TRUE</span></td>
+            <td><code>node --require ./test/setup.js --test test/*.test.js test/runner/*.test.js</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 id="orch">7. Verdicts — the orchestration study's runner mapping</h2>
+      <p>
+        The 2026-07-30 review-and-next-steps document asserts (§3) that the study's "user-owned reference
+        architecture" is "a description of what the runner already is", with a six-row mapping table.
+        Every module it names exists and does approximately what is claimed.
+      </p>
+
+      <table>
+        <thead>
+          <tr><th style="width: 30%">Study concept</th><th style="width: 30%">Claimed runner module</th><th style="width: 12%">Verdict</th><th>Note</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Permissions &amp; policy above workers</td><td><code>permissions.js</code>, <code>authority.js</code> (monotonic ceiling)</td><td><span class="tag t-ok">TRUE</span></td><td>Both exist; ceiling frozen at <code>run.js:531</code> and enforced at <code>permissions.js:200</code>.</td></tr>
+          <tr><td>Scheduler / budget enforcement</td><td><code>budget-tracker.js</code>, <code>budget-broker.js</code> (child leases)</td><td><span class="tag t-ok">TRUE</span></td><td>Lease invariant is explicit in the broker's header comment.</td></tr>
+          <tr><td>Durability / checkpoints</td><td><code>session-store.js</code>, <code>session-ledger.js</code> (effect pairing)</td><td><span class="tag t-partly">TRUE, mis-attributed</span></td><td>Both files exist and the ledger is append-only with a cursor sidecar. But <em>effect pairing</em> is implemented in <code>tool-pipeline.js:223,276</code>; the ledger is only the sink. Harmless for a mapping table, wrong if an agent goes looking for the logic in <code>session-ledger.js</code>.</td></tr>
+          <tr><td>Evidence outside model context</td><td>archive export, transcript, context projection vs canonical history</td><td><span class="tag t-ok">TRUE</span></td><td><code>archive/</code>, <code>transcript.js</code>, <code>context-projection.js</code> all present; compactor confirmed off the hot path.</td></tr>
+          <tr><td>Redaction at sink boundaries</td><td><code>redaction-boundary.js</code></td><td><span class="tag t-ok">TRUE</span></td><td>Three consumers; see §4 for the coverage caveats.</td></tr>
+          <tr><td>Approval loop</td><td>plan-mode proposals, confirmations, <code>ask_user_question</code></td><td><span class="tag t-ok">TRUE</span></td><td><code>plan-proposals.js</code>, <code>confirmation.js</code>, <code>user-question.js</code>.</td></tr>
+          <tr>
+            <td>"<code>@anthropic-ai/sandbox-runtime</code> … targets exactly the runner's documented 'shell is unsandboxed' weakness"</td>
+            <td>—</td><td><span class="tag t-ok">TRUE (our half)</span></td>
+            <td>The claim about <em>us</em> holds: <code>threat-model.md:297-310</code> documents exactly this weakness and even names "containers, Seatbelt, Landlock" as the missing piece. The claim about the Anthropic package itself was not verified (no web access; out of scope).</td>
+          </tr>
+          <tr>
+            <td>"safety.js vocabulary, including symlink-resolving deny rules"</td>
+            <td><code>safety.js</code></td><td><span class="tag t-ok">TRUE</span></td>
+            <td><code>resolveFileTarget</code> does resolve symlinks and re-tests the realpath basename against the deny matrix (<code>safety.js:385-387</code>).</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 id="corrections">8. Corrections: where the reports are wrong or imprecise</h2>
+
+      <div class="callout bad">
+        <p><strong>C1 — Line-count caption (harness review, §1 stat card).</strong></p>
+        <p>
+          Reads <code>~13.1k LOC top-level + tools</code>. The true figure for top-level + tools is
+          <strong>16,695</strong>; 13,141 is top-level alone; the full <code>src/runner</code> tree is
+          <strong>19,705</strong>. The report's own §11 size snapshot lists these correctly and separately,
+          so this is a summary-card slip. It matters only because summary cards are what get copied into
+          later documents.
+        </p>
+      </div>
+
+      <div class="callout bad">
+        <p><strong>C2 — HE-03's example list (harness review, §9).</strong></p>
+        <p>
+          The finding claims <code>capabilities</code>, <code>budgetInputTokens</code>,
+          <code>enableLsp</code>, <code>testWatch</code>, and <code>sessionExtract</code> "can be silently
+          dropped" on the coordinator→kernel path. Four are correct. <code>sessionExtract</code> <em>is</em>
+          in the kernel option map. A better fifth example would be <code>budgetOutputTokens</code>, which
+          is also missing.
+        </p>
+      </div>
+
+      <div class="callout warn">
+        <p><strong>C3 — Mis-attribution of effect pairing (orchestration review, §3 table).</strong></p>
+        <p>
+          Effect pairing is listed under <code>session-ledger.js</code>. It is implemented in
+          <code>tool-pipeline.js</code>; the ledger merely receives the two events.
+        </p>
+      </div>
+
+      <div class="callout warn">
+        <p><strong>C4 — Under-specified "redaction misses ghp_".</strong></p>
+        <p>
+          HE-08b's phrasing (<code>github_pat_</code>, <code>ghs_</code>, Slack <code>xox*</code>, etc.) is
+          correct, but it is worth stating positively what <em>is</em> covered so nobody "fixes" a
+          non-problem: <code>ghp_</code> and <code>gho_</code> are already handled. The genuinely absent
+          shapes are <code>github_pat_</code>, <code>ghs_</code>, <code>ghu_</code>, <code>ghr_</code>,
+          Slack <code>xox[bpaso]-</code>, Google <code>AIza…</code>, and Stripe's underscore
+          <code>sk_live_</code> form.
+        </p>
+      </div>
+
+      <div class="callout warn">
+        <p><strong>C5 — Attachment path (this task's brief, not a report defect).</strong></p>
+        <p>
+          <code>ai-orchestration-preliminary-study-2026-07-29.html</code> does not exist at the repo root;
+          it is <code>docs/ai-orchestration-preliminary-study-2026-07-29.html</code>, the HTML twin of the
+          Markdown study. Three distinct documents, not four.
+        </p>
+      </div>
+
+      <div class="callout warn">
+        <p><strong>C6 — Branch provenance disagreement between the two orchestration documents.</strong></p>
+        <p>
+          The 2026-07-30 review header records branch <code>claude/user-owned-ai-orchestration-qaxol8</code>;
+          the study's own handoff and the harness review both say <code>main</code>. The current checkout is
+          <code>main</code> and the files are present here, so the work landed — but a future agent reading
+          the header alone would look for a branch that is not the one to build on.
+        </p>
+      </div>
+
+      <h2 id="new">9. New findings the reports did not make</h2>
+
+      <p>
+        These emerged during verification. They are <em>observations about the code</em>, not
+        authorizations to change it.
+      </p>
+
+      <table>
+        <thead><tr><th style="width: 8%">#</th><th style="width: 32%">Observation</th><th>Why it matters</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>N1</td>
+            <td>The permission gate keys off <code>args.path</code> only (<code>permissions.js:194</code>).</td>
+            <td>The whole "target-aware" defence rests on one argument name. Any current or future tool that carries a filesystem target under a different key — or carries a <em>second</em> path — gets no <code>resolveFileTarget</code> check at all. This generalises HE-01 from "some tools have thin execute paths" to "the gate itself has a single-argument shape assumption". Worth a test.</td>
+          </tr>
+          <tr>
+            <td>N2</td>
+            <td><code>list_files</code> does not call <code>confinePath</code> at all in <code>execute</code> (<code>list-files.js:34</code> is a bare <code>path.resolve</code>).</td>
+            <td>The review flagged the basename existence leak but not that the directory-confinement for this tool is also gate-only. Same defence-in-depth class as HE-01, one tool further out.</td>
+          </tr>
+          <tr>
+            <td>N3</td>
+            <td><code>glob.js</code> already uses <code>resolveFileTarget</code> (<code>glob.js:105</code>) <em>as well as</em> <code>confinePath</code> (<code>:131</code>).</td>
+            <td>The review's HE-01 narrative implies only <code>permissions.check</code> adopted the new choicepoint. At least one tool has migrated. Whoever implements HE-01 should treat <code>glob.js</code> as the in-tree reference pattern rather than inventing a new one.</td>
+          </tr>
+          <tr>
+            <td>N4</td>
+            <td><code>tool-catalog.js:132-152</code> throws at load time if any tool is in two capability groups or in none.</td>
+            <td>This is a stronger structural invariant than anything the review credits, and it is the reason the capability surface cannot silently drift. It belongs in the future <code>ARCHITECTURE.md</code>.</td>
+          </tr>
+          <tr>
+            <td>N5</td>
+            <td><code>CLAUDE.md</code> "Known live gaps (as of 2026-07-25)" still describes the symlink deny-matrix gap as observed and unremediated.</td>
+            <td>Same staleness class as the threat-model drift HE-08b flagged, but in the file Claude Code <em>auto-loads</em>. Every Claude session currently starts believing a gap is open that <code>resolveFileTarget</code> substantially closed at the gate. This is arguably higher-impact than the threat-model drift because of the auto-load path.</td>
+          </tr>
+          <tr>
+            <td>N6</td>
+            <td>Scrubbing base64 <code>contentBlocks</code> is not straightforwardly the right fix for HE-08b.</td>
+            <td>A regex scrub over base64 will not match a secret inside an image, and will not match a secret inside a PDF's compressed streams either. The real control is the <em>path gate</em> deciding whether the file may be read at all, plus a size/type policy. Recording this stops a future agent from implementing an expensive no-op.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 id="open">10. Open questions</h2>
+
+      <ol>
+        <li>
+          <strong>Is HE-01 still the right shape after <code>glob.js</code>?</strong> If one tool already
+          calls <code>resolveFileTarget</code> in <code>execute</code>, the remaining work may be smaller
+          than the review implies — or the two call sites may have diverged. Needs a call-site-by-call-site
+          diff before anyone writes code.
+        </li>
+        <li>
+          <strong>Which document is the authority on the symlink gap?</strong> <code>CLAUDE.md</code>
+          (open), <code>docs/threat-model.md</code> (open), and the harness review (mostly closed at the
+          gate, residual at the tool layer) disagree. The single-tracker rule says the concordance
+          assessment decides — but the concordance tracker was not consulted for this question. Needs Alan
+          or a designated agent to pick one and annotate the others.
+        </li>
+        <li>
+          <strong>Was HE-08b's "no durable chaos-ok marker" ever meant to be closed?</strong> It is
+          confirmed true, and it is also listed as Safari S2-05 / F6. Two IDs, one gap, and neither
+          namespace currently owns it.
+        </li>
+        <li>
+          <strong>Does the coordinator path lose safety, not just features?</strong> HE-03 frames the
+          dropped kernel options as feature drift. <code>capabilities</code> is on that list, and
+          capabilities determine which tools exist. Whether a coordinator-launched run ends up with a
+          <em>wider</em> or <em>narrower</em> tool surface than the operator intended was not determined
+          here and is the one part of HE-03 with a possible safety edge.
+        </li>
+        <li>
+          <strong>Should the three orchestration documents be treated as load-bearing for runner work at
+          all?</strong> Their runner claims are true but thin. Their value is the external landscape, which
+          this validation did not and could not check. Treat their §3 mapping as verified; treat
+          everything else in them as unverified third-party research.
+        </li>
+      </ol>
+
+      <h2 id="handoff">11. Handoff</h2>
+      <table>
+        <tbody>
+          <tr><th style="width: 22%">Folder</th><td><code>/Users/alanman/Developer/claude-local-bridge-playground</code></td></tr>
+          <tr><th>Branch</th><td><code>main</code></td></tr>
+          <tr><th>Files changed</th><td>None modified. Two files <em>added</em>: <code>docs/runner-claims-validation-2026-07-31.html</code> (this file) and <code>docs/runner-claims-validation-2026-07-31.md</code> (agent-facing twin).</td></tr>
+          <tr><th>Checks run</th><td>Read-only source inspection and line counting. <strong>Not</strong> run: <code>npm test</code>, <code>npm run lint</code>, <code>npm run check:docs</code>, <code>npm run format:check</code> — no source was touched, and this turn was scoped to verification.</td></tr>
+          <tr><th>Skipped deliberately</th><td>All third-party claims (smolagents, LangGraph, OpenAI Agents SDK, ADK, AutoGen, Anthropic PTC/CET, CodeAct, <code>@anthropic-ai/sandbox-runtime</code>, OTel GenAI semconv). No web access was used; verifying them would need it.</td></tr>
+          <tr><th>Risks</th><td>Line counts and file lists are a snapshot of 2026-07-31 and will drift. Nothing here authorizes a code change; findings N1–N6 are observations, and Safari 3 Phase B remains gated per the standing banner.</td></tr>
+          <tr><th>Suggested next step</th><td>Resolve open question 2 (who owns the symlink-gap narrative) before implementing HE-01, because the answer changes what "done" means. Then C1/C2 can be annotated into the harness review as errata.</td></tr>
+        </tbody>
+      </table>
+
+      <footer>
+        Read-only validation · Claude Local Bridge Playground · 2026-07-31 · Scope: claims about this
+        repo's runner only. Third-party framework claims in the source reports were not assessed.
+      </footer>
+    </div>
+  </body>
+</html>
