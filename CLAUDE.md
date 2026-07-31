@@ -255,6 +255,9 @@ items rather than starting a parallel tracker.
   - Backlog: `docs/HANDOFF-safari-future-directions-2026-07-22.md` (authoritative; the `.html` is derived
     and truncated — do not treat differences as a second opinion).
 - **Active thread: harness-engineering and orchestration follow-through.**
+  - Execution handoff for the approved prototype slice (L1/H2/H1/W1, Alan-authorized incl. small
+    token budget): `HANDOFF-orchestration-prototypes-2026-07-31.md` — assigned to a Cursor agent;
+    check its results docs in `docs/` before assuming the slice is still pending.
   - Findings backlog: `docs/harness-engineering-runner-runtime-review-2026-07-28.html` (HE-01…HE-11).
     Carries two known errata (E1 line-count summary card, E2 HE-03 example list) — read the
     validation record before quoting it.
