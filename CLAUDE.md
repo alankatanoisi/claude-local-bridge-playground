@@ -268,7 +268,9 @@ items rather than starting a parallel tracker.
   fan-out, 4.13× at token parity) + `docs/ARCHITECTURE.md`. Results handoff:
   `HANDOFF-round3-results-2026-07-31.md`. Evening follow-through: N1 + A3-F1/F2 closed —
   `HANDOFF-n1-a3-followthrough-2026-07-31.md`, session report
-  `docs/session-report-round3-followthrough-2026-07-31.html`. **F6 (`applyRepair`) still open.**
+  `docs/session-report-round3-followthrough-2026-07-31.html`. **F6 (`applyRepair` /
+  ledger-aware resume) closed same evening** — `HANDOFF-f6-ledger-aware-resume-2026-07-31.md`.
+  Residual: A1-F4/A1-F5, A3-F4, DBOS arm, HE-05 OTel half.
 
 **Three ID namespaces exist in `docs/`.** The runtime-concordance series `P0-01…P0-12` is closed; the
 future-directions band `FD-01…FD-05` is _also_ labelled P0 by the 07-22 handoff; the 2026-07-28 harness

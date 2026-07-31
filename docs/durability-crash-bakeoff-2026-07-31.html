@@ -182,8 +182,9 @@
         in a dangling <code>tool_use</code>; resume failed the message-contract check and exited 1 after zero requests
         (hence the negative excess). No double-execution — but only because resume was broken. In both shapes the ledger
         knew the truth (<code>pending_effect</code> reported, correct repair actions proposed) and nothing on the resume
-        path consults it; <code>applyRepair</code> is a stub (F6). <strong>F8 confirmed:</strong> SIGTERM rows are
-        identical to SIGKILL rows.
+        path consulted it during the bake-off; <code>applyRepair</code> was still a stub (F6).
+        <strong>F6 closed the same evening</strong> via ledger-aware resume.
+        <strong>F8 confirmed:</strong> SIGTERM rows are identical to SIGKILL rows.
       </p>
 
       <h2>The fix</h2>
@@ -272,16 +273,17 @@
         <tr>
           <td>A1-F3</td>
           <td>
-            A contract-valid checkpoint ≠ a resumable one: mid-tool checkpoints strand the session on the
-            message-contract check; resume never consults the ledger or <code>planRepair</code>.
-            <code>applyRepair</code> (F6) is the missing bridge.
+            A contract-valid checkpoint ≠ a resumable one: mid-tool checkpoints stranded the session on the
+            message-contract check. <strong>Closed evening:</strong> <code>reconcileForResume</code> injects synthetic
+            <code>tool_result</code>s and marks matching pending intents aborted (F6).
           </td>
         </tr>
         <tr>
           <td>A1-F4</td>
           <td>
             Replay's <code>orphaned_tool_use</code> detection is dead code on real ledgers — the runner's 10-type ledger
-            vocabulary never includes the message-level events it looks for.
+            vocabulary never includes the message-level events it looks for. (F6 now detects dangling tool_use from the
+            checkpoint itself; dead vocabulary cleanup still open.)
           </td>
         </tr>
         <tr>
@@ -295,16 +297,17 @@
 
       <h2>What this feeds</h2>
       <p class="small">
-        F6 (<code>applyRepair</code>) now has two measured failure shapes it would fix, still deliberately unimplemented
-        this round. The structural recommendation is <strong>ledger-aware resume</strong>: reconcile the checkpoint
-        against the ledger, which survived byte-perfect in all 74 trials (consistent with C3's 141-ledger corpus, zero
-        corrupt tails). A1-F4/A1-F5 are small testable follow-ups for the concordance backlog.
+        <strong>F6 closed 2026-07-31 evening.</strong> <code>applyRepair</code> mutates when approved;
+        <code>--resume-session</code> calls <code>reconcileForResume</code> before <code>session_started</code>: stale
+        checkpoints get <code>inject_recovered_exchange</code>; dangling tool_use gets
+        <code>inject_synthetic_tool_result</code> + <code>mark_pending_aborted</code>. Tests:
+        <code>test/runner/ledger-repair.test.js</code> + extended crash recovery. A1-F4/A1-F5 remain small follow-ups.
       </p>
 
       <p class="muted small">
         Raw per-trial JSON: <code>results/pre-fix-*</code>, <code>results/post-fix-*</code>,
-        <code>results/langgraph-crash.json</code> in the A1 workspace. Repo changes: SIGTERM handler in
-        <code>src/runner/run.js</code>; <code>test/runner/ledger-crash-recovery.test.js</code>.
+        <code>results/langgraph-crash.json</code> in the A1 workspace. Repo changes: SIGTERM handler + F6 reconcile in
+        <code>src/runner/run.js</code>; <code>src/runner/ledger-repair.js</code>; crash + repair tests.
       </p>
     </main>
   </body>

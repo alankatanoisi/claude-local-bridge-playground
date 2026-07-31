@@ -441,7 +441,7 @@ Useful runner options:
 | `--transcript <path>`                                    | JSONL transcript path (default under `~/.bridge-runner/logs/`)                                                                                 |
 | `--resume <path>`                                        | Deprecated — rejected. Use `--resume-session` with a session id/path                                                                           |
 | `--session-id <id>` / `--session-path <p>`               | Canonical session store id or explicit state-file path                                                                                         |
-| `--resume-session`                                       | Resume from the session store (needs `--session-id` or `--session-path`)                                                                       |
+| `--resume-session`                                       | Resume from the session store (needs `--session-id` or `--session-path`). Ledger-aware: auto-repairs stale checkpoints / dangling tool_use (F6) |
 | `--new-session`                                          | Force a fresh session (ignore `--resume` / `--continue`)                                                                                       |
 | `--ack-resume-risk`                                      | Allow resume even when session health is degraded                                                                                              |
 | `--fork-from <id>`                                       | Fork an existing session into a new session id/path                                                                                            |

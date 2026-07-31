@@ -14,6 +14,7 @@ const { HumanLog } = require('./human-log');
 const { STOP_REASONS, mapUpstreamStopReason } = require('./kernel/contract');
 const { SessionStore, resolveSessionPath } = require('./session-store');
 const { assertValidAnthropicMessages, toolUseIds } = require('./message-contract');
+const { reconcileForResume } = require('./ledger-repair');
 const { HookDispatcher } = require('./hooks/hook-dispatcher');
 const { runBootstrap } = require('./bootstrap');
 const { SessionLedger } = require('./session-ledger');
@@ -608,7 +609,8 @@ async function run(options) {
   let archiveCollector = null;
   const resolvedSessionPath = resolveSessionPath({ sessionPath, sessionId });
   const sessionStore = resolvedSessionPath ? new SessionStore(resolvedSessionPath) : null;
-  const ledger = resolvedSessionPath ? new SessionLedger(resolvedSessionPath) : null;
+  // `let` so F6 resume repair can re-open after appending repair ledger events.
+  let ledger = resolvedSessionPath ? new SessionLedger(resolvedSessionPath) : null;
   const legacyCompactionGeneration = sessionStore ? sessionStore.data().runner.compactionGeneration || 0 : 0;
   ctx.compactionGeneration = legacyCompactionGeneration;
   const hooks = new HookDispatcher(ctx.cwdRealpath, {
@@ -641,6 +643,22 @@ async function run(options) {
       { quiet, verbose, stopReason: 'hook_authority' },
     );
   }
+  // F6: on resume, reconcile checkpoint vs ledger BEFORE this run appends
+  // session_started. Repair events land first; then we re-open the ledger so
+  // this run's in-memory seq/pending cursor matches the file.
+  let resumeRepairNote = null;
+  if (resume && sessionStore && sessionStore.exists() && resolvedSessionPath) {
+    sessionStore.load();
+    const priorMessages = sessionStore.messages.length ? [...sessionStore.messages] : [];
+    if (priorMessages.length > 0) {
+      const reconciled = reconcileForResume(resolvedSessionPath, priorMessages);
+      if (reconciled.mutated) {
+        resumeRepairNote = reconciled.result?.actions || 0;
+        if (ledger) ledger.close();
+        ledger = new SessionLedger(resolvedSessionPath);
+      }
+    }
+  }
   if (ledger) {
     appendLedger(ledger, hooks, 'session_started', { runId, cwd: ctx.cwdRealpath });
     const pending = ledger.getPendingIntents();
@@ -651,6 +669,18 @@ async function run(options) {
         stopReason: 'ledger_crash_recovery',
       });
     }
+  }
+  if (resumeRepairNote !== null && !quiet) {
+    console.error(
+      '[runner] ledger-aware resume repaired ' + resumeRepairNote + ' crash residue action(s) before continuing',
+    );
+  }
+  if (resumeRepairNote !== null) {
+    emitHint('Ledger-aware resume repaired ' + resumeRepairNote + ' crash residue action(s).', {
+      quiet,
+      verbose,
+      stopReason: 'ledger_resume_repair',
+    });
   }
   hooks.dispatch('session_start', { runId: options.runId, cwd: ctx.cwdRealpath });
 
@@ -1077,6 +1107,9 @@ async function run(options) {
         steps: 0,
       });
     }
+    // Checkpoint may already have been repaired in the early F6 reconcile above;
+    // reload so we continue from the flushed repaired messages.
+    messages = [...sessionStore.messages];
     messages.push(buildUserMessage(prompt, stdinText));
     ctx.contextState = updateDirective(ctx.contextState || createContextState(prompt, 'unknown'), prompt);
     if (!quiet) console.error('[runner] resumed ' + messages.length + ' messages from session ' + resolvedSessionPath);

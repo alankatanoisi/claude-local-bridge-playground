@@ -66,12 +66,11 @@ Measured end-to-end by the A1 crash bake-off (`docs/durability-crash-bakeoff-202
 | `session-store.js` (`*.state.json`)    | Debounced (75 ms default) atomic-write JSON checkpoint of API messages + runner metadata; the thing `--resume-session` actually loads                                    | Whatever entered the debounce window before signal death is lost; flushed synchronously on `process.exit` and, via the finalizer, on SIGINT/SIGTERM |
 | `session-ledger.js` (`*.ledger.jsonl`) | Append-only, sequence-numbered event log written synchronously (10 event types incl. the intent/result effect pairing); cursor sidecar (`*.cursor.json`) for fast resume | Survived byte-perfect in all 74 A1 kill trials and showed zero corrupt tails across the 141-ledger C3 corpus                                        |
 | `replay-simulator.js`                  | Read-only consistency check: sequence gaps, pending (unresolved) effect intents, orphaned tool uses                                                                      | Correctly classified every induced crash; note the orphaned-tool-use branch keys on event types the runner never emits (A1-F4)                      |
-| `ledger-repair.js`                     | `planRepair` proposes actions (mark aborted, inject synthetic tool_result, flag gap); `applyRepair` is a **stub** that never mutates (F6)                                | Proposed the right action for every induced crash; nothing on the resume path consumes it                                                           |
+| `ledger-repair.js`                     | `planRepair` proposes actions; `applyRepair` mutates when approved; `reconcileForResume` auto-applies the safe subset on `--resume-session` (F6 closed 2026-07-31) | Closes A1 stale-checkpoint double-execution and dangling-tool_use strands; `report_gap` stays manual-only |
 
-The structural gap, stated once: **resume trusts the checkpoint alone and never consults the
-ledger**, so a stale checkpoint silently re-executes completed side effects and a mid-tool
-checkpoint strands the session on the message-contract check. Ledger-aware resume (or an
-implemented `applyRepair`) is the recommended direction.
+The structural gap that A1 measured is **closed for resume**: the checkpoint is reconciled against
+the ledger before the run continues. SIGKILL can still interrupt an in-flight effect (at-least-once
+for the interrupted step); completed effects are reconstructed so they are not silently re-run.
 
 ## Budget broker and child leasing
 

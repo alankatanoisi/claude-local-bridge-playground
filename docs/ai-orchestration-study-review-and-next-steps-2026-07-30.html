@@ -1238,8 +1238,9 @@
               <td>F6</td>
               <td><code>applyRepair</code> is a stub (detect ✓ plan ✓ apply ✗)</td>
               <td>
-                <span class="badge warn">Open by instruction</span> — now backed by two measured failure shapes it would
-                fix (stale-checkpoint replay; dangling-tool_use stranding)
+                <span class="badge ok">Closed 2026-07-31 evening</span> —
+                <code>applyRepair</code> mutates; <code>reconcileForResume</code> on resume. Handoff:
+                <code>HANDOFF-f6-ledger-aware-resume-2026-07-31.md</code>
               </td>
             </tr>
             <tr>
@@ -1306,7 +1307,8 @@
         <h3>7.6 Follow-through (N1 + A3-F1/F2), same day</h3>
         <p class="small">
           After round 3, the cheapest independent slice was N1 plus the two small A3 findings (exit code + worker
-          <code>maxTokens</code>). F6 / ledger-aware resume was deliberately left for a later chunk. Handoff:
+          <code>maxTokens</code>). F6 / ledger-aware resume was deliberately left for a later chunk (then closed in
+          §7.5 / evening F6 handoff). Handoff:
           <code>HANDOFF-n1-a3-followthrough-2026-07-31.md</code>. Session report:
           <code>docs/session-report-round3-followthrough-2026-07-31.html</code>.
         </p>
@@ -1352,8 +1354,10 @@
               <td>F6</td>
               <td>Ledger-aware resume / <code>applyRepair</code></td>
               <td>
-                <span class="badge warn">Still open</span> — next structural durability chunk; needs explicit
-                authorization
+                <span class="badge ok">Closed 2026-07-31 evening</span> —
+                <code>reconcileForResume</code> on <code>--resume-session</code>;
+                <code>applyRepair</code> mutates when approved. Handoff:
+                <code>HANDOFF-f6-ledger-aware-resume-2026-07-31.md</code>
               </td>
             </tr>
           </tbody>
@@ -1418,9 +1422,8 @@
             <tr>
               <td>Next steps</td>
               <td>
-                Sharpest open item: <strong>F6 ledger-aware resume / <code>applyRepair</code></strong> (needs explicit
-                authorization). Also unpaid: A3-F4 cache telemetry in the broker, A1-F4/A1-F5 small cleanup, DBOS arm
-                (Postgres), HE-05 observability half. N1 and A3-F1/F2 closed in §7.6.
+                F6 closed (ledger-aware resume). Still unpaid: A3-F4 cache telemetry in the broker, A1-F4/A1-F5 small
+                cleanup, DBOS arm (Postgres), HE-05 observability half. N1 and A3-F1/F2 closed in §7.6.
               </td>
             </tr>
             <tr>

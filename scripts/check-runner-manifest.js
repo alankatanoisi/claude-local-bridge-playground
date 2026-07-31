@@ -101,9 +101,10 @@ const README_EXEMPT = new Set([
   'update', // golden-eval refresh switch, documented next to `runner eval`
   'replay', // ledger maintenance surface
   'repair', // ledger maintenance surface
+  'approve-repair', // experimental companion to --repair (F6)
   'template', // alias of --prompt-template
 ]);
-const HELP_EXEMPT = new Set(['update', 'replay', 'repair']);
+const HELP_EXEMPT = new Set(['update', 'replay', 'repair', 'approve-repair']);
 
 const cliFlags = extractCliFlags(binSource);
 if (!cliFlags || cliFlags.length === 0) {

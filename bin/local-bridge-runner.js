@@ -194,6 +194,7 @@ async function main() {
         'no-session-persistence': { type: 'boolean' },
         replay: { type: 'boolean' },
         repair: { type: 'boolean' },
+        'approve-repair': { type: 'boolean' },
         'review-memory': { type: 'boolean' },
         'session-extract': { type: 'boolean' },
         'no-archive': { type: 'boolean' },
@@ -303,13 +304,12 @@ async function main() {
   }
 
   if (args.values.repair) {
-    // P1-09: applyRepair is still a stub (always returns applied:false without
-    // mutation). Do not let operators think --repair will fix a session.
+    // F6: --repair plans always; mutates only with experimental + --approve-repair.
     if (process.env.BRIDGE_RUNNER_EXPERIMENTAL !== '1') {
       console.error(
-        'Error: --repair is experimental and not yet able to mutate a session. ' +
-          'Set BRIDGE_RUNNER_EXPERIMENTAL=1 to inspect the repair plan only, ' +
-          'or use --resume-session / local-bridge-undo for supported recovery.',
+        'Error: --repair is experimental. Set BRIDGE_RUNNER_EXPERIMENTAL=1 to inspect the plan, ' +
+          'add --approve-repair to apply mutations, or use --resume-session (ledger-aware resume ' +
+          'auto-repairs the safe subset).',
       );
       process.exit(1);
     }
@@ -321,10 +321,9 @@ async function main() {
       process.exit(1);
     }
     const plan = planRepair(sp);
-    // Still call apply with approved=false — the stub refuses mutation until a
-    // real apply path exists. Experimental opt-in only exposes the plan JSON.
-    console.log(JSON.stringify(applyRepair(sp, plan.repairPlan, false), null, 2));
-    process.exit(0);
+    const approve = !!args.values['approve-repair'];
+    console.log(JSON.stringify(applyRepair(sp, plan.repairPlan, approve), null, 2));
+    process.exit(approve ? 0 : 0);
   }
 
   if (!prompt && !args.values.help) {

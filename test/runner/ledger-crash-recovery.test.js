@@ -25,7 +25,9 @@ const http = require('http');
 const { spawn } = require('child_process');
 
 const { replayFromLedger } = require('../../src/runner/replay-simulator');
-const { planRepair } = require('../../src/runner/ledger-repair');
+const { planRepair, reconcileForResume } = require('../../src/runner/ledger-repair');
+const { assertValidAnthropicMessages } = require('../../src/runner/message-contract');
+const { SessionStore } = require('../../src/runner/session-store');
 
 const RUNNER_BIN = path.join(__dirname, '..', '..', 'bin', 'local-bridge-runner.js');
 
@@ -257,16 +259,155 @@ describe('ledger crash recovery (process-kill integration)', () => {
     }
 
     // 3. replayFromLedger classifies the crash without throwing, and planRepair
-    //    proposes exactly one action per issue (F6: plans only, never applied).
+    //    proposes exactly one action per issue. F6 applyRepair can mutate when
+    //    approved (covered in ledger-repair.test.js); here we only assert the
+    //    plan still mirrors replay after a real SIGKILL.
     const replay = replayFromLedger(t.sessionPath);
     const plan = planRepair(t.sessionPath);
-    assert.equal(plan.issues.length, replay.issues.length);
-    assert.equal(plan.repairPlan.length, replay.issues.length, 'one repair action per issue');
-    for (const issue of replay.issues) {
+    // plan.issues is a superset of replay.issues (adds dangling / missing-completed
+    // from checkpoint inspection).
+    assert.ok(plan.issues.length >= replay.issues.length);
+    assert.ok(plan.repairPlan.length >= replay.issues.length, 'at least one repair action per replay issue');
+    for (const issue of plan.issues) {
       assert.ok(
-        ['pending_effect', 'sequence_gap', 'orphaned_tool_use'].includes(issue.kind),
+        ['pending_effect', 'sequence_gap', 'orphaned_tool_use', 'dangling_tool_use', 'missing_completed_effect'].includes(
+          issue.kind,
+        ),
         'known issue kind: ' + issue.kind,
       );
     }
+  });
+
+  it('F6 stale-checkpoint: reconcile reconstructs completed effects so resume does not double-execute', async () => {
+    // Deterministic A1-F2 shape: run cleanly through two effects, then truncate
+    // the checkpoint to the opening prompt while leaving the ledger intact.
+    const t = makeTrialDirs('crash-f6-stale-');
+    const run1 = spawnRunner({ prompt: 'Write the effect files.', cwd: t.cwd, port, sessionPath: t.sessionPath });
+    await waitForLedgerEvent(t.ledgerPath, 'tool_effect_result', 2);
+    // Let the run finish the remaining effect + end_turn so the ledger has a
+    // clean completed pair for effects 1–2 (and possibly 3).
+    const exit1 = await run1.exit;
+    assert.equal(exit1.code, 0, 'baseline run completes');
+
+    const filesAfterRun = effectFiles(t.cwd);
+    assert.ok(filesAfterRun.length >= 2, 'at least two effects on disk');
+
+    // Induce the stale-checkpoint shape A1 measured under default debounce.
+    const store = new SessionStore(t.sessionPath);
+    store.load();
+    const opening = store.messages.find((m) => m.role === 'user');
+    assert.ok(opening, 'had an opening user message');
+    store.setMessages([opening]);
+    store.flushSync();
+
+    const plan = planRepair(t.sessionPath);
+    assert.ok(
+      plan.repairPlan.some((a) => a.action === 'inject_recovered_exchange'),
+      'plan proposes recovered exchanges for ledger-completed effects',
+    );
+
+    const reconciled = reconcileForResume(t.sessionPath, [opening]);
+    assert.equal(reconciled.mutated, true);
+    assertValidAnthropicMessages(reconciled.messages);
+
+    const filesBeforeResume = effectFiles(t.cwd);
+    const run2 = spawnRunner({
+      prompt: 'Continue only if something remains; otherwise say done.',
+      cwd: t.cwd,
+      port,
+      sessionPath: t.sessionPath,
+      resume: true,
+    });
+    const exit2 = await run2.exit;
+    assert.equal(exit2.code, 0, 'ledger-aware resume completes');
+
+    const filesAfterResume = effectFiles(t.cwd);
+    // Resume must not create a second file for an effect number that already
+    // existed before reconcile (that would be silent double-execution).
+    const beforeByEffect = {};
+    for (const f of filesBeforeResume) {
+      const n = f.match(/^effect-(\d+)-/)[1];
+      beforeByEffect[n] = (beforeByEffect[n] || 0) + 1;
+    }
+    const afterByEffect = {};
+    for (const f of filesAfterResume) {
+      const n = f.match(/^effect-(\d+)-/)[1];
+      afterByEffect[n] = (afterByEffect[n] || 0) + 1;
+    }
+    for (const [n, beforeCount] of Object.entries(beforeByEffect)) {
+      assert.equal(
+        afterByEffect[n],
+        beforeCount,
+        'effect ' + n + ' must not be re-executed after ledger-aware resume',
+      );
+    }
+  });
+
+  it('F6 dangling tool_use: debounce-0 SIGKILL mid-tool becomes resumable after repair', async () => {
+    const t = makeTrialDirs('crash-f6-dangle-');
+    const args = [
+      RUNNER_BIN,
+      'Write the effect files.',
+      '--cwd',
+      t.cwd,
+      '--bridge-url',
+      'http://127.0.0.1:' + port + '/v1/messages',
+      '--session-path',
+      t.sessionPath,
+      '--trust-workspace',
+      '--capabilities',
+      'edits',
+      '--accept-edits',
+      '--max-steps',
+      '10',
+      '--output-format',
+      'json',
+      '--log-level',
+      'quiet',
+    ];
+    const child = spawn(process.execPath, args, {
+      env: { ...process.env, BRIDGE_RUNNER_SESSION_DEBOUNCE_MS: '0' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const exit = new Promise((resolve) => child.on('exit', (code, signal) => resolve({ code, signal })));
+
+    // Kill after the 2nd intent while debounce-0 has already flushed the
+    // assistant tool_use — the classic dangling-batch strand.
+    await waitForLedgerEvent(t.ledgerPath, 'tool_effect_intent', 2);
+    child.kill('SIGKILL');
+    await exit;
+
+    const state = JSON.parse(fs.readFileSync(t.sessionPath, 'utf8'));
+    // If the kill landed after a completed tool_result batch, skip — timing
+    // is still somewhat racy even with debounce 0. Assert only when dangling.
+    const last = state.messages[state.messages.length - 1];
+    const dangling =
+      last &&
+      last.role === 'assistant' &&
+      Array.isArray(last.content) &&
+      last.content.some((b) => b && b.type === 'tool_use');
+    if (!dangling) {
+      // Invariant still holds: applyRepair is a no-op on a contract-valid checkpoint.
+      const plan = planRepair(t.sessionPath);
+      const auto = plan.repairPlan.filter((a) => a.action === 'inject_synthetic_tool_result');
+      assert.equal(auto.length, 0);
+      return;
+    }
+
+    assert.throws(() => assertValidAnthropicMessages(state.messages), /tool_use batch/);
+
+    const reconciled = reconcileForResume(t.sessionPath, state.messages);
+    assert.equal(reconciled.mutated, true);
+    assertValidAnthropicMessages(reconciled.messages);
+
+    const run2 = spawnRunner({
+      prompt: 'Continue and finish.',
+      cwd: t.cwd,
+      port,
+      sessionPath: t.sessionPath,
+      resume: true,
+    });
+    const exit2 = await run2.exit;
+    assert.equal(exit2.code, 0, 'resume after dangling repair completes');
   });
 });

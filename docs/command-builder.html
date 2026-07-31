@@ -907,14 +907,18 @@
                   <label class="check-label" id="replayRow" title="Experimental only. Requires BRIDGE_RUNNER_EXPERIMENTAL=1. Ledger event shapes are not yet aligned with the live runtime (P1-09).">
                     <input type="checkbox" id="replayMode" disabled /> Replay session ledger <code>--replay</code> (experimental)
                   </label>
-                  <label class="check-label" id="repairRow" title="Experimental only. Requires BRIDGE_RUNNER_EXPERIMENTAL=1. applyRepair is still a stub and will not mutate a session (P1-09).">
+                  <label class="check-label" id="repairRow" title="Experimental. Requires BRIDGE_RUNNER_EXPERIMENTAL=1. Plans by default; add --approve-repair to mutate. Prefer --resume-session — ledger-aware resume auto-repairs the safe subset (F6).">
                     <input type="checkbox" id="repairMode" disabled /> Repair session ledger <code>--repair</code> (experimental)
                   </label>
+                  <p class="hint" id="repairHint">
+                    &#8505; <strong>Note:</strong> <code>--replay</code> and <code>--repair</code> are gated behind
+                    <code>BRIDGE_RUNNER_EXPERIMENTAL=1</code>. Resume already auto-repairs crash residue via F6.
+                  </p>
                 </div>
                 <div id="ledgerNote" class="warn-panel info">
                   &#8505; <strong>Note:</strong> <code>--replay</code> and <code>--repair</code> are gated behind
-                  <code>BRIDGE_RUNNER_EXPERIMENTAL=1</code> until end-to-end fixtures prove them. Prefer
-                  <code>--resume-session</code> or <code>local-bridge-undo</code> for supported recovery.
+                  <code>BRIDGE_RUNNER_EXPERIMENTAL=1</code>. Prefer <code>--resume-session</code> (F6 ledger-aware
+                  resume auto-repairs the safe subset) or <code>local-bridge-undo</code> for supported recovery.
                 </div>
 
                 <div class="field">
