@@ -1,0 +1,27 @@
+{
+    "id": "2eca805c-dde9-497b-bf3f-3aa6bae5d1e1",
+    "started_at": "2026-08-06T11:39:19.112908",
+    "finished_at": "2026-08-06T11:39:33.416831",
+    "n_total_trials": 5,
+    "stats": {
+        "n_trials": 5,
+        "n_errors": 5,
+        "evals": {
+            "oracle__terminal-bench-terminal-bench-2": {
+                "n_trials": 0,
+                "n_errors": 5,
+                "metrics": [],
+                "reward_stats": {},
+                "exception_stats": {
+                    "RuntimeError": [
+                        "make-mips-interpreter__Cha3hLT",
+                        "circuit-fibsqrt__ZuRCG7n",
+                        "build-pov-ray__4caVrek",
+                        "overfull-hbox__YbyHHwb",
+                        "video-processing__4b7YMog"
+                    ]
+                }
+            }
+        }
+    }
+}
