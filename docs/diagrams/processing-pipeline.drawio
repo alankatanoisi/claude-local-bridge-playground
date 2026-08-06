@@ -1,0 +1,100 @@
+<mxfile host="app.diagrams.net" agent="project-documenter">
+  <diagram id="processing-pipeline" name="Processing Pipeline">
+    <mxGraphModel dx="850" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Input -->
+        <mxCell id="v1" value="INPUT — prompt + CLI flags&#10;bin/local-bridge-runner.js (parseArgs → run(options))" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;arcSize=12;shadow=1;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="225" y="40" width="400" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Preflight -->
+        <mxCell id="v2" value="PREFLIGHT — --cwd sanity check · workspace trust gate&#10;(--trust-workspace / --inherit-workspace-trust) · session resume + ledger reconcile (--resume-session)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="225" y="130" width="400" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- Context build -->
+        <mxCell id="v3" value="CONTEXT BUILD — system prompt (small by default) · templates &amp; .bridge-runner/ prompts · repo-context fingerprint · include-file · context projection / compaction policy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="225" y="225" width="400" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Model request -->
+        <mxCell id="v4" value="MODEL REQUEST — POST /v1/messages → Claude Local Bridge (:11437)&#10;model-client.js (buffered or SSE stream) · budgets + leases checked" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="225" y="325" width="400" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- Model response -->
+        <mxCell id="v5" value="MODEL RESPONSE — text blocks + tool_use blocks (parallel tool calls allowed)&#10;cache-control honored; usage added to budget tracker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="225" y="420" width="400" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- Contract gate -->
+        <mxCell id="v6" value="MESSAGE-CONTRACT GATE — every tool_use_id matched exactly once&#10;one result per requested ID before next bridge request · malformed state stops locally" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="225" y="515" width="400" height="65" as="geometry" />
+        </mxCell>
+
+        <!-- Permission gate -->
+        <mxCell id="v7" value="PERMISSION GATE — authority ceiling → path confinement (resolveFileTarget)&#10;→ mode: default · plan · accept-edits · dont-ask · accept-edits-dont-ask → allow / ask / deny" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="225" y="610" width="400" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Tool execution -->
+        <mxCell id="v8" value="TOOL PIPELINE — batch execution (tool-pipeline.js)&#10;ledger effect pair (tool_effect_intent / tool_effect_result) · redaction boundary · result summarizers ·&#10;consecutive-failure streak (3 fully-failed batches → recover / guide / stop)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="225" y="710" width="400" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Decision -->
+        <mxCell id="v9" value="STOP?&#10;stop_reason terminal?&#10;(success · max_steps · budgets ·&#10;bridge_error · user_denied · cycles …)" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="290" y="830" width="270" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Finalizer -->
+        <mxCell id="v10" value="finalizeRun — single idempotent terminal path&#10;terminal output event · trace event · transcript flush · run_stopped ledger event · autopsy ·&#10;session checkpoint · exit code (SIGINT/SIGTERM route here too)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=2;arcSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="225" y="955" width="400" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- Outputs -->
+        <mxCell id="v11" value="OUTPUTS — text / json / stream-json · ~/.bridge-runner artifacts&#10;(sessions · ledgers · transcripts · traces) · &lt;cwd&gt;/.bridge-runner/runs undo manifest" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;size=12;" vertex="1" parent="1">
+          <mxGeometry x="225" y="1060" width="400" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;html=1;" edge="1" parent="1" source="v1" target="v2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;html=1;" edge="1" parent="1" source="v2" target="v3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;html=1;" edge="1" parent="1" source="v3" target="v4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;html=1;" edge="1" parent="1" source="v4" target="v5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;html=1;" edge="1" parent="1" source="v5" target="v6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;html=1;" edge="1" parent="1" source="v6" target="v7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;html=1;" edge="1" parent="1" source="v7" target="v8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;html=1;" edge="1" parent="1" source="v8" target="v9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="terminal" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;html=1;fontSize=10;" edge="1" parent="1" source="v9" target="v10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" value="continue — append tool_result, repeat loop" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=2;endArrow=block;html=1;fontSize=11;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="v9" target="v4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d6b656;strokeWidth=2;endArrow=block;html=1;" edge="1" parent="1" source="v10" target="v11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

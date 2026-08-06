@@ -1,0 +1,101 @@
+<mxfile host="app.diagrams.net" agent="project-documenter">
+  <diagram id="deployment-infrastructure" name="Deployment &amp; Infrastructure">
+    <mxGraphModel dx="1100" dy="850" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Developer machine -->
+        <mxCell id="gm" value="Developer machine (macOS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="30" y="30" width="650" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="gv" value="VS Code — extension host" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;verticalAlign=top;fontStyle=1;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="60" y="80" width="580" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="v1" value="Bridge HTTP server :11437&#10;(server.js · handlers · proxy.js)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="80" y="125" width="170" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="v2" value="HTTPS interceptor&#10;(interceptors/https.js)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="265" y="125" width="170" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="v3" value="Capture proxy&#10;(capture-proxy.js)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="450" y="125" width="170" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="v4" value="Claude Code CLI&#10;(Claude Code OAuth credentials)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="270" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="v5" value="Runner CLI&#10;bin/local-bridge-runner.js" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="360" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="v6" value="macOS Keychain&#10;'Claude Code-credentials'" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;size=10;" vertex="1" parent="1">
+          <mxGeometry x="330" y="270" width="150" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="v7" value="~/.bridge-runner&#10;sessions · ledgers · transcripts" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;size=10;" vertex="1" parent="1">
+          <mxGeometry x="330" y="360" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Upstream -->
+        <mxCell id="v8" value="api.anthropic.com&#10;Anthropic Messages API (TLS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;arcSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="750" y="80" width="300" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Docker -->
+        <mxCell id="gd" value="Docker deployment (optional)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9673a6;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="750" y="200" width="320" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="d1" value="claude-local-bridge:latest&#10;multi-stage Dockerfile · node:22-alpine · non-root 'bridge' user&#10;zero runtime npm deps · EXPOSE 11437&#10;ENTRYPOINT node bin/local-bridge-runner.js" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="770" y="245" width="280" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="d2" value="VOLUME /home/bridge/.bridge-runner&#10;persists transcripts + sessions" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;size=10;" vertex="1" parent="1">
+          <mxGeometry x="770" y="345" width="130" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="d3" value="docker-compose.yml&#10;env_file .env · 127.0.0.1:11437:11437&#10;restart unless-stopped · 512M limit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="920" y="345" width="130" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- CI -->
+        <mxCell id="gc" value="GitHub Actions (self-hosted runner)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="30" y="540" width="1040" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="c1" value="bridge-runner-readonly-poc.yml&#10;workflow_dispatch prompt + max_steps · contents: read&#10;checkout@v7 → setup-node@v6 (Node 22) → npm ci&#10;→ bash scripts/github-actions-readonly-poc.sh&#10;→ upload artifacts (JSON · human log · trace)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="590" width="500" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" value="codeql.yml&#10;CodeQL security analysis&#10;(push + PR triggers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="600" y="590" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="Artifacts:&#10;.bridge-runner/actions-poc/&#10;bridge-runner-readonly-poc.json&#10;human-log.md · trace" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;size=10;" vertex="1" parent="1">
+          <mxGeometry x="850" y="590" width="190" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" value="POST /v1/messages (localhost)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;html=1;fontSize=11;" edge="1" parent="1" source="v5" target="v1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="HTTPS proxy — Bearer OAuth" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;html=1;fontSize=11;" edge="1" parent="1" source="v1" target="v8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="traffic captured" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;dashed=1;endArrow=block;html=1;fontSize=10;" edge="1" parent="1" source="v4" target="v2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="read token" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d6b656;endArrow=block;html=1;fontSize=10;" edge="1" parent="1" source="v1" target="v6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="write artifacts" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d6b656;endArrow=block;html=1;fontSize=10;" edge="1" parent="1" source="v5" target="v7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="npm run docker / compose up" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;dashed=1;endArrow=block;html=1;fontSize=10;" edge="1" parent="1" source="gd" target="d1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="BRIDGE_RUNNER_BRIDGE_URL" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;dashed=1;endArrow=block;html=1;fontSize=10;" edge="1" parent="1" source="d1" target="v8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="uses runner CLI (read-only tools)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;strokeWidth=2;endArrow=block;html=1;fontSize=10;" edge="1" parent="1" source="c1" target="v5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666666;endArrow=block;html=1;" edge="1" parent="1" source="c1" target="c3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

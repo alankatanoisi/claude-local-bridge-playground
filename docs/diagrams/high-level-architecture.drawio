@@ -1,0 +1,94 @@
+<mxfile host="app.diagrams.net" agent="project-documenter">
+  <diagram id="high-level-architecture" name="High-Level Architecture">
+    <mxGraphModel dx="1100" dy="850" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Local machine container -->
+        <mxCell id="g1" value="Local development machine (localhost)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#999999;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="30" y="30" width="820" height="640" as="geometry" />
+        </mxCell>
+
+        <!-- Left column: local clients -->
+        <mxCell id="v1" value="Local Coding-Agent Runner CLI&#10;bin/local-bridge-runner.js&#10;(agent loop: prompt → tool_use → tool_result)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;arcSize=12;shadow=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="60" y="90" width="250" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="v2" value="Claude Code CLI&#10;(ANTHROPIC_BASE_URL=http://localhost:11437)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="210" width="250" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="v3" value="curl / custom scripts&#10;(Anthropic Messages shape)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="310" width="250" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="v4" value="Target project (--cwd)&#10;local filesystem the tools operate inside" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="430" width="250" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="v13" value="~/.bridge-runner&#10;sessions · ledgers · transcripts · traces" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;size=12;" vertex="1" parent="1">
+          <mxGeometry x="60" y="560" width="250" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Bridge container -->
+        <mxCell id="g2" value="Claude Local Bridge — VS Code extension" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=3;verticalAlign=top;fontStyle=1;fontSize=13;arcSize=6;opacity=90;" vertex="1" parent="1">
+          <mxGeometry x="370" y="70" width="360" height="390" as="geometry" />
+        </mxCell>
+        <mxCell id="v5" value="HTTP server :11437 — src/server.js&#10;CORS (localhost-only) + optional caller-auth gate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="400" y="115" width="300" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="v6" value="Router — handlers/anthropic.js · handlers/debug.js&#10;POST /v1/messages · POST /v1/messages/count_tokens · GET /v1/debug" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="400" y="190" width="300" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="v7" value="Proxy + streaming — proxy.js&#10;SSE passthrough to api.anthropic.com" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="400" y="265" width="300" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="v8" value="Credential discovery — credentials.js&#10;1. live intercept · 2. env · 3. Keychain · 4. file" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="400" y="335" width="300" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="v9" value="interceptors/https.js + capture-proxy.js&#10;capture Claude Code OAuth traffic in-process" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="400" y="410" width="300" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- Credential sources (data stores) -->
+        <mxCell id="v11" value="macOS Keychain&#10;'Claude Code-credentials'" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;size=10;" vertex="1" parent="1">
+          <mxGeometry x="400" y="510" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="v12" value="~/.claude/.credentials.json&#10;Linux / Windows fallback" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;size=10;" vertex="1" parent="1">
+          <mxGeometry x="590" y="510" width="170" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Upstream -->
+        <mxCell id="v10" value="api.anthropic.com&#10;Anthropic Messages API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;arcSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="860" y="180" width="200" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" value="POST /v1/messages&#10;http://localhost:11437" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;html=1;fontSize=11;" edge="1" parent="1" source="v1" target="v5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="ANTHROPIC_BASE_URL" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;endArrow=block;html=1;fontSize=11;" edge="1" parent="1" source="v2" target="v5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="HTTP" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;endArrow=block;html=1;fontSize=11;" edge="1" parent="1" source="v3" target="v5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="tools read / write&#10;under --cwd" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=2;endArrow=block;html=1;fontSize=11;" edge="1" parent="1" source="v1" target="v4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="state.json · ledger.jsonl · transcript.jsonl" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d6b656;strokeWidth=2;endArrow=block;html=1;fontSize=11;" edge="1" parent="1" source="v1" target="v13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="HTTPS proxy — Authorization: Bearer &lt;OAuth token&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;endArrow=block;html=1;fontSize=11;" edge="1" parent="1" source="v7" target="v10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="read token" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d6b656;endArrow=block;html=1;fontSize=10;" edge="1" parent="1" source="v8" target="v11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="fallback" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d6b656;endArrow=block;html=1;fontSize=10;" edge="1" parent="1" source="v8" target="v12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="captures OAuth traffic" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;dashed=1;endArrow=block;html=1;fontSize=10;" edge="1" parent="1" source="v9" target="v2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
