@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1020 660" width="1020" height="660" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#f1f5f9"/>
+    </linearGradient>
+  </defs>
+  <rect width="1020" height="660" fill="#ffffff"/>
+  <text x="24" y="36" font-size="20" font-weight="700" fill="#0f172a">Claude Local Bridge Playground — System Architecture</text>
+  <text x="24" y="58" font-size="12" fill="#64748b">Two products in one repository: the Bridge (transport plumbing) and the Runner (active product surface)</text>
+
+  <!-- Operator layer -->
+  <rect x="24" y="78" width="972" height="86" rx="10" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="40" y="100" font-size="12" font-weight="700" fill="#1d4ed8">CLIENT / OPERATOR LAYER</text>
+  <rect x="44" y="110" width="200" height="42" rx="7" fill="url(#g1)" stroke="#94a3b8"/>
+  <text x="144" y="130" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">bin/local-bridge-runner.js</text>
+  <text x="144" y="145" font-size="10.5" text-anchor="middle" fill="#64748b">agent loop CLI</text>
+  <rect x="256" y="110" width="200" height="42" rx="7" fill="url(#g1)" stroke="#94a3b8"/>
+  <text x="356" y="130" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">local-bridge-coordinator.js</text>
+  <text x="356" y="145" font-size="10.5" text-anchor="middle" fill="#64748b">multi-phase orchestration</text>
+  <rect x="468" y="110" width="164" height="42" rx="7" fill="url(#g1)" stroke="#94a3b8"/>
+  <text x="550" y="130" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">Claude Code CLI</text>
+  <text x="550" y="145" font-size="10.5" text-anchor="middle" fill="#64748b">ANTHROPIC_BASE_URL</text>
+  <rect x="644" y="110" width="336" height="42" rx="7" fill="url(#g1)" stroke="#94a3b8"/>
+  <text x="812" y="130" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">archive · prompts · undo CLIs · Harbor eval adapter</text>
+  <text x="812" y="145" font-size="10.5" text-anchor="middle" fill="#64748b">bin/local-bridge-{archive,prompts,undo}.js · evals/harbor</text>
+
+  <!-- Runner layer -->
+  <rect x="24" y="180" width="972" height="196" rx="10" fill="#f0fdf4" stroke="#bbf7d0"/>
+  <text x="40" y="202" font-size="12" font-weight="700" fill="#15803d">RUNNER — local coding-agent loop (src/runner/**)</text>
+
+  <rect x="44" y="214" width="220" height="66" rx="7" fill="#ffffff" stroke="#86efac"/>
+  <text x="154" y="234" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">Orchestration core</text>
+  <text x="154" y="250" font-size="10.5" text-anchor="middle" fill="#475569">run.js · kernel/agent-kernel.js</text>
+  <text x="154" y="264" font-size="10.5" text-anchor="middle" fill="#475569">coordinator.js · worker-runtime.js</text>
+
+  <rect x="276" y="214" width="220" height="66" rx="7" fill="#ffffff" stroke="#86efac"/>
+  <text x="386" y="234" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">Context engine</text>
+  <text x="386" y="250" font-size="10.5" text-anchor="middle" fill="#475569">context-projection · -estimator</text>
+  <text x="386" y="264" font-size="10.5" text-anchor="middle" fill="#475569">-compactor · system-prompt</text>
+
+  <rect x="508" y="214" width="220" height="66" rx="7" fill="#ffffff" stroke="#86efac"/>
+  <text x="618" y="234" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">Tooling</text>
+  <text x="618" y="250" font-size="10.5" text-anchor="middle" fill="#475569">tool-registry · tool-pipeline</text>
+  <text x="618" y="264" font-size="10.5" text-anchor="middle" fill="#475569">tools/*.js (24 implementations)</text>
+
+  <rect x="740" y="214" width="240" height="66" rx="7" fill="#ffffff" stroke="#86efac"/>
+  <text x="860" y="234" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">Safety &amp; permissions</text>
+  <text x="860" y="250" font-size="10.5" text-anchor="middle" fill="#475569">safety.js · permissions.js</text>
+  <text x="860" y="264" font-size="10.5" text-anchor="middle" fill="#475569">authority.js · redaction-boundary</text>
+
+  <rect x="44" y="292" width="300" height="66" rx="7" fill="#ffffff" stroke="#86efac"/>
+  <text x="194" y="312" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">Durability quartet</text>
+  <text x="194" y="328" font-size="10.5" text-anchor="middle" fill="#475569">session-store · session-ledger</text>
+  <text x="194" y="342" font-size="10.5" text-anchor="middle" fill="#475569">replay-simulator · ledger-repair</text>
+
+  <rect x="356" y="292" width="290" height="66" rx="7" fill="#ffffff" stroke="#86efac"/>
+  <text x="501" y="312" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">Budget &amp; telemetry</text>
+  <text x="501" y="328" font-size="10.5" text-anchor="middle" fill="#475569">budget-broker · budget-tracker</text>
+  <text x="501" y="342" font-size="10.5" text-anchor="middle" fill="#475569">model-pricing · trace-utils · transcript</text>
+
+  <rect x="658" y="292" width="322" height="66" rx="7" fill="#ffffff" stroke="#86efac"/>
+  <text x="819" y="312" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">Extension points</text>
+  <text x="819" y="328" font-size="10.5" text-anchor="middle" fill="#475569">.bridge-runner/ prompts · hooks · skills</text>
+  <text x="819" y="342" font-size="10.5" text-anchor="middle" fill="#475569">prompt-templates · memory/ · archive/</text>
+
+  <!-- HTTP boundary -->
+  <line x1="24" y1="392" x2="996" y2="392" stroke="#cbd5e1" stroke-dasharray="6 5"/>
+  <text x="510" y="387" font-size="11" font-weight="600" text-anchor="middle" fill="#64748b">HTTP · POST http://localhost:11437/v1/messages (Anthropic-native, OAuth Bearer only)</text>
+
+  <!-- Bridge layer -->
+  <rect x="24" y="404" width="972" height="150" rx="10" fill="#fefce8" stroke="#fde68a"/>
+  <text x="40" y="426" font-size="12" font-weight="700" fill="#a16207">BRIDGE — VS Code extension (src/*.js)</text>
+
+  <rect x="44" y="438" width="182" height="60" rx="7" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="135" y="458" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">server.js</text>
+  <text x="135" y="474" font-size="10.5" text-anchor="middle" fill="#475569">127.0.0.1 HTTP listener</text>
+  <text x="135" y="488" font-size="10.5" text-anchor="middle" fill="#475569">port 11437 (+10 retries)</text>
+
+  <rect x="238" y="438" width="182" height="60" rx="7" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="329" y="458" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">handlers/</text>
+  <text x="329" y="474" font-size="10.5" text-anchor="middle" fill="#475569">anthropic.js · debug.js</text>
+  <text x="329" y="488" font-size="10.5" text-anchor="middle" fill="#475569">caller-auth · local-auth</text>
+
+  <rect x="432" y="438" width="182" height="60" rx="7" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="523" y="458" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">credentials.js</text>
+  <text x="523" y="474" font-size="10.5" text-anchor="middle" fill="#475569">4-tier OAuth discovery</text>
+  <text x="523" y="488" font-size="10.5" text-anchor="middle" fill="#475569">cache · watermark · quarantine</text>
+
+  <rect x="626" y="438" width="182" height="60" rx="7" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="717" y="458" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">fingerprint.js</text>
+  <text x="717" y="474" font-size="10.5" text-anchor="middle" fill="#475569">stable vs request-specific</text>
+  <text x="717" y="488" font-size="10.5" text-anchor="middle" fill="#475569">header classification (P1-06)</text>
+
+  <rect x="820" y="438" width="160" height="60" rx="7" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="900" y="458" font-size="12.5" font-weight="600" text-anchor="middle" fill="#0f172a">proxy.js</text>
+  <text x="900" y="474" font-size="10.5" text-anchor="middle" fill="#475569">keep-alive passthrough</text>
+  <text x="900" y="488" font-size="10.5" text-anchor="middle" fill="#475569">401 retry-once</text>
+
+  <rect x="44" y="508" width="936" height="34" rx="7" fill="#fffbeb" stroke="#fcd34d"/>
+  <text x="512" y="529" font-size="11.5" text-anchor="middle" fill="#78350f">interceptors/https.js — patches https.request + globalThis.fetch in the VS Code process to sniff live Claude Code OAuth tokens, endpoint host, and header fingerprint</text>
+
+  <!-- Upstream -->
+  <rect x="330" y="580" width="360" height="52" rx="10" fill="#fef2f2" stroke="#fecaca"/>
+  <text x="510" y="602" font-size="13" font-weight="700" text-anchor="middle" fill="#b91c1c">api.anthropic.com</text>
+  <text x="510" y="620" font-size="10.5" text-anchor="middle" fill="#7f1d1d">or the live-intercepted host (claude.ai / api.claude.ai)</text>
+
+  <line x1="510" y1="164" x2="510" y2="180" stroke="#475569" stroke-width="1.6" marker-end="url(#a1)"/>
+  <line x1="510" y1="376" x2="510" y2="404" stroke="#475569" stroke-width="1.6" marker-end="url(#a1)"/>
+  <line x1="510" y1="554" x2="510" y2="580" stroke="#475569" stroke-width="1.6" marker-end="url(#a1)"/>
+</svg>

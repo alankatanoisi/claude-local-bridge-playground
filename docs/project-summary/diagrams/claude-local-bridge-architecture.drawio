@@ -1,0 +1,326 @@
+<mxfile host="app.diagrams.net" type="device" version="24.0.0" agent="bridge-runner documentation agent">
+
+  <!-- ============================================================
+       PAGE 1 — SYSTEM CONTEXT
+       ============================================================ -->
+  <diagram id="page-context" name="1 · System context">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+
+        <mxCell id="c-bound" value="Local machine — loopback only (127.0.0.1)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 4;fillColor=#FAFBFC;strokeColor=#B0BEC5;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontColor=#5C7080;" vertex="1" parent="1">
+          <mxGeometry x="20" y="60" width="880" height="530" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c-dev" value="Developer / Operator&#10;runs prompts, approves tools" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F9A825;" vertex="1" parent="1">
+          <mxGeometry x="50" y="110" width="180" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-runner" value="&lt;b&gt;Runner CLI&lt;/b&gt;&#10;bin/local-bridge-runner.js&#10;agent loop · tools · permissions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
+          <mxGeometry x="50" y="200" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-coord" value="&lt;b&gt;Coordinator CLI&lt;/b&gt;&#10;bin/local-bridge-coordinator.js&#10;phased orchestration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1">
+          <mxGeometry x="50" y="310" width="180" height="80" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-cc" value="Claude Code CLI&#10;optional bridge client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#607D8B;" vertex="1" parent="1">
+          <mxGeometry x="50" y="420" width="180" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c-bridge" value="&lt;b&gt;Claude Local Bridge&lt;/b&gt;&#10;VS Code extension (src/*)&#10;&#10;http://localhost:11437&#10;POST /v1/messages&#10;POST /v1/messages/count_tokens&#10;GET /v1/debug (token-gated)&#10;&#10;HTTPS interceptor captures the live&#10;Bearer token and client fingerprint" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;verticalAlign=top;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="320" y="130" width="260" height="250" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-cred" value="&lt;b&gt;Local credential sources&lt;/b&gt;&#10;macOS Keychain · CLAUDE_CODE_OAUTH_TOKEN&#10;~/.claude/.credentials.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;" vertex="1" parent="1">
+          <mxGeometry x="320" y="430" width="260" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c-proj" value="&lt;b&gt;Target project (--cwd)&lt;/b&gt;&#10;files the tools read, edit, patch, undo&#10;path-confined + deny matrix enforced" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;" vertex="1" parent="1">
+          <mxGeometry x="640" y="130" width="240" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="c-art" value="&lt;b&gt;~/.bridge-runner/&lt;/b&gt;&#10;sessions/ *.state.json&#10;*.ledger.jsonl · *.cursor.json&#10;logs/ transcripts · traces/&#10;archive/ per-turn JSON&#10;worktrees/ · memory/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;" vertex="1" parent="1">
+          <mxGeometry x="640" y="280" width="240" height="140" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c-api" value="&lt;b&gt;api.anthropic.com&lt;/b&gt;&#10;Messages API&#10;the only external network dependency" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#607D8B;" vertex="1" parent="1">
+          <mxGeometry x="940" y="250" width="190" height="110" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c-e1" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="c-dev" target="c-runner"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c-e2" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="c-dev" target="c-coord"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c-e3" value="spawns worker runners" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;fontSize=10;" edge="1" parent="1" source="c-coord" target="c-runner"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c-e4" value="POST /v1/messages" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#2E7D32;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="c-runner" target="c-bridge"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c-e5" value="ANTHROPIC_BASE_URL" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;fontSize=10;" edge="1" parent="1" source="c-cc" target="c-bridge"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c-e6" value="discover OAuth token" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;fontSize=10;" edge="1" parent="1" source="c-bridge" target="c-cred"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c-e7" value="HTTPS · Authorization: Bearer · replayed fingerprint" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#2E7D32;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="c-bridge" target="c-api"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c-e8" value="tool access to files" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;fontSize=10;" edge="1" parent="1" source="c-runner" target="c-proj"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c-e9" value="transcripts · sessions · ledger · traces" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;fontSize=10;" edge="1" parent="1" source="c-runner" target="c-art"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <!-- ============================================================
+       PAGE 2 — COMPONENT ARCHITECTURE
+       ============================================================ -->
+  <diagram id="page-components" name="2 · Component architecture">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+
+        <mxCell id="p2-gb" value="BRIDGE LAYER — src/* (VS Code extension host process)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 4;fillColor=#FAFBFC;strokeColor=#B0BEC5;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontColor=#5C7080;" vertex="1" parent="1">
+          <mxGeometry x="20" y="40" width="1160" height="220" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="p2-ext" value="extension.js&#10;activation, status bar, commands" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;fontSize=11;" vertex="1" parent="1"><mxGeometry x="44" y="80" width="164" height="58" as="geometry"/></mxCell>
+        <mxCell id="p2-srv" value="server.js&#10;router, Origin allowlist, caller auth" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;fontSize=11;" vertex="1" parent="1"><mxGeometry x="224" y="80" width="176" height="58" as="geometry"/></mxCell>
+        <mxCell id="p2-han" value="handlers/anthropic.js&#10;body read, default model, count_tokens" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;fontSize=11;" vertex="1" parent="1"><mxGeometry x="416" y="80" width="176" height="58" as="geometry"/></mxCell>
+        <mxCell id="p2-dbg" value="handlers/debug.js&#10;token-gated diagnostics" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;fontSize=11;" vertex="1" parent="1"><mxGeometry x="608" y="80" width="150" height="58" as="geometry"/></mxCell>
+        <mxCell id="p2-auth" value="caller-auth.js · local-auth.js&#10;Bearer gate + debug token" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;fontSize=11;" vertex="1" parent="1"><mxGeometry x="774" y="80" width="180" height="58" as="geometry"/></mxCell>
+        <mxCell id="p2-trace" value="trace-utils · bridge-trace&#10;redacted flight recorder" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;fontSize=11;" vertex="1" parent="1"><mxGeometry x="970" y="80" width="190" height="58" as="geometry"/></mxCell>
+
+        <mxCell id="p2-proxy" value="proxy.js&#10;keep-alive passthrough, 401 retry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;fontSize=11;" vertex="1" parent="1"><mxGeometry x="224" y="166" width="176" height="58" as="geometry"/></mxCell>
+        <mxCell id="p2-cred" value="credentials.js&#10;priority chain + cache watermark" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;fontSize=11;" vertex="1" parent="1"><mxGeometry x="416" y="166" width="176" height="58" as="geometry"/></mxCell>
+        <mxCell id="p2-fp" value="fingerprint.js&#10;stable vs request headers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;fontSize=11;" vertex="1" parent="1"><mxGeometry x="608" y="166" width="150" height="58" as="geometry"/></mxCell>
+        <mxCell id="p2-int" value="interceptors/https.js&#10;patches https.request + fetch" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;fontSize=11;" vertex="1" parent="1"><mxGeometry x="774" y="166" width="180" height="58" as="geometry"/></mxCell>
+        <mxCell id="p2-cap" value="capture-proxy.js&#10;out-of-process capture path" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;fontSize=11;" vertex="1" parent="1"><mxGeometry x="970" y="166" width="190" height="58" as="geometry"/></mxCell>
+
+        <mxCell id="p2-b1" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="p2-ext" target="p2-srv"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2-b2" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="p2-srv" target="p2-han"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2-b3" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="p2-han" target="p2-proxy"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2-b4" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="p2-proxy" target="p2-cred"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2-b5" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="p2-cred" target="p2-fp"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2-b6" value="captured Bearer + fingerprint" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#7A8FA3;fontSize=10;" edge="1" parent="1" source="p2-int" target="p2-cred"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="p2-gr" value="RUNNER LAYER — src/runner/** · bin/* (local CLI processes)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 4;fillColor=#FAFBFC;strokeColor=#B0BEC5;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontColor=#5C7080;" vertex="1" parent="1">
+          <mxGeometry x="20" y="290" width="1160" height="580" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="p2-cli1" value="bin/local-bridge-runner.js&#10;agent-loop CLI · flag parsing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="44" y="326" width="232" height="52" as="geometry"/></mxCell>
+        <mxCell id="p2-cli2" value="bin/local-bridge-coordinator.js&#10;objective, phases, ceilings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="296" y="326" width="240" height="52" as="geometry"/></mxCell>
+        <mxCell id="p2-cli3" value="local-bridge-undo · archive · prompts&#10;recovery, archive browse, template registry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="556" y="326" width="290" height="52" as="geometry"/></mxCell>
+
+        <mxCell id="p2-run" value="&lt;b&gt;run.js — the agent loop&lt;/b&gt;&#10;options · context projection · turn loop · stop reasons&#10;finalizeRun(): one idempotent exit path" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="44" y="404" width="320" height="72" as="geometry"/></mxCell>
+        <mxCell id="p2-mc" value="model-client.js&#10;buffered + SSE clients&#10;retry · Retry-After" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="384" y="404" width="190" height="72" as="geometry"/></mxCell>
+        <mxCell id="p2-ker" value="kernel/agent-kernel.js&#10;stable KernelResult contract" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="594" y="404" width="180" height="72" as="geometry"/></mxCell>
+        <mxCell id="p2-co" value="coordinator.js · worker-runtime.js&#10;phases, dependency batching,&#10;out-of-process workers, leases" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="794" y="404" width="250" height="72" as="geometry"/></mxCell>
+
+        <mxCell id="p2-r1" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="p2-cli1" target="p2-run"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2-r2" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="p2-cli2" target="p2-co"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2-r3" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="p2-run" target="p2-mc"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2-r4" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="p2-co" target="p2-ker"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2-r5" value="runKernel() → run()" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;fontSize=10;" edge="1" parent="1" source="p2-ker" target="p2-run"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="p2-r6" value="HTTP POST /v1/messages → 127.0.0.1:11437" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#2E7D32;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="p2-mc" target="p2-srv"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="p2-f1" value="&lt;b&gt;Context &amp; prompt&lt;/b&gt;&#10;context-builder · context-policy&#10;context-projection · context-estimator&#10;context-compactor · context-budget&#10;system-prompt · prompt-templates&#10;repo-map · session-anchor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="44" y="510" width="270" height="150" as="geometry"/></mxCell>
+        <mxCell id="p2-f2" value="&lt;b&gt;Tool surface&lt;/b&gt;&#10;tool-registry · tool-visibility&#10;tool-catalog · tool-pipeline&#10;tool-envelope · tool-prefetch&#10;tool-result-content / summarizers&#10;tools/ — 24 tool modules" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="334" y="510" width="270" height="150" as="geometry"/></mxCell>
+        <mxCell id="p2-f3" value="&lt;b&gt;Safety &amp; permissions&lt;/b&gt;&#10;permissions.js — allow/ask/deny/plan&#10;safety.js — confinement, deny matrix&#10;authority.js — frozen ceiling&#10;shell-policy · workspace-trust&#10;redaction-boundary · private-fs · hooks/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="624" y="510" width="270" height="150" as="geometry"/></mxCell>
+        <mxCell id="p2-f4" value="&lt;b&gt;Observability&lt;/b&gt;&#10;transcript.js (JSONL audit log)&#10;human-log.js (plain text)&#10;trace-utils (flight recorder)&#10;archive/ (per-turn JSON + index)&#10;loop-autopsy · beginner-hints" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="914" y="510" width="246" height="150" as="geometry"/></mxCell>
+
+        <mxCell id="p2-f5" value="&lt;b&gt;Durability &amp; recovery&lt;/b&gt;&#10;session-store.js (*.state.json)&#10;session-ledger.js (*.ledger.jsonl)&#10;ledger-repair · replay-simulator&#10;recovery/run-manifest.js&#10;session-health · message-contract" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="44" y="690" width="270" height="150" as="geometry"/></mxCell>
+        <mxCell id="p2-f6" value="&lt;b&gt;Budget &amp; models&lt;/b&gt;&#10;budget-tracker · budget-broker&#10;model-catalog (versioned)&#10;model-capabilities (effort, thinking)&#10;model-pricing (local cost table)&#10;context-runtime-policy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="334" y="690" width="270" height="150" as="geometry"/></mxCell>
+        <mxCell id="p2-f7" value="&lt;b&gt;Memory &amp; interaction&lt;/b&gt;&#10;memory/instruction-memory&#10;memory/auto-memory · memory-review&#10;instruction-delta&#10;confirmation.js (TTY prompts)&#10;user-question · event-bus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="624" y="690" width="270" height="150" as="geometry"/></mxCell>
+        <mxCell id="p2-f8" value="&lt;b&gt;Execution &amp; evaluation&lt;/b&gt;&#10;golden-eval (replayed transcripts)&#10;subprocess-pool · background-shell&#10;persistent-shell (opt-in)&#10;test-watcher · lsp/&#10;worktree-utils · plan-proposals" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="914" y="690" width="246" height="150" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <!-- ============================================================
+       PAGE 3 — TURN LIFECYCLE
+       ============================================================ -->
+  <diagram id="page-lifecycle" name="3 · Turn lifecycle">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+
+        <mxCell id="l1" value="1 · Operator supplies prompt, flags and --cwd" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F9A825;" vertex="1" parent="1"><mxGeometry x="240" y="40" width="380" height="50" as="geometry"/></mxCell>
+        <mxCell id="l2" value="2 · Bootstrap: workspace trust gate → frozen authority ceiling → capability groups → system prompt" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1"><mxGeometry x="240" y="120" width="380" height="60" as="geometry"/></mxCell>
+        <mxCell id="l3" value="3 · Ledger: session_started, user_prompt (sequence-numbered, synchronous)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;" vertex="1" parent="1"><mxGeometry x="240" y="210" width="380" height="50" as="geometry"/></mxCell>
+        <mxCell id="l4" value="4 · Context projection + message-contract assertion&#10;(every tool_use_id must have exactly one tool_result)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1"><mxGeometry x="240" y="290" width="380" height="60" as="geometry"/></mxCell>
+        <mxCell id="l5" value="5 · POST /v1/messages → bridge → HTTPS + OAuth Bearer → api.anthropic.com" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;" vertex="1" parent="1"><mxGeometry x="240" y="380" width="380" height="60" as="geometry"/></mxCell>
+        <mxCell id="l6" value="6 · Response: text blocks + tool_use blocks (streamed or buffered)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;" vertex="1" parent="1"><mxGeometry x="240" y="470" width="380" height="50" as="geometry"/></mxCell>
+        <mxCell id="l7" value="7 · Permission gate per call:&#10;authority ceiling → resolveFileTarget → deny matrix → mode policy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;" vertex="1" parent="1"><mxGeometry x="240" y="550" width="380" height="70" as="geometry"/></mxCell>
+        <mxCell id="l8" value="ask → TTY confirmation&#10;(fails closed in workers and --dont-ask)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F9A825;" vertex="1" parent="1"><mxGeometry x="660" y="550" width="210" height="70" as="geometry"/></mxCell>
+        <mxCell id="l9" value="deny / plan_only → recorded proposal, nothing executed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;" vertex="1" parent="1"><mxGeometry x="20" y="550" width="190" height="70" as="geometry"/></mxCell>
+        <mxCell id="l10" value="8 · tool_effect_intent (effectId) → execute (path re-checked, backup taken) → tool_effect_result" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1"><mxGeometry x="240" y="650" width="380" height="60" as="geometry"/></mxCell>
+        <mxCell id="l11" value="9 · tool_result matched back by tool_use_id, not by completion order" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1"><mxGeometry x="240" y="740" width="380" height="50" as="geometry"/></mxCell>
+        <mxCell id="l12" value="10 · Loop until end_turn, max steps, budget stop, or failure escalation&#10;(3 fully failed batches: foreground asks, non-interactive stops safely)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;" vertex="1" parent="1"><mxGeometry x="240" y="820" width="380" height="70" as="geometry"/></mxCell>
+        <mxCell id="l13" value="11 · finalizeRun() — one idempotent terminal path&#10;terminal event · trace · transcript flush · run_stopped · autopsy · persist · exit code&#10;SIGINT and SIGTERM route here too" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;" vertex="1" parent="1"><mxGeometry x="200" y="920" width="460" height="80" as="geometry"/></mxCell>
+        <mxCell id="l14" value="12 · Final answer + [runner usage] token / cost summary on stderr" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F9A825;" vertex="1" parent="1"><mxGeometry x="240" y="1030" width="380" height="50" as="geometry"/></mxCell>
+
+        <mxCell id="le1" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="l1" target="l2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="le2" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="l2" target="l3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="le3" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="l3" target="l4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="le4" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#2E7D32;strokeWidth=2;" edge="1" parent="1" source="l4" target="l5"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="le5" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#2E7D32;strokeWidth=2;" edge="1" parent="1" source="l5" target="l6"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="le6" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="l6" target="l7"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="le7" value="ask" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#7A8FA3;fontSize=10;" edge="1" parent="1" source="l7" target="l8"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="le8" value="deny" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#C62828;fontSize=10;" edge="1" parent="1" source="l7" target="l9"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="le9" value="allow" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#2E7D32;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="l7" target="l10"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="le10" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="l10" target="l11"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="le11" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="l11" target="l12"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="le12" value="next turn" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#7A8FA3;fontSize=10;exitX=0;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="l12" target="l4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="le13" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="l12" target="l13"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="le14" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="l13" target="l14"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <!-- ============================================================
+       PAGE 4 — CREDENTIAL DISCOVERY
+       ============================================================ -->
+  <diagram id="page-credentials" name="4 · Credential discovery">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+
+        <mxCell id="cr-g" value="CREDENTIAL DISCOVERY — OAUTH ONLY, FIRST MATCH WINS" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 4;fillColor=#FAFBFC;strokeColor=#B0BEC5;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontColor=#5C7080;" vertex="1" parent="1">
+          <mxGeometry x="20" y="40" width="560" height="470" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cr-1" value="&lt;b&gt;1 · Live intercepted Claude Code Bearer token&lt;/b&gt;&#10;interceptors/https.js · capture-proxy.js — invalidates the cache" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;fontSize=11;" vertex="1" parent="1"><mxGeometry x="46" y="84" width="510" height="58" as="geometry"/></mxCell>
+        <mxCell id="cr-2" value="&lt;b&gt;2 · CLAUDE_CODE_OAUTH_TOKEN environment variable&lt;/b&gt;&#10;long-lived token from `claude setup-token`" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;fontSize=11;" vertex="1" parent="1"><mxGeometry x="46" y="166" width="510" height="58" as="geometry"/></mxCell>
+        <mxCell id="cr-3" value="&lt;b&gt;3 · macOS Keychain — &quot;Claude Code-credentials&quot;&lt;/b&gt;&#10;security find-generic-password, 5 s timeout" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;fontSize=11;" vertex="1" parent="1"><mxGeometry x="46" y="248" width="510" height="58" as="geometry"/></mxCell>
+        <mxCell id="cr-4" value="&lt;b&gt;4 · ~/.claude/.credentials.json&lt;/b&gt;&#10;Linux / Windows fallback, and macOS when the keychain is locked" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;fontSize=11;" vertex="1" parent="1"><mxGeometry x="46" y="330" width="510" height="58" as="geometry"/></mxCell>
+        <mxCell id="cr-0" value="No Bearer token found → OAuth-only warning → 401 to the caller" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="46" y="412" width="510" height="52" as="geometry"/></mxCell>
+
+        <mxCell id="cr-h" value="&lt;b&gt;buildAuthHeaders() / buildAdaptiveAuthHeaders()&lt;/b&gt;&#10;+ Authorization: Bearer &amp;lt;oauth token&amp;gt;&#10;+ stable identity headers replayed (user-agent, anthropic-version, x-stainless-*)&#10;− request-specific headers never replayed (session id, retry count, billing)&#10;− request-shape anthropic-beta flags stripped (context-1m-*, structured-outputs-*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="630" y="84" width="500" height="110" as="geometry"/></mxCell>
+        <mxCell id="cr-p" value="&lt;b&gt;proxy.js → upstream request&lt;/b&gt;&#10;target host = intercepted host, else claudeLocalBridge.anthropicBaseUrl&#10;shared keep-alive agent (maxSockets 6, 300 s timeout)&#10;client headers deferred until the upstream status is known" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="630" y="230" width="500" height="94" as="geometry"/></mxCell>
+        <mxCell id="cr-api" value="api.anthropic.com — POST /v1/messages&#10;status, headers and body streamed back verbatim" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#607D8B;fontSize=11;" vertex="1" parent="1"><mxGeometry x="630" y="352" width="500" height="60" as="geometry"/></mxCell>
+        <mxCell id="cr-401" value="&lt;b&gt;On 401 — markCredentialsRejected()&lt;/b&gt;&#10;the rejected token is quarantined, credentials are re-discovered,&#10;and the request is retried exactly once before 401 reaches the caller" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;fontSize=11;" vertex="1" parent="1"><mxGeometry x="630" y="440" width="500" height="76" as="geometry"/></mxCell>
+
+        <mxCell id="cr-x" value="&lt;b&gt;NEVER A SOURCE OF UPSTREAM AUTHENTICATION&lt;/b&gt;&#10;× ANTHROPIC_API_KEY environment variable — ignored; a placeholder such as `local` only satisfies client-side env checks&#10;× claudeLocalBridge.apiKey setting — removed; not a credential source and must not be reintroduced&#10;× Intercepted x-api-key headers — captured Console keys are never replayed or promoted&#10;× OpenAI-compatible routes (/v1/chat/completions, /v1/models) — deliberately absent from the router&#10;× Caller token and debug token — local door codes for the loopback surface only; never forwarded upstream" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;fontSize=11;align=left;spacingLeft=12;verticalAlign=top;spacingTop=10;" vertex="1" parent="1">
+          <mxGeometry x="20" y="560" width="1110" height="150" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cre1" value="none" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;fontSize=10;" edge="1" parent="1" source="cr-1" target="cr-2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="cre2" value="none" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;fontSize=10;" edge="1" parent="1" source="cr-2" target="cr-3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="cre3" value="none" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;fontSize=10;" edge="1" parent="1" source="cr-3" target="cr-4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="cre4" value="none" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;fontSize=10;" edge="1" parent="1" source="cr-4" target="cr-0"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="cre5" value="resolved credential" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#2E7D32;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="cr-g" target="cr-h"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="cre6" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="cr-h" target="cr-p"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="cre7" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#2E7D32;strokeWidth=2;" edge="1" parent="1" source="cr-p" target="cr-api"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="cre8" value="401" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#C62828;fontSize=10;" edge="1" parent="1" source="cr-api" target="cr-401"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="cre9" value="retry once" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#C62828;fontSize=10;" edge="1" parent="1" source="cr-401" target="cr-1"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <!-- ============================================================
+       PAGE 5 — DURABILITY & RECOVERY
+       ============================================================ -->
+  <diagram id="page-durability" name="5 · Durability &amp; recovery">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="750" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+
+        <mxCell id="d-run" value="&lt;b&gt;run.js + tool-pipeline&lt;/b&gt;&#10;every tool call is bracketed by an&#10;intent/result pair sharing one effectId" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="40" y="90" width="210" height="90" as="geometry"/></mxCell>
+        <mxCell id="d-fin" value="&lt;b&gt;finalizeRun()&lt;/b&gt;&#10;terminal output + trace event&#10;transcript flush&#10;run_stopped ledger event&#10;autopsy + session persist&#10;deterministic exit code" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="40" y="230" width="210" height="130" as="geometry"/></mxCell>
+        <mxCell id="d-sig" value="&lt;b&gt;SIGINT / SIGTERM&lt;/b&gt;&#10;route through the same idempotent finalizer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;fontSize=11;" vertex="1" parent="1"><mxGeometry x="40" y="410" width="210" height="70" as="geometry"/></mxCell>
+
+        <mxCell id="d-st" value="&lt;b&gt;session-store.js → *.state.json&lt;/b&gt;&#10;debounced 75 ms atomic write&#10;API messages + runner metadata&#10;what --resume-session actually loads" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="310" y="70" width="270" height="90" as="geometry"/></mxCell>
+        <mxCell id="d-lg" value="&lt;b&gt;session-ledger.js → *.ledger.jsonl&lt;/b&gt;&#10;append-only, monotonic sequence numbers&#10;synchronous writes via a kept-open fd&#10;session_started, user_prompt, tool_effect_*,&#10;compaction_applied, child_spawn_completed, run_stopped" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="310" y="180" width="270" height="100" as="geometry"/></mxCell>
+        <mxCell id="d-cu" value="&lt;b&gt;*.cursor.json sidecar&lt;/b&gt;&#10;{ seq, offset, pendingIntents } → resume without a full scan" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="310" y="300" width="270" height="60" as="geometry"/></mxCell>
+        <mxCell id="d-mf" value="&lt;b&gt;recovery/run-manifest.js&lt;/b&gt;&#10;&amp;lt;cwd&amp;gt;/.bridge-runner/runs/&amp;lt;run-id&amp;gt;/manifest.json&#10;one pointer per edit and the backup taken before it" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="310" y="380" width="270" height="86" as="geometry"/></mxCell>
+        <mxCell id="d-au" value="&lt;b&gt;Audit sinks&lt;/b&gt;&#10;transcript JSONL · human log · traces&#10;archive/ per-turn JSON + catalog index&#10;transcript resume is rejected at the CLI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="310" y="486" width="270" height="86" as="geometry"/></mxCell>
+
+        <mxCell id="d-rs" value="&lt;b&gt;replay-simulator.js&lt;/b&gt;&#10;read-only consistency check:&#10;sequence gaps · pending intents&#10;orphaned tool uses" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="630" y="90" width="240" height="96" as="geometry"/></mxCell>
+        <mxCell id="d-rp" value="&lt;b&gt;ledger-repair.js&lt;/b&gt;&#10;planRepair() proposes actions&#10;applyRepair() mutates once approved&#10;reconcileForResume() auto-applies the safe subset" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="630" y="220" width="240" height="110" as="geometry"/></mxCell>
+        <mxCell id="d-ap" value="&lt;b&gt;loop-autopsy.js&lt;/b&gt;&#10;autopsy artifact on abnormal stop,&#10;including detected semantic cycles" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="630" y="380" width="240" height="90" as="geometry"/></mxCell>
+
+        <mxCell id="d-re" value="&lt;b&gt;--resume-session&lt;/b&gt;&#10;the checkpoint is reconciled against the ledger before the run continues" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="920" y="160" width="210" height="96" as="geometry"/></mxCell>
+        <mxCell id="d-un" value="&lt;b&gt;local-bridge-undo last-run&lt;/b&gt;&#10;reverse-order restore; diverged files skipped unless --force" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="920" y="380" width="210" height="90" as="geometry"/></mxCell>
+
+        <mxCell id="d-note" value="All artifact writers go through private-fs (private dirs, 0600 permissions) and the central redaction boundary before any byte reaches disk." style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;align=left;fontSize=11;fontColor=#48607A;" vertex="1" parent="1"><mxGeometry x="40" y="600" width="1090" height="30" as="geometry"/></mxCell>
+
+        <mxCell id="de1" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="d-run" target="d-fin"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="de2" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="d-sig" target="d-fin"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="de3" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="d-run" target="d-st"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="de4" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="d-run" target="d-lg"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="de5" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="d-lg" target="d-cu"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="de6" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="d-fin" target="d-mf"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="de7" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="d-fin" target="d-au"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="de8" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="d-lg" target="d-rs"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="de9" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="d-lg" target="d-rp"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="de10" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="d-rs" target="d-rp"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="de11" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="d-rp" target="d-re"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="de12" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="d-mf" target="d-un"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="de13" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="d-fin" target="d-ap"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <!-- ============================================================
+       PAGE 6 — ORCHESTRATION
+       ============================================================ -->
+  <diagram id="page-orchestration" name="6 · Orchestration">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="750" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+
+        <mxCell id="o-cli" value="&lt;b&gt;bin/local-bridge-coordinator.js&lt;/b&gt;&#10;objective · phases · ceilings&#10;--research-plan (JSON dependency graph)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="40" y="40" width="250" height="70" as="geometry"/></mxCell>
+
+        <mxCell id="o-p1" value="&lt;b&gt;1 · research&lt;/b&gt;&#10;out-of-process workers&#10;read-only tool set" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="40" y="150" width="240" height="64" as="geometry"/></mxCell>
+        <mxCell id="o-p2" value="&lt;b&gt;2 · synthesize&lt;/b&gt;&#10;compileSpec() — local&#10;consumes zero tokens" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="310" y="150" width="240" height="64" as="geometry"/></mxCell>
+        <mxCell id="o-p3" value="&lt;b&gt;3 · execute&lt;/b&gt;&#10;runKernel() in-process&#10;the only phase that may edit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="580" y="150" width="240" height="64" as="geometry"/></mxCell>
+        <mxCell id="o-p4" value="&lt;b&gt;4 · verify&lt;/b&gt;&#10;read-only workers again&#10;independent confirmation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;" vertex="1" parent="1"><mxGeometry x="850" y="150" width="240" height="64" as="geometry"/></mxCell>
+
+        <mxCell id="o-dep" value="&lt;b&gt;groupPhasePlanByDeps()&lt;/b&gt;&#10;Kahn-style topological batching&#10;dependency-free nodes run concurrently (Promise.all)&#10;throws loudly on cycles or missing deps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="250" width="300" height="90" as="geometry"/></mxCell>
+
+        <mxCell id="o-w1" value="&lt;b&gt;worker 1&lt;/b&gt;&#10;local-bridge-runner.js&#10;6 read-only tools&#10;leased budget&#10;result = stdout JSON" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="40" y="390" width="170" height="100" as="geometry"/></mxCell>
+        <mxCell id="o-w2" value="&lt;b&gt;worker 2&lt;/b&gt;&#10;separate OS process&#10;isolated context window&#10;2,000 output tokens&#10;cannot spawn children" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="220" y="390" width="170" height="100" as="geometry"/></mxCell>
+        <mxCell id="o-w3" value="&lt;b&gt;worker 3&lt;/b&gt;&#10;flags AND-ed with parent&#10;tools intersected&#10;--inherit-workspace-trust&#10;never --trust-workspace" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="400" y="390" width="170" height="100" as="geometry"/></mxCell>
+        <mxCell id="o-w4" value="&lt;b&gt;worker 4&lt;/b&gt;&#10;lease passed via argv/env&#10;usage reconciled on exit&#10;or recorded as incomplete" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;" vertex="1" parent="1"><mxGeometry x="580" y="390" width="170" height="100" as="geometry"/></mxCell>
+
+        <mxCell id="o-bb" value="&lt;b&gt;budget-broker.js&lt;/b&gt;&#10;holds the per-run input / output token caps&#10;issues leases: acquire → spawn → release / reconcile&#10;&#10;invariant, field-verified:&#10;Σ(active leases) + totalUsage ≤ cap&#10;&#10;each batch splits the unleased remainder, so siblings&#10;cannot each claim the whole ceiling&#10;every child's usage is reconciled or listed as&#10;incomplete[] — never silently lost or double-counted" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=12;verticalAlign=top;spacingTop=10;" vertex="1" parent="1"><mxGeometry x="800" y="250" width="310" height="240" as="geometry"/></mxCell>
+
+        <mxCell id="o-auth" value="&lt;b&gt;Authority may only narrow, never widen&lt;/b&gt;&#10;Worker flags are AND-ed against the parent ceiling, tool sets are intersected, workspace trust is inherited rather than granted, and children cannot spawn further children." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FDECEA;strokeColor=#C62828;fontSize=11;align=left;spacingLeft=12;" vertex="1" parent="1"><mxGeometry x="40" y="520" width="1070" height="66" as="geometry"/></mxCell>
+        <mxCell id="o-meas" value="Field-measured: a 4-way dependency-free fan-out delivered roughly a 4.1× wall-clock speed-up at identical token cost versus the dependency-chained sequential baseline." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=12;" vertex="1" parent="1"><mxGeometry x="40" y="606" width="1070" height="46" as="geometry"/></mxCell>
+
+        <mxCell id="oe1" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="o-cli" target="o-p1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oe2" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="o-p1" target="o-p2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oe3" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="o-p2" target="o-p3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oe4" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="o-p3" target="o-p4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oe5" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="o-p1" target="o-dep"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oe6" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="o-dep" target="o-w1"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oe7" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="o-dep" target="o-w2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oe8" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="o-dep" target="o-w3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oe9" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="o-dep" target="o-w4"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="oe10" value="leases" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;fontSize=10;" edge="1" parent="1" source="o-bb" target="o-w4"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <!-- ============================================================
+       PAGE 7 — DEPLOYMENT
+       ============================================================ -->
+  <diagram id="page-deployment" name="7 · Deployment">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="750" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+
+        <mxCell id="y-net" value="Internet — api.anthropic.com · the only egress, reached exclusively from the bridge process" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#607D8B;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="20" y="20" width="1110" height="46" as="geometry"/></mxCell>
+
+        <mxCell id="y-ws" value="DEVELOPER WORKSTATION (macOS)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 4;fillColor=#FAFBFC;strokeColor=#B0BEC5;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontColor=#5C7080;" vertex="1" parent="1"><mxGeometry x="20" y="100" width="700" height="330" as="geometry"/></mxCell>
+
+        <mxCell id="y-vs" value="&lt;b&gt;VS Code — extension host process&lt;/b&gt;&#10;Claude Local Bridge extension (activated on startup)&#10;HTTP server bound to localhost:11437&#10;HTTPS + fetch interceptor patched in-process&#10;Claude Code extension — observed traffic source" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F0FE;strokeColor=#1967D2;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="44" y="140" width="320" height="140" as="geometry"/></mxCell>
+        <mxCell id="y-term" value="&lt;b&gt;Terminal / shell&lt;/b&gt;&#10;node bin/local-bridge-runner.js …&#10;node bin/local-bridge-coordinator.js …&#10;worker child processes (research / verify)&#10;env: BRIDGE_RUNNER_BRIDGE_URL, BRIDGE_CALLER_TOKEN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="390" y="140" width="308" height="140" as="geometry"/></mxCell>
+        <mxCell id="y-home" value="&lt;b&gt;~/.bridge-runner/&lt;/b&gt;&#10;sessions · logs · traces · archive&#10;worktrees · memory · prompts · skills&#10;private directories, 0600 files, redacted" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="44" y="300" width="320" height="100" as="geometry"/></mxCell>
+        <mxCell id="y-proj" value="&lt;b&gt;Local project folders&lt;/b&gt;&#10;selected per run with --cwd&#10;&amp;lt;project&amp;gt;/.bridge-runner/ — runs, hooks,&#10;SYSTEM.md, prompts, skills" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="390" y="300" width="308" height="100" as="geometry"/></mxCell>
+
+        <mxCell id="y-ct" value="CONTAINERISED RUNNER (OPTIONAL)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 4;fillColor=#FAFBFC;strokeColor=#B0BEC5;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontColor=#5C7080;" vertex="1" parent="1"><mxGeometry x="750" y="100" width="380" height="330" as="geometry"/></mxCell>
+        <mxCell id="y-img" value="&lt;b&gt;Dockerfile — two-stage build&lt;/b&gt;&#10;base image node:22-alpine&#10;runs as non-root user &quot;bridge&quot;&#10;no node_modules at runtime (zero deps)&#10;ENTRYPOINT node bin/local-bridge-runner.js&#10;EXPOSE 11437&#10;VOLUME /home/bridge/.bridge-runner" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="774" y="140" width="330" height="150" as="geometry"/></mxCell>
+        <mxCell id="y-cmp" value="&lt;b&gt;docker-compose.yml&lt;/b&gt;&#10;ports: 127.0.0.1:11437:11437&#10;optional .env file · 512 MB memory limit&#10;named volume bridge-data · restart unless-stopped" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="774" y="310" width="330" height="90" as="geometry"/></mxCell>
+
+        <mxCell id="y-ci" value="AUTOMATION &amp; EVALUATION" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;dashPattern=8 4;fillColor=#FAFBFC;strokeColor=#B0BEC5;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontColor=#5C7080;" vertex="1" parent="1"><mxGeometry x="20" y="450" width="1110" height="150" as="geometry"/></mxCell>
+        <mxCell id="y-gh" value="&lt;b&gt;GitHub Actions&lt;/b&gt;&#10;codeql.yml — static security scanning&#10;bridge-runner-readonly-poc.yml&#10;self-hosted runner, read-only proof of concept" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="44" y="490" width="330" height="92" as="geometry"/></mxCell>
+        <mxCell id="y-hb" value="&lt;b&gt;Harbor / Terminal-Bench&lt;/b&gt;&#10;evals.harbor.cc_bridge_runner_agent&#10;runner installed inside a task container&#10;calls the host bridge via --bridge-url" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="398" y="490" width="330" height="92" as="geometry"/></mxCell>
+        <mxCell id="y-ge" value="&lt;b&gt;Golden-transcript eval harness&lt;/b&gt;&#10;npm run runner:eval&#10;replays canned transcripts through a fake client&#10;asserts tool order, permissions, trace events — no live OAuth" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#90A4AE;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;spacingTop=8;" vertex="1" parent="1"><mxGeometry x="752" y="490" width="354" height="92" as="geometry"/></mxCell>
+
+        <mxCell id="ye1" value="HTTPS + OAuth Bearer" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#2E7D32;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="y-vs" target="y-net"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ye2" value="POST /v1/messages → :11437" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#2E7D32;strokeWidth=2;fontSize=10;" edge="1" parent="1" source="y-term" target="y-vs"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ye3" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="y-term" target="y-proj"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ye4" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#546E7A;" edge="1" parent="1" source="y-term" target="y-home"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ye5" value="host.docker.internal:11437" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#7A8FA3;fontSize=10;" edge="1" parent="1" source="y-img" target="y-vs"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ye6" value="--bridge-url" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#7A8FA3;fontSize=10;" edge="1" parent="1" source="y-hb" target="y-vs"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+</mxfile>
