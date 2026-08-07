@@ -44,7 +44,10 @@ describe('ledger repair / applyRepair (F6)', () => {
     const result = applyRepair(sessionPath, plan.repairPlan, false);
     assert.equal(result.applied, false);
     assert.equal(result.reason, 'repair_requires_approval');
-    assert.equal(replayFromLedger(sessionPath).issues.some((i) => i.kind === 'pending_effect'), true);
+    assert.equal(
+      replayFromLedger(sessionPath).issues.some((i) => i.kind === 'pending_effect'),
+      true,
+    );
   });
 
   it('A1-F3: injects synthetic tool_result for dangling checkpoint tool_use and marks pending aborted', () => {
@@ -86,11 +89,7 @@ describe('ledger repair / applyRepair (F6)', () => {
     assert.match(last.content[0].content, /aborted|did not finish/i);
 
     const replay = replayFromLedger(sessionPath);
-    assert.equal(
-      replay.issues.filter((i) => i.kind === 'pending_effect').length,
-      0,
-      'pending effect marked aborted',
-    );
+    assert.equal(replay.issues.filter((i) => i.kind === 'pending_effect').length, 0, 'pending effect marked aborted');
   });
 
   it('A1-F2: reconstructs completed ledger exchanges missing from a stale checkpoint', () => {

@@ -50,20 +50,20 @@
 
 ## Phase A Work Map (12 tasks total)
 
-| Task | Status | Work | Depends on |
-|---|---|---|---|
-| **A1** | Not started | Fixture helper + `withSymlinkFixture()` | — |
-| **A2** | ✅ Done | `resolveFileTarget()` choicepoint | — |
-| **A3** | ✅ Done | Apply to permissions.js + glob.js | A2 |
-| **A4** | ✅ Done | Deny-matrix + write-file symlink check | A2 |
-| **A5** | Deferred | Symlink test matrix {8 tools × 3 scenarios} | A2–A4 |
-| **A6** | ✅ Done, verified | Scrub denied content from edit-file/apply-patch results | A2 |
-| **A7** | ✅ Done, verified | Archive writers → private-fs + FD-10 assertion test | A2–A4 |
-| **A8** | Pending | FD-06 denial reason codes (six runner codes + model/outer refusal) | A2 |
-| **A9** | Pending | FD-07 chaos-ok audit marker in run.js | A2 |
-| **A10** | ✅ Done, verified | Fixed false comment at tool-pipeline.js:79–80 **and** the aliasing bug it licensed | — |
-| **A11** | ✅ Done, verified | Collapsed 3 copies of deny-list (shell-policy, permissions, safety) | — |
-| **A12** | Pending | S2-06 shell honesty owner (intended or needs test) | — |
+| Task    | Status            | Work                                                                               | Depends on |
+| ------- | ----------------- | ---------------------------------------------------------------------------------- | ---------- |
+| **A1**  | Not started       | Fixture helper + `withSymlinkFixture()`                                            | —          |
+| **A2**  | ✅ Done           | `resolveFileTarget()` choicepoint                                                  | —          |
+| **A3**  | ✅ Done           | Apply to permissions.js + glob.js                                                  | A2         |
+| **A4**  | ✅ Done           | Deny-matrix + write-file symlink check                                             | A2         |
+| **A5**  | Deferred          | Symlink test matrix {8 tools × 3 scenarios}                                        | A2–A4      |
+| **A6**  | ✅ Done, verified | Scrub denied content from edit-file/apply-patch results                            | A2         |
+| **A7**  | ✅ Done, verified | Archive writers → private-fs + FD-10 assertion test                                | A2–A4      |
+| **A8**  | Pending           | FD-06 denial reason codes (six runner codes + model/outer refusal)                 | A2         |
+| **A9**  | Pending           | FD-07 chaos-ok audit marker in run.js                                              | A2         |
+| **A10** | ✅ Done, verified | Fixed false comment at tool-pipeline.js:79–80 **and** the aliasing bug it licensed | —          |
+| **A11** | ✅ Done, verified | Collapsed 3 copies of deny-list (shell-policy, permissions, safety)                | —          |
+| **A12** | Pending           | S2-06 shell honesty owner (intended or needs test)                                 | —          |
 
 **Execution priority:** A1 is a prerequisite for the test matrix (A5), but A5 is complex (20–25 min) and deferred. A8/A9 are polish and can land anytime. A5 deserves its own focused session.
 
@@ -90,6 +90,7 @@ archive/              0644        0600       ✗ WRONG — world-readable
 Status: **Gated on Phase A = green + user budget confirmation.**
 
 Alan granted live `/v1/messages` authorization on 2026-07-25 with conditions:
+
 - Fake fixtures only, sandboxed `--cwd`
 - Explicit bounds on every round (`--max-steps`, `--max-tool-calls-per-turn`, `--max-cost-usd`, `--max-wall-clock-ms`)
 - Time-boxed to ~11h window before weekly reset (expires at 2026-07-25 23:00 UTC, did not roll forward)
@@ -115,6 +116,7 @@ See `AGENT-DOCS-DIVERGENCE-2026-07-25.html` for the full work order (recommendat
 **Expected session goal:** Land A6–A11 + verify Phase A green before gating Phase B.
 
 **Not in scope (explicitly):**
+
 - A5 (test matrix — defer to dedicated session)
 - Phase B live probes (gated, needs Alan to re-authorize for new session)
 - Phase C docs unification (gated, needs coordinated pass)
@@ -146,17 +148,17 @@ See `AGENT-DOCS-DIVERGENCE-2026-07-25.html` for the full work order (recommendat
 
 ## What Landed in the A6/A7/A10/A11 Batch
 
-*Appended 2026-07-26, later session. Plan of record:
-`~/.claude/plans/i-m-continuing-safari-floating-cat.md`.*
+_Appended 2026-07-26, later session. Plan of record:
+`~/.claude/plans/i-m-continuing-safari-floating-cat.md`._
 
 ### Verification status
 
 All four items landed, verified, and committed.
 
-| Item | Commit | Evidence |
-| --- | --- | --- |
-| A6, A10, A11 | `3f7536e` | Targeted suites green, then full gate |
-| A7 | `e00f98a` | Red-then-green: reverting the archive fix makes `fd-10-artifact-modes.test.js` fail with `archive artifacts must be 0700/0600`; restoring it passes |
+| Item         | Commit    | Evidence                                                                                                                                            |
+| ------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A6, A10, A11 | `3f7536e` | Targeted suites green, then full gate                                                                                                               |
+| A7           | `e00f98a` | Red-then-green: reverting the archive fix makes `fd-10-artifact-modes.test.js` fail with `archive artifacts must be 0700/0600`; restoring it passes |
 
 Full gate at close: **757 tests pass / 0 fail** (747 before this batch, 10 new), `npm run
 lint` clean, `npm run check:docs` clean, prettier clean across `src/` and `test/`.
@@ -194,7 +196,7 @@ Two defects under one theme.
 - **Known limitation, deliberately not fixed:** a single context line from a minified file
   can still be large in `result.diff`. Capping the diff was outside A6.
 
-### A10 — the false comment *and* the bug it licensed
+### A10 — the false comment _and_ the bug it licensed
 
 `tool-pipeline.js:79-80` claimed `confinePath` returns realpath-anchored paths "so symlink
 aliasing is mostly defused at the source." False — `confinePath` returns the **lexical**
@@ -241,7 +243,7 @@ New `test/runner/fd-10-artifact-modes.test.js` walks the archive tree asserting 
 then covers transcript, session, ledger, trace (both `redacted` and `full` levels), trust
 store, and recovery manifest. It also **asserts the P0-12 carve-out holds**: a project file
 written by `write_file` must match a plain `fs.writeFileSync` control file in the same
-directory, so the runner is proven *not* to force privacy on user project files. The
+directory, so the runner is proven _not_ to force privacy on user project files. The
 control-file oracle is deliberate — hard-coding "not 0600" would fail spuriously under
 `umask 077`.
 

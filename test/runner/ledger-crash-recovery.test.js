@@ -270,9 +270,13 @@ describe('ledger crash recovery (process-kill integration)', () => {
     assert.ok(plan.repairPlan.length >= replay.issues.length, 'at least one repair action per replay issue');
     for (const issue of plan.issues) {
       assert.ok(
-        ['pending_effect', 'sequence_gap', 'orphaned_tool_use', 'dangling_tool_use', 'missing_completed_effect'].includes(
-          issue.kind,
-        ),
+        [
+          'pending_effect',
+          'sequence_gap',
+          'orphaned_tool_use',
+          'dangling_tool_use',
+          'missing_completed_effect',
+        ].includes(issue.kind),
         'known issue kind: ' + issue.kind,
       );
     }
@@ -335,11 +339,7 @@ describe('ledger crash recovery (process-kill integration)', () => {
       afterByEffect[n] = (afterByEffect[n] || 0) + 1;
     }
     for (const [n, beforeCount] of Object.entries(beforeByEffect)) {
-      assert.equal(
-        afterByEffect[n],
-        beforeCount,
-        'effect ' + n + ' must not be re-executed after ledger-aware resume',
-      );
+      assert.equal(afterByEffect[n], beforeCount, 'effect ' + n + ' must not be re-executed after ledger-aware resume');
     }
   });
 

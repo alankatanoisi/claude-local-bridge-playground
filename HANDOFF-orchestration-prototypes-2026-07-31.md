@@ -1,14 +1,14 @@
 # HANDOFF — Orchestration Prototype Slice (L1 + H2 + H1 + W1) — 2026-07-31
 
-| Field | Value |
-| --- | --- |
-| Type | Agent-facing execution handoff (plan approved by Alan, execution authorized) |
-| Written by | Claude Code session, 2026-07-31 |
-| Intended executor | Cursor agent on Alan's Mac (or any agent with local shell access) |
-| Repo | `claude-local-bridge-playground`, branch `main` |
-| Prototype workspace | `~/Developer/orchestration-prototypes/` (sibling folder, NOT under git) |
-| Token spend | **Authorized by Alan** — small budget, ~12–18 short live calls total (H1 leg B + W1 live worker). L1, H2, and W1's stub/regex workers are zero-token. |
-| Bridge | Live and auth'd at `http://localhost:11437` (VS Code extension must be running) |
+| Field               | Value                                                                                                                                                 |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Type                | Agent-facing execution handoff (plan approved by Alan, execution authorized)                                                                          |
+| Written by          | Claude Code session, 2026-07-31                                                                                                                       |
+| Intended executor   | Cursor agent on Alan's Mac (or any agent with local shell access)                                                                                     |
+| Repo                | `claude-local-bridge-playground`, branch `main`                                                                                                       |
+| Prototype workspace | `~/Developer/orchestration-prototypes/` (sibling folder, NOT under git)                                                                               |
+| Token spend         | **Authorized by Alan** — small budget, ~12–18 short live calls total (H1 leg B + W1 live worker). L1, H2, and W1's stub/regex workers are zero-token. |
+| Bridge              | Live and auth'd at `http://localhost:11437` (VS Code extension must be running)                                                                       |
 
 ---
 
@@ -104,7 +104,7 @@ these facts, they were checked against source on 2026-07-31.
 1. Folder `~/Developer/orchestration-prototypes/h2-srt-eval`: `npm init -y` then
    `npm install @anthropic-ai/sandbox-runtime` (**local install only, never `-g`**; invoke via
    `npx srt` or `node_modules/.bin/srt`). Check `ripgrep` present (`rg --version`), `brew install
-   ripgrep` if not — ask Alan before brew installs.
+ripgrep` if not — ask Alan before brew installs.
 2. Build `attack-fixtures/`: `.env` containing `FAKE_SECRET=not-a-real-secret-1234`;
    `ln -s .env notes.txt` (in-root alias); `outside-target/real.env` one level ABOVE the fixture
    dir with `escape.txt` symlinking to it (out-of-root escape).
@@ -113,7 +113,7 @@ these facts, they were checked against source on 2026-07-31.
 4. Probe matrix — run each under srt from inside `attack-fixtures/`, record allow/deny + exact
    error text: `cat .env` (direct denied read), `cat notes.txt` (symlink alias — THE question),
    `cat escape.txt` (escape link), `echo x >> notes.txt` (write via alias), `cat readme-ish
-   allowed file` (control, must succeed). Also run each WITHOUT srt once to show the OS default
+allowed file` (control, must succeed). Also run each WITHOUT srt once to show the OS default
    (everything succeeds) for contrast.
 5. Deliverable: `docs/srt-sandbox-evaluation-2026-07-31.html` (+ short `.md` twin) in the repo:
    method, matrix (attack shape × srt result × runner-gate result), adoption verdict, what runner
@@ -127,7 +127,7 @@ these facts, they were checked against source on 2026-07-31.
 2. **Leg A (classic loop)** — real runner against the LIVE bridge (default URL, or
    `--bridge-url http://localhost:11437`), from the repo root:
    `node bin/local-bridge-runner.js --cwd <fixture-project> --trust-workspace --accept-edits
-   --output-format json --max-steps 12 "<task prompt>"` — run 2–3×, capture `num_turns`, usage,
+--output-format json --max-steps 12 "<task prompt>"` — run 2–3×, capture `num_turns`, usage,
    `duration_ms` from each `result` event, and delete `summary.md` between runs.
 3. **Leg B (CodeAct)** — small Node client (`codeact-leg/client.js`) POSTs ONE request to the
    bridge `/v1/messages`: system prompt says "reply with a single self-contained Node script using
@@ -143,6 +143,7 @@ these facts, they were checked against source on 2026-07-31.
 ### W1 — same task, three workers, one contract (mostly zero tokens)
 
 The thesis demo: a bounded deterministic program is a legitimate worker peer of a model.
+
 1. `w1-worker-bakeoff/contract.md` + JSON Schema: input (target dir), output (per-file counts +
    rendered table), declared cost ceiling, timeout, authority (read-only + one write). One screen.
 2. `dispatcher.js` (~50 lines): load contract, invoke named worker, validate output against

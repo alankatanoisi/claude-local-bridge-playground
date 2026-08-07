@@ -17,6 +17,7 @@ This repo (`claude-local-bridge-playground`) is a **laboratory for studying agen
 ## What Happened in Safari 2 (Brief)
 
 Codex ran an adversarial test against the runner's permission system and found:
+
 - **S2-01:** An in-root symlink with an innocent basename (e.g., `link-to-config`) could reach a deny-listed file (e.g., `.env`) because `confinePath` only checked the lexical path, not the realpath target.
 - **S2-02 (laundering):** `write_file` would back up a symlink without checking its target, writing the denied file's contents to `.bridge-runner/backups/` — a path that wasn't deny-listed.
 
@@ -49,17 +50,17 @@ Three changes, one logical fix:
 
 Ordered by readiness + impact:
 
-| Task | Work | Time | Reason to do it |
-|---|---|---|---|
-| **A6** | Scrub denied-file content from `edit-file.js` + `apply-patch.js` result fields | 8 min | Found by Codex: hunk-mismatch errors embed the real file line, exposing content |
-| **A7** | Assert archive permissions — transcript/session/trust/trace must be `0600` | 5 min | Field-measured; P0-12 claimed it, nobody verified. Field data ready |
-| **A10** | Fix false comment at `tool-pipeline.js:79–80` | 2 min | Claims `confinePath` returns realpath; it doesn't. We just changed it to call `resolveFileTarget` |
-| **A11** | Collapse 3 copies of deny-list (appears in `shell-policy`, `permissions`, `safety`) | 5 min | DRY violation; makes future updates error-prone |
-| **A9** | FD-07: add chaos-ok audit marker to run.js | 5 min | Closes S2-05 (acknowledgement tracking) |
-| **A8** | FD-06: add denial reason codes (runner vs model vs outer classifier) | 5 min | Safari 2 rounds were inconclusive because the code didn't distinguish layers |
-| **A1** | Fixture helper `makeFixtureCtx()` + `withSymlinkFixture()` | 8 min | Prerequisite for A5 |
-| **A5** | **DEFERRED** — Symlink test matrix (8 tools × 3 scenarios) | 20 min | Complex; skip this session, dedicated focus later |
-| **A12** | S2-06 owner (shell containment) | 5 min | Documented as false; needs an owner to verify or document as intentional |
+| Task    | Work                                                                                | Time   | Reason to do it                                                                                   |
+| ------- | ----------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------- |
+| **A6**  | Scrub denied-file content from `edit-file.js` + `apply-patch.js` result fields      | 8 min  | Found by Codex: hunk-mismatch errors embed the real file line, exposing content                   |
+| **A7**  | Assert archive permissions — transcript/session/trust/trace must be `0600`          | 5 min  | Field-measured; P0-12 claimed it, nobody verified. Field data ready                               |
+| **A10** | Fix false comment at `tool-pipeline.js:79–80`                                       | 2 min  | Claims `confinePath` returns realpath; it doesn't. We just changed it to call `resolveFileTarget` |
+| **A11** | Collapse 3 copies of deny-list (appears in `shell-policy`, `permissions`, `safety`) | 5 min  | DRY violation; makes future updates error-prone                                                   |
+| **A9**  | FD-07: add chaos-ok audit marker to run.js                                          | 5 min  | Closes S2-05 (acknowledgement tracking)                                                           |
+| **A8**  | FD-06: add denial reason codes (runner vs model vs outer classifier)                | 5 min  | Safari 2 rounds were inconclusive because the code didn't distinguish layers                      |
+| **A1**  | Fixture helper `makeFixtureCtx()` + `withSymlinkFixture()`                          | 8 min  | Prerequisite for A5                                                                               |
+| **A5**  | **DEFERRED** — Symlink test matrix (8 tools × 3 scenarios)                          | 20 min | Complex; skip this session, dedicated focus later                                                 |
+| **A12** | S2-06 owner (shell containment)                                                     | 5 min  | Documented as false; needs an owner to verify or document as intentional                          |
 
 **Recommended batch for this session:** A6 + A7 + A10 + A11 (expect ~20 min). They complete the symlink story without the test-matrix complexity.
 
@@ -84,6 +85,7 @@ All tests currently pass. Your changes must not regress any of them.
 **File:** `/Users/alanman/.claude/plans/declarative-floating-widget.md`
 
 This is the complete Safari 3 spec, including:
+
 - Phase A tasks 1–12 (full descriptions, code locations, blast radius)
 - Phase B (6 live probes, gated on Phase A green)
 - Phase C (docs unification)
@@ -120,6 +122,7 @@ Read the **Phase A section** before starting; reference it as you work.
 - `src/runner/tool-pipeline.js` — has a false comment at line 79–80 (A10)
 
 Test files (read to understand what you're testing):
+
 - `test/runner/safety.test.js` — confinement, symlinks, realpath
 - `test/runner/permissions.test.js` — policy decisions
 - `test/runner/write-file.test.js` — backup behavior

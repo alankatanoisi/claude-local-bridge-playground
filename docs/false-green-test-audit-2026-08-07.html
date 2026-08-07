@@ -357,7 +357,7 @@
       <h2 id="files">5. The six new test files</h2>
       <p>
         All in <code>test/runner/</code>, prefix <code>false-green-</code>, using only real exported modules (no
-        reimplementations, no mocks of the code under test). Currently uncommitted.
+        reimplementations, no mocks of the code under test). Delivered on a review branch via pull request (see §9).
       </p>
       <table>
         <tr>
@@ -1053,35 +1053,39 @@ Commit on hypo/5-workflow-slice only. End with a full handoff (folder, branch, f
           <td>Six test files in <code>test/runner/false-green-*.test.js</code></td>
           <td>
             Written; FG-E3 removed in favor of <code>profiles-retired.test.js</code> ownership;
-            <strong>never executed; uncommitted</strong>
+            <strong>executed in the resumed session</strong> — first run 65/2/2 (both failures were bugs in the new
+            tests, fixed after reporting), final run <strong>67 pass / 0 fail / 2 todo</strong>; ESLint clean;
+            Prettier applied
           </td>
         </tr>
         <tr>
           <td>This report (<code>docs/false-green-test-audit-2026-08-07.html</code>)</td>
-          <td>Written; uncommitted</td>
+          <td>Updated with real verification results before its first commit (it had never been committed, so this is
+            completion of the deliverable, not annotation of a published record)</td>
         </tr>
         <tr>
-          <td>Execution plan</td>
-          <td>
-            <code>~/.claude/plans/synthetic-humming-sparkle.md</code> — run, fix-honestly, lint, format, commit-to-main,
-            report
-          </td>
+          <td>Delivery route</td>
+          <td>Changed from the earlier "commit to main" plan at Alan's direction: everything now lands on a review
+            branch with a <strong>pull request into <code>main</code></strong>, so other agents can review before
+            merge. The five hypothetical tasks in §7 each isolate themselves in their own worktree and never touch
+            <code>main</code>.</td>
         </tr>
         <tr>
           <td>Auto-retry cron job</td>
-          <td>Deleted (task pinned indefinitely at Alan's direction, 2026-08-07)</td>
+          <td>Deleted (was created during the outage; no longer needed)</td>
         </tr>
         <tr>
           <td>Source-code fixes for HS-01 / HS-02</td>
-          <td>Deliberately NOT made — findings reported; todo tests keep them visible</td>
+          <td>Deliberately NOT made — findings reported; todo tests keep them visible. Hypothetical task 4 (§7) is the
+            sanctioned route to fixing HS-02.</td>
         </tr>
       </table>
-      <p><strong>When Alan gives the word</strong> (and tooling cooperates), the pinned sequence is:</p>
+      <p><strong>Remaining review flow:</strong></p>
       <ol>
-        <li><code>npm test</code> — report real failures first, then fix only inside the six new files;</li>
-        <li><code>npm run lint</code> and <code>npm run format:check</code> (format if needed);</li>
-        <li>commit the six test files (and optionally this report) to <code>main</code>; no push unless asked;</li>
-        <li>report full pass/fail counts and the HS-01/HS-02 todo outcomes.</li>
+        <li>Other agents review the pull request (six test files + this report);</li>
+        <li>merge to <code>main</code> when satisfied;</li>
+        <li>run the five §7 paste blocks one at a time in fresh agent conversations — each works in its own
+            worktree — then run the updated suite against each result.</li>
       </ol>
       <p class="small">
         Manual alternative: Alan can run the new files alone from the repo root in Terminal —<br />

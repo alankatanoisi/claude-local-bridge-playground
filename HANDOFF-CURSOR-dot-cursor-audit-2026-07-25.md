@@ -23,18 +23,18 @@ plan** — not to unilaterally clean it up.
 
 **Alan is a novice programmer and a former lawyer.** Both matter here.
 
-1. **He values authenticity of record very highly.** His words: *"the raw and authentic and original — even if
-   messy and bloated — tells me so much more in retrospect than the editorialized and the tidy."*
-   **Default to preserving, not deleting.** If something is stale, your first instinct should be to *mark or
-   move* it, not remove it. Deletion requires his explicit per-file approval.
+1. **He values authenticity of record very highly.** His words: _"the raw and authentic and original — even if
+   messy and bloated — tells me so much more in retrospect than the editorialized and the tidy."_
+   **Default to preserving, not deleting.** If something is stale, your first instinct should be to _mark or
+   move_ it, not remove it. Deletion requires his explicit per-file approval.
 2. **Ask before every destructive action.** Deleting, overwriting, or rewriting a file needs his sign-off.
    Batch your proposals so he can approve a group, but never assume.
 3. **Explain where things run and what success looks like.** He should never have to guess whether something
    belongs in Terminal, Cursor chat, VS Code, or a browser.
 4. **Define jargon once.** Do not assume he knows terms like glob, frontmatter, MDC, symlink, or shim.
 5. **One decision at a time for anything irreversible.** Batch only the safe stuff.
-6. **Separate "stale" from "wrong."** A May plan describing May's goals is *accurate history*. A May **skill**
-   telling you to use a flag that no longer exists is *actively harmful*. Treat these completely differently —
+6. **Separate "stale" from "wrong."** A May plan describing May's goals is _accurate history_. A May **skill**
+   telling you to use a flag that no longer exists is _actively harmful_. Treat these completely differently —
    this distinction is the core of the whole audit.
 
 ---
@@ -58,10 +58,10 @@ before you evaluate anything. Sources: `AGENTS.md` (which you auto-load) and
   **Codex**, rounds A–P) found a symlink gap that is **still unremediated**. There are two known live
   path-safety gaps right now. Start here: `HANDOFF-safari-3-remediation-plan-2026-07-25.md`.
 - **There are two colliding `P0` namespaces** in `docs/`: the closed `P0-01…P0-12` series, and an
-  `FD-01…FD-05` band that a 07-22 handoff *also* labels P0. Say `FD-01` when you mean `FD-01`.
+  `FD-01…FD-05` band that a 07-22 handoff _also_ labels P0. Say `FD-01` when you mean `FD-01`.
 
 **Also know this about your own position:** `.cursor/**` is **not visible to Claude Code or Codex.** They do
-not load your rules, skills, or agent definitions. So a stale primitive in `.cursor/` degrades *your* work
+not load your rules, skills, or agent definitions. So a stale primitive in `.cursor/` degrades _your_ work
 specifically, and no other agent can see or correct it. That is why this audit is yours to run.
 
 ---
@@ -70,28 +70,28 @@ specifically, and no other agent can see or correct it. That is why this audit i
 
 20 files. Reproduce with `find .cursor -type f` from the repo root in a terminal.
 
-| Path | Size | Modified | Kind |
-| --- | --- | --- | --- |
-| `.cursor/settings.json` | 200B | Jul 9 | **Live config** — enables 3 plugins |
-| `.cursor/rules/anthropic-primary-sources.mdc` | 2.8K | May 26 | **Live rule** (auto-applied) |
-| `.cursor/agents/runner-command-builder.md` | 8.8K | May 26 | **Live agent definition** |
-| `.cursor/skills/anthropic-official/SKILL.md` | 5.5K | May 28 | **Live skill** |
-| `.cursor/skills/anthropic-official/sources.md` | 4.0K | May 28 | Live skill resource |
-| `.cursor/skills/anthropic-official/surfaces.md` | 2.2K | May 26 | Live skill resource |
-| `.cursor/skills/anthropic-platform-expert/SKILL.md` | 4.7K | May 28 | **Live skill** |
-| `.cursor/skills/runner-command-builder/SKILL.md` | 3.2K | May 26 | **Live skill** |
-| `.cursor/skills/oauth-evidence/SKILL.md` | 4.9K | May 25 | **Live skill** |
-| `.cursor/skills/lab-integrator/SKILL.md` | 2.5K | May 25 | **Live skill** |
-| `.cursor/skills/parity-archivist/SKILL.md` | 4.5K | May 26 | **Live skill** — name references retired framing |
-| `.cursor/skills/observability-scribe/SKILL.md` | 3.5K | May 25 | **Live skill** |
-| `.cursor/plans/harness_hardening_roadmap_*.plan.md` | 38K | May 24 | Historical plan |
-| `.cursor/plans/beyond_perf_parity_lab-notes_*.plan.md` | 31K | May 25 | Historical plan |
-| `.cursor/plans/phase_3_critique_*.plan.md` | 14K | Jul 10 | Historical plan (newest) |
-| `.cursor/plans/runner-top-agent-roadmap_*.plan.md` | 5.4K | May 24 | Historical plan |
-| `.cursor/hooks/state/continual-learning.json` | 218B | Jul 21 | **Live machinery state** |
-| `.cursor/hooks/state/continual-learning-index.json` | 8.6K | Jul 19 | **Live machinery state** |
-| `.cursor/.DS_Store` | 10K | Jul 19 | macOS junk |
-| `.cursor/skills/.DS_Store` | 10K | Jul 8 | macOS junk |
+| Path                                                   | Size | Modified | Kind                                             |
+| ------------------------------------------------------ | ---- | -------- | ------------------------------------------------ |
+| `.cursor/settings.json`                                | 200B | Jul 9    | **Live config** — enables 3 plugins              |
+| `.cursor/rules/anthropic-primary-sources.mdc`          | 2.8K | May 26   | **Live rule** (auto-applied)                     |
+| `.cursor/agents/runner-command-builder.md`             | 8.8K | May 26   | **Live agent definition**                        |
+| `.cursor/skills/anthropic-official/SKILL.md`           | 5.5K | May 28   | **Live skill**                                   |
+| `.cursor/skills/anthropic-official/sources.md`         | 4.0K | May 28   | Live skill resource                              |
+| `.cursor/skills/anthropic-official/surfaces.md`        | 2.2K | May 26   | Live skill resource                              |
+| `.cursor/skills/anthropic-platform-expert/SKILL.md`    | 4.7K | May 28   | **Live skill**                                   |
+| `.cursor/skills/runner-command-builder/SKILL.md`       | 3.2K | May 26   | **Live skill**                                   |
+| `.cursor/skills/oauth-evidence/SKILL.md`               | 4.9K | May 25   | **Live skill**                                   |
+| `.cursor/skills/lab-integrator/SKILL.md`               | 2.5K | May 25   | **Live skill**                                   |
+| `.cursor/skills/parity-archivist/SKILL.md`             | 4.5K | May 26   | **Live skill** — name references retired framing |
+| `.cursor/skills/observability-scribe/SKILL.md`         | 3.5K | May 25   | **Live skill**                                   |
+| `.cursor/plans/harness_hardening_roadmap_*.plan.md`    | 38K  | May 24   | Historical plan                                  |
+| `.cursor/plans/beyond_perf_parity_lab-notes_*.plan.md` | 31K  | May 25   | Historical plan                                  |
+| `.cursor/plans/phase_3_critique_*.plan.md`             | 14K  | Jul 10   | Historical plan (newest)                         |
+| `.cursor/plans/runner-top-agent-roadmap_*.plan.md`     | 5.4K | May 24   | Historical plan                                  |
+| `.cursor/hooks/state/continual-learning.json`          | 218B | Jul 21   | **Live machinery state**                         |
+| `.cursor/hooks/state/continual-learning-index.json`    | 8.6K | Jul 19   | **Live machinery state**                         |
+| `.cursor/.DS_Store`                                    | 10K  | Jul 19   | macOS junk                                       |
+| `.cursor/skills/.DS_Store`                             | 10K  | Jul 8    | macOS junk                                       |
 
 **Note the shape:** 8 live skills + 1 live agent + 1 live rule + 1 live config = **11 primitives that affect
 your behavior right now**, nearly all from May. Only 4 files are historical plans.
@@ -130,14 +130,14 @@ broken because a regex matched it.
 grep -rlnE "chat/completions|/v1/models|openai|OpenAI|parity" .cursor
 ```
 
-Thirteen files hit, including **every skill**. But this grep proves only that *the term appears* — not that
+Thirteen files hit, including **every skill**. But this grep proves only that _the term appears_ — not that
 the document is stale.
 
 **Triage each into one of three buckets, and do not skip this step:**
 
 - **Legitimately mentions OpenAI** — e.g. `anthropic-official` or `anthropic-platform-expert` may reference
   other providers for comparison or to say "do not use this." Keep as-is.
-- **Historically about parity** — describes a goal the repo has since abandoned. This is *accurate history*.
+- **Historically about parity** — describes a goal the repo has since abandoned. This is _accurate history_.
   Preserve; mark as historical.
 - **Instructs you to do something now-forbidden** — tells you to build, restore, or test an
   OpenAI-compatible surface. **This is the harmful category.** `parity-archivist` is the most likely
@@ -171,14 +171,14 @@ and note there is a third one at `docs/artifacts/permission-safari-2026-07-21/.D
 
 For each of the 20 files, place it in exactly one bucket and state your evidence:
 
-| Bucket | Meaning | Default action |
-| --- | --- | --- |
-| **CURRENT** | Accurate and useful today | Leave alone. Note the verification date. |
-| **STALE-HARMFUL** | A live primitive that instructs you to do something retired, forbidden, or impossible | **Fix or disable.** Highest priority. |
-| **STALE-HISTORICAL** | Accurately describes a past state; no live instruction | **Preserve.** Mark as historical — do not delete. |
-| **NEEDS-UPDATE** | Broadly right but missing current reality | Propose a specific patch for Alan to approve. |
-| **JUNK** | No informational value in any timeframe (`.DS_Store`) | Propose removal. |
-| **UNKNOWN** | You could not determine status | **Say so.** Do not guess. Ask Alan. |
+| Bucket               | Meaning                                                                               | Default action                                    |
+| -------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| **CURRENT**          | Accurate and useful today                                                             | Leave alone. Note the verification date.          |
+| **STALE-HARMFUL**    | A live primitive that instructs you to do something retired, forbidden, or impossible | **Fix or disable.** Highest priority.             |
+| **STALE-HISTORICAL** | Accurately describes a past state; no live instruction                                | **Preserve.** Mark as historical — do not delete. |
+| **NEEDS-UPDATE**     | Broadly right but missing current reality                                             | Propose a specific patch for Alan to approve.     |
+| **JUNK**             | No informational value in any timeframe (`.DS_Store`)                                 | Propose removal.                                  |
+| **UNKNOWN**          | You could not determine status                                                        | **Say so.** Do not guess. Ask Alan.               |
 
 **The distinction that matters most:** STALE-HARMFUL and STALE-HISTORICAL are both "old," and treating them
 the same is how you either break history or leave a live landmine in place.
@@ -248,10 +248,10 @@ Markdown.** He finds HTML easier to read for anything complex.
 ## 10. One framing worth carrying into the audit
 
 This repo is a laboratory for studying how coding-agent harnesses behave — permissions, context, tool safety.
-It has spent the past week discovering that its *safety* controls drift when the same rule is enforced in
+It has spent the past week discovering that its _safety_ controls drift when the same rule is enforced in
 several places independently.
 
-`.cursor/` is the same failure in the *instruction* layer: eleven live primitives, written across a few days
+`.cursor/` is the same failure in the _instruction_ layer: eleven live primitives, written across a few days
 in May, never revisited as the project's direction changed underneath them. **The lesson transfers.** A rule
 written once and never re-verified is not a rule — it is a fossil that still executes. What you are doing is
 not cleanup; it is bringing one agent's instruction layer back into agreement with reality, and recording

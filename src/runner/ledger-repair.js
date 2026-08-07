@@ -26,8 +26,7 @@ const SYNTHETIC_ABORT_TEXT =
   'Treat the side effect as aborted; re-try only if still needed.';
 
 const SYNTHETIC_RECOVERED_TEXT =
-  'Recovered from ledger: this tool already completed before the process died. ' +
-  'Do not repeat this side effect.';
+  'Recovered from ledger: this tool already completed before the process died. ' + 'Do not repeat this side effect.';
 
 /**
  * Scan checkpoint messages for tool_use / tool_result coverage and any

@@ -35,8 +35,7 @@ reload the VS Code window that hosts the bridge extension
 3. **Health probes are misleading while wedged.** `/v1/debug` on 11437 returns a
    valid JSON ("Debug endpoint locked…") even though the model-call route hangs.
    A healthy-looking probe does NOT prove the bridge can serve completions.
-   The extension host had even restarted since the first handoff (PID 78066 →
-   42306) and the wedge persisted/recurred.
+   The extension host had even restarted since the first handoff (PID 78066 → 42306) and the wedge persisted/recurred.
 4. **Port 11438 mystery solved:** PID 1466 is `gateway.js` from an unrelated
    project (`~/Documents/Codex/opencode-go-cowork-lab`). Not the bridge; leave it
    alone.
@@ -64,6 +63,7 @@ reload the VS Code window that hosts the bridge extension
    Note `--trust-workspace` is now required (finding 1). If the transcript file
    still hasn't appeared after ~2 minutes and the process is idle at 0% CPU with a
    socket open to 11437, the bridge is wedged again — stop and tell Alan.
+
 3. Then Rounds 2–4 and the write-up, per the original handoff.
 
 ## Alan's standing preferences (unchanged)

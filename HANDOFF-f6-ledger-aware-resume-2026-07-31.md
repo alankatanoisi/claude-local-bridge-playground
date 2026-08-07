@@ -33,18 +33,18 @@ cleanup, DBOS, HE-05 OTel.
 
 ### Files
 
-| File | Change |
-| ---- | ------ |
-| `src/runner/ledger-repair.js` | Real apply + reconcile + checkpoint inspection |
-| `src/runner/run.js` | Early F6 reconcile on `--resume-session` |
-| `bin/local-bridge-runner.js` | `--approve-repair` (with experimental `--repair`) |
-| `test/runner/ledger-repair.test.js` | **new** — unit coverage for both A1 shapes |
-| `test/runner/ledger-crash-recovery.test.js` | Extended: stale-checkpoint + dangling SIGKILL paths |
-| `docs/durability-crash-bakeoff-2026-07-31.{md,html}` | F6 closed annotations |
-| `docs/ARCHITECTURE.md` | Durability quartet row updated |
-| `docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html` | §7.5 F6 + next steps |
-| `docs/command-builder.html` | Repair tooltip / note |
-| `CLAUDE.md` | Current Work Thread pointer |
+| File                                                                | Change                                              |
+| ------------------------------------------------------------------- | --------------------------------------------------- |
+| `src/runner/ledger-repair.js`                                       | Real apply + reconcile + checkpoint inspection      |
+| `src/runner/run.js`                                                 | Early F6 reconcile on `--resume-session`            |
+| `bin/local-bridge-runner.js`                                        | `--approve-repair` (with experimental `--repair`)   |
+| `test/runner/ledger-repair.test.js`                                 | **new** — unit coverage for both A1 shapes          |
+| `test/runner/ledger-crash-recovery.test.js`                         | Extended: stale-checkpoint + dangling SIGKILL paths |
+| `docs/durability-crash-bakeoff-2026-07-31.{md,html}`                | F6 closed annotations                               |
+| `docs/ARCHITECTURE.md`                                              | Durability quartet row updated                      |
+| `docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html` | §7.5 F6 + next steps                                |
+| `docs/command-builder.html`                                         | Repair tooltip / note                               |
+| `CLAUDE.md`                                                         | Current Work Thread pointer                         |
 
 ## Checks
 
