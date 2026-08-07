@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Starlark Workflow Expansion - Implementation Handoff</title>
+  <style>
+    :root { color-scheme: light; --ink:#17212b; --muted:#586573; --line:#d5dce2; --paper:#ffffff; --soft:#f5f7f8; --navy:#183b56; --green:#16734a; --red:#a33a32; --gold:#986b16; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#edf1f3; color:var(--ink); font:16px/1.62 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; letter-spacing:0; }
+    header { background:var(--navy); color:white; padding:42px 24px 34px; border-bottom:5px solid #35a46c; }
+    header div, main { width:min(1040px,calc(100% - 32px)); margin:0 auto; }
+    h1 { margin:0 0 8px; font-size:clamp(30px,5vw,48px); line-height:1.1; letter-spacing:0; }
+    header p { margin:5px 0; color:#d9e8f2; }
+    main { background:var(--paper); padding:34px 44px 52px; box-shadow:0 8px 30px rgba(23,33,43,.09); }
+    h2 { margin:38px 0 12px; padding-bottom:8px; border-bottom:2px solid var(--line); color:var(--navy); font-size:24px; letter-spacing:0; }
+    h3 { margin:25px 0 8px; color:#245670; font-size:19px; letter-spacing:0; }
+    p { margin:9px 0 14px; }
+    code { background:#edf2f4; border:1px solid #d9e1e5; border-radius:4px; padding:1px 5px; font:0.92em ui-monospace,SFMono-Regular,Menlo,monospace; overflow-wrap:anywhere; }
+    .lead { font-size:19px; color:#344653; }
+    .flow { margin:22px 0; padding:20px; background:#f3f7f9; border-left:5px solid #2d7899; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; overflow:auto; }
+    .callout { margin:20px 0; padding:16px 18px; background:#eff8f3; border:1px solid #a8d6be; border-left:5px solid var(--green); }
+    .warning { background:#fff8e8; border-color:#e3c675; border-left-color:var(--gold); }
+    .metrics { display:grid; grid-template-columns:repeat(5,minmax(120px,1fr)); gap:10px; margin:18px 0; }
+    .metric { border:1px solid var(--line); border-top:4px solid var(--green); padding:15px 12px; min-height:104px; }
+    .metric strong { display:block; font-size:27px; color:var(--navy); }
+    .metric span { color:var(--muted); font-size:13px; }
+    table { width:100%; border-collapse:collapse; margin:15px 0 23px; }
+    th,td { text-align:left; vertical-align:top; padding:10px 12px; border:1px solid var(--line); }
+    th { background:#eaf0f3; color:var(--navy); }
+    ul,ol { padding-left:24px; }
+    li { margin:7px 0; }
+    .status { display:inline-block; border-radius:4px; padding:3px 8px; background:#dff1e7; color:#0e5d3a; font-weight:700; }
+    footer { margin-top:40px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:14px; }
+    @media (max-width:760px) { main { width:100%; padding:25px 20px 40px; box-shadow:none; } header div { width:100%; } .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); } table { display:block; overflow-x:auto; } }
+    @media (max-width:440px) { .metrics { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <header><div>
+    <h1>Starlark Workflow Expansion</h1>
+    <p>Implementation handoff · August 6, 2026</p>
+    <p>Repository fan-out, test-failure triage, provider-neutral workers, and a bounded evaluation matrix</p>
+  </div></header>
+  <main>
+    <p class="lead"><span class="status">Implemented and verified offline</span></p>
+    <p class="lead">This slice adds three connected capabilities without changing the bridge runner: bounded repository fan-out, real test-failure collection and triage, and a host-validated Starlark evaluation matrix.</p>
+
+    <div class="callout"><strong>Yes, repository fan-out and provider-neutral workers belong in one slice.</strong> Workflows request symbolic workers. A host-owned registry, outside generated code, selects the concrete provider adapter and model.</div>
+
+    <h2>Authority Flow</h2>
+    <div class="flow">Host collector → bounded input documents → planner metadata
+                                      ↓
+                         generated Starlark descriptors
+                                      ↓
+                             strict host validation
+                                      ↓
+symbolic worker → host route → provider adapter → concrete worker model
+                                      ↓
+                         artifacts, ledger, synthesis</div>
+    <p>Generated Starlark never receives provider credentials, model routes, arbitrary filesystem access, or arbitrary command execution.</p>
+
+    <h2>Implemented Workflows</h2>
+    <h3>Repository fan-out</h3>
+    <p>The host selects at most six JavaScript files under <code>src/runner</code>, with deterministic ordering and per-file and total-byte ceilings. Symlinks, root escapes, common secret locations, private-key files, environment files, dependencies, coverage, and build output are excluded.</p>
+    <p>Every selected file becomes exactly one independent <code>repo_file_analyst</code> job. The validator rejects added jobs, missing inputs, duplicate coverage, dependencies, unknown workers, provider/model fields, and excessive limits.</p>
+
+    <h3>Test-failure triage</h3>
+    <p>The host runs one named test suite with an argument array and no shell. The collector confines its working directory, limits executable choice, time, and output, and removes likely credential variables from the subprocess environment.</p>
+    <p>TAP failures become bounded virtual documents. Each failure becomes one <code>test_failure_triager</code> job that may classify evidence and recommend a diagnostic step, but cannot claim a fix was executed.</p>
+
+    <h3>Provider-neutral workers</h3>
+    <p>Worker profiles hold behavior and bounds, not providers or models. The current live adapter is the local Claude bridge. The same registry contract can later host Gemini, a local model, a deterministic service, or another runner.</p>
+    <div class="callout warning"><strong>Boundary:</strong> this is provider-neutral structure, not yet proof of multi-provider interoperability. Only the Claude bridge adapter has been implemented.</div>
+
+    <h2>Evaluation Matrix</h2>
+    <table>
+      <thead><tr><th>Axis</th><th>Values</th></tr></thead>
+      <tbody>
+        <tr><td>Workflow</td><td><code>repo_fanout</code>, <code>test_triage</code></td></tr>
+        <tr><td>Control-model label</td><td><code>claude-haiku-4-5</code>, <code>claude-sonnet-5</code></td></tr>
+        <tr><td>Failure profile</td><td><code>none</code>, <code>mixed</code></td></tr>
+        <tr><td>Repetitions</td><td>1</td></tr>
+      </tbody>
+    </table>
+    <p>Bounded Starlark expands these axes. The host rejects unknown fields, unapproved values, duplicate cases, invalid repetitions, and more than eight cases.</p>
+    <div class="metrics">
+      <div class="metric"><strong>8 / 8</strong><span>cases completed</span></div>
+      <div class="metric"><strong>32</strong><span>inputs exercised</span></div>
+      <div class="metric"><strong>30</strong><span>successful attempts</span></div>
+      <div class="metric"><strong>16</strong><span>deliberate failures</span></div>
+      <div class="metric"><strong>$0</strong><span>estimated cost</span></div>
+    </div>
+    <p>Permanent injected failures remained failed. Retryable failures received one bounded recovery phase. Because the run used mock workers, model labels validate routing and records only; they do not compare real Haiku and Sonnet reasoning.</p>
+
+    <h2>Verification</h2>
+    <ul>
+      <li>All 33 Node tests pass after final credential-environment hardening.</li>
+      <li>The Go Starlark evaluator builds successfully.</li>
+      <li>Repository dry run: 6 inputs and 6 successful outputs.</li>
+      <li>Triage dry run: 2 inputs, 2 deliberate initial failures, and 2 successful retries.</li>
+      <li>Matrix dry run: all 8 cases completed, with 8 successful syntheses.</li>
+      <li>No live model calls were made for this implementation slice.</li>
+    </ul>
+
+    <h2>Remaining Work</h2>
+    <ul>
+      <li>Add and contract-test a second provider adapter.</li>
+      <li>Add explicit parsers for non-TAP test formats.</li>
+      <li>Run one separately approved live canary per workflow before enabling any paid matrix.</li>
+      <li>Add durable campaign budgeting across separate processes.</li>
+      <li>Continue treating full traces and copied source inputs as sensitive local artifacts.</li>
+    </ul>
+
+    <h2>Handoff</h2>
+    <table>
+      <tbody>
+        <tr><th>Scratch implementation</th><td><code>/Users/alanman/Developer/orchestration-prototypes/s1-starlark-phased-hybrid</code> (outside Git)</td></tr>
+        <tr><th>Documentation</th><td><code>/Users/alanman/Developer/claude-local-bridge-playground</code>, branch <code>main</code></td></tr>
+        <tr><th>Checks</th><td><code>npm run verify</code>, <code>npm run workflow:repo</code>, <code>npm run workflow:triage</code>, <code>npm run matrix:offline</code></td></tr>
+        <tr><th>Skipped</th><td>Live model calls and second-provider calls</td></tr>
+        <tr><th>Primary risk</th><td>Real-model compliance, adapter interoperability, parser breadth, and cross-process budgets remain unproven.</td></tr>
+      </tbody>
+    </table>
+    <footer>Prepared from local prototype artifacts and offline verification. This report makes no claim that the live Claude models were exercised in this slice.</footer>
+  </main>
+</body>
+</html>
