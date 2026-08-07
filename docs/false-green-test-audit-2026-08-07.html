@@ -1,0 +1,1094 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>False-Green Test Audit — 2026-08-07</title>
+    <style>
+      :root {
+        --ink: #1a1d21;
+        --muted: #5c6570;
+        --paper: #fbfaf7;
+        --card: #ffffff;
+        --line: #d9d4c8;
+        --accent: #7a4b12;
+        --good: #1a6b3c;
+        --warn-bg: #fdf3d7;
+        --warn-line: #d9a92f;
+        --bad-bg: #fbe9e7;
+        --bad-line: #c0554a;
+        --code-bg: #f2efe8;
+      }
+      body {
+        font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+        color: var(--ink);
+        background: var(--paper);
+        margin: 0;
+        line-height: 1.55;
+      }
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 5rem;
+      }
+      h1 {
+        font-size: 1.7rem;
+        margin: 0 0 0.25rem;
+      }
+      h2 {
+        font-size: 1.25rem;
+        margin-top: 2.5rem;
+        border-bottom: 2px solid var(--line);
+        padding-bottom: 0.3rem;
+      }
+      h3 {
+        font-size: 1.05rem;
+        margin-top: 1.6rem;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+      }
+      .banner {
+        border: 1px solid var(--warn-line);
+        background: var(--warn-bg);
+        border-radius: 8px;
+        padding: 0.8rem 1rem;
+        margin: 1.2rem 0;
+        font-size: 0.95rem;
+      }
+      .banner strong {
+        color: #8a6410;
+      }
+      .bug {
+        border: 1px solid var(--bad-line);
+        background: var(--bad-bg);
+        border-radius: 8px;
+        padding: 0.8rem 1rem;
+        margin: 1rem 0;
+      }
+      .bug h4 {
+        margin: 0 0 0.4rem;
+        color: #8f3126;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 1rem 0;
+        font-size: 0.88rem;
+        background: var(--card);
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 0.45rem 0.6rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: var(--code-bg);
+      }
+      code,
+      pre {
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+      }
+      code {
+        background: var(--code-bg);
+        padding: 0.1rem 0.3rem;
+        border-radius: 4px;
+        font-size: 0.85em;
+      }
+      pre {
+        background: #23272d;
+        color: #e8e6df;
+        padding: 0.9rem 1rem;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-size: 0.8rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      pre code {
+        background: none;
+        padding: 0;
+        color: inherit;
+      }
+      .glossary {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0.9rem 1.1rem;
+        font-size: 0.9rem;
+      }
+      .glossary dt {
+        font-weight: 600;
+        margin-top: 0.5rem;
+      }
+      .glossary dd {
+        margin: 0.1rem 0 0 0;
+        color: var(--muted);
+      }
+      .tag {
+        display: inline-block;
+        border-radius: 4px;
+        padding: 0 0.4rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+      .tag.covered {
+        background: #e2f2e8;
+        color: var(--good);
+      }
+      .tag.todo {
+        background: var(--warn-bg);
+        color: #8a6410;
+      }
+      .tag.risk {
+        background: var(--bad-bg);
+        color: #8f3126;
+      }
+      .small {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      nav.toc {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0.8rem 1.2rem;
+      }
+      nav.toc ol {
+        margin: 0.3rem 0 0.3rem 1.2rem;
+        padding: 0;
+      }
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>False-Green Test Audit</h1>
+      <p class="meta">
+        <strong>Doc type:</strong> dated result record (immutable — annotate elsewhere, never edit this in place).<br />
+        <strong>Date:</strong> 2026-08-07 &middot; <strong>Repo:</strong> claude-local-bridge-playground (playground
+        clone, branch <code>main</code>) &middot; <strong>Author:</strong> Claude Code session for Alan
+      </p>
+
+      <div class="banner" style="background: #e2f2e8; border-color: #1a6b3c">
+        <strong>Verification status: EXECUTED (resumed session, 2026-08-07).</strong> The authoring session was blocked
+        by a platform-side outage, so the six files were written blind; a resumed session then ran them for real.
+        Honest first-run result: <strong>65 pass / 2 fail / 2 todo</strong>. Both failures were authoring bugs in the
+        new tests themselves — not source regressions — and were reported before fixing, per the verification rule:
+        (1) FG-D1 compared an <code>undefined</code> <code>&amp;&amp;</code>-chain result against <code>false</code>;
+        fixed with an explicit <code>Boolean()</code>. (2) FG-D13 called <code>validateEffortForModel</code>, which
+        exists in <code>model-capabilities.js</code> but is not exported; rewritten to go through the public
+        <code>resolveModelControls</code> path (which also proves validation fires on the path the runner actually
+        uses). After those two test-only fixes plus Prettier formatting: <strong>69 tests — 67 pass / 0 fail /
+        2 todo</strong>, the todos being the two live bugs HS-01 and HS-02, visible-but-not-failing as designed.
+        ESLint clean on all six files. Full-suite results and the commit/pull-request state live in
+        <a href="#next">§9</a>.
+      </div>
+
+      <nav class="toc">
+        <strong>Contents</strong>
+        <ol>
+          <li><a href="#task">The task and its context</a></li>
+          <li><a href="#glossary">Plain-language glossary</a></li>
+          <li><a href="#method">How the audit was done</a></li>
+          <li><a href="#bugs">Two live bugs found (HS-01, HS-02)</a></li>
+          <li><a href="#files">The six new test files</a></li>
+          <li><a href="#catalog">Blind-spot catalog (64 items)</a></li>
+          <li><a href="#hypos">Five realistic future changes + agent paste blocks</a></li>
+          <li><a href="#residual">Accepted risks and uncovered residuals</a></li>
+          <li><a href="#next">Current state and next steps</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="task">1. The task and its context</h2>
+      <p>
+        Alan asked three things: (1) list at least 50 blind spots where the runner's test suite could show
+        <em>100% green while real behavior has regressed</em> — especially right after a code change; (2) write or amend
+        tests so every listed item gets coverage; (3) provide five verbatim prompts, each for a realistic near-future
+        change to this repo, that a <em>different</em> agent will implement on an isolated branch/worktree — after which
+        Alan will run the updated suite against that agent's work.
+      </p>
+      <p>
+        The suite under audit: <strong>111 test files</strong> in <code>test/runner/</code> covering roughly 70 modules
+        in <code>src/runner/</code>. The suite is genuinely strong on <em>point tests</em>
+        (one tool, one path, one fixture) and on a few process-level tests (the crash bakeoff kills real runner
+        subprocesses). The audit's central finding is a pattern, not a scandal:
+      </p>
+      <div class="banner" style="background: #eef3fb; border-color: #7f9fce">
+        <strong>The core pattern.</strong> Point tests stay green when something <em>new</em> is added wrongly — a new
+        tool, flag, sink, model, or pattern — because nothing iterates over "everything registered." The counter-move is
+        the <em>sweep test</em>: an invariant quantified over the whole catalog/table/pattern-list, so tomorrow's
+        addition is inside the net the moment it registers. Nearly all new tests below are sweeps.
+      </div>
+
+      <h2 id="glossary">2. Plain-language glossary</h2>
+      <dl class="glossary">
+        <dt>False green / false positive green</dt>
+        <dd>
+          The test suite passes completely, but a real behavior (often a safety behavior) is broken. The tests aren't
+          lying — they were just never asked the right question.
+        </dd>
+        <dt>Point test vs. sweep test</dt>
+        <dd>
+          A point test checks one named example ("<code>edit_file</code> asks for confirmation"). A sweep test checks a
+          rule over everything registered ("<em>no</em> write-category tool auto-allows in default mode") so future
+          additions are covered automatically.
+        </dd>
+        <dt>Deny matrix</dt>
+        <dd>
+          The list of file/directory name patterns the runner must never touch (<code>.env</code>, <code>.ssh/</code>,
+          private keys, credentials…). Lives in <code>src/runner/safety.js</code>.
+        </dd>
+        <dt>Redaction / scrubbing</dt>
+        <dd>
+          Replacing secrets (API keys, tokens, private-key blocks) with markers like
+          <code>[REDACTED:anthropic_key]</code> before text reaches any log, transcript, or output.
+        </dd>
+        <dt>Sink</dt>
+        <dd>
+          Any place bytes leave the runner's memory: a transcript file, stdout, a stream, a ledger, a network request.
+          Every sink must scrub. A <em>new</em> sink is the classic leak path.
+        </dd>
+        <dt>Ledger / torn tail</dt>
+        <dd>
+          The append-only JSONL crash journal per session. A "torn tail" is a half-written last line left behind when
+          the process died mid-write.
+        </dd>
+        <dt><code>todo</code> test</dt>
+        <dd>
+          A test that runs and is reported, but whose failure does not fail the suite. Used here to make two
+          <em>known, currently-unfixed bugs</em> permanently visible without blocking CI. When the bug is fixed, the
+          todo flips to a hard assertion in a one-line change.
+        </dd>
+        <dt>Worktree</dt>
+        <dd>
+          A second folder on disk sharing the same git history but checked out on its own branch — an agent can commit
+          there freely and <code>main</code> in the normal folder is never touched.
+        </dd>
+        <dt>Authority ceiling</dt>
+        <dd>
+          A frozen snapshot of the run's CLI flags; nothing mid-run (hook, bug, hostile input) may raise authority above
+          it. <code>src/runner/authority.js</code>.
+        </dd>
+      </dl>
+
+      <h2 id="method">3. How the audit was done</h2>
+      <ol>
+        <li>
+          <strong>Preflight</strong> — confirmed playground clone, branch <code>main</code>, clean tree, correct origin.
+        </li>
+        <li>
+          <strong>Read the enforcement core in full</strong> — <code>safety.js</code>, <code>permissions.js</code>,
+          <code>tool-catalog.js</code>, <code>tool-visibility.js</code>, <code>authority.js</code>,
+          <code>redaction-boundary.js</code>, <code>message-contract.js</code>, <code>session-ledger.js</code>,
+          <code>workspace-trust.js</code>, <code>model-catalog.js</code>, <code>model-pricing.js</code>,
+          <code>model-capabilities.js</code>, plus the CLI entrypoint's flag table and help text.
+        </li>
+        <li>
+          <strong>Sampled the strongest existing tests</strong> to avoid duplicating them — <code>safety.test.js</code>,
+          <code>permissions.test.js</code> (33 cases), <code>tool-catalog.test.js</code>,
+          <code>message-contract.test.js</code>, <code>ledger-crash-recovery.test.js</code> (real SIGTERM/SIGKILL on the
+          real CLI), <code>p1-11-streaming-redaction.test.js</code>, <code>profiles-retired.test.js</code> (already
+          covers retired-flag rejection at the process boundary — so that planned test was dropped rather than
+          duplicated).
+        </li>
+        <li>
+          <strong>Inventoried sinks and network modules</strong> by source scan: stream-writing modules are exactly
+          <code>private-fs.js</code>, <code>session-ledger.js</code>, <code>streaming-write.js</code>; the only
+          outbound-network module is <code>model-client.js</code>. Those inventories became enforcement tests.
+        </li>
+        <li>
+          <strong>Traced adversarial shapes by hand</strong> (symlink chains, case-insensitive filesystems, torn JSONL
+          tails, cache staleness across worktree root changes) — which is how the two live bugs surfaced.
+        </li>
+      </ol>
+      <p class="small">
+        Note on honesty: parallel Explore subagents were planned but the same classifier outage blocked agent spawning,
+        so all exploration above was done directly. It is thorough on the enforcement core and sampled (not exhaustive)
+        across the other ~100 test files.
+      </p>
+
+      <h2 id="bugs">4. Two live bugs found — real behavior, today, not test gaps</h2>
+
+      <div class="bug">
+        <h4>
+          HS-01 — Case-variant key-file bypass on case-insensitive filesystems <span class="tag todo">todo test</span>
+        </h4>
+        <p>
+          On macOS's default APFS (case-insensitive), asking the runner to read <code>ID_RSA</code> opens the same
+          on-disk file as <code>id_rsa</code>. But the deny patterns for key files — <code>/^id_rsa/</code>,
+          <code>/^id_ed25519/</code> — have no <code>/i</code> flag, so the lexical basename check misses the uppercase
+          spelling; and Node's <code>fs.realpathSync</code> (the JS implementation used by
+          <code>cachedRealpathSync</code>) does <em>not</em> canonicalize character case, so the realpath tier misses it
+          too. Net effect: <code>read_file ID_RSA</code> is allowed and reads private-key material. (<code>.ENV</code>
+          is safe — that pattern does carry <code>/i</code>; <code>CREDENTIALS.JSON</code> is safe likewise.)
+        </p>
+        <p>
+          <strong>Fix shape (not applied — reported per Alan's verification rule):</strong> add <code>/i</code> to the
+          non-flagged basename patterns, or resolve with <code>fs.realpathSync.native</code>, which returns on-disk
+          canonical case. Encoded as todo test <code>HS-01</code> in <code>false-green-deny-matrix.test.js</code>; it
+          self-skips on case-sensitive filesystems.
+        </p>
+      </div>
+
+      <div class="bug">
+        <h4>HS-02 — Post-recovery ledger append glues onto the torn tail <span class="tag todo">todo test</span></h4>
+        <p>
+          <code>SessionLedger</code> correctly skips a torn (half-written) trailing line when re-reading after a crash,
+          and sequence numbering continues correctly. But the append file-descriptor opens in append mode at the raw end
+          of file — so the <em>first record written after recovery</em> is concatenated onto the torn fragment, making
+          <em>both</em> records unparseable to <code>readAll()</code>/replay. Durability math survives; one recovered
+          event becomes invisible to replay and repair tooling.
+        </p>
+        <p>
+          <strong>Fix shape:</strong> before the first post-recovery append, newline-terminate the file or truncate the
+          torn tail. Encoded as todo test <code>HS-02</code> in <code>false-green-contract-durability.test.js</code>.
+          This is directly relevant to the open A1-F4/A1-F5 durability residuals.
+        </p>
+      </div>
+
+      <h2 id="files">5. The six new test files</h2>
+      <p>
+        All in <code>test/runner/</code>, prefix <code>false-green-</code>, using only real exported modules (no
+        reimplementations, no mocks of the code under test). Currently uncommitted.
+      </p>
+      <table>
+        <tr>
+          <th>File</th>
+          <th>Series</th>
+          <th>What it locks</th>
+        </tr>
+        <tr>
+          <td><code>false-green-deny-matrix.test.js</code></td>
+          <td>FG-A + HS-01</td>
+          <td>
+            Tier-1 directory sweep at matcher <em>and</em> gate; sensitive-basename sweep; dead-pattern detector;
+            over-blocking canary; list-size floors; chained-symlink and symlinked-cwd confinement; env-scrub floor +
+            prefix-family probes with invented names.
+          </td>
+        </tr>
+        <tr>
+          <td><code>false-green-permission-matrix.test.js</code></td>
+          <td>FG-B</td>
+          <td>
+            MODES table shape; whole-catalog decision sweeps (no effectful tool auto-allows; shell denied without
+            consent in every mode; writes still ask under <code>--dont-ask</code>); destructive worktree cleanup asks
+            under every flag combo; authority-ceiling clamps (mid-run shell escalation, plan one-way,
+            <code>--tools</code> hard ceiling, child narrowing); chaos-combo guard; decision-cache staleness across root
+            transitions and symlink swaps.
+          </td>
+        </tr>
+        <tr>
+          <td><code>false-green-redaction-parity.test.js</code></td>
+          <td>FG-C</td>
+          <td>
+            One shared secret corpus through every scrubbing surface with byte-identical results (buffered vs
+            deep-object vs streaming at chunk sizes 1→4096); pattern-liveness markers; idempotence; scrub-then-truncate
+            ordering; multi-line-pattern inventory (PEM must remain the only one); repo-wide
+            <strong>sink inventory</strong> and <strong>network-module inventory</strong> — any new stream-writing or
+            outbound-network module fails with a message telling the author to route through the redaction boundary.
+          </td>
+        </tr>
+        <tr>
+          <td><code>false-green-catalog-registration.test.js</code></td>
+          <td>FG-D</td>
+          <td>
+            Every file in <code>src/runner/tools/</code> is either a registered tool or a known helper (orphan-tool
+            detector); helpers must not grow tool shapes; category↔MODES coherence; capability-group safety (no shell
+            via <code>--capabilities</code>, no effectful tools in core, <code>apply_patch</code> stays hidden,
+            default-surface snapshot); model-catalog plausibility (pricing shape, token limits, effort levels),
+            default-model coherence, estimate labeling for unknown models, component-wise cost arithmetic,
+            catalog-derived control validation.
+          </td>
+        </tr>
+        <tr>
+          <td><code>false-green-cli-contract.test.js</code></td>
+          <td>FG-E</td>
+          <td>
+            Spawns the <em>real</em> <code>bin/local-bridge-runner.js</code> with an isolated <code>$HOME</code> and a
+            dead bridge URL: help exit code; strict-parsing lock (typo'd flags must fail the process);
+            <code>--capabilities shell</code> refusal teaches <code>--allow-shell</code>; chaos combo needs
+            <code>--chaos-ok</code>; and the workspace trust gate — bypassed by <code>test/setup.js</code> in every
+            in-process test — is exercised for real: untrusted cwd refuses headlessly,
+            <code>--trust-workspace</code> clears the gate and the next failure must be transport-shaped (ordering
+            proof). FG-E3 was deliberately dropped: <code>profiles-retired.test.js</code> already owns retired-flag
+            rejection.
+          </td>
+        </tr>
+        <tr>
+          <td><code>false-green-contract-durability.test.js</code></td>
+          <td>FG-F + HS-02</td>
+          <td>
+            Message-contract adversarial shapes (duplicate tool_use ids <em>across</em> turns, split result batches,
+            string-content interleaving); grouping-partition property over a generated 30-exchange history (what
+            compaction relies on); ledger torn-tail tolerance, corrupt/futured cursor fallback to scan, pending-intent
+            reconstruction across restart.
+          </td>
+        </tr>
+      </table>
+
+      <h2 id="catalog">6. Blind-spot catalog — 64 items</h2>
+      <p class="small">
+        Each row: the regression today's suite would miss → the test that now asks the question. "Covered" = an active
+        assertion; "todo" = encoded known gap; "documented" = accepted risk, see §8.
+      </p>
+
+      <h3>A. Deny matrix &amp; path safety</h3>
+      <table>
+        <tr>
+          <th>#</th>
+          <th>Blind spot</th>
+          <th>Coverage</th>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>
+            Pattern rot: a deny regex edited so it never matches; every old fixture still matches
+            <em>other</em> patterns
+          </td>
+          <td><span class="tag covered">FG-A3</span> dead-pattern detector</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>A tier-1 directory (e.g. <code>.gnupg</code>) pruned during a "simplification"</td>
+          <td><span class="tag covered">FG-A1</span> full sweep</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Matrix correct as a helper, but the permission gate no longer consults it (or downgrades severity)</td>
+          <td><span class="tag covered">FG-A1b</span> gate-level sweep + hard_deny</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Over-blocking: a widened pattern breaks ordinary filenames with zero red tests</td>
+          <td><span class="tag covered">FG-A4</span> innocent-name canary</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>Deny lists shrinking below their known size floors</td>
+          <td><span class="tag covered">FG-A5</span></td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>Case-variant spelling of key files on case-insensitive filesystems (live bug)</td>
+          <td><span class="tag todo">HS-01</span></td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>Chained symlinks (link→link→outside); only single-hop was tested (HE-01)</td>
+          <td><span class="tag covered">FG-A6</span></td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>A symlinked <code>--cwd</code> (iCloud/Dropbox-style path) breaking confinement either direction</td>
+          <td><span class="tag covered">FG-A7</span></td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td>Env-scrub list pruned — only 2 of 17 variables were ever asserted</td>
+          <td><span class="tag covered">FG-A8</span> critical floor</td>
+        </tr>
+        <tr>
+          <td>10</td>
+          <td>
+            Prefix-family scrub loop (<code>AWS_*</code>, <code>CLAUDE_*</code>…) removed while the static list stays;
+            future variable names leak
+          </td>
+          <td><span class="tag covered">FG-A9</span> invented-name probes</td>
+        </tr>
+      </table>
+
+      <h3>B. Permission matrix &amp; authority</h3>
+      <table>
+        <tr>
+          <th>#</th>
+          <th>Blind spot</th>
+          <th>Coverage</th>
+        </tr>
+        <tr>
+          <td>11</td>
+          <td>
+            A single MODES table cell flip (e.g. <code>dontAsk.write → allow</code>); no test asserted table shape
+          </td>
+          <td><span class="tag covered">FG-B1/B2</span></td>
+        </tr>
+        <tr>
+          <td>12</td>
+          <td>Plan mode losing <code>plan_only</code> on one effectful category</td>
+          <td><span class="tag covered">FG-B3</span></td>
+        </tr>
+        <tr>
+          <td>13</td>
+          <td>A <em>new</em> tool auto-allowing in default mode — no whole-catalog sweep existed</td>
+          <td><span class="tag covered">FG-B4</span></td>
+        </tr>
+        <tr>
+          <td>14</td>
+          <td>
+            A new shell-category tool dodging <code>isBaseEligible</code>, which hardcodes <code>bash</code>/<code
+              >manage_shell_jobs</code
+            >
+            by name
+          </td>
+          <td><span class="tag covered">FG-B5</span> + FG-D5</td>
+        </tr>
+        <tr>
+          <td>15</td>
+          <td><code>--dont-ask</code> silently enabling writes for a future write tool</td>
+          <td><span class="tag covered">FG-B6</span></td>
+        </tr>
+        <tr>
+          <td>16</td>
+          <td>
+            P0-07 regression: destructive worktree cleanup covered by some flag combo, or the DESTRUCTIVE copy replaced
+            by a generic sentence
+          </td>
+          <td><span class="tag covered">FG-B7</span></td>
+        </tr>
+        <tr>
+          <td>17</td>
+          <td>Unknown-tool deny downgraded from hard_deny (becomes force-executable)</td>
+          <td><span class="tag covered">FG-B8</span></td>
+        </tr>
+        <tr>
+          <td>18</td>
+          <td>Spawn-depth guard removed → grandchild agents under automation flags</td>
+          <td><span class="tag covered">FG-B9</span></td>
+        </tr>
+        <tr>
+          <td>19</td>
+          <td>Mid-run <code>ctx.allowShell</code> mutation (hook/bug/hostile input) not clamped by the ceiling</td>
+          <td><span class="tag covered">FG-B10</span></td>
+        </tr>
+        <tr>
+          <td>20</td>
+          <td>Escaping plan mode by clearing <code>ctx.plan</code> mid-run</td>
+          <td><span class="tag covered">FG-B11</span></td>
+        </tr>
+        <tr>
+          <td>21</td>
+          <td><code>--tools</code> ceiling deny becoming bypassable via approval flow</td>
+          <td><span class="tag covered">FG-B12</span></td>
+        </tr>
+        <tr>
+          <td>22</td>
+          <td>Plan-ceiling parents handing children <code>acceptEdits</code>/<code>dontAsk</code></td>
+          <td><span class="tag covered">FG-B13</span></td>
+        </tr>
+        <tr>
+          <td>23</td>
+          <td>Child tool list not intersected with parent ceiling</td>
+          <td><span class="tag covered">FG-B14</span></td>
+        </tr>
+        <tr>
+          <td>24</td>
+          <td>
+            Chaos combo (<code>--allow-shell --accept-edits --dont-ask</code>) allowed without <code>--chaos-ok</code>
+          </td>
+          <td><span class="tag covered">FG-B15</span> + FG-E5 (real CLI)</td>
+        </tr>
+        <tr>
+          <td>25</td>
+          <td>
+            Decision-cache staleness across worktree root transitions — the <code>rootEpoch</code> contract had no test
+          </td>
+          <td><span class="tag covered">FG-B16</span> (hazard + fix both pinned)</td>
+        </tr>
+        <tr>
+          <td>26</td>
+          <td>TOCTOU: symlink swapped in after a cached allow; invalidation path untested</td>
+          <td><span class="tag covered">FG-B17</span></td>
+        </tr>
+        <tr>
+          <td>27</td>
+          <td>
+            Deny matrix under <code>--accept-edits</code> verified for <em>every</em> write tool, not just
+            <code>edit_file</code>
+          </td>
+          <td><span class="tag covered">FG-B18</span></td>
+        </tr>
+      </table>
+
+      <h3>C. Redaction &amp; sinks</h3>
+      <table>
+        <tr>
+          <th>#</th>
+          <th>Blind spot</th>
+          <th>Coverage</th>
+        </tr>
+        <tr>
+          <td>28</td>
+          <td>
+            A new secret pattern landing in one scrub path but not another (buffered vs streaming vs deep-object
+            divergence)
+          </td>
+          <td><span class="tag covered">FG-C1/C3/C4/C5</span> shared-corpus parity</td>
+        </tr>
+        <tr>
+          <td>29</td>
+          <td>A dead scrub pattern (its marker never produced)</td>
+          <td><span class="tag covered">FG-C1</span></td>
+        </tr>
+        <tr>
+          <td>30</td>
+          <td>Non-idempotent scrubbing — double-scrubbed sinks diverge from single-scrubbed</td>
+          <td><span class="tag covered">FG-C2</span></td>
+        </tr>
+        <tr>
+          <td>31</td>
+          <td>Truncate-before-scrub ordering regression slicing a secret so neither half matches</td>
+          <td><span class="tag covered">FG-C6</span></td>
+        </tr>
+        <tr>
+          <td>32</td>
+          <td>
+            A second multi-line secret pattern added without extending the line-aligned streaming scrubber (only PEM is
+            special-cased)
+          </td>
+          <td><span class="tag covered">FG-C7</span> source inventory</td>
+        </tr>
+        <tr>
+          <td>33</td>
+          <td>
+            Stable-identifier obliteration removed, or the root-key preserve option silently widening to nested objects
+          </td>
+          <td><span class="tag covered">FG-C8/C9</span></td>
+        </tr>
+        <tr>
+          <td>34</td>
+          <td>A NEW file sink (OTel exporter, extra log) writing unscrubbed payloads past the boundary</td>
+          <td><span class="tag covered">FG-C10</span> repo-wide sink inventory</td>
+        </tr>
+        <tr>
+          <td>35</td>
+          <td>A NEW outbound-network module exfiltrating unscrubbed data</td>
+          <td><span class="tag covered">FG-C11</span> network inventory</td>
+        </tr>
+        <tr>
+          <td>36</td>
+          <td>
+            Cross-line <code>Bearer\n&lt;token&gt;</code>: buffered regex catches it, line-aligned streaming cannot
+          </td>
+          <td><span class="tag risk">documented</span> §8</td>
+        </tr>
+      </table>
+
+      <h3>D. Catalog &amp; surface expansion</h3>
+      <table>
+        <tr>
+          <th>#</th>
+          <th>Blind spot</th>
+          <th>Coverage</th>
+        </tr>
+        <tr>
+          <td>37</td>
+          <td>
+            A new tool file never added to <code>TOOL_MODULES</code> — an invisible orphan; the existing catalog test
+            pins a list that stays green when nothing changes
+          </td>
+          <td><span class="tag covered">FG-D1</span></td>
+        </tr>
+        <tr>
+          <td>38</td>
+          <td>A helper file quietly growing a full tool shape without registration</td>
+          <td><span class="tag covered">FG-D1</span> helper assertion</td>
+        </tr>
+        <tr>
+          <td>39</td>
+          <td>A new category invented with no MODES decisions (fail-closed but undecided)</td>
+          <td><span class="tag covered">FG-D2</span> + FG-B1</td>
+        </tr>
+        <tr>
+          <td>40</td>
+          <td><code>shell</code> sneaking into <code>OPTIONAL_CAPABILITIES</code></td>
+          <td><span class="tag covered">FG-D3</span></td>
+        </tr>
+        <tr>
+          <td>41</td>
+          <td>An effectful tool added to the <code>core</code> group (silent default-surface widening)</td>
+          <td><span class="tag covered">FG-D4</span></td>
+        </tr>
+        <tr>
+          <td>42</td>
+          <td>Shell category/group mismatch in either direction</td>
+          <td><span class="tag covered">FG-D5</span></td>
+        </tr>
+        <tr>
+          <td>43</td>
+          <td><code>apply_patch</code> unhidden or regrouped</td>
+          <td><span class="tag covered">FG-D6</span></td>
+        </tr>
+        <tr>
+          <td>44</td>
+          <td>Default-visible tool surface drifting without a conscious, reviewed edit</td>
+          <td><span class="tag covered">FG-D7</span> snapshot</td>
+        </tr>
+        <tr>
+          <td>45</td>
+          <td>Shell tools visible without <code>--allow-shell</code> through the capabilities path</td>
+          <td><span class="tag covered">FG-D8</span></td>
+        </tr>
+        <tr>
+          <td>46</td>
+          <td>
+            Model-catalog refresh with a transposed pricing row or implausible token limits — plausibility was never
+            checked, only lookup mechanics
+          </td>
+          <td><span class="tag covered">FG-D9</span></td>
+        </tr>
+        <tr>
+          <td>47</td>
+          <td><code>DEFAULT_MODEL</code> pointing at a missing / non-active / estimate-priced entry</td>
+          <td><span class="tag covered">FG-D10</span></td>
+        </tr>
+        <tr>
+          <td>48</td>
+          <td>Unknown models masquerading as catalog-priced or catalog-validated</td>
+          <td><span class="tag covered">FG-D11</span></td>
+        </tr>
+        <tr>
+          <td>49</td>
+          <td>Cost arithmetic drifting from published per-component rates</td>
+          <td><span class="tag covered">FG-D12</span></td>
+        </tr>
+        <tr>
+          <td>50</td>
+          <td>Effort/thinking/temperature validation drifting from catalog entries into a shadow list</td>
+          <td><span class="tag covered">FG-D13</span> (expectations derived from each entry)</td>
+        </tr>
+      </table>
+
+      <h3>E. CLI process boundary &amp; trust</h3>
+      <table>
+        <tr>
+          <th>#</th>
+          <th>Blind spot</th>
+          <th>Coverage</th>
+        </tr>
+        <tr>
+          <td>51</td>
+          <td>CLI wiring untested in-process: help exit code and banner</td>
+          <td><span class="tag covered">FG-E1</span></td>
+        </tr>
+        <tr>
+          <td>52</td>
+          <td>Strict-parsing loss: a typo'd safety flag (<code>--acept-edits</code>) silently ignored</td>
+          <td><span class="tag covered">FG-E2</span></td>
+        </tr>
+        <tr>
+          <td>53</td>
+          <td>Retired <code>--agent</code>/<code>--profile</code> flags returning</td>
+          <td>
+            <span class="tag covered">already owned</span> by <code>profiles-retired.test.js</code> (verified;
+            deliberately not duplicated)
+          </td>
+        </tr>
+        <tr>
+          <td>54</td>
+          <td><code>--capabilities shell</code> refusal losing its pointer to the real consent flag</td>
+          <td><span class="tag covered">FG-E4</span></td>
+        </tr>
+        <tr>
+          <td>55</td>
+          <td>Chaos-combo guard at the real process boundary</td>
+          <td><span class="tag covered">FG-E5</span></td>
+        </tr>
+        <tr>
+          <td>56</td>
+          <td>
+            The workspace trust gate — bypassed by <code>test/setup.js</code> in <em>every</em> in-process test —
+            regressing with zero coverage
+          </td>
+          <td><span class="tag covered">FG-E6</span> real CLI, isolated $HOME</td>
+        </tr>
+        <tr>
+          <td>57</td>
+          <td>
+            <code>--trust-workspace</code> headless consent breaking (the CI path), or trust checked
+            <em>after</em> network
+          </td>
+          <td><span class="tag covered">FG-E7</span> ordering proof via dead bridge URL</td>
+        </tr>
+      </table>
+
+      <h3>F. Wire contract &amp; durability</h3>
+      <table>
+        <tr>
+          <th>#</th>
+          <th>Blind spot</th>
+          <th>Coverage</th>
+        </tr>
+        <tr>
+          <td>58</td>
+          <td>
+            Duplicate <code>tool_use</code> ids across <em>different</em> turns (the exact shape a ledger-replay bug
+            produces)
+          </td>
+          <td><span class="tag covered">FG-F1</span></td>
+        </tr>
+        <tr>
+          <td>59</td>
+          <td>A tool_result batch split across two user messages</td>
+          <td><span class="tag covered">FG-F2</span></td>
+        </tr>
+        <tr>
+          <td>60</td>
+          <td>Plain string-content messages interleaved with tool batches</td>
+          <td><span class="tag covered">FG-F3</span></td>
+        </tr>
+        <tr>
+          <td>61</td>
+          <td>
+            Semantic-exchange grouping losing/duplicating/reordering messages — compaction drops whole groups, so a
+            partition bug corrupts history invisibly
+          </td>
+          <td><span class="tag covered">FG-F4/F5</span> property test</td>
+        </tr>
+        <tr>
+          <td>62</td>
+          <td>A torn JSONL tail breaking sequence numbering or crashing restore</td>
+          <td><span class="tag covered">FG-F6</span></td>
+        </tr>
+        <tr>
+          <td>63</td>
+          <td>
+            The first append after torn-tail recovery gluing onto the fragment (live bug — recovered event invisible to
+            replay)
+          </td>
+          <td><span class="tag todo">HS-02</span></td>
+        </tr>
+        <tr>
+          <td>64</td>
+          <td>
+            Corrupt or future-versioned cursor sidecars trusted over the file; pending intents lost across restart
+          </td>
+          <td><span class="tag covered">FG-F7/F8/F9</span></td>
+        </tr>
+      </table>
+
+      <h2 id="hypos">7. Five realistic future changes + agent paste blocks</h2>
+      <p>
+        Each maps to a thread already named in CLAUDE.md or recent commits, and each is precisely the kind of change the
+        new sweeps exist to catch. Each block instructs the implementing agent to create its
+        <strong>own git worktree</strong> so <code>main</code> is never touched — Alan pastes a block into a fresh agent
+        conversation, one at a time, nothing to prepare.
+      </p>
+      <table>
+        <tr>
+          <th>#</th>
+          <th>Hypothetical change</th>
+          <th>Roadmap anchor</th>
+          <th>Which sweeps fire if done wrong</th>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>New <code>copy_file</code> tool (edits group, two path args)</td>
+          <td>Ongoing tool-surface evolution; N1 path-arg history</td>
+          <td>FG-D1/D4, FG-B4/B18, N1 path-arg contract</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Opt-in observability/span export (file-based OTel slice)</td>
+          <td>HE-05 second half</td>
+          <td>FG-C10 sink inventory, FG-E flag surface</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Model-catalog refresh (hypothetical <code>claude-haiku-5</code>)</td>
+          <td>Model churn (fingerprint commit <code>b1fb2c8</code>)</td>
+          <td>FG-D9…D13, command-builder drift</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Durability hardening: SIGINT finalizer + torn-tail-safe appends</td>
+          <td>A1-F4/A1-F5 residuals; fixes HS-02</td>
+          <td>FG-F6…F9, HS-02 flips to hard</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>Deterministic <code>--workflow</code> slice</td>
+          <td>Starlark architecture/expansion docs (commits <code>93a8fce</code>, <code>08d2e3f</code>)</td>
+          <td>FG-E1/E2 flag lock, FG-B authority sweeps</td>
+        </tr>
+      </table>
+
+      <h3>Paste block 1 — new <code>copy_file</code> tool</h3>
+      <pre><code>Work ONLY in an isolated git worktree — never on main. From /Users/alanman/Developer/claude-local-bridge-playground run:
+  git worktree add -b hypo/1-copy-file-tool ~/Developer/clb-hypo-1 main
+Then cd ~/Developer/clb-hypo-1 and do all work there. Do not run git push. Do not switch back to the main checkout.
+
+Task: add a new runner tool `copy_file` that copies a file from one path to another inside --cwd.
+- Create src/runner/tools/copy-file.js following the existing tool-module shape ({ definition, execute, meta }).
+- Schema: { path: source file, target_path: destination file }. Both are filesystem targets.
+- Category: write. Capability group: edits. Not hidden.
+- Respect all existing safety conventions you find in write-file.js / edit-file.js (path confinement, deny matrix, symlink checks, confirmation flow, undo log if applicable).
+- Register the tool wherever the codebase requires registration, and update any docs the repo's conventions say must track CLI/tool changes.
+Verification (required, report real output honestly — if something fails, show the failure before any fix):
+  npm test
+  npm run lint
+  npm run format:check
+  npm run check:docs
+Note: this repo has a "false-green" audit suite (test/runner/false-green-*.test.js) designed to fail on half-registered tools — treat its failures as the spec for what you forgot.
+Commit your work on the hypo/1-copy-file-tool branch only. End with a handoff: folder, branch, files changed, checks run with real results, anything skipped, risks.</code></pre>
+
+      <h3>Paste block 2 — observability/OTel export slice (HE-05 second half)</h3>
+      <pre><code>Work ONLY in an isolated git worktree — never on main. From /Users/alanman/Developer/claude-local-bridge-playground run:
+  git worktree add -b hypo/2-otel-observability ~/Developer/clb-hypo-2 main
+Then cd ~/Developer/clb-hypo-2 and do all work there. Do not run git push.
+
+Task: add an opt-in observability slice to the runner loop (HE-05 follow-through).
+- New flag --otel-export &lt;path&gt; that, when set, writes one JSON-lines span record per runner step (step index, tool name, duration ms, token usage) to the given path under ~/.bridge-runner/.
+- Off by default. No network export in this slice — file export only.
+- CRITICAL: any text that could contain prompt/tool content must pass through the repo's central redaction boundary before being written; find and follow src/runner/redaction-boundary.js conventions.
+- Update --help text and whatever docs the repo requires for new CLI flags.
+Verification (required, report real output honestly — show failures before fixes):
+  npm test
+  npm run lint
+  npm run format:check
+  npm run check:docs
+Note: test/runner/false-green-redaction-parity.test.js contains a sink-inventory test (FG-C10) that WILL fail when you add a new writing module — that failure is intentional. Follow its failure message: route through the redaction boundary, then add your module to the reviewed allowlist in that test with a comment.
+Commit on hypo/2-otel-observability only. End with a full handoff (folder, branch, files, checks with real results, skipped items, risks).</code></pre>
+
+      <h3>Paste block 3 — model catalog refresh</h3>
+      <pre><code>Work ONLY in an isolated git worktree — never on main. From /Users/alanman/Developer/claude-local-bridge-playground run:
+  git worktree add -b hypo/3-model-catalog-refresh ~/Developer/clb-hypo-3 main
+Then cd ~/Developer/clb-hypo-3 and do all work there. Do not run git push.
+
+Task: refresh src/runner/model-catalog.js as if Anthropic shipped a new model family.
+- Add a catalog entry for a hypothetical "claude-haiku-5" (context window 500_000, max output 64_000, effort levels low/medium/high/max, thinking default-on, sampling default-only, lifecycle active) with pricing input $1.5 / output $7.5 / cache_read $0.15 / cache_write $3.0 per million tokens.
+- Add the matching pricing-fallback family entry so unknown "claude-haiku-5-*" suffixes estimate against it.
+- Bump CATALOG_VERSION with today's date and update CATALOG_SOURCES per the file's own conventions.
+- Update anything else the repo requires to track model-list changes (the command-builder drift test will tell you).
+Verification (required, report real output honestly — show failures before fixes):
+  npm test
+  npm run lint
+  npm run format:check
+  npm run check:docs
+Note: test/runner/false-green-catalog-registration.test.js (FG-D9..D13) checks entry plausibility (pricing shape, effort levels, default-model coherence) — treat its failures as review feedback, not noise.
+Commit on hypo/3-model-catalog-refresh only. End with a full handoff (folder, branch, files, checks with real results, skipped items, risks).</code></pre>
+
+      <h3>Paste block 4 — durability hardening (A1-F4/F5 residuals)</h3>
+      <pre><code>Work ONLY in an isolated git worktree — never on main. From /Users/alanman/Developer/claude-local-bridge-playground run:
+  git worktree add -b hypo/4-durability-hardening ~/Developer/clb-hypo-4 main
+Then cd ~/Developer/clb-hypo-4 and do all work there. Do not run git push.
+
+Task: harden the runner's crash durability (follow-through on the A1 crash bakeoff residuals).
+- Extend the existing SIGTERM finalizer in src/runner/run.js to also handle SIGINT with the same checkpoint semantics.
+- In src/runner/session-ledger.js, make the ledger safe to append after recovering from a torn (partially written) trailing line: before the first post-recovery append, newline-terminate or truncate the torn tail so the new record stays parseable. There is a todo test named HS-02 in test/runner/false-green-contract-durability.test.js describing exactly this — make it pass, then flip it from a todo into a hard assertion.
+- Do not change ledger event shapes or sequence semantics; existing crash-recovery tests must keep passing unchanged.
+Verification (required, report real output honestly — show failures before fixes):
+  npm test
+  npm run lint
+  npm run format:check
+Commit on hypo/4-durability-hardening only. End with a full handoff (folder, branch, files, checks with real results, skipped items, risks).</code></pre>
+
+      <h3>Paste block 5 — deterministic workflow slice (Starlark direction)</h3>
+      <pre><code>Work ONLY in an isolated git worktree — never on main. From /Users/alanman/Developer/claude-local-bridge-playground run:
+  git worktree add -b hypo/5-workflow-slice ~/Developer/clb-hypo-5 main
+Then cd ~/Developer/clb-hypo-5 and do all work there. Do not run git push.
+
+Task: a minimal deterministic-workflow slice, consistent with the repo's Starlark architecture docs (read docs/ for the Starlark review/expansion notes first).
+- New flag --workflow &lt;file&gt; that reads a small JSON workflow file: an ordered list of steps, each { "prompt": "...", "maxSteps": N }. The runner executes the steps sequentially as separate turns in one session, stopping on the first failed step.
+- No new tool categories, no new authority: each step runs under exactly the flags the operator passed on the command line. The authority ceiling must clamp everything (see src/runner/authority.js).
+- Validate the workflow file shape up front with beginner-friendly errors; reject absolute paths outside --cwd for the workflow file itself.
+- Update --help and whatever docs the repo requires for new CLI flags.
+Verification (required, report real output honestly — show failures before fixes):
+  npm test
+  npm run lint
+  npm run format:check
+  npm run check:docs
+Note: the false-green audit suite locks the CLI flag surface (FG-E) and the permission matrix (FG-B) — its failures tell you when the slice accidentally widened authority.
+Commit on hypo/5-workflow-slice only. End with a full handoff (folder, branch, files, checks with real results, skipped items, risks).</code></pre>
+
+      <p class="small">
+        Cleanup for a finished experiment (run in the main folder, substituting the number):<br />
+        <code>git worktree remove ~/Developer/clb-hypo-1</code> &nbsp;then&nbsp;
+        <code>git branch -D hypo/1-copy-file-tool</code>
+      </p>
+
+      <h2 id="residual">8. Accepted risks and uncovered residuals</h2>
+      <ul>
+        <li>
+          <strong>Cross-line Bearer divergence (item 36).</strong> Buffered scrubbing can match
+          <code>Bearer\n&lt;token&gt;</code> across a newline; the line-aligned streaming scrubber cannot.
+          Split-invariance still holds (output never depends on chunk boundaries). Documented in the FG-C header; the
+          parity corpus deliberately keeps each secret on one line. Fixing it means a cross-line-aware streaming pass —
+          worth a dedicated slice, not a drive-by.
+        </li>
+        <li>
+          <strong>Mocked model transport.</strong> Agent-loop tests use scripted mock servers; real Anthropic SSE
+          quirks, retry/backoff timing against a live bridge, and <code>stop_reason</code> variants from real models
+          remain exercised only by transport unit tests. A recorded-wire-fixture harness would be the next step.
+        </li>
+        <li>
+          <strong>Golden-eval fixtures</strong> are regenerable via <code>--update</code> — a bug can be baked into a
+          new golden and pass. Mitigation is process (review regenerated goldens), not a test.
+        </li>
+        <li>
+          <strong>Token-estimation drift</strong>: <code>estimateTokens</code> is self-referential (tested against
+          itself, not a real tokenizer). Compaction thresholds inherit that drift.
+        </li>
+        <li>
+          <strong>First-run wording assumptions in FG-E.</strong> FG-E6/E7 assert trust-gate and transport error text
+          that was reasoned from source but never observed; FG-D7's surface snapshot and FG-D4's core-category
+          expectations are the other likely first-run adjustments. Any adjustment must be reported honestly before
+          fixing (Alan's verification rule).
+        </li>
+      </ul>
+
+      <h2 id="next">9. Current state and next steps</h2>
+      <table>
+        <tr>
+          <th>Item</th>
+          <th>State</th>
+        </tr>
+        <tr>
+          <td>Six test files in <code>test/runner/false-green-*.test.js</code></td>
+          <td>
+            Written; FG-E3 removed in favor of <code>profiles-retired.test.js</code> ownership;
+            <strong>never executed; uncommitted</strong>
+          </td>
+        </tr>
+        <tr>
+          <td>This report (<code>docs/false-green-test-audit-2026-08-07.html</code>)</td>
+          <td>Written; uncommitted</td>
+        </tr>
+        <tr>
+          <td>Execution plan</td>
+          <td>
+            <code>~/.claude/plans/synthetic-humming-sparkle.md</code> — run, fix-honestly, lint, format, commit-to-main,
+            report
+          </td>
+        </tr>
+        <tr>
+          <td>Auto-retry cron job</td>
+          <td>Deleted (task pinned indefinitely at Alan's direction, 2026-08-07)</td>
+        </tr>
+        <tr>
+          <td>Source-code fixes for HS-01 / HS-02</td>
+          <td>Deliberately NOT made — findings reported; todo tests keep them visible</td>
+        </tr>
+      </table>
+      <p><strong>When Alan gives the word</strong> (and tooling cooperates), the pinned sequence is:</p>
+      <ol>
+        <li><code>npm test</code> — report real failures first, then fix only inside the six new files;</li>
+        <li><code>npm run lint</code> and <code>npm run format:check</code> (format if needed);</li>
+        <li>commit the six test files (and optionally this report) to <code>main</code>; no push unless asked;</li>
+        <li>report full pass/fail counts and the HS-01/HS-02 todo outcomes.</li>
+      </ol>
+      <p class="small">
+        Manual alternative: Alan can run the new files alone from the repo root in Terminal —<br />
+        <code>node --require ./test/setup.js --test test/runner/false-green-*.test.js</code><br />
+        Success looks like: all FG tests pass; HS-01 and HS-02 appear as <em>todo</em> (reported, not counted as
+        failures).
+      </p>
+    </main>
+  </body>
+</html>
