@@ -64,7 +64,7 @@ function filesMatchedByTestScript() {
     const dir = path.dirname(glob);
     assert.ok(
       !dir.includes('*'),
-      `FG-G1 cannot interpret glob "${glob}" — update this helper if the test script changes shape`
+      `FG-G1 cannot interpret glob "${glob}" — update this helper if the test script changes shape`,
     );
     const abs = path.join(REPO, dir);
     if (!fs.existsSync(abs)) continue;
@@ -92,7 +92,7 @@ describe('FG-G suite-execution integrity', () => {
       [],
       'These test files exist but are NEVER run by `npm test` — they are decorative coverage:\n  ' +
         orphans.join('\n  ') +
-        '\nEither move them into a globbed directory or widen the test script.'
+        '\nEither move them into a globbed directory or widen the test script.',
     );
   });
 
@@ -103,7 +103,11 @@ describe('FG-G suite-execution integrity', () => {
     const offenders = readTestSources()
       .filter(({ src }) => /\b(?:it|test|describe|suite)\.only\s*\(/.test(src))
       .map(({ rel }) => rel);
-    assert.deepEqual(offenders, [], `.only() found — it silently disables the rest of the suite: ${offenders.join(', ')}`);
+    assert.deepEqual(
+      offenders,
+      [],
+      `.only() found — it silently disables the rest of the suite: ${offenders.join(', ')}`,
+    );
   });
 
   // FG-G3: `{ todo: ... }` makes a FAILING test report `not ok` without setting
@@ -119,8 +123,13 @@ describe('FG-G suite-execution integrity', () => {
   it('FG-G3: todo-masked tests match the reviewed register exactly', () => {
     const actual = {};
     for (const { rel, src } of readTestSources()) {
-      // Count `{ todo:` / `{ todo :` option objects passed to it()/test().
-      const n = (src.match(/\{\s*todo\s*:/g) || []).length;
+      // Count `{ todo:` option objects passed to it()/test() — in CODE only.
+      // Comments must be stripped first: this very file's documentation talks
+      // about the `{ todo: ... }` pattern, and an unstripped scan counted its
+      // own prose as 4 masked tests (this test shipped red on 2026-08-07 for
+      // exactly that reason — a self-referential false RED).
+      const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
+      const n = (code.match(/\{\s*todo\s*:/g) || []).length;
       if (n > 0) actual[rel] = n;
     }
     assert.deepEqual(
@@ -128,7 +137,7 @@ describe('FG-G suite-execution integrity', () => {
       KNOWN_TODOS,
       'The set of todo-masked (known-failing-but-not-red) tests changed.\n' +
         'A todo test reports `not ok` but does NOT fail `npm test`, so this drift is invisible.\n' +
-        'If you added a known gap on purpose, add it to KNOWN_TODOS with a comment saying why.'
+        'If you added a known gap on purpose, add it to KNOWN_TODOS with a comment saying why.',
     );
   });
 
@@ -142,7 +151,7 @@ describe('FG-G suite-execution integrity', () => {
     assert.ok(
       count >= FLOOR,
       `Only ${count} test files found, floor is ${FLOOR}. Test files were deleted — ` +
-        'confirm that was intentional, then lower the floor in the same commit.'
+        'confirm that was intentional, then lower the floor in the same commit.',
     );
   });
 
@@ -175,7 +184,7 @@ describe('FG-G harness-configuration integrity', () => {
     assert.match(
       script,
       /--require\s+\.\/test\/setup\.js/,
-      'npm test no longer requires test/setup.js — shared test guards would silently stop applying'
+      'npm test no longer requires test/setup.js — shared test guards would silently stop applying',
     );
   });
 
@@ -221,7 +230,8 @@ describe('FG-G harness-configuration integrity', () => {
       stale,
       [],
       'Mutation anchors no longer match their source. Those mutations now test NOTHING ' +
-        '(they report STALE, not FAIL). Re-point them at the current code:\n  ' + stale.join('\n  ')
+        '(they report STALE, not FAIL). Re-point them at the current code:\n  ' +
+        stale.join('\n  '),
     );
   });
 });
