@@ -116,14 +116,17 @@ describe('P1-06 fallback fingerprint containment', () => {
     assert.equal(headers['x-claude-code-session-id'], undefined);
     assert.equal(headers['x-stainless-retry-count'], undefined);
     assert.equal(headers['x-stainless-timeout'], undefined);
-    // Beta list keeps protocol/feature flags the runner transport uses...
+    // Beta list keeps the stable protocol/client flags observed in Claude Code
+    // 2.1.223's OAuth request shape...
     assert.match(headers['anthropic-beta'], /claude-code-20250219/);
     assert.match(headers['anthropic-beta'], /oauth-2025-04-20/);
-    assert.match(headers['anthropic-beta'], /effort-2025-11-24/);
+    assert.match(headers['anthropic-beta'], /interleaved-thinking-2025-05-14/);
     // ...but no request-shape or billing opt-ins.
     assert.doesNotMatch(headers['anthropic-beta'], /context-1m-/);
     assert.doesNotMatch(headers['anthropic-beta'], /fallback-credit-/);
     assert.doesNotMatch(headers['anthropic-beta'], /structured-outputs-/);
+    assert.doesNotMatch(headers['anthropic-beta'], /mid-conversation-system-/);
+    assert.doesNotMatch(headers['anthropic-beta'], /effort-/);
   });
 
   it('still captures the billing header for system blocks without replaying it', () => {

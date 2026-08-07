@@ -216,14 +216,13 @@ function getCredentialAuthMode(creds) {
   return 'none';
 }
 
-// Stable header values verified from Anthropic's official Claude Code 2.1.220
-// macOS arm64 package on 2026-07-25. `src/fingerprint.js` owns actual header
+// Stable header values verified from Anthropic's official Claude Code 2.1.223
+// macOS arm64 package on 2026-08-06. `src/fingerprint.js` owns actual header
 // construction; this exported object remains for compatibility and for the
 // body-level fallback values consumed below.
 const CLAUDE_CODE_FINGERPRINT = {
-  userAgent: 'claude-cli/2.1.220 (external, sdk-cli)',
-  anthropicBeta:
-    'claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14,mid-conversation-system-2026-04-07,effort-2025-11-24',
+  userAgent: 'claude-cli/2.1.223 (external, sdk-cli)',
+  anthropicBeta: 'claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14',
   // Stainless = the Anthropic SDK's self-identification headers.
   stainless: {
     'x-stainless-arch': 'arm64',
