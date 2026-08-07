@@ -57,9 +57,15 @@ const REPO = path.resolve(__dirname, '..');
 const MUTATIONS = [
   {
     id: 'M1-denydir-gnupg',
+    // NOTE: the anchor below must match safety.js byte-for-byte, and no comment
+    // may sit between `file:` and `find:` (FG-G9 parses that adjacency). The
+    // original anchor assumed a plain "'.gnupg'," list entry, but the real deny
+    // list uses predicate functions — so it matched 0x and M1 silently tested
+    // nothing (exactly the STALE rot FG-G9 exists to catch; that is how this
+    // was found).
     why: 'Drops .gnupg from the blocked-directory list — a plausible "tidy up the list" edit.',
     file: 'src/runner/safety.js',
-    find: "'.gnupg',",
+    find: "(p) => p.includes('/.gnupg/') || p.endsWith('/.gnupg'),",
     replace: '',
     expectRedIn: 'test/runner/false-green-deny-matrix.test.js',
   },
@@ -123,11 +129,11 @@ function runTest(testFile) {
   // We shell out to the same runner the npm script uses so we exercise the
   // real setup shim. Non-zero exit === the test file went red.
   try {
-    execFileSync(
-      process.execPath,
-      ['--require', './test/setup.js', '--test', testFile],
-      { cwd: REPO, stdio: 'pipe', timeout: 180000 }
-    );
+    execFileSync(process.execPath, ['--require', './test/setup.js', '--test', testFile], {
+      cwd: REPO,
+      stdio: 'pipe',
+      timeout: 180000,
+    });
     return { red: false };
   } catch (err) {
     const out = String((err.stdout || '') + (err.stderr || ''));
@@ -187,7 +193,11 @@ function restoreAll() {
 }
 
 // Restore even if the user interrupts us mid-mutation.
-for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { restoreAll(); process.exit(130); });
+for (const sig of ['SIGINT', 'SIGTERM'])
+  process.on(sig, () => {
+    restoreAll();
+    process.exit(130);
+  });
 
 const results = [];
 try {
@@ -217,9 +227,11 @@ try {
 
 const survived = results.filter((r) => r.verdict === 'SURVIVED');
 const stale = results.filter((r) => r.verdict === 'STALE' || r.verdict === 'AMBIGUOUS');
-console.log(`\n--- ${results.length} mutations: ` +
-  `${results.filter((r) => r.verdict === 'CAUGHT').length} caught, ` +
-  `${survived.length} survived (false green), ${stale.length} stale/ambiguous ---`);
+console.log(
+  `\n--- ${results.length} mutations: ` +
+    `${results.filter((r) => r.verdict === 'CAUGHT').length} caught, ` +
+    `${survived.length} survived (false green), ${stale.length} stale/ambiguous ---`,
+);
 for (const s of survived) console.log(`  FALSE GREEN: ${s.id} — ${s.why}`);
 for (const s of stale) console.log(`  STALE ANCHOR: ${s.id} — source drifted; guard may be dead`);
 
