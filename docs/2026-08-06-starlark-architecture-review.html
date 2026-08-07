@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Starlark Control-Plane Architecture Review — Evaluation, Language Verdict, 14 Recommendations (2026-08-06)</title>
+<style>
+:root{--bg:#f7f8fa;--fg:#15202b;--muted:#5b6b7c;--card:#fff;--border:#e2e8f0;--accent:#1d4ed8;
+--ok:#047857;--ok-bg:#ecfdf5;--warn:#b45309;--warn-bg:#fffbeb;--bad:#b91c1c;--bad-bg:#fef2f2;
+--info:#0369a1;--info-bg:#e0f2fe;--code-bg:#f1f5f9;--radius:12px;
+--shadow:0 1px 2px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.04)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:var(--fg);background:var(--bg);line-height:1.65}
+header.hero{background:linear-gradient(135deg,#1a1030 0%,#3b2160 55%,#7c3aed 140%);color:#fff;padding:3rem 1.5rem 2.5rem}
+header.hero .wrap,main.wrap{max-width:1080px;margin:0 auto}
+header.hero h1{margin:0 0 .5rem;font-size:clamp(1.5rem,3vw,2.1rem);letter-spacing:-.02em}
+header.hero p{margin:.35rem 0;color:rgba(255,255,255,.88);max-width:62rem}
+.meta-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.25rem}
+.chip{display:inline-flex;align-items:center;padding:.28rem .7rem;border-radius:999px;font-size:.82rem;font-weight:600;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18)}
+nav.toc{position:sticky;top:0;z-index:20;background:rgba(247,248,250,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
+nav.toc .wrap{max-width:1080px;margin:0 auto;padding:.7rem 1.5rem;display:flex;flex-wrap:wrap;gap:.55rem .9rem}
+nav.toc a{color:var(--muted);text-decoration:none;font-size:.86rem;font-weight:600}
+nav.toc a:hover{color:var(--accent)}
+main.wrap{padding:1.5rem 1.5rem 4rem}
+section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.4rem 1.5rem 1.55rem;margin:1.1rem 0}
+section h2{margin:0 0 .75rem;font-size:1.35rem;letter-spacing:-.015em}
+section h3{margin:1.35rem 0 .55rem;font-size:1.05rem}
+p,li{color:#1f2937}
+.lede{font-size:1.05rem;color:#334155}
+table{width:100%;border-collapse:collapse;font-size:.9rem;margin:.7rem 0 .3rem;display:block;overflow-x:auto}
+th,td{border:1px solid var(--border);padding:.55rem .65rem;text-align:left;vertical-align:top}
+th{background:#f8fafc;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;color:#475569}
+tr:nth-child(even) td{background:#fcfcfd}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--code-bg);padding:.1rem .35rem;border-radius:5px;font-size:.88em}
+pre{background:#0b1220;color:#e2e8f0;padding:.95rem 1rem;border-radius:10px;overflow-x:auto;font-size:.84rem;line-height:1.5}
+pre code{background:transparent;color:inherit;padding:0}
+.badge{display:inline-block;padding:.12rem .48rem;border-radius:999px;font-size:.74rem;font-weight:750;letter-spacing:.02em;white-space:nowrap}
+.badge.ok{background:var(--ok-bg);color:var(--ok)}
+.badge.warn{background:var(--warn-bg);color:var(--warn)}
+.badge.bad{background:var(--bad-bg);color:var(--bad)}
+.badge.info{background:var(--info-bg);color:var(--info)}
+.callout{border-radius:10px;padding:.85rem 1rem;margin:.85rem 0;border:1px solid var(--border)}
+.callout.ok{background:var(--ok-bg);border-color:#a7f3d0}
+.callout.warn{background:var(--warn-bg);border-color:#fcd34d}
+.callout.info{background:var(--info-bg);border-color:#7dd3fc}
+.callout strong.title{display:block;margin-bottom:.25rem}
+ul.tight>li,ol.tight>li{margin:.25rem 0}
+a{color:var(--accent)}.muted{color:var(--muted)}.small{font-size:.9rem}
+.rec{border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:10px;padding:.9rem 1.05rem;margin:.8rem 0;background:#fff}
+.rec.p0{border-left-color:var(--bad)}.rec.p1{border-left-color:var(--warn)}
+.rec.p2{border-left-color:var(--info)}.rec.p3{border-left-color:#64748b}
+.rec h4{margin:0 0 .35rem;font-size:1rem}
+.rec .why{color:#475569;font-size:.92rem}
+footer{border-top:1px solid var(--border);padding:1.5rem;color:var(--muted);font-size:.9rem;max-width:1080px;margin:0 auto}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <h1>Starlark Control-Plane Architecture Review</h1>
+    <p>An engineering evaluation of the phased-hybrid Starlark orchestration prototype: what the architecture gets right, where it is structurally at risk, whether Starlark was the optimal language choice versus Python, Java, Go, Rust (and the alternatives that matter more), and fourteen prioritized recommendations.</p>
+    <p class="small" style="color:rgba(255,255,255,.75)">Prepared by Fable. Agent-facing twin: <code>docs/2026-08-06-starlark-architecture-review.md</code>. Assessment only — no source changes; each recommendation is scoped for a separately authorized chunk.</p>
+    <div class="meta-row">
+      <span class="chip">Date: 2026-08-06</span>
+      <span class="chip">Repo: claude-local-bridge-playground (main)</span>
+      <span class="chip">Verdict: keep Starlark</span>
+      <span class="chip">Recommendations: 14</span>
+      <span class="chip">Top gap: durable campaign budget</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Table of contents">
+  <div class="wrap">
+    <a href="#exec">Executive verdict</a>
+    <a href="#arch">Architecture evaluation</a>
+    <a href="#lang">Was Starlark optimal?</a>
+    <a href="#recs">14 recommendations</a>
+    <a href="#seq">Suggested sequence</a>
+    <a href="#bounds">Boundaries &amp; method</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<section id="exec">
+  <h2>1. Executive verdict</h2>
+  <p class="lede"><strong>The architecture is sound, and the Starlark choice is defensible-to-optimal — for the specific slot it occupies.</strong> The most important design insight is one the team already made in practice and should now write down as doctrine:</p>
+  <div class="callout ok">
+    <strong class="title">The Starlark layer is not CodeAct. It is code-as-<em>plan</em>, not code-as-<em>action</em>.</strong>
+    <p class="small" style="margin:0">The generated program has <em>zero</em> capabilities — no filesystem, network, shell, model calls, or module loading. It can only construct inert job descriptors, which a fail-closed host validator inspects before anything real happens. This sidesteps the exact collision the roadmap review flagged as N-5: CodeAct bypasses every tool-argument-layer path control by construction, but a Starlark plan cannot bypass path controls because it never touches paths — the host-owned repository collector does, inside the existing confinement rules (root ceilings, symlink exclusion, secret-path exclusion). The smolagents lesson ("code actions win") is honored where it is safe — compact, expressive plan generation — while the authority stays exactly where the runner thesis says it belongs: in user-owned host code.</p>
+  </div>
+  <p>Three structural risks are visible; none is fatal, and all three have precedents in the runner's own round-3 findings:</p>
+  <ol class="tight">
+    <li><strong>Two control planes now exist.</strong> The native runner stack (<code>coordinator.js</code>, <code>budget-broker.js</code>, <code>session-ledger.js</code>, <code>worker-runtime.js</code>) and the Starlark host both own scheduling, budgets, ledgers, and retries. The architecture diagram honestly labels their relationship <em>"SEPARATE TODAY — no integration edge."</em> Right now drift, not decision, is choosing the outcome (R8).</li>
+    <li><strong>Budget authority is process-local</strong> while the stated ambition (unattended matrices, multi-command campaigns) is cross-process. The $10 gate was maintained <em>manually</em> between commands. Both 08-06 docs flag this as the top gap; this review agrees and ranks it R1.</li>
+    <li><strong>The prototype lives outside Git</strong>, which exempts it from review, CI, and the N-1 reachability doctrine — precisely the conditions that produced the round-3 F1/F2/F5 defect class ("built, exported, unit-tested, never wired"). R3.</li>
+  </ol>
+</section>
+
+<section id="arch">
+  <h2>2. Architecture evaluation</h2>
+
+  <h3>2.1 Strengths — keep these; do not renegotiate them</h3>
+  <table>
+    <thead><tr><th>Property</th><th>Why it matters</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Authority inversion</strong> — model proposes, host disposes</td><td>The single load-bearing safety idea. The planner is a suggestion engine, never an executor.</td><td>Validator rejected out-of-policy Fable descriptors twice; fails closed on unknown fields, provider/model fields, excessive limits, bad retry targets</td></tr>
+      <tr><td><strong>Capability-free generated code</strong></td><td>Sandbox by construction, not configuration — there is nothing to escape <em>to</em></td><td>No I/O or module loads granted; execution-step and wall-time ceilings tested</td></tr>
+      <tr><td><strong>Symbolic worker registry</strong></td><td>Clean provider seam: workflows name <code>repo_file_analyst</code>; only the host-owned route combines provider + model</td><td>Workflow-expansion slice; descriptors carrying model/provider fields are rejected</td></tr>
+      <tr><td><strong>Evidence discipline</strong></td><td>Claims stay auditable; failures stay visible</td><td>Append-only JSONL ledger, atomic state, correlated bridge traces (shared trace IDs), deliberately preserved failed/partial runs</td></tr>
+      <tr><td><strong>Failure injection as first-class methodology</strong></td><td>Recovery paths are tested, not assumed</td><td>Four-fault deterministic profile incl. charged-but-discarded and permanent-gap cases</td></tr>
+      <tr><td><strong>Semantic success classification</strong></td><td>"HTTP 200 ≠ success" institutionalized after a real field failure</td><td><code>model_refusal</code> and <code>truncated_synthesis</code> now distinct from <code>completed</code>; trace-backed reclassification of historical state files</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2.2 Weaknesses and risks — ranked</h3>
+  <table>
+    <thead><tr><th>#</th><th>Risk</th><th>Severity</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>No durable cross-process campaign budget</td><td><span class="badge bad">Blocker for unattended use</span></td><td>Manual allowance bookkeeping between commands; addressed by R1</td></tr>
+      <tr><td>2</td><td>Cost metering is token-shaped, not dollar-shaped</td><td><span class="badge bad">Safety-ceiling correctness</span></td><td>Twin of runner A3-F4 / N-3: cache read/creation tokens never counted against ceilings; error grows with concurrency; R2</td></tr>
+      <tr><td>3</td><td>Control-plane duplication with the native runner</td><td><span class="badge warn">Structural drift</span></td><td>Budget, ledger, retry, worker-spawn logic being reinvented in scratch space; R8</td></tr>
+      <tr><td>4</td><td>"Validated but not enforced" field class</td><td><span class="badge warn">Recurring class</span></td><td><code>timeout_ms</code> was fixed as an <em>instance</em> (finding 6); nothing prevents the <em>class</em> — same shape as N-1; R5</td></tr>
+      <tr><td>5</td><td>Prompt-policy vs validator drift</td><td><span class="badge warn">Recurring class</span></td><td>Finding 1: disclosure (prompt) and enforcement (validator) are separately maintained artifacts today; R5</td></tr>
+      <tr><td>6</td><td>Synthesis fragility</td><td><span class="badge warn">Quality</span></td><td>One refusal + three truncations across the live sequence; monolithic final call in an otherwise resumable pipeline; R10</td></tr>
+      <tr><td>7</td><td>Single-trial evidence</td><td><span class="badge info">Epistemic</span></td><td>The model comparison table is explicitly not statistically meaningful; no scoring rubric yet; R4</td></tr>
+      <tr><td>8</td><td>Provider-neutrality is structural, not proven</td><td><span class="badge info">Honest labeling in place</span></td><td>One live adapter (local Claude bridge); no second-adapter contract test; R9</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="lang">
+  <h2>3. Was Starlark optimal? Python, Java, Go, Rust — and the alternatives that matter more</h2>
+  <p>First, frame the question correctly: there are <strong>two language slots</strong> here, and the named alternatives mostly belong to the other slot.</p>
+  <ul class="tight">
+    <li><strong>Slot A — the language the model generates</strong> (the control-plane plan program). Real candidates: Starlark, sandboxed Python, Lua, pure JSON/YAML data, CUE/Dhall, sandboxed JS/WASM.</li>
+    <li><strong>Slot B — the evaluator/host implementation language.</strong> Candidates: Go, Rust, Java, Node. The prototype already answers this well: a Node host (matching the rest of the repo) embedding <code>starlark-go</code> as a subprocess. <strong>Go is not a competitor to Starlark here — it is Starlark's most mature runtime</strong> (the canonical implementation, maintained by the Bazel team). Java (Bazel's original implementation) and <code>starlark-rust</code> (Meta's, used in Buck2) are viable substitutes with no compelling reason to switch today. The subprocess boundary is a <em>feature</em>: a crashed or runaway evaluation cannot take the host down, and OS-level limits back the language-level ceilings.</li>
+  </ul>
+
+  <h3>3.1 Slot A comparison matrix</h3>
+  <table>
+    <thead><tr><th>Dimension</th><th>Starlark</th><th>Sandboxed Python</th><th>Lua</th><th>Pure JSON/YAML</th><th>CUE / Dhall</th><th>JS-in-isolate / WASM</th></tr></thead>
+    <tbody>
+      <tr><td>Hermetic by <strong>construction</strong> (not configuration)</td><td><span class="badge ok">Yes</span></td><td><span class="badge bad">No</span> — sandboxing is negative-space work; historical escapes</td><td><span class="badge warn">Partial</span> — must strip stdlib</td><td><span class="badge ok">Yes</span> (no compute at all)</td><td><span class="badge ok">Yes</span></td><td><span class="badge warn">No</span> — sandbox is configuration</td></tr>
+      <tr><td>Guaranteed termination</td><td><span class="badge ok">Yes</span> — no <code>while</code>, no recursion by default</td><td><span class="badge bad">No</span></td><td><span class="badge bad">No</span></td><td><span class="badge ok">Trivially</span></td><td><span class="badge ok">Yes</span> (Dhall is total)</td><td><span class="badge bad">No</span></td></tr>
+      <tr><td>Deterministic evaluation</td><td><span class="badge ok">Yes</span> — a specified language goal</td><td><span class="badge bad">No</span></td><td><span class="badge bad">No</span></td><td><span class="badge ok">Yes</span></td><td><span class="badge ok">Yes</span></td><td><span class="badge warn">Achievable</span> with effort</td></tr>
+      <tr><td>LLM generation fluency</td><td><span class="badge ok">High</span> — Python-shaped; one live gap found (no implicit string concat)</td><td><span class="badge ok">Highest</span></td><td><span class="badge warn">Medium</span></td><td><span class="badge warn">High but verbose</span></td><td><span class="badge bad">Low</span> — thin training corpus → repair tax</td><td><span class="badge ok">High</span></td></tr>
+      <tr><td>Bounded compute (loops, comprehensions, Cartesian expansion)</td><td><span class="badge ok">Yes</span> — the matrix expansion is the payoff</td><td>Yes</td><td>Yes</td><td><span class="badge bad">No</span> — loses the entire point</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Mature restricted evaluator available</td><td><span class="badge ok">Yes</span> — starlark-go / starlark-rust / Java</td><td><span class="badge warn">Weak</span> — every option is a compromise</td><td><span class="badge ok">Good</span></td><td>n/a</td><td><span class="badge ok">Good</span></td><td><span class="badge ok">Good</span></td></tr>
+      <tr><td>Live field evidence in this project</td><td><span class="badge ok">Strong</span> — 5 models valid within 2 attempts; Haiku 4.5 first-pass</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.2 Why the general-purpose languages lose Slot A</h3>
+  <p><strong>Python, Java, Go, and Rust are all wrong for the generated-program slot for the same reason:</strong> the requirement is a language that <em>cannot do anything</em>. General-purpose languages make you build the "cannot" yourself — sandbox construction, capability stripping, termination policing — and then maintain it forever against a moving runtime. Python is the seductive one (maximum model fluency, the smolagents path), but its correct role in this architecture is the CodeAct <em>worker</em> direction (H1), which the roadmap review already showed must be gated behind sandbox work (N-5) — not the control plane. Compiling and executing model-emitted Go or Rust would add a toolchain, a slow feedback loop, and unbounded capability, in exchange for nothing the descriptor layer needs. Java has the same problem plus JVM weight.</p>
+
+  <div class="callout ok">
+    <strong class="title">Verdict: keep Starlark — the decision was correct on the evidence, not just on taste</strong>
+    <p class="small" style="margin:0">Starlark occupies a rare point in the design space: the only listed option that is simultaneously hermetic by construction, terminating by construction, deterministic, and close enough to Python that even the smallest active Claude tier (Haiku 4.5) generated valid plans first-pass in the live trial. The only real competitors are <strong>pure JSON</strong> — which you should still use as a cheap path for workflows that need no expansion (see R14) — and <strong>CUE/Dhall</strong>, which trade materially worse LLM fluency (a higher repair tax) for formal guarantees Starlark already mostly provides. Conditions on the verdict: descriptors (never capabilities) remain the only output; the Go subprocess stays as an isolation boundary; and deterministic linting (R6) absorbs the known "Python-shaped, not Python-identical" failure mode.</p>
+  </div>
+</section>
+
+<section id="recs">
+  <h2>4. Fourteen recommendations</h2>
+  <p class="small muted">Priorities: <span class="badge bad">P0</span> blocks unattended/paid scaling · <span class="badge warn">P1</span> do before widening the matrix · <span class="badge info">P2</span> strengthens the platform · <span class="badge">P3</span> opportunistic.</p>
+
+  <div class="rec p0"><h4>R1 <span class="badge bad">P0</span> — Durable, atomic campaign budget ledger</h4>
+  <p class="why">One append-only budget ledger keyed by campaign ID, with atomic reserve/settle records, shared across processes and commands. Reuse <code>session-ledger.js</code> patterns (sequence numbers, cursor sidecar, atomic state writes) rather than inventing a second scheme — a recorded workspace preference. The manual "reduce the allowance after each command" step must be dead before any unattended matrix runs. This is the one gap both 08-06 documents flag, and it is the correct #1.</p></div>
+
+  <div class="rec p0"><h4>R2 <span class="badge bad">P0</span> — Meter dollars, not tokens</h4>
+  <p class="why">Bind campaign ceilings to cost accounting (<code>estimateCostUsd</code>-style, including cache-read and cache-creation rates), keeping token caps as a secondary dimension. This is the Starlark-host twin of runner finding A3-F4 / roadmap N-3: cache tokens are reported but never counted against ceilings, and the under-count grows with exactly the concurrency being pursued. Fix both planes with the same design so "budget" means one thing everywhere. Regression test: a lease reconciled with cache-heavy usage must move the remaining-budget figure.</p></div>
+
+  <div class="rec p1"><h4>R3 <span class="badge warn">P1</span> — Bring the prototype under version control</h4>
+  <p class="why">Graduate <code>s1-starlark-phased-hybrid</code> out of <code>~/Developer/orchestration-prototypes/</code> into Git (playground subtree or a sibling repo). Out-of-git code is exempt from review, CI, and the N-1 reachability doctrine — the exact conditions that produced the round-3 F1/F2/F5 defect class. Keep only genuine throwaway spikes outside Git; this prototype has crossed the "people rely on its results" line.</p></div>
+
+  <div class="rec p1"><h4>R4 <span class="badge warn">P1</span> — Repeated-trial scoring harness before widening the matrix</h4>
+  <p class="why">Implement the live-results doc's own recommended next experiment: at least 5 repetitions per control model on fixed fixtures, scored on a deterministic rubric (first-pass validity, repair success, forbidden-authority attempts, retry correctness, accepted artifacts, synthesis state, latency, cost, trace completeness). Extend <code>golden-eval.js</code> or <code>evals/harbor/</code> rather than building a third harness — N-2's explicit instruction. Until this exists, single-trial tables must not be quoted as rankings (the doc already models this honesty; keep it).</p></div>
+
+  <div class="rec p1"><h4>R5 <span class="badge warn">P1</span> — Single-source the descriptor policy + a field→enforcement concordance test</h4>
+  <p class="why">Two recurring classes, one fix. (a) One machine-readable schema/limits file generates <em>both</em> the validator's rules and the prompt's policy-disclosure section — killing the finding-1 drift class (policy named but bounds undisclosed). (b) A concordance test asserts every field the validator accepts has a bound enforcement point in the execution path — turning the finding-6 <code>timeout_ms</code> class ("validated but not enforced") into a CI failure instead of a field discovery. This is N-1's reachability idea, specialized to policy fields.</p></div>
+
+  <div class="rec p1"><h4>R6 <span class="badge warn">P1</span> — Deterministic Starlark pre-lint for LLM Python-isms</h4>
+  <p class="why">Before evaluation, run a cheap static pass over generated programs catching known model failure modes: adjacent string literals (observed live, twice), f-strings, <code>while</code> loops, recursion, set literals. Auto-repair the purely mechanical ones; return precise diagnostics for the rest so the model's one repair attempt is guided rather than guessing. Track a per-model "repair tax" metric in the R4 harness — it will likely dominate model choice more than raw capability does.</p></div>
+
+  <div class="rec p1"><h4>R7 <span class="badge warn">P1</span> — Adversarial-program corpus for the evaluator</h4>
+  <p class="why">Live testing exercised honest-but-fallible planners; nothing yet exercises a hostile program. Build a red-team corpus: comprehension bombs (billion-laughs via nested cross products), deep nesting, huge string/list allocation, step-ceiling probes, unicode identifier tricks, and descriptor smuggling (fields that alias or shadow authority fields). Assert ceilings and fail-closed behavior under all of them. This is the permission-safari discipline applied to the new surface — the prototype deserves its own Safari before it grows.</p></div>
+
+  <div class="rec p2"><h4>R8 <span class="badge info">P2</span> — Decide the runner integration edge deliberately</h4>
+  <p class="why">The diagram says <em>"SEPARATE TODAY — no integration edge."</em> Make that a decision, not drift. Recommended shape: expose validated workflows to the native runner as a capability-gated tool (e.g. <code>run_workflow</code>) that routes through the runner's permission gate and workspace-trust checks, while the Starlark host keeps its own validator (defense in depth, matching the HE-01 pattern). Explicitly reject the alternative — porting the runner's coordinator into the Starlark host — to stop duplicate control-plane growth. Either answer is fine; an undecided answer is not.</p></div>
+
+  <div class="rec p2"><h4>R9 <span class="badge info">P2</span> — Prove provider-neutrality with a second adapter + contract test</h4>
+  <p class="why">The registry's neutrality is structural, not demonstrated. The cheapest honest second adapter is a <em>deterministic</em> one — a regex/static-analysis service fulfilling <code>repo_file_analyst</code>'s exact contract — zero token cost, full contract-coverage value, and it doubles as the W1-style deterministic worker arm. A Gemini adapter can follow. Until then keep saying "provider-neutral structure," never "provider-neutral" (the workflow-expansion doc already models this discipline).</p></div>
+
+  <div class="rec p2"><h4>R10 <span class="badge info">P2</span> — Terminal-state machine + synthesis-only resume; map-reduce synthesis</h4>
+  <p class="why">Formalize campaign terminal states (<code>completed</code>, <code>partial:model_refusal</code>, <code>partial:truncated_synthesis</code>, <code>failed:*</code>) as an enum with defined transitions. Because worker artifacts are durable, synthesis must be retryable <em>alone</em> — never re-run workers to retry a synthesis. For the truncation class (three ceiling hits live): chunked map-reduce synthesis — compress per-artifact, then combine — instead of one monolithic ceiling-bound call. Synthesis stays independently fallible, but its failures become cheap and recoverable.</p></div>
+
+  <div class="rec p2"><h4>R11 <span class="badge info">P2</span> — Campaign resume and cancellation kill-tests</h4>
+  <p class="why">Port the A1/F6 discipline to campaigns: kill a live campaign mid-flight, resume from the ledger, and assert completed jobs are not re-run while the interrupted job is at-least-once with intent/result pairing. Separately test cancellation propagation to in-flight worker calls under real concurrency — the abort signal is wired now (finding 6 fix); prove it holds when four workers are in flight.</p></div>
+
+  <div class="rec p2"><h4>R12 <span class="badge info">P2</span> — Unify evidence layout and end-to-end trace joins</h4>
+  <p class="why">Campaign artifacts should adopt the <code>~/.bridge-runner</code> unified transcript/index conventions instead of growing a second parallel scheme (a recorded workspace fact). Ensure one campaign ID joins the whole chain: budget ledger ↔ campaign ledger ↔ worker artifacts ↔ runner traces ↔ bridge traces. The five-event bridge correlation already works; extend the join upward so a single ID answers "what did this campaign do and cost" across every store.</p></div>
+
+  <div class="rec p3"><h4>R13 <span class="badge">P3</span> — Cost-tiered planner routing with escalation</h4>
+  <p class="why">The live data's most interesting row: Haiku 4.5 passed both planning stages first-attempt at the lowest cost. Make routing policy explicit and evidence-driven: plan with the cheapest tier; escalate one tier only on validation failure <em>after</em> the R6 lint pass. Revisit with R4's repeated-trial data — do not hardcode either reputation or a single-trial result.</p></div>
+
+  <div class="rec p3"><h4>R14 <span class="badge">P3</span> — Exploit determinism: golden plans, program hashing, and a JSON cheap path</h4>
+  <p class="why">Starlark's determinism is an asset the prototype has not cashed in yet. (a) <strong>Golden-plan tests:</strong> snapshot expected descriptor sets per fixture so planner-prompt changes surface as reviewable diffs. (b) <strong>Program hashing:</strong> hash program + inputs to cache expansions and detect "same plan, different program" drift across models. (c) <strong>JSON cheap path:</strong> for workflows needing no expansion (small fixed job lists), skip Starlark entirely and accept a plain JSON descriptor list through the same validator — reserve the program layer for where it pays (matrix, Cartesian, and fan-out expansion).</p></div>
+</section>
+
+<section id="seq">
+  <h2>5. Suggested sequence</h2>
+  <table>
+    <thead><tr><th>Order</th><th>Items</th><th>Paid?</th><th>Rationale</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>R1 + R2</td><td>No</td><td>Budget correctness before any further live spend; twin-fix with runner N-3 so both planes agree on what "budget" means</td></tr>
+      <tr><td>2</td><td>R3 + R5</td><td>No</td><td>Get the code reviewable, then make policy drift and dead fields structurally impossible</td></tr>
+      <tr><td>3</td><td>R6 + R7</td><td>No</td><td>Cheapen the repair loop; harden the evaluator against hostile programs before the surface grows</td></tr>
+      <tr><td>4</td><td>R4</td><td>Yes, ceilinged</td><td>Repeated trials with honest ceilings (post-R2) and rubric scoring</td></tr>
+      <tr><td>5</td><td>R9 + R10 + R11</td><td>Mostly no</td><td>Contract proof, resumable terminal states, kill-tests</td></tr>
+      <tr><td>6</td><td>R8 + R12</td><td>No</td><td>Integration decision and evidence unification once the host is stable</td></tr>
+      <tr><td>7</td><td>R13 + R14</td><td>No / low</td><td>Optimization passes informed by R4 data</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">R1–R3 and R5–R7 are mutually independent and can be parallelized across sessions.</p>
+</section>
+
+<section id="bounds">
+  <h2>6. Boundaries and method</h2>
+  <ul class="tight">
+    <li>No source changes were made in this review; the playground working tree is untouched except this file and its Markdown twin.</li>
+    <li>The prototype's code was not directly readable from this repo (it lives outside Git — which is itself finding R3). Prototype claims are taken from the three dated 08-06 documents and the architecture diagram; runner claims from <code>docs/ARCHITECTURE.md</code>, the 07-30 orchestration review, and the <code>src/runner/**</code> module layout.</li>
+    <li>Cost figures quoted are the docs' local-catalogue estimates, not billing statements.</li>
+    <li>Ledger privacy rule inherited: aggregate counts only; no payload text quoted.</li>
+    <li>Language-ecosystem facts (starlark-go/starlark-rust/Java lineage, Dhall totality, Python sandbox history) are from general knowledge as of this session and were not re-verified against live sources in this turn; treat as high-confidence background, not primary-sourced claims.</li>
+  </ul>
+</section>
+
+</main>
+<footer>
+  Prepared 2026-08-06 · claude-local-bridge-playground (main) · Agent-facing twin: <code>docs/2026-08-06-starlark-architecture-review.md</code> · Assessment memo — every recommendation requires its own authorized chunk before implementation.
+</footer>
+</body>
+</html>
