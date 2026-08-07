@@ -23,6 +23,8 @@ const { TOOLS } = require('../../src/runner/tool-catalog');
 const { isToolVisible } = require('../../src/runner/tool-visibility');
 const { EFFORT_LEVELS, THINKING_MODES } = require('../../src/runner/model-capabilities');
 const { DEFAULT_MODEL } = require('../../src/runner/model-catalog');
+const { COORDINATOR_CLI_OPTIONS } = require('../../bin/local-bridge-coordinator');
+const { PHASES: COORDINATOR_PHASES } = require('../../src/runner/coordinator');
 
 // P2-01: the no-flag default surface comes straight from the runtime's own
 // visibility function (empty ctx = no opt-ins), not a re-implemented filter.
@@ -169,5 +171,20 @@ describe('command-builder drift', () => {
     assert.match(BUILDER_HTML, /id="shellTimeout"[^>]*max="900000"/);
     const collectBody = BUILDER_HTML.match(/function collectFormState\(\) \{([\s\S]*?)\n\s*\}/)?.[1] || '';
     assert.doesNotMatch(collectBody, /callerToken\s*:/, 'collectFormState must not persist caller auth tokens');
+  });
+
+  it('advertises every live coordinator CLI flag and phase', () => {
+    for (const flag of Object.keys(COORDINATOR_CLI_OPTIONS)) {
+      assert.ok(BUILDER_HTML.includes('--' + flag), 'Builder is missing coordinator CLI flag: --' + flag);
+    }
+    for (const phase of COORDINATOR_PHASES) {
+      const id = 'coordinator' + phase[0].toUpperCase() + phase.slice(1);
+      assert.ok(BUILDER_HTML.includes('id="' + id + '"'), 'Builder is missing coordinator phase control: ' + phase);
+    }
+  });
+
+  it('keeps both runner and coordinator model pickers on the runtime default', () => {
+    assert.match(BUILDER_HTML, /<select id="coordinatorModel">[\s\S]*?value="claude-sonnet-5" selected/);
+    assert.equal(DEFAULT_MODEL, 'claude-sonnet-5');
   });
 });

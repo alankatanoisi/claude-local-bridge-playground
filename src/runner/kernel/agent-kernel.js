@@ -67,6 +67,15 @@ async function runKernel(input) {
     chaosOk: input.chaosOk,
     maxWallClockMs: input.maxWallClockMs,
     maxCostUsd: input.maxCostUsd,
+    // Keep the coordinator/API path feature-equivalent with the runner CLI.
+    // These values used to disappear inside this hand-written adapter, which
+    // meant a parent could request a budget or tool capability that the actual
+    // execute loop never received.
+    budgetInputTokens: input.budgetInputTokens,
+    budgetOutputTokens: input.budgetOutputTokens,
+    capabilities: input.capabilities,
+    testWatch: input.testWatch,
+    enableLsp: input.enableLsp,
     spawnDepth: input.spawnDepth,
     skipTrustGate: input.skipTrustGate,
     sessionExtract: input.sessionExtract,

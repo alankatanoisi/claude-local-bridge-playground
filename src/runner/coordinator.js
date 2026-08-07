@@ -134,6 +134,10 @@ class Coordinator {
   constructor(options = {}) {
     this.eventBus = options.eventBus || createEventBus({ emitStdout: options.streamEvents });
     this.workers = options.workerRuntime || new WorkerRuntime(options.workerOptions);
+    // Injectable for a focused coordinator test. Production still uses the
+    // real AgentKernel; tests can inspect the exact execute options without
+    // making a model request.
+    this.runKernel = options.runKernel || runKernel;
     this.sessionBaseDir =
       options.sessionBaseDir || require('path').join(process.env.HOME || process.cwd(), '.bridge-runner', 'sessions');
   }
@@ -152,7 +156,7 @@ class Coordinator {
    * release/reconcile) rather than inventing a second scheme.
    */
   async _spawnLeasedWorker(spec, options, budget) {
-    const { broker, totalUsage, divisor } = budget || {};
+    const { broker, totalUsage, childUsage, divisor } = budget || {};
     const phase = spec.phase || 'research';
 
     let lease = null;
@@ -180,6 +184,12 @@ class Coordinator {
       if (released && released.reconciled && released.usage) {
         totalUsage.input_tokens += released.usage.input_tokens || 0;
         totalUsage.output_tokens += released.usage.output_tokens || 0;
+        // Keep the existing child-only telemetry separate from the new
+        // whole-run accounting used to budget the execute phase.
+        if (childUsage) {
+          childUsage.input_tokens += released.usage.input_tokens || 0;
+          childUsage.output_tokens += released.usage.output_tokens || 0;
+        }
       }
     }
     result.leaseId = (lease && lease.leaseId) || null;
@@ -207,7 +217,13 @@ class Coordinator {
       outputCap: input.budgetOutputTokens,
     });
     const totalUsage = { input_tokens: 0, output_tokens: 0 };
-    const budgetOf = (divisor) => ({ broker, totalUsage, divisor });
+    const childUsage = { input_tokens: 0, output_tokens: 0 };
+    const budgetOf = (divisor) => ({ broker, totalUsage, childUsage, divisor });
+
+    // A wall-clock cap is measured from the coordinator's start, not restarted
+    // for every child. Each later agent receives only the time still left.
+    const remainingWallClock = () =>
+      typeof input.maxWallClockMs === 'number' ? Math.max(1, input.maxWallClockMs - (Date.now() - startedAt)) : null;
 
     // Options shared by every worker spawn in this run.
     const workerOptions = {
@@ -220,7 +236,7 @@ class Coordinator {
       thinking: input.thinking || null,
       bridgeUrl: input.bridgeUrl || null,
       noNetwork: !!input.noNetwork,
-      maxWallClockMs: input.maxWallClockMs || null,
+      maxWallClockMs: remainingWallClock(),
       maxCostUsd: input.maxCostUsd || null,
       // A3-F2: pass the coordinator --max-tokens ceiling to workers (plan nodes
       // may override per-node via node.maxTokens below).
@@ -344,7 +360,8 @@ class Coordinator {
           // Research workers may already have spent tokens before the spec was
           // rejected, so report the same budget telemetry as the success path.
           budget: broker.snapshot(totalUsage),
-          childUsage: { ...totalUsage },
+          childUsage: { ...childUsage },
+          meteredUsage: { ...totalUsage },
         };
       }
       synthesisSpec = compiled.spec;
@@ -361,18 +378,46 @@ class Coordinator {
     if (phases.includes('execute')) {
       this.eventBus.emit('phase', { phase: 'execute', status: 'started' });
       const executePrompt = synthesisSpec + '\n\n---\nExecute the implementation spec now.\n';
-      kernelResult = await runKernel({
+
+      // Earlier research workers have already reconciled their token use into
+      // totalUsage. Give the execute agent only the remaining shared token
+      // budget, rather than a fresh copy of the parent's full ceiling.
+      const remainingTokens = broker.unleasedRemaining(totalUsage);
+      const remainingWallClockMs = remainingWallClock();
+
+      kernelResult = await this.runKernel({
         prompt: executePrompt,
         cwd: input.cwd,
         model: input.model,
         maxTokens: input.maxTokens || 2000,
+        maxSteps: input.maxSteps,
         sessionPath,
         sessionId,
         outputFormat: input.outputFormat || 'text',
-        inheritTrust: true,
+        // The top-level CLI validates the target once; execute and child
+        // workers inherit that exact run's consent without writing trust.json.
+        inheritTrust: !!input.inheritTrust,
         trustWorkspace: false,
+        effort: input.effort,
+        thinking: input.thinking,
+        temperature: input.temperature,
+        bridgeUrl: input.bridgeUrl,
+        callerToken: input.callerToken,
+        noNetwork: !!input.noNetwork,
+        traceLevel: input.traceLevel,
+        maxWallClockMs: remainingWallClockMs,
+        maxCostUsd: input.maxCostUsd,
+        budgetInputTokens: remainingTokens.input_tokens,
+        budgetOutputTokens: remainingTokens.output_tokens,
         ...(input.kernelOptions || {}),
       });
+
+      // Fold execute usage into the shared meter before Verify can request a
+      // lease. Without this, Verify could reuse the execute agent's allowance.
+      if (kernelResult?.usage) {
+        totalUsage.input_tokens += kernelResult.usage.input_tokens || 0;
+        totalUsage.output_tokens += kernelResult.usage.output_tokens || 0;
+      }
       this.eventBus.emit('phase', {
         phase: 'execute',
         status: kernelResult?.stopReason === STOP_REASONS.SUCCESS ? 'completed' : 'failed',
@@ -421,7 +466,8 @@ class Coordinator {
       // Lease telemetry so a field test can check the broker invariant
       // (sum of active leases + usage never exceeded the caps) after the run.
       budget: broker.snapshot(totalUsage),
-      childUsage: { ...totalUsage },
+      childUsage: { ...childUsage },
+      meteredUsage: { ...totalUsage },
       error: null,
     };
 

@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1020 640" width="1020" height="640" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <defs>
+    <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect width="1020" height="640" fill="#ffffff"/>
+  <text x="24" y="34" font-size="20" font-weight="700" fill="#0f172a">Deployment Topology &amp; On-Disk Artifacts</text>
+  <text x="24" y="56" font-size="12" fill="#64748b">Everything runs on the developer workstation; the only outbound connection is the bridge → Anthropic call</text>
+
+  <!-- workstation boundary -->
+  <rect x="24" y="74" width="700" height="474" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="7 5"/>
+  <text x="42" y="96" font-size="12.5" font-weight="700" fill="#334155">DEVELOPER WORKSTATION (macOS / Linux / Windows · Node.js)</text>
+
+  <!-- vscode process -->
+  <rect x="44" y="112" width="320" height="180" rx="10" fill="#fefce8" stroke="#fcd34d"/>
+  <text x="60" y="134" font-size="12" font-weight="700" fill="#a16207">VS Code extension host process</text>
+  <rect x="60" y="146" width="288" height="34" rx="6" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="204" y="167" font-size="11.5" text-anchor="middle" fill="#0f172a">Claude Local Bridge (src/extension.js)</text>
+  <rect x="60" y="188" width="288" height="34" rx="6" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="204" y="209" font-size="11.5" text-anchor="middle" fill="#0f172a">http listener 127.0.0.1:11437 (+10 port retries)</text>
+  <rect x="60" y="230" width="288" height="34" rx="6" fill="#ffffff" stroke="#fcd34d"/>
+  <text x="204" y="251" font-size="11.5" text-anchor="middle" fill="#0f172a">https/fetch interceptor · status bar · Output log</text>
+  <text x="204" y="281" font-size="10.5" text-anchor="middle" fill="#78350f">Claude Code extension traffic in the same process is sniffed here</text>
+
+  <!-- runner process -->
+  <rect x="384" y="112" width="320" height="180" rx="10" fill="#f0fdf4" stroke="#86efac"/>
+  <text x="400" y="134" font-size="12" font-weight="700" fill="#15803d">Runner processes (Node CLI)</text>
+  <rect x="400" y="146" width="288" height="34" rx="6" fill="#ffffff" stroke="#86efac"/>
+  <text x="544" y="167" font-size="11.5" text-anchor="middle" fill="#0f172a">parent run — full loop, edits allowed</text>
+  <rect x="400" y="188" width="288" height="34" rx="6" fill="#ffffff" stroke="#86efac"/>
+  <text x="544" y="209" font-size="11.5" text-anchor="middle" fill="#0f172a">worker-runtime.js → out-of-process read-only children</text>
+  <rect x="400" y="230" width="288" height="34" rx="6" fill="#ffffff" stroke="#86efac"/>
+  <text x="544" y="251" font-size="11.5" text-anchor="middle" fill="#0f172a">optional bash / persistent shell / LSP subprocesses</text>
+  <text x="544" y="281" font-size="10.5" text-anchor="middle" fill="#166534">Children may only narrow authority: flags AND-ed, tools intersected</text>
+
+  <line x1="384" y1="200" x2="368" y2="200" stroke="#475569" stroke-width="1.6" marker-end="url(#a4)"/>
+  <text x="376" y="192" font-size="10" text-anchor="middle" fill="#475569"> </text>
+
+  <!-- target project -->
+  <rect x="44" y="308" width="320" height="120" rx="10" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="60" y="330" font-size="12" font-weight="700" fill="#1d4ed8">Target project (--cwd)</text>
+  <text x="60" y="350" font-size="11" fill="#334155">.bridge-runner/SYSTEM.md · APPEND_SYSTEM.md</text>
+  <text x="60" y="368" font-size="11" fill="#334155">.bridge-runner/prompts/ · skills/ · hooks.json</text>
+  <text x="60" y="386" font-size="11" fill="#334155">.bridge-runner/runs/&lt;run-id&gt;/manifest.json (undo)</text>
+  <text x="60" y="404" font-size="11" fill="#334155">source files — read, and written only when enabled</text>
+  <text x="60" y="420" font-size="10.5" fill="#1e40af">workspace trust is consent for a path, not a content scan</text>
+
+  <!-- home artifacts -->
+  <rect x="384" y="308" width="320" height="120" rx="10" fill="#eef2ff" stroke="#c7d2fe"/>
+  <text x="400" y="330" font-size="12" font-weight="700" fill="#3730a3">~/.bridge-runner/</text>
+  <text x="400" y="350" font-size="11" fill="#334155">sessions/ — *.state.json, *.ledger.jsonl, *.cursor.json</text>
+  <text x="400" y="368" font-size="11" fill="#334155">logs/ — JSONL transcripts (audit only, not resumable)</text>
+  <text x="400" y="386" font-size="11" fill="#334155">archive/ — per-turn JSON + catalog index</text>
+  <text x="400" y="404" font-size="11" fill="#334155">traces/ · worktrees/ · global prompts and skills</text>
+  <text x="400" y="420" font-size="10.5" fill="#3730a3">private-dir 0600 + central redaction on every writer</text>
+
+  <!-- credential sources -->
+  <rect x="44" y="444" width="660" height="86" rx="10" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="60" y="466" font-size="12" font-weight="700" fill="#9a3412">Local credential sources (read by credentials.js)</text>
+  <text x="60" y="487" font-size="11" fill="#7c2d12">macOS Keychain "Claude Code-credentials" · ~/.claude/.credentials.json · CLAUDE_CODE_OAUTH_TOKEN</text>
+  <text x="60" y="505" font-size="11" fill="#7c2d12">live intercepted Bearer token from Claude Code traffic (highest priority)</text>
+  <text x="60" y="522" font-size="11" font-weight="600" fill="#b91c1c">API-key sources are deliberately disabled — OAuth Bearer only</text>
+
+  <!-- external -->
+  <rect x="756" y="112" width="240" height="96" rx="10" fill="#fef2f2" stroke="#fca5a5"/>
+  <text x="876" y="140" font-size="13" font-weight="700" text-anchor="middle" fill="#b91c1c">api.anthropic.com</text>
+  <text x="876" y="162" font-size="10.5" text-anchor="middle" fill="#7f1d1d">HTTPS · keep-alive agent</text>
+  <text x="876" y="178" font-size="10.5" text-anchor="middle" fill="#7f1d1d">maxSockets 6 · 300 s timeout</text>
+  <text x="876" y="196" font-size="10.5" text-anchor="middle" fill="#7f1d1d">the only egress path</text>
+
+  <rect x="756" y="228" width="240" height="130" rx="10" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="876" y="252" font-size="12" font-weight="700" text-anchor="middle" fill="#0f172a">Optional harnesses</text>
+  <text x="772" y="274" font-size="10.5" fill="#334155">Docker / docker-compose.yml</text>
+  <text x="772" y="292" font-size="10.5" fill="#334155">Harbor + Terminal-Bench adapter</text>
+  <text x="772" y="310" font-size="10.5" fill="#334155">evals.harbor.cc_bridge_runner_agent</text>
+  <text x="772" y="328" font-size="10.5" fill="#334155">reaches host bridge via</text>
+  <text x="772" y="344" font-size="10.5" fill="#334155">host.docker.internal:11437</text>
+
+  <rect x="756" y="378" width="240" height="152" rx="10" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="876" y="402" font-size="12" font-weight="700" text-anchor="middle" fill="#0f172a">Quality gates</text>
+  <text x="772" y="424" font-size="10.5" fill="#334155">npm test — node:test suite</text>
+  <text x="772" y="442" font-size="10.5" fill="#334155">npm run lint — ESLint 9</text>
+  <text x="772" y="460" font-size="10.5" fill="#334155">npm run format — Prettier 3</text>
+  <text x="772" y="478" font-size="10.5" fill="#334155">npm run check:docs — doc drift</text>
+  <text x="772" y="496" font-size="10.5" fill="#334155">npm run runner:eval — golden</text>
+  <text x="772" y="514" font-size="10.5" fill="#334155">transcript replay harness</text>
+
+  <line x1="704" y1="160" x2="752" y2="160" stroke="#475569" stroke-width="1.8" marker-end="url(#a4)"/>
+  <text x="24" y="576" font-size="11" fill="#64748b">Trust boundary: the dashed box is the local machine. No inbound exposure — the listener binds 127.0.0.1 only, and debug routes need a separate local token.</text>
+  <text x="24" y="596" font-size="11" fill="#64748b">Deployment model: developer-local; no server-side infrastructure, no container requirement, no database. State is plain files under the home directory.</text>
+  <text x="24" y="616" font-size="11" fill="#64748b">Distribution: VS Code extension manifest (package.json contributes) for the bridge; direct `node bin/*.js` invocation for the runner CLIs.</text>
+</svg>

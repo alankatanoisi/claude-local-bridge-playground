@@ -367,4 +367,121 @@ describe('command-builder behavior', () => {
       assert.doesNotMatch(command, /--permission-mode/, name + ' emitted hidden permission state');
     }
   });
+
+  it('builds and copies a fully configured coordinator command', async () => {
+    const page = createHarness();
+    page.elements.get('commandMode').value = 'coordinator';
+    page.elements.get('prompt').value = 'Research the runner, implement one safe improvement, and verify it.';
+    page.evaluate("applyPermissionStyle('edit-shell')");
+
+    page.elements.get('coordinatorVerify').checked = true;
+    page.elements.get('coordinatorResearchPlan').value = '.bridge-runner/research-plan.json';
+    page.elements.get('coordinatorModel').value = 'claude-opus-4-6';
+    page.elements.get('coordinatorMaxTokens').value = '4096';
+    page.elements.get('coordinatorMaxSteps').value = '24';
+    page.elements.get('coordinatorOutputFormat').value = 'json';
+    page.elements.get('coordinatorEffort').value = 'high';
+    page.elements.get('coordinatorThinking').value = 'off';
+    page.elements.get('coordinatorTemperature').value = '0.2';
+    page.elements.get('coordinatorSessionId').value = 'coord-review';
+    page.elements.get('coordinatorTraceLevel').value = 'redacted';
+    page.elements.get('coordinatorMaxWallClockMs').value = '600000';
+    page.elements.get('coordinatorMaxCostUsd').value = '2.5';
+    page.elements.get('coordinatorBudgetInputTokens').value = '200000';
+    page.elements.get('coordinatorBudgetOutputTokens').value = '32000';
+    page.elements.get('coordinatorBridgeUrl').value = 'http://127.0.0.1:11437';
+    page.elements.get('coordinatorCallerToken').value = '$BRIDGE_CALLER_TOKEN';
+    page.elements.get('coordinatorNoNetwork').checked = true;
+    page.elements.get('coordinatorTrustWorkspace').checked = true;
+    page.elements.get('coordinatorEnableLsp').checked = true;
+    page.elements.get('coordinatorAgents').checked = true;
+    page.elements.get('coordinatorWorktrees').checked = true;
+    page.elements.get('coordinatorSkills').checked = true;
+    page.elements.get('coordinatorTestWatch').checked = true;
+    page.evaluate('render()');
+
+    const command = page.evaluate('buildRawCommand()');
+    assert.match(command, /node bin\/local-bridge-coordinator\.js/);
+    assert.match(command, /--phases research,synthesize,execute,verify/);
+    assert.match(command, /--research-plan '\.bridge-runner\/research-plan\.json'/);
+    assert.match(command, /--model 'claude-opus-4-6'/);
+    assert.match(command, /--max-tokens 4096 --max-steps 24/);
+    assert.match(command, /--output-format json/);
+    assert.match(command, /--effort high --thinking off --temperature 0\.2/);
+    assert.match(command, /--session-id 'coord-review'/);
+    assert.match(command, /--max-wall-clock-ms 600000/);
+    assert.match(command, /--max-cost-usd 2\.5/);
+    assert.match(command, /--budget-input-tokens 200000 --budget-output-tokens 32000/);
+    assert.match(command, /--no-network --trust-workspace --trace-level redacted/);
+    assert.match(command, /--capabilities edits,recovery,agents,worktrees,skills/);
+    assert.match(command, /--accept-edits --dont-ask --allow-shell --chaos-ok --enable-lsp --test-watch/);
+    assert.doesNotMatch(command, /--prompt-template|--include-file|--resume-session/);
+    assert.equal(page.elements.get('copyBtn').disabled, false);
+
+    page.evaluate('copyCommand()');
+    await Promise.resolve();
+    assert.equal(page.clipboard.text, command);
+    assert.doesNotMatch(page.storage.get('command-builder-state'), /BRIDGE_CALLER_TOKEN/);
+  });
+
+  it('blocks impossible coordinator phase combinations without erasing inactive choices', () => {
+    const page = createHarness();
+    page.elements.get('commandMode').value = 'coordinator';
+    page.elements.get('prompt').value = 'Inspect this repository.';
+    page.elements.get('coordinatorResearch').checked = false;
+    page.elements.get('coordinatorSynthesize').checked = false;
+    page.elements.get('coordinatorExecute').checked = false;
+    page.elements.get('coordinatorVerify').checked = false;
+    page.evaluate('render()');
+
+    assert.equal(page.elements.get('copyBtn').disabled, true);
+    assert.match(page.elements.get('validationWarnings').innerHTML, /Select at least one coordinator phase/);
+
+    page.elements.get('coordinatorVerify').checked = true;
+    page.evaluate('render()');
+    assert.equal(page.elements.get('copyBtn').disabled, true);
+    assert.match(page.elements.get('validationWarnings').innerHTML, /Verify needs Execute/);
+
+    page.elements.get('coordinatorExecute').checked = true;
+    page.elements.get('coordinatorResearchPlan').value = 'saved-plan.json';
+    page.evaluate('render()');
+    assert.equal(page.elements.get('copyBtn').disabled, false);
+    assert.equal(page.elements.get('coordinatorResearchPlan').value, 'saved-plan.json');
+    assert.doesNotMatch(page.evaluate('buildRawCommand()'), /--research-plan/);
+    assert.match(page.elements.get('validationWarnings').innerHTML, /saved but inactive until Research/);
+  });
+
+  it('persists ordinary checkbox changes through their real event listeners', () => {
+    const page = createHarness();
+    const mode = page.elements.get('commandMode');
+    const verify = page.elements.get('coordinatorVerify');
+
+    mode.value = 'coordinator';
+    mode.dispatch('change');
+    verify.checked = true;
+    verify.dispatch('change');
+
+    const saved = JSON.parse(page.storage.get('command-builder-state'));
+    assert.equal(saved.commandMode, 'coordinator');
+    assert.equal(saved.coordinatorVerify, true);
+  });
+
+  it("switches command types without resetting either mode's choices", () => {
+    const page = createHarness();
+    page.elements.get('prompt').value = 'Inspect this repository.';
+    page.elements.get('enableLsp').checked = true;
+    page.elements.get('commandMode').value = 'coordinator';
+    page.elements.get('coordinatorVerify').checked = true;
+    page.evaluate('render()');
+
+    page.elements.get('commandMode').value = 'runner';
+    page.evaluate('render()');
+    assert.equal(page.elements.get('enableLsp').checked, true);
+    assert.match(page.evaluate('buildRawCommand()'), /local-bridge-runner\.js[\s\S]*--enable-lsp/);
+
+    page.elements.get('commandMode').value = 'coordinator';
+    page.evaluate('render()');
+    assert.equal(page.elements.get('coordinatorVerify').checked, true);
+    assert.match(page.evaluate('buildRawCommand()'), /--phases research,synthesize,execute,verify/);
+  });
 });

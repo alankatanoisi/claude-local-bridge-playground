@@ -66,7 +66,7 @@ Measured end-to-end by the A1 crash bake-off (`docs/durability-crash-bakeoff-202
 | `session-store.js` (`*.state.json`)    | Debounced (75 ms default) atomic-write JSON checkpoint of API messages + runner metadata; the thing `--resume-session` actually loads                                    | Whatever entered the debounce window before signal death is lost; flushed synchronously on `process.exit` and, via the finalizer, on SIGINT/SIGTERM |
 | `session-ledger.js` (`*.ledger.jsonl`) | Append-only, sequence-numbered event log written synchronously (10 event types incl. the intent/result effect pairing); cursor sidecar (`*.cursor.json`) for fast resume | Survived byte-perfect in all 74 A1 kill trials and showed zero corrupt tails across the 141-ledger C3 corpus                                        |
 | `replay-simulator.js`                  | Read-only consistency check: sequence gaps, pending (unresolved) effect intents, orphaned tool uses                                                                      | Correctly classified every induced crash; note the orphaned-tool-use branch keys on event types the runner never emits (A1-F4)                      |
-| `ledger-repair.js`                     | `planRepair` proposes actions; `applyRepair` mutates when approved; `reconcileForResume` auto-applies the safe subset on `--resume-session` (F6 closed 2026-07-31) | Closes A1 stale-checkpoint double-execution and dangling-tool_use strands; `report_gap` stays manual-only |
+| `ledger-repair.js`                     | `planRepair` proposes actions; `applyRepair` mutates when approved; `reconcileForResume` auto-applies the safe subset on `--resume-session` (F6 closed 2026-07-31)       | Closes A1 stale-checkpoint double-execution and dangling-tool_use strands; `report_gap` stays manual-only                                           |
 
 The structural gap that A1 measured is **closed for resume**: the checkpoint is reconciled against
 the ledger before the run continues. SIGKILL can still interrupt an in-flight effect (at-least-once
@@ -84,19 +84,20 @@ for the interrupted step); completed effects are reconstructed so they are not s
 - The coordinator splits the unleased remainder across each concurrent batch
   (`computeLeaseRequest`, remainder ÷ batch size), so fan-out siblings cannot each claim
   the whole ceiling.
-- Known telemetry limits: the broker meters uncached tokens only (cache reads/creation are
-  reported by workers but not folded in — A3-F4), and the in-process execute phase is not
-  leased (its usage sits outside the broker snapshot).
+- Known telemetry limit: the broker meters uncached tokens only (cache reads/creation are
+  reported by agents but not folded in — A3-F4). Research, execute, and verify usage otherwise
+  share one input/output meter, and each later phase receives only the remainder.
 
 ## Orchestration stack
 
 ```text
-bin/local-bridge-coordinator.js          (CLI: objective, phases, ceilings, --research-plan)
+bin/local-bridge-coordinator.js          (CLI: objective, phases, execute authority, ceilings, --research-plan)
   └─ src/runner/coordinator.js           research → synthesize → execute → verify
        ├─ research/verify: WorkerRuntime.spawnWorker — out-of-process child runners,
        │    read-only tool set, leased budgets, results parsed from stdout JSON
        ├─ synthesize: coordinator-spec-compiler.compileSpec — local, no tokens
-       └─ execute: runKernel — in-process, full loop, edits allowed
+       └─ execute: runKernel — in-process full loop; core read/session tools by default,
+            edits/recovery/LSP/shell require explicit coordinator CLI opt-ins
 ```
 
 - `--research-plan` takes a JSON array of `{ id, deps[], prompt, allowedTools?, maxSteps? }`
@@ -107,8 +108,12 @@ bin/local-bridge-coordinator.js          (CLI: objective, phases, ceilings, --re
   process, **narrowing** authority against the parent ceiling (children may only narrow,
   never widen: flags AND-ed, tools intersected), passing lease + inherit values via
   argv/env, and never passing `--trust-workspace` (only `--inherit-workspace-trust`).
-- Workers are pinned to the runner CLI's default of 2,000 output tokens per request; no
-  plan or inherit knob raises it today (A3-F2).
+- The top-level coordinator validates target-folder trust before spawning anything. Workers and
+  the execute phase inherit that one-run consent without writing their own trust records.
+- `--max-tokens` is inherited by workers and the execute agent; a research-plan node may
+  override its own worker with `maxTokens`.
+- Input/output token budgets and wall-clock ceilings are measured across the phased run; Execute
+  and Verify receive only the remainder after earlier agents.
 
 ## Session artifacts on disk
 

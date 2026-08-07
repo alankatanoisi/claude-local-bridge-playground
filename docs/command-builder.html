@@ -379,7 +379,9 @@
         align-items: center;
         gap: 0.4rem;
       }
-      .shell-warn.show,
+      .shell-warn.show {
+        display: block;
+      }
       .note.show {
         display: flex;
       }
@@ -540,11 +542,26 @@
       <div class="layout">
         <!-- ── LEFT ── FORM ── -->
         <div>
+          <!-- Pick the executable first. The coordinator is a separate CLI,
+               not merely another runner preset, so its controls and command
+               surface stay visibly distinct. -->
+          <div class="card">
+            <h2>Command type</h2>
+            <div class="field">
+              <label for="commandMode">What kind of run do you want?</label>
+              <select id="commandMode">
+                <option value="runner" selected>Single agent runner — one agent loop</option>
+                <option value="coordinator">Phased coordinator — research → synthesize → execute → verify</option>
+              </select>
+              <p id="commandModeHint" class="style-hint"></p>
+            </div>
+          </div>
+
           <!-- Prompt -->
           <div class="card">
-            <h2>Prompt</h2>
+            <h2 id="promptHeading">Prompt</h2>
             <div class="field">
-              <label for="prompt">What should the runner do?</label>
+              <label for="prompt" id="promptLabel">What should the runner do?</label>
               <textarea
                 id="prompt"
                 placeholder="e.g. Explain how src/server.js works&#10;or: Add JSDoc to every exported function"
@@ -556,26 +573,80 @@
               <li>Copy the command into <strong>Terminal</strong> after the local bridge is already running.</li>
               <li>
                 All CLI flags are listed in Terminal:
-                <code>node bin/local-bridge-runner.js --help</code>
+                <code id="promptHelpCommand">node bin/local-bridge-runner.js --help</code>
               </li>
-              <li>New here? Try a read-only preset first — it inspects files without changing anything.</li>
+              <li id="beginnerModeTip">New here? Try a read-only preset first — it inspects files without changing anything.</li>
             </ul>
           </div>
 
           <!-- Presets -->
-          <div class="card">
+          <div class="card" id="runnerPresetsCard">
             <h2>Quick presets</h2>
             <p class="style-hint">Pick a starting point, then adjust permission style or folders below.</p>
             <div class="presets" id="presets">
-              <button class="preset-btn" data-preset="minimal" title="List top-level files and summarize the repo. Read-only, bare context, 8 steps. The safest starting point.">Minimal look-around</button>
-              <button class="preset-btn" data-preset="readonly" title="Read README and runner entry point, explain the loop. Read-only with verbose output, 10 steps.">Read-only exploration</button>
-              <button class="preset-btn" data-preset="plan" title="Propose a small improvement without writing any files. Plan mode — read-only tools run for real; writes become recorded proposal diffs. 10 steps.">Plan first (dry run)</button>
-              <button class="preset-btn" data-preset="confirm" title="Make a small edit, but the runner asks you in Terminal before each file change. 12 steps.">Edit with confirmation</button>
-              <button class="preset-btn" data-preset="auto" title="Fix a typo or wording issue with auto-approved file changes. No shell access, 16 steps.">Auto-approve edits</button>
-              <button class="preset-btn" data-preset="verify" title="Make an improvement, then auto-run tests via --test-watch to verify. Enables shell. 20 steps.">Verify after edits</button>
-              <button class="preset-btn" data-preset="delegate" title="Spawn a code-reviewer subagent to review a file read-only, then summarize findings. 12 steps.">Delegate subagent</button>
-              <button class="preset-btn" data-preset="worktree" title="Edit inside an isolated git worktree branch so your main branch stays clean. The worktree is preserved for review after the run.">Safe edits in a worktree</button>
-              <button class="preset-btn" data-preset="full" title="Full editing and shell access with streaming and verbose output. Runs tests and fixes failures. The most powerful preset — and the most risky. 24 steps.">Edit + shell</button>
+              <button
+                class="preset-btn"
+                data-preset="minimal"
+                title="List top-level files and summarize the repo. Read-only, bare context, 8 steps. The safest starting point."
+              >
+                Minimal look-around
+              </button>
+              <button
+                class="preset-btn"
+                data-preset="readonly"
+                title="Read README and runner entry point, explain the loop. Read-only with verbose output, 10 steps."
+              >
+                Read-only exploration
+              </button>
+              <button
+                class="preset-btn"
+                data-preset="plan"
+                title="Propose a small improvement without writing any files. Plan mode — read-only tools run for real; writes become recorded proposal diffs. 10 steps."
+              >
+                Plan first (dry run)
+              </button>
+              <button
+                class="preset-btn"
+                data-preset="confirm"
+                title="Make a small edit, but the runner asks you in Terminal before each file change. 12 steps."
+              >
+                Edit with confirmation
+              </button>
+              <button
+                class="preset-btn"
+                data-preset="auto"
+                title="Fix a typo or wording issue with auto-approved file changes. No shell access, 16 steps."
+              >
+                Auto-approve edits
+              </button>
+              <button
+                class="preset-btn"
+                data-preset="verify"
+                title="Make an improvement, then auto-run tests via --test-watch to verify. Enables shell. 20 steps."
+              >
+                Verify after edits
+              </button>
+              <button
+                class="preset-btn"
+                data-preset="delegate"
+                title="Spawn a code-reviewer subagent to review a file read-only, then summarize findings. 12 steps."
+              >
+                Delegate subagent
+              </button>
+              <button
+                class="preset-btn"
+                data-preset="worktree"
+                title="Edit inside an isolated git worktree branch so your main branch stays clean. The worktree is preserved for review after the run."
+              >
+                Safe edits in a worktree
+              </button>
+              <button
+                class="preset-btn"
+                data-preset="full"
+                title="Full editing and shell access with streaming and verbose output. Runs tests and fixes failures. The most powerful preset — and the most risky. 24 steps."
+              >
+                Edit + shell
+              </button>
             </div>
           </div>
 
@@ -584,7 +655,12 @@
             <h2>Run settings</h2>
 
             <div class="field">
-              <label for="permissionStyle" title="Controls the runner's write and shell permissions. 'Look only' is safest — the model can read but never change files. Each level adds more power and more risk.">What may the runner do?</label>
+              <label
+                id="permissionStyleLabel"
+                for="permissionStyle"
+                title="Controls the runner's write and shell permissions. 'Look only' is safest — the model can read but never change files. Each level adds more power and more risk."
+                >What may the runner do?</label
+              >
               <select id="permissionStyle">
                 <option value="look-only">Look only — read files, no writes</option>
                 <option value="plan-first">Plan first — real reads, writes become proposal diffs</option>
@@ -601,8 +677,8 @@
             <input type="checkbox" id="allowShell" hidden />
 
             <div id="chaosConflict" class="warn-panel conflict">
-              &#9940; <strong>Blocked:</strong> shell + auto-edits + no prompts needs <code>--chaos-ok</code> (enable under Advanced or
-              pick Edit + shell preset).
+              &#9940; <strong>Blocked:</strong> shell + auto-edits + no prompts needs <code>--chaos-ok</code> (enable
+              under Advanced or pick Edit + shell preset).
             </div>
             <div id="permissionCautions" class="warn-panel caution"></div>
             <div id="shellWarn" class="shell-warn">
@@ -610,17 +686,26 @@
               <strong>not</strong> confined to it; <code>--no-network</code> is best-effort only.
             </div>
             <div id="planNote" class="note" style="display: none">
-              &#8505; <strong>Plan mode:</strong> read-only tools run for real; proposed writes are recorded as unified diffs and never executed.
+              &#8505; <strong>Plan mode:</strong> read-only tools run for real; proposed writes are recorded as unified
+              diffs and never executed.
             </div>
 
             <div class="row" style="margin-top: 0.75rem">
               <div class="field">
-                <label for="cwd" title="The folder the runner's tools operate inside — where it reads, searches, and writes files. This is the project you want the model to work on, not the runner's own folder.">Target project folder</label>
+                <label
+                  for="cwd"
+                  title="The folder the runner's tools operate inside — where it reads, searches, and writes files. This is the project you want the model to work on, not the runner's own folder."
+                  >Target project folder</label
+                >
                 <input type="text" id="cwd" placeholder="/Users/alanman/path/to/project" />
               </div>
             </div>
             <div class="field">
-              <label for="runnerPath" title="The folder where the runner code lives — you paste the generated command into Terminal while cd'd into this folder. Usually the claude-local-bridge-playground checkout.">Runner repo folder (where you run the command)</label>
+              <label
+                for="runnerPath"
+                title="The folder where the runner code lives — you paste the generated command into Terminal while cd'd into this folder. Usually the claude-local-bridge-playground checkout."
+                >Runner repo folder (where you run the command)</label
+              >
               <input
                 type="text"
                 id="runnerPath"
@@ -629,20 +714,284 @@
             </div>
           </div>
 
+          <!-- Coordinator-only controls. The ordinary runner's many advanced
+               fields are hidden in this mode because the coordinator CLI does
+               not accept them. Switching modes never clears either set. -->
+          <div class="card" id="coordinatorCard" hidden>
+            <h2>Coordinator phases &amp; limits</h2>
+            <p class="style-hint">
+              Research and verify use read-only child agents. The permission style above applies only to the execute
+              agent. A checked capability is permission to use it, not an instruction that it must be used.
+            </p>
+
+            <div class="field">
+              <label>Phases to run, in this fixed order</label>
+              <div class="checks">
+                <label
+                  class="check-label"
+                  title="Launch one read-only worker, or the fan-out plan below, to inspect relevant files before execution."
+                >
+                  <input type="checkbox" id="coordinatorResearch" checked /> Research
+                </label>
+                <label
+                  class="check-label"
+                  title="Compile the objective and research evidence into a structured implementation specification locally; this phase makes no model call."
+                >
+                  <input type="checkbox" id="coordinatorSynthesize" checked /> Synthesize
+                </label>
+                <label
+                  class="check-label"
+                  title="Run the main agent loop against the synthesized specification. Its authority comes from the permission style above."
+                >
+                  <input type="checkbox" id="coordinatorExecute" checked /> Execute
+                </label>
+                <label
+                  class="check-label"
+                  title="After execute succeeds, launch a final read-only worker to inspect whether the objective appears satisfied."
+                >
+                  <input type="checkbox" id="coordinatorVerify" /> Verify
+                </label>
+              </div>
+            </div>
+
+            <div class="checks">
+              <label
+                class="check-label"
+                title="Use read-only child processes for research and verify. Turn this off for a coordinator run with no child workers."
+              >
+                <input type="checkbox" id="coordinatorUseWorkers" checked /> Use read-only research/verify workers
+              </label>
+              <label
+                class="check-label"
+                title="Best-effort proxy guard inherited by workers and the execute agent. It is not hard network isolation."
+              >
+                <input type="checkbox" id="coordinatorNoNetwork" /> Apply best-effort network guard to every agent
+                <code>--no-network</code>
+              </label>
+              <label
+                class="check-label"
+                title="Pre-answer yes to the first-time target-folder consent gate. Use only after you have reviewed and trust that folder."
+              >
+                <input type="checkbox" id="coordinatorTrustWorkspace" /> Record target-folder consent
+                <code>--trust-workspace</code>
+              </label>
+              <label
+                class="check-label"
+                id="coordinatorLspRow"
+                title="Expose lsp_query to the execute agent. Research/verify workers remain on their fixed read-only tool set."
+              >
+                <input type="checkbox" id="coordinatorEnableLsp" /> Enable LSP for execute <code>--enable-lsp</code>
+              </label>
+              <label
+                class="check-label"
+                title="Let the execute agent delegate read-only investigations to child agents when it judges that useful."
+              >
+                <input type="checkbox" id="coordinatorAgents" /> Allow execute to delegate <code>agents</code>
+              </label>
+              <label
+                class="check-label"
+                title="Let the execute agent create and manage isolated git worktrees. This grants the tools; it does not force their use."
+              >
+                <input type="checkbox" id="coordinatorWorktrees" /> Allow execute to use worktrees
+                <code>worktrees</code>
+              </label>
+              <label
+                class="check-label"
+                title="Let the execute agent load project skill documents by name when one is relevant."
+              >
+                <input type="checkbox" id="coordinatorSkills" /> Allow execute to load skills <code>skills</code>
+              </label>
+              <label
+                class="check-label is-muted-control"
+                id="coordinatorTestWatchRow"
+                title="After execute writes a file, run detected tests. Requires the Edit + shell permission style."
+              >
+                <input type="checkbox" id="coordinatorTestWatch" /> Auto-run tests after execute writes
+                <code>--test-watch</code>
+              </label>
+            </div>
+
+            <div class="field" id="coordinatorResearchPlanRow">
+              <label
+                for="coordinatorResearchPlan"
+                title="Path to a JSON array of research nodes. Nodes whose dependencies are already satisfied run concurrently."
+                >Optional research fan-out plan file</label
+              >
+              <input type="text" id="coordinatorResearchPlan" placeholder=".bridge-runner/research-plan.json" />
+              <small style="color: var(--muted); margin-top: 0.25rem">
+                Each node needs an <code>id</code> and may set <code>deps</code>, <code>prompt</code>,
+                <code>allowedTools</code>, <code>maxSteps</code>, or <code>maxTokens</code>.
+              </small>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label for="coordinatorModel">Model</label>
+                <select id="coordinatorModel">
+                  <option value="claude-sonnet-5" selected>claude-sonnet-5 (default)</option>
+                  <option value="claude-fable-5">claude-fable-5</option>
+                  <option value="claude-mythos-5">claude-mythos-5 (limited availability)</option>
+                  <option value="claude-mythos-preview">claude-mythos-preview (limited availability)</option>
+                  <option value="claude-opus-5">claude-opus-5</option>
+                  <option value="claude-opus-4-8">claude-opus-4-8</option>
+                  <option value="claude-opus-4-7">claude-opus-4-7</option>
+                  <option value="claude-opus-4-6">claude-opus-4-6</option>
+                  <option value="claude-opus-4-5">claude-opus-4-5</option>
+                  <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+                  <option value="claude-sonnet-4-5">claude-sonnet-4-5</option>
+                  <option value="claude-haiku-4-5">claude-haiku-4-5</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="coordinatorCustomModel">Custom or future model id</label>
+                <input type="text" id="coordinatorCustomModel" placeholder="Overrides the model picker" />
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label
+                  for="coordinatorMaxTokens"
+                  title="Maximum output tokens for each model request. Research-plan nodes may override this per worker."
+                  >Response output tokens</label
+                >
+                <input type="number" id="coordinatorMaxTokens" value="2000" min="100" max="128000" />
+              </div>
+              <div class="field">
+                <label
+                  for="coordinatorMaxSteps"
+                  title="Maximum turns for the execute agent. Research workers have their own plan/default step limits."
+                  >Execute max steps</label
+                >
+                <input type="number" id="coordinatorMaxSteps" value="16" min="1" max="200" />
+              </div>
+              <div class="field">
+                <label for="coordinatorOutputFormat">Output format</label>
+                <select id="coordinatorOutputFormat">
+                  <option value="text">text — normal terminal output</option>
+                  <option value="json">json — one final coordinator object</option>
+                  <option value="stream-json">stream-json — phase/worker events as JSON lines</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label for="coordinatorEffort">Model effort</label>
+                <select id="coordinatorEffort">
+                  <option value="">auto</option>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                  <option value="xhigh">xhigh</option>
+                  <option value="max">max</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="coordinatorThinking">Adaptive thinking</label>
+                <select id="coordinatorThinking">
+                  <option value="auto">auto</option>
+                  <option value="adaptive">adaptive</option>
+                  <option value="off">off</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="coordinatorTemperature">Temperature</label>
+                <input
+                  type="number"
+                  id="coordinatorTemperature"
+                  placeholder="model default"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                />
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label for="coordinatorSessionId">Session id</label>
+                <input type="text" id="coordinatorSessionId" placeholder="coord-review-1" />
+              </div>
+              <div class="field">
+                <label for="coordinatorTraceLevel">Flight recorder trace level</label>
+                <select id="coordinatorTraceLevel">
+                  <option value="off">off</option>
+                  <option value="summary">summary — metadata only</option>
+                  <option value="redacted">redacted — scrubbed payloads</option>
+                  <option value="full">full — widest local details</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label for="coordinatorMaxWallClockMs">Whole-run wall-clock ceiling (ms)</label>
+                <input type="number" id="coordinatorMaxWallClockMs" placeholder="600000" min="1" />
+              </div>
+              <div class="field">
+                <label
+                  for="coordinatorMaxCostUsd"
+                  title="Per-agent estimated cost stop. Token leases are the shared fan-out budget boundary."
+                  >Per-agent cost ceiling (USD)</label
+                >
+                <input type="number" id="coordinatorMaxCostUsd" placeholder="2.00" min="0.01" step="0.01" />
+              </div>
+              <div class="field">
+                <label for="coordinatorBudgetInputTokens">Shared input-token budget</label>
+                <input type="number" id="coordinatorBudgetInputTokens" placeholder="200000" min="0" />
+              </div>
+              <div class="field">
+                <label for="coordinatorBudgetOutputTokens">Shared output-token budget</label>
+                <input type="number" id="coordinatorBudgetOutputTokens" placeholder="32000" min="0" />
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field">
+                <label for="coordinatorBridgeUrl">Bridge URL</label>
+                <input type="text" id="coordinatorBridgeUrl" placeholder="http://127.0.0.1:11437" />
+              </div>
+              <div class="field">
+                <label for="coordinatorCallerToken">Caller auth token</label>
+                <input
+                  type="text"
+                  id="coordinatorCallerToken"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="$BRIDGE_CALLER_TOKEN (preferred)"
+                />
+                <small style="color: var(--muted); margin-top: 0.25rem">Never saved in browser storage.</small>
+              </div>
+            </div>
+          </div>
+
           <details class="advanced-panel" id="advancedPanel">
             <summary>Advanced options</summary>
             <div class="advanced-body">
               <!-- 4.1: tier navigation hint -->
-              <p style="font-size: 0.78rem; color: var(--muted); margin-bottom: 0.5rem; border-left: 3px solid var(--border); padding-left: 0.7rem;">
-                <strong style="color: var(--green);">Common extras:</strong> Attach files, Output &amp; logging &nbsp;|&nbsp;
-                <strong style="color: var(--blue);">Tuning:</strong> Model &amp; limits, Prompt templates &nbsp;|&nbsp;
-                <strong style="color: var(--purple);">Expert:</strong> Session &amp; context, Tool catalog
+              <p
+                style="
+                  font-size: 0.78rem;
+                  color: var(--muted);
+                  margin-bottom: 0.5rem;
+                  border-left: 3px solid var(--border);
+                  padding-left: 0.7rem;
+                "
+              >
+                <strong style="color: var(--green)">Common extras:</strong> Attach files, Output &amp; logging
+                &nbsp;|&nbsp; <strong style="color: var(--blue)">Tuning:</strong> Model &amp; limits, Prompt templates
+                &nbsp;|&nbsp; <strong style="color: var(--purple)">Expert:</strong> Session &amp; context, Tool catalog
               </p>
               <!-- Attachments -->
               <div class="card">
                 <h2>Attach files</h2>
                 <div class="field">
-                  <label for="attachmentMode" title="How attached files reach the model. 'Read' asks the model to use read_file on the paths. 'Include' embeds file contents via --include-file. 'Stdin' pipes file contents through standard input.">Attachment mode</label>
+                  <label
+                    for="attachmentMode"
+                    title="How attached files reach the model. 'Read' asks the model to use read_file on the paths. 'Include' embeds file contents via --include-file. 'Stdin' pipes file contents through standard input."
+                    >Attachment mode</label
+                  >
                   <select id="attachmentMode">
                     <option value="read">Ask model to read these project paths</option>
                     <option value="include">Include file contents with --include-file</option>
@@ -660,7 +1009,11 @@
               <div class="card">
                 <h2>Model &amp; limits</h2>
                 <div class="field">
-                  <label for="model" title="Which Claude model the runner sends prompts to. Bigger models (like Opus) are smarter but slower and more expensive per turn.">Model</label>
+                  <label
+                    for="model"
+                    title="Which Claude model the runner sends prompts to. Bigger models (like Opus) are smarter but slower and more expensive per turn."
+                    >Model</label
+                  >
                   <select id="model">
                     <option value="claude-sonnet-5" selected>claude-sonnet-5 (default)</option>
                     <option value="claude-fable-5">claude-fable-5</option>
@@ -677,7 +1030,11 @@
                   </select>
                 </div>
                 <div class="field">
-                  <label for="customModel" title="Optional exact model id. The runner intentionally passes unknown future model ids through, but it can only validate and price models in its local catalog.">Custom or future model id</label>
+                  <label
+                    for="customModel"
+                    title="Optional exact model id. The runner intentionally passes unknown future model ids through, but it can only validate and price models in its local catalog."
+                    >Custom or future model id</label
+                  >
                   <input type="text" id="customModel" placeholder="Leave blank to use the selected catalog model" />
                   <small style="color: var(--muted); margin-top: 0.25rem">
                     Overrides the picker. Unknown ids use conservative context estimates and produce a runtime warning.
@@ -685,17 +1042,29 @@
                 </div>
                 <div class="row">
                   <div class="field">
-                    <label for="maxSteps" title="Maximum number of model turns before the runner stops. Each step is one model response that may include tool calls. Higher = more work done, more tokens spent.">Max steps</label>
+                    <label
+                      for="maxSteps"
+                      title="Maximum number of model turns before the runner stops. Each step is one model response that may include tool calls. Higher = more work done, more tokens spent."
+                      >Max steps</label
+                    >
                     <input type="number" id="maxSteps" value="16" min="1" max="200" />
                   </div>
                   <div class="field">
-                    <label for="maxTokens" title="Maximum response output tokens for one model request. This allowance also reduces the room available for input context.">Response output tokens</label>
+                    <label
+                      for="maxTokens"
+                      title="Maximum response output tokens for one model request. This allowance also reduces the room available for input context."
+                      >Response output tokens</label
+                    >
                     <input type="number" id="maxTokens" value="2000" min="100" max="128000" />
                   </div>
                 </div>
                 <div class="row">
                   <div class="field">
-                    <label for="temperature" title="Controls randomness in model output. Leave blank for current Claude 5 and Opus 4.7+ models, which reject non-default sampling values.">Temperature</label>
+                    <label
+                      for="temperature"
+                      title="Controls randomness in model output. Leave blank for current Claude 5 and Opus 4.7+ models, which reject non-default sampling values."
+                      >Temperature</label
+                    >
                     <input type="number" id="temperature" placeholder="model default" min="0" max="1" step="0.1" />
                     <div class="note show" id="temperatureNote">
                       &#8505; Leave this blank for Claude 5 and Opus 4.7+ models; Anthropic rejects non-default sampling
@@ -703,16 +1072,28 @@
                     </div>
                   </div>
                   <div class="field">
-                    <label for="compactAtTokens" title="Advanced override for when the request projection starts reducing old evidence. It never enlarges the model context window.">Compact old evidence at</label>
+                    <label
+                      for="compactAtTokens"
+                      title="Advanced override for when the request projection starts reducing old evidence. It never enlarges the model context window."
+                      >Compact old evidence at</label
+                    >
                     <input type="number" id="compactAtTokens" placeholder="derived from model" min="1000" step="1000" />
                   </div>
                   <div class="field">
-                    <label for="maxRunTokens" title="Cumulative input occupancy, including cache read/write tokens, plus model output. This is a whole-run guardrail, not current context size.">Maximum run tokens</label>
+                    <label
+                      for="maxRunTokens"
+                      title="Cumulative input occupancy, including cache read/write tokens, plus model output. This is a whole-run guardrail, not current context size."
+                      >Maximum run tokens</label
+                    >
                     <input type="number" id="maxRunTokens" placeholder="optional" min="1000" step="1000" />
                   </div>
                 </div>
                 <div class="field">
-                  <label for="maxToolCalls" title="Limit how many tools the model can call in a single response. Prevents runaway turns where the model makes dozens of file reads at once.">Max tool calls in one turn</label>
+                  <label
+                    for="maxToolCalls"
+                    title="Limit how many tools the model can call in a single response. Prevents runaway turns where the model makes dozens of file reads at once."
+                    >Max tool calls in one turn</label
+                  >
                   <input type="number" id="maxToolCalls" placeholder="optional" min="1" max="100" />
                 </div>
               </div>
@@ -721,7 +1102,11 @@
               <div class="card">
                 <h2>Prompt templates</h2>
                 <div class="field">
-                  <label for="promptTemplate" title="Pre-built prompt templates that set the model's approach — explore for read-only orientation, review for code review, cleanup for refactoring, etc. Each suggests safe permissions and tools for its job.">Built-in template</label>
+                  <label
+                    for="promptTemplate"
+                    title="Pre-built prompt templates that set the model's approach — explore for read-only orientation, review for code review, cleanup for refactoring, etc. Each suggests safe permissions and tools for its job."
+                    >Built-in template</label
+                  >
                   <select id="promptTemplate">
                     <option value="">none</option>
                     <option value="explore">explore — read-only orientation</option>
@@ -731,7 +1116,10 @@
                     <option value="grill">grill — question the user before finishing</option>
                     <option value="simplify">simplify — review quality after edits</option>
                   </select>
-                  <small id="promptTemplateHint" style="display: none; color: var(--muted); margin-top: 0.35rem"></small>
+                  <small
+                    id="promptTemplateHint"
+                    style="display: none; color: var(--muted); margin-top: 0.35rem"
+                  ></small>
                 </div>
                 <div class="field">
                   <label for="customPromptTemplate">Custom template name or path</label>
@@ -755,20 +1143,46 @@
               <div class="card">
                 <h2>Output &amp; logging</h2>
                 <div class="checks">
-                  <label class="check-label" title="When on, model responses appear word-by-word in real time instead of all at once. Helpful for watching the model think, but produces more terminal output."> <input type="checkbox" id="stream" /> Stream responses live <code>--stream</code> </label>
-                  <label class="check-label" title="Show extra detail about each step — tool decisions, token counts, and timing. Useful for understanding what the runner is doing under the hood."> <input type="checkbox" id="verbose" /> Show detailed output <code>--verbose</code> </label>
-                  <label class="check-label" id="noNetworkRow" title="Best-effort guard: points the shell's HTTP/HTTPS proxy variables at a dead address so most curl/npm-style traffic fails. It is NOT hard network isolation — a command can unset the proxy vars or use raw sockets. Only works when shell is enabled.">
+                  <label
+                    class="check-label"
+                    title="When on, model responses appear word-by-word in real time instead of all at once. Helpful for watching the model think, but produces more terminal output."
+                  >
+                    <input type="checkbox" id="stream" /> Stream responses live <code>--stream</code>
+                  </label>
+                  <label
+                    class="check-label"
+                    title="Show extra detail about each step — tool decisions, token counts, and timing. Useful for understanding what the runner is doing under the hood."
+                  >
+                    <input type="checkbox" id="verbose" /> Show detailed output <code>--verbose</code>
+                  </label>
+                  <label
+                    class="check-label"
+                    id="noNetworkRow"
+                    title="Best-effort guard: points the shell's HTTP/HTTPS proxy variables at a dead address so most curl/npm-style traffic fails. It is NOT hard network isolation — a command can unset the proxy vars or use raw sockets. Only works when shell is enabled."
+                  >
                     <input type="checkbox" id="noNetwork" /> Block network in shell <code>--no-network</code>
                   </label>
-                  <label class="check-label is-muted-control" id="testWatchRow" title="After any file write, automatically run your project's test suite and feed results back to the model so it can fix failures. Requires --allow-shell because tests run in Terminal.">
+                  <label
+                    class="check-label is-muted-control"
+                    id="testWatchRow"
+                    title="After any file write, automatically run your project's test suite and feed results back to the model so it can fix failures. Requires --allow-shell because tests run in Terminal."
+                  >
                     <input type="checkbox" id="testWatch" /> Auto-run tests after writes <code>--test-watch</code>
                   </label>
-                  <label class="check-label" id="enableLspRow" title="Give the model access to Language Server Protocol features — go-to-definition, find-references, hover docs, and diagnostics. Requires a running LSP server for your project language.">
+                  <label
+                    class="check-label"
+                    id="enableLspRow"
+                    title="Give the model access to Language Server Protocol features — go-to-definition, find-references, hover docs, and diagnostics. Requires a running LSP server for your project language."
+                  >
                     <input type="checkbox" id="enableLsp" /> Enable LSP queries <code>--enable-lsp</code>
                   </label>
                 </div>
                 <div class="field">
-                  <label for="outputFormat" title="How the runner's output appears. 'text' is normal terminal output. 'json' gives one JSON object at the end (good for scripts). 'stream-json' emits JSON lines as events happen (good for piping to other tools).">Output format</label>
+                  <label
+                    for="outputFormat"
+                    title="How the runner's output appears. 'text' is normal terminal output. 'json' gives one JSON object at the end (good for scripts). 'stream-json' emits JSON lines as events happen (good for piping to other tools)."
+                    >Output format</label
+                  >
                   <select id="outputFormat">
                     <option value="text">text — normal terminal output</option>
                     <option value="json">json — one final JSON object</option>
@@ -777,11 +1191,19 @@
                 </div>
                 <div class="row">
                   <div class="field">
-                    <label for="confirmTimeout" title="How long the runner waits for you to approve a file change before timing out. Only matters when file writes require confirmation (edit-ask mode). In milliseconds.">Approval timeout (ms)</label>
+                    <label
+                      for="confirmTimeout"
+                      title="How long the runner waits for you to approve a file change before timing out. Only matters when file writes require confirmation (edit-ask mode). In milliseconds."
+                      >Approval timeout (ms)</label
+                    >
                     <input type="number" id="confirmTimeout" placeholder="optional" min="1000" step="1000" />
                   </div>
                   <div class="field">
-                    <label for="logLevel" title="Controls how chatty the runner's own status messages are (separate from the model's output). 'verbose' shows more internal state, 'quiet' suppresses most runner messages.">Runtime messages</label>
+                    <label
+                      for="logLevel"
+                      title="Controls how chatty the runner's own status messages are (separate from the model's output). 'verbose' shows more internal state, 'quiet' suppresses most runner messages."
+                      >Runtime messages</label
+                    >
                     <select id="logLevel">
                       <option value="">normal</option>
                       <option value="verbose">verbose</option>
@@ -790,21 +1212,37 @@
                   </div>
                 </div>
                 <div class="field" style="margin-top: 0.5rem">
-                  <label for="systemPrompt" title="Replace the runner's built-in system prompt entirely with your own text. Advanced — most use cases are better served by --append-system-prompt which adds to the default instead of replacing it.">Custom system prompt</label>
+                  <label
+                    for="systemPrompt"
+                    title="Replace the runner's built-in system prompt entirely with your own text. Advanced — most use cases are better served by --append-system-prompt which adds to the default instead of replacing it."
+                    >Custom system prompt</label
+                  >
                   <input type="text" id="systemPrompt" placeholder="Override the built-in system prompt (optional)" />
                 </div>
                 <div class="row">
                   <div class="field">
-                    <label for="systemPromptFile" title="Load a full system prompt replacement from a file instead of typing it inline. The file path is relative to --cwd.">System prompt file</label>
+                    <label
+                      for="systemPromptFile"
+                      title="Load a full system prompt replacement from a file instead of typing it inline. The file path is relative to --cwd."
+                      >System prompt file</label
+                    >
                     <input type="text" id="systemPromptFile" placeholder=".bridge-runner/SYSTEM.md" />
                   </div>
                   <div class="field">
-                    <label for="appendSystemPromptFile" title="Load extra rules from a file and append them after the default system prompt. A safe way to add project-specific instructions without losing the built-in safety rules.">Append prompt file</label>
+                    <label
+                      for="appendSystemPromptFile"
+                      title="Load extra rules from a file and append them after the default system prompt. A safe way to add project-specific instructions without losing the built-in safety rules."
+                      >Append prompt file</label
+                    >
                     <input type="text" id="appendSystemPromptFile" placeholder=".bridge-runner/APPEND_SYSTEM.md" />
                   </div>
                 </div>
                 <div class="field">
-                  <label for="appendSystemPrompt" title="Extra rules appended after the default system prompt. Use this to add custom instructions without overriding the built-in prompt. Safer than replacing the system prompt entirely.">Append system prompt text</label>
+                  <label
+                    for="appendSystemPrompt"
+                    title="Extra rules appended after the default system prompt. Use this to add custom instructions without overriding the built-in prompt. Safer than replacing the system prompt entirely."
+                    >Append system prompt text</label
+                  >
                   <input
                     type="text"
                     id="appendSystemPrompt"
@@ -812,7 +1250,11 @@
                   />
                 </div>
                 <div class="field" id="shellTimeoutRow">
-                  <label for="shellTimeout" title="Maximum time a single shell command can run before the runner kills it. In milliseconds. Prevents commands like 'npm install' from hanging forever.">Shell timeout (ms)</label>
+                  <label
+                    for="shellTimeout"
+                    title="Maximum time a single shell command can run before the runner kills it. In milliseconds. Prevents commands like 'npm install' from hanging forever."
+                    >Shell timeout (ms)</label
+                  >
                   <input type="number" id="shellTimeout" value="30000" min="100" max="900000" step="1000" />
                 </div>
               </div>
@@ -822,22 +1264,39 @@
                 <h2>Session &amp; context</h2>
                 <p class="subsection-title">Session health</p>
                 <div class="checks">
-                  <label class="check-label" id="newSessionRow" title="Ignore any existing session for this folder and start completely fresh. Previous context is discarded.">
+                  <label
+                    class="check-label"
+                    id="newSessionRow"
+                    title="Ignore any existing session for this folder and start completely fresh. Previous context is discarded."
+                  >
                     <input type="checkbox" id="newSession" /> Force a fresh session <code>--new-session</code>
                   </label>
-                  <label class="check-label" id="resumeSessionRow" title="Resume the canonical session checkpoint named by Session id or Session path below. This is different from a JSONL transcript.">
+                  <label
+                    class="check-label"
+                    id="resumeSessionRow"
+                    title="Resume the canonical session checkpoint named by Session id or Session path below. This is different from a JSONL transcript."
+                  >
                     <input type="checkbox" id="resumeSession" /> Resume specified session <code>--resume-session</code>
                   </label>
-                  <label class="check-label" id="ackResumeRiskRow" title="Override the safety check that normally blocks resuming a degraded session. Use only when you understand and accept the risk that the session's history may be unreliable.">
-                    <input type="checkbox" id="ackResumeRisk" /> Accept degraded-session risk <code>--ack-resume-risk</code>
+                  <label
+                    class="check-label"
+                    id="ackResumeRiskRow"
+                    title="Override the safety check that normally blocks resuming a degraded session. Use only when you understand and accept the risk that the session's history may be unreliable."
+                  >
+                    <input type="checkbox" id="ackResumeRisk" /> Accept degraded-session risk
+                    <code>--ack-resume-risk</code>
                   </label>
                 </div>
                 <div id="sessionConflict" class="warn-panel conflict">
-                  &#9940; <strong>Conflict:</strong> Pick one resume style: <code>--new-session</code>, <code>--resume-session</code>,
-                  or <code>--continue</code> — combining them is confusing.
+                  &#9940; <strong>Conflict:</strong> Pick one resume style: <code>--new-session</code>,
+                  <code>--resume-session</code>, or <code>--continue</code> — combining them is confusing.
                 </div>
                 <div class="field">
-                  <label for="forkFrom" title="Start a new session that shares a parent session's history up to a point, then diverges — like a git branch but for agent conversations. Enter the parent session's id.">Fork from session id</label>
+                  <label
+                    for="forkFrom"
+                    title="Start a new session that shares a parent session's history up to a point, then diverges — like a git branch but for agent conversations. Enter the parent session's id."
+                    >Fork from session id</label
+                  >
                   <input type="text" id="forkFrom" placeholder="parent-session-id" />
                 </div>
 
@@ -846,23 +1305,66 @@
                   The runner no longer injects AGENTS.md / repo map by default. Opt in explicitly below.
                 </p>
                 <div class="checks">
-                  <label class="check-label" id="bareContextRow" title="Start with the absolute minimum system prompt — no AGENTS.md, no repo map, no built-in instructions. Saved rich-context choices stay selected but are inactive until bare mode is turned off."> <input type="checkbox" id="bareContext" /> Skip default instructions <code>--bare</code> </label>
+                  <label
+                    class="check-label"
+                    id="bareContextRow"
+                    title="Start with the absolute minimum system prompt — no AGENTS.md, no repo map, no built-in instructions. Saved rich-context choices stay selected but are inactive until bare mode is turned off."
+                  >
+                    <input type="checkbox" id="bareContext" /> Skip default instructions <code>--bare</code>
+                  </label>
                   <label class="check-label" id="includeInstructionDocsRow">
-                    <input type="checkbox" id="includeInstructionDocs" title="Load AGENTS.md and other instruction documents from your project into the system prompt. Gives the model project-specific rules and conventions." /> Load AGENTS.md &amp; instruction docs <code>--include-instruction-docs</code>
+                    <input
+                      type="checkbox"
+                      id="includeInstructionDocs"
+                      title="Load AGENTS.md and other instruction documents from your project into the system prompt. Gives the model project-specific rules and conventions."
+                    />
+                    Load AGENTS.md &amp; instruction docs <code>--include-instruction-docs</code>
                   </label>
                   <label class="check-label" id="includeRepoContextRow">
-                    <input type="checkbox" id="includeRepoContext" title="Add a summary of your repository's structure, purpose, and key files to the system prompt. Helps the model orient itself without reading every file." /> Add repo summary to prompt <code>--include-repo-context</code>
+                    <input
+                      type="checkbox"
+                      id="includeRepoContext"
+                      title="Add a summary of your repository's structure, purpose, and key files to the system prompt. Helps the model orient itself without reading every file."
+                    />
+                    Add repo summary to prompt <code>--include-repo-context</code>
                   </label>
                   <label class="check-label" id="includeClaudeMdRow">
-                    <input type="checkbox" id="includeClaudeMd" title="Load the project's CLAUDE.md file into the system prompt. Contains project-specific working notes. Needs --include-repo-context to activate the loader." /> Include CLAUDE.md <code>--include-claude-md</code>
+                    <input
+                      type="checkbox"
+                      id="includeClaudeMd"
+                      title="Load the project's CLAUDE.md file into the system prompt. Contains project-specific working notes. Needs --include-repo-context to activate the loader."
+                    />
+                    Include CLAUDE.md <code>--include-claude-md</code>
                   </label>
-                  <label class="check-label" id="includeRepoMapRow" title="Include a file tree inside the repository-context block. Needs --include-repo-context."> <input type="checkbox" id="includeRepoMap" /> Include file tree <code>--include-repo-map</code> </label>
-                  <label class="check-label" id="includeSkillsRow" title="Load skill metadata into the system prompt so the model knows which names it can pass to run_skill."> <input type="checkbox" id="includeSkills" /> Load project skills <code>--include-skills</code> </label>
-                  <label class="check-label">
-                    <input type="checkbox" id="excludeDynamicSystem" title="Remove automatically-generated system prompt sections (like safety rules and tool instructions that the runner adds). Advanced — can break expected model behavior." /> Strip auto-generated prompt sections <code>--exclude-dynamic-system-prompt-sections</code>
+                  <label
+                    class="check-label"
+                    id="includeRepoMapRow"
+                    title="Include a file tree inside the repository-context block. Needs --include-repo-context."
+                  >
+                    <input type="checkbox" id="includeRepoMap" /> Include file tree <code>--include-repo-map</code>
+                  </label>
+                  <label
+                    class="check-label"
+                    id="includeSkillsRow"
+                    title="Load skill metadata into the system prompt so the model knows which names it can pass to run_skill."
+                  >
+                    <input type="checkbox" id="includeSkills" /> Load project skills <code>--include-skills</code>
                   </label>
                   <label class="check-label">
-                    <input type="checkbox" id="noSessionPersistence" title="Don't save any session state after this run. The run still works normally, but there's nothing to --resume-session from later. Useful for one-shot experiments." /> Don't save session state <code>--no-session-persistence</code>
+                    <input
+                      type="checkbox"
+                      id="excludeDynamicSystem"
+                      title="Remove automatically-generated system prompt sections (like safety rules and tool instructions that the runner adds). Advanced — can break expected model behavior."
+                    />
+                    Strip auto-generated prompt sections <code>--exclude-dynamic-system-prompt-sections</code>
+                  </label>
+                  <label class="check-label">
+                    <input
+                      type="checkbox"
+                      id="noSessionPersistence"
+                      title="Don't save any session state after this run. The run still works normally, but there's nothing to --resume-session from later. Useful for one-shot experiments."
+                    />
+                    Don't save session state <code>--no-session-persistence</code>
                   </label>
                 </div>
                 <div id="contextDependencyNote" class="warn-panel info">
@@ -872,16 +1374,40 @@
 
                 <p class="subsection-title">Task hygiene</p>
                 <div class="checks">
-                  <label class="check-label" title="Tell the model to stay narrowly focused on the specific task in your prompt. Prevents scope creep where the model wanders off to 'improve' unrelated things."> <input type="checkbox" id="taskScope" /> Narrow focus to one task <code>--task-scope</code> </label>
-                  <label class="check-label">
-                    <input type="checkbox" id="compactEachTurn" title="After every model turn, summarize older conversation history to save context window space. Useful for long runs that might hit token limits. Trades precision for longevity." /> Summarize history every turn <code>--compact-each-turn</code>
+                  <label
+                    class="check-label"
+                    title="Tell the model to stay narrowly focused on the specific task in your prompt. Prevents scope creep where the model wanders off to 'improve' unrelated things."
+                  >
+                    <input type="checkbox" id="taskScope" /> Narrow focus to one task <code>--task-scope</code>
                   </label>
-                  <label class="check-label" title="Load previously approved runner memory topics into the system prompt. This does not create or promote new memories."> <input type="checkbox" id="autoMemory" /> Load approved runner memory <code>--auto-memory</code> </label>
-                  <label class="check-label" title="Don't archive this run's data after it finishes. Keeps your ~/.bridge-runner/logs/ folder smaller. The run still works normally — just no post-run copy to the archive."> <input type="checkbox" id="noArchive" /> Skip run archival <code>--no-archive</code> </label>
+                  <label class="check-label">
+                    <input
+                      type="checkbox"
+                      id="compactEachTurn"
+                      title="After every model turn, summarize older conversation history to save context window space. Useful for long runs that might hit token limits. Trades precision for longevity."
+                    />
+                    Summarize history every turn <code>--compact-each-turn</code>
+                  </label>
+                  <label
+                    class="check-label"
+                    title="Load previously approved runner memory topics into the system prompt. This does not create or promote new memories."
+                  >
+                    <input type="checkbox" id="autoMemory" /> Load approved runner memory <code>--auto-memory</code>
+                  </label>
+                  <label
+                    class="check-label"
+                    title="Don't archive this run's data after it finishes. Keeps your ~/.bridge-runner/logs/ folder smaller. The run still works normally — just no post-run copy to the archive."
+                  >
+                    <input type="checkbox" id="noArchive" /> Skip run archival <code>--no-archive</code>
+                  </label>
                 </div>
                 <div class="row">
                   <div class="field">
-                    <label for="effort" title="How much 'thinking effort' the model should put in. Higher effort = longer, more thorough responses but slower and more expensive. Leave as default unless you need the model to think harder (or faster).">Model effort</label>
+                    <label
+                      for="effort"
+                      title="How much 'thinking effort' the model should put in. Higher effort = longer, more thorough responses but slower and more expensive. Leave as default unless you need the model to think harder (or faster)."
+                      >Model effort</label
+                    >
                     <select id="effort">
                       <option value="">(default)</option>
                       <option value="low">low</option>
@@ -892,7 +1418,11 @@
                     </select>
                   </div>
                   <div class="field">
-                    <label for="thinking" title="Auto follows the selected model's adaptive-thinking rules. Adaptive explicitly requests it where supported. Off disables it where the model allows that.">Adaptive thinking</label>
+                    <label
+                      for="thinking"
+                      title="Auto follows the selected model's adaptive-thinking rules. Adaptive explicitly requests it where supported. Off disables it where the model allows that."
+                      >Adaptive thinking</label
+                    >
                     <select id="thinking">
                       <option value="auto">auto (recommended)</option>
                       <option value="adaptive">adaptive</option>
@@ -904,11 +1434,21 @@
 
                 <p class="subsection-title">Ledger utilities</p>
                 <div class="checks">
-                  <label class="check-label" id="replayRow" title="Experimental only. Requires BRIDGE_RUNNER_EXPERIMENTAL=1. Ledger event shapes are not yet aligned with the live runtime (P1-09).">
-                    <input type="checkbox" id="replayMode" disabled /> Replay session ledger <code>--replay</code> (experimental)
+                  <label
+                    class="check-label"
+                    id="replayRow"
+                    title="Experimental only. Requires BRIDGE_RUNNER_EXPERIMENTAL=1. Ledger event shapes are not yet aligned with the live runtime (P1-09)."
+                  >
+                    <input type="checkbox" id="replayMode" disabled /> Replay session ledger
+                    <code>--replay</code> (experimental)
                   </label>
-                  <label class="check-label" id="repairRow" title="Experimental. Requires BRIDGE_RUNNER_EXPERIMENTAL=1. Plans by default; add --approve-repair to mutate. Prefer --resume-session — ledger-aware resume auto-repairs the safe subset (F6).">
-                    <input type="checkbox" id="repairMode" disabled /> Repair session ledger <code>--repair</code> (experimental)
+                  <label
+                    class="check-label"
+                    id="repairRow"
+                    title="Experimental. Requires BRIDGE_RUNNER_EXPERIMENTAL=1. Plans by default; add --approve-repair to mutate. Prefer --resume-session — ledger-aware resume auto-repairs the safe subset (F6)."
+                  >
+                    <input type="checkbox" id="repairMode" disabled /> Repair session ledger
+                    <code>--repair</code> (experimental)
                   </label>
                   <p class="hint" id="repairHint">
                     &#8505; <strong>Note:</strong> <code>--replay</code> and <code>--repair</code> are gated behind
@@ -922,69 +1462,137 @@
                 </div>
 
                 <div class="field">
-                  <label for="sessionId" title="A name for this session. Sessions track conversation history, tool calls, and state across runs. Use the same id to resume later. Leave blank for an auto-generated id.">Session id</label>
+                  <label
+                    for="sessionId"
+                    title="A name for this session. Sessions track conversation history, tool calls, and state across runs. Use the same id to resume later. Leave blank for an auto-generated id."
+                    >Session id</label
+                  >
                   <input type="text" id="sessionId" placeholder="my-run-1" />
                 </div>
                 <div class="field">
-                  <label for="sessionPath" title="Override where the session state file is stored. Normally auto-derived from the session id and stored in ~/.bridge-runner/sessions/. Only needed for non-standard setups.">Session path (optional override)</label>
+                  <label
+                    for="sessionPath"
+                    title="Override where the session state file is stored. Normally auto-derived from the session id and stored in ~/.bridge-runner/sessions/. Only needed for non-standard setups."
+                    >Session path (optional override)</label
+                  >
                   <input type="text" id="sessionPath" placeholder="~/.bridge-runner/sessions/my-run-1.state.json" />
                 </div>
                 <div class="checks" style="margin-top: 0.5rem">
                   <label class="check-label">
-                    <input type="checkbox" id="trustedWorkspace" title="Enable project-specific hooks from .bridge-runner/hooks.json (like pre-run and post-run scripts). Exec hooks also need &quot;trusted&quot;: true inside hooks.json. Only turn this on for projects you control — exec hooks run arbitrary code." /> Enable project hooks <code>--trusted-workspace</code>
+                    <input
+                      type="checkbox"
+                      id="trustedWorkspace"
+                      title='Enable project-specific hooks from .bridge-runner/hooks.json (like pre-run and post-run scripts). Exec hooks also need "trusted": true inside hooks.json. Only turn this on for projects you control — exec hooks run arbitrary code.'
+                    />
+                    Enable project hooks <code>--trusted-workspace</code>
                   </label>
                   <label class="check-label">
-                    <input type="checkbox" id="trustWorkspace" title="Pre-answer 'yes' to the first-time folder consent prompt. The runner normally asks once per new --cwd folder whether you trust it. This flag skips that prompt. Trust is consent to this folder's path — the runner does not scan or certify what's inside the folder." /> Record folder consent <code>--trust-workspace</code>
+                    <input
+                      type="checkbox"
+                      id="trustWorkspace"
+                      title="Pre-answer 'yes' to the first-time folder consent prompt. The runner normally asks once per new --cwd folder whether you trust it. This flag skips that prompt. Trust is consent to this folder's path — the runner does not scan or certify what's inside the folder."
+                    />
+                    Record folder consent <code>--trust-workspace</code>
                   </label>
                   <label class="check-label">
-                    <input type="checkbox" id="chaosOk" title="Acknowledge the most dangerous flag combination: shell + auto-approve edits + no confirmation prompts. The runner blocks this by default because the model could run arbitrary commands with no human review." /> Allow risky combo <code>--chaos-ok</code>
+                    <input
+                      type="checkbox"
+                      id="chaosOk"
+                      title="Acknowledge the most dangerous flag combination: shell + auto-approve edits + no confirmation prompts. The runner blocks this by default because the model could run arbitrary commands with no human review."
+                    />
+                    Allow risky combo <code>--chaos-ok</code>
                   </label>
                   <label class="check-label" id="sessionExtractRow">
-                    <input type="checkbox" id="sessionExtract" title="After a successful persisted run, queue a small run-summary proposal for later --review-memory approval. Requires --trusted-workspace and a Session id or Session path. It does not run a second model extraction pass." /> Queue run-summary memory proposal <code>--session-extract</code>
+                    <input
+                      type="checkbox"
+                      id="sessionExtract"
+                      title="After a successful persisted run, queue a small run-summary proposal for later --review-memory approval. Requires --trusted-workspace and a Session id or Session path. It does not run a second model extraction pass."
+                    />
+                    Queue run-summary memory proposal <code>--session-extract</code>
                   </label>
                   <label class="check-label">
-                    <input type="checkbox" id="reviewMemory" title="List pending memory proposals awaiting human approval, then exit without starting a model run." /> Review pending memory proposals <code>--review-memory</code>
+                    <input
+                      type="checkbox"
+                      id="reviewMemory"
+                      title="List pending memory proposals awaiting human approval, then exit without starting a model run."
+                    />
+                    Review pending memory proposals <code>--review-memory</code>
                   </label>
                 </div>
                 <div class="row">
                   <div class="field">
-                    <label for="maxWallClockMs" title="Maximum total real-world time the entire run can take, in milliseconds. The runner stops after this limit regardless of how many steps remain. 600000 = 10 minutes.">Max wall clock (ms)</label>
+                    <label
+                      for="maxWallClockMs"
+                      title="Maximum total real-world time the entire run can take, in milliseconds. The runner stops after this limit regardless of how many steps remain. 600000 = 10 minutes."
+                      >Max wall clock (ms)</label
+                    >
                     <input type="text" id="maxWallClockMs" placeholder="600000" />
                   </div>
                   <div class="field">
-                    <label for="maxCostUsd" title="Maximum estimated dollar cost before the runner stops. Based on token pricing for the selected model. A safety net against unexpectedly expensive runs.">Max cost USD</label>
+                    <label
+                      for="maxCostUsd"
+                      title="Maximum estimated dollar cost before the runner stops. Based on token pricing for the selected model. A safety net against unexpectedly expensive runs."
+                      >Max cost USD</label
+                    >
                     <input type="text" id="maxCostUsd" placeholder="2.00" />
                   </div>
                   <div class="field">
-                    <label for="budgetInputTokens" title="Hard cap on total input tokens consumed across all steps. The runner warns at 80% and stops at the limit. Child agents spawned during the run inherit the remaining budget.">Budget input tokens (hard cap)</label>
+                    <label
+                      for="budgetInputTokens"
+                      title="Hard cap on total input tokens consumed across all steps. The runner warns at 80% and stops at the limit. Child agents spawned during the run inherit the remaining budget."
+                      >Budget input tokens (hard cap)</label
+                    >
                     <input type="text" id="budgetInputTokens" placeholder="200000" />
-                    <div class="small">Soft warning at 80%. Uses API usage counters; child spawns inherit remaining budget.</div>
+                    <div class="small">
+                      Soft warning at 80%. Uses API usage counters; child spawns inherit remaining budget.
+                    </div>
                   </div>
                   <div class="field">
-                    <label for="budgetOutputTokens" title="Hard cap on total output tokens the model can generate across all steps. Prevents runaway output costs in long multi-step runs.">Budget output tokens (hard cap)</label>
+                    <label
+                      for="budgetOutputTokens"
+                      title="Hard cap on total output tokens the model can generate across all steps. Prevents runaway output costs in long multi-step runs."
+                      >Budget output tokens (hard cap)</label
+                    >
                     <input type="text" id="budgetOutputTokens" placeholder="32000" />
                   </div>
                 </div>
 
                 <div class="checks" style="margin-top: 0.5rem">
-                  <label class="check-label" id="continueRow" title="Find and resume the most recent canonical session checkpoint under ~/.bridge-runner/sessions/. If none exists, the runner starts a new session.">
-                    <input type="checkbox" id="continueFromLatest" /> Resume latest saved session <code>--continue</code>
+                  <label
+                    class="check-label"
+                    id="continueRow"
+                    title="Find and resume the most recent canonical session checkpoint under ~/.bridge-runner/sessions/. If none exists, the runner starts a new session."
+                  >
+                    <input type="checkbox" id="continueFromLatest" /> Resume latest saved session
+                    <code>--continue</code>
                   </label>
                 </div>
 
                 <div class="field">
-                  <label for="transcript" title="Where to save this run's transcript — a JSON-lines file recording every model message and tool call. Useful for debugging, replaying, or resuming later. Leave blank for the default path.">Transcript path</label>
+                  <label
+                    for="transcript"
+                    title="Where to save this run's transcript — a JSON-lines file recording every model message and tool call. Useful for debugging, replaying, or resuming later. Leave blank for the default path."
+                    >Transcript path</label
+                  >
                   <input type="text" id="transcript" placeholder="~/.bridge-runner/logs/&lt;timestamp&gt;.jsonl" />
                 </div>
 
                 <div class="field">
-                  <label for="humanLog" title="Save a plain-text, human-readable log of the run — the prompt, each tool call and result, and the final answer. Easier to read than the JSON transcript. Good for reviewing what happened.">Human-readable log path</label>
+                  <label
+                    for="humanLog"
+                    title="Save a plain-text, human-readable log of the run — the prompt, each tool call and result, and the final answer. Easier to read than the JSON transcript. Good for reviewing what happened."
+                    >Human-readable log path</label
+                  >
                   <input type="text" id="humanLog" placeholder="~/.bridge-runner/logs/run-notes.md" />
                 </div>
 
                 <div class="row">
                   <div class="field">
-                    <label for="traceLevel" title="Controls the flight-recorder trace — a low-level log of what the runner sent to the bridge, what came back, and internal decisions. 'off' saves nothing. 'summary' is metadata only. 'redacted' scrubs sensitive content. 'full' logs everything (careful — may include source code).">Flight recorder trace level</label>
+                    <label
+                      for="traceLevel"
+                      title="Controls the flight-recorder trace — a low-level log of what the runner sent to the bridge, what came back, and internal decisions. 'off' saves nothing. 'summary' is metadata only. 'redacted' scrubs sensitive content. 'full' logs everything (careful — may include source code)."
+                      >Flight recorder trace level</label
+                    >
                     <select id="traceLevel">
                       <option value="off">off - no trace files</option>
                       <option value="summary">summary - metadata only</option>
@@ -993,25 +1601,43 @@
                     </select>
                   </div>
                   <div class="field">
-                    <label for="tracePath" title="Where to save the runner's flight-recorder trace file. Defaults to ~/.bridge-runner/traces/. Only used when trace level is not 'off'.">Runner trace path</label>
+                    <label
+                      for="tracePath"
+                      title="Where to save the runner's flight-recorder trace file. Defaults to ~/.bridge-runner/traces/. Only used when trace level is not 'off'."
+                      >Runner trace path</label
+                    >
                     <input type="text" id="tracePath" placeholder="~/.bridge-runner/traces/run.runner.jsonl" />
                   </div>
                 </div>
                 <div class="note show">
-                  &#8505; Traces help debug what the runner built, what the bridge forwarded, tool decisions, usage, and cache
-                  counters returned by the model. Treat redacted and full traces like source-code logs.
+                  &#8505; Traces help debug what the runner built, what the bridge forwarded, tool decisions, usage, and
+                  cache counters returned by the model. Treat redacted and full traces like source-code logs.
                 </div>
                 <div id="traceFullWarn" class="warn-panel caution">
-                  &#9888; <strong>Caution:</strong> <code>--trace-level full</code> can write prompts and source snippets to disk. Use redacted unless you
-                  need deep debugging.
+                  &#9888; <strong>Caution:</strong> <code>--trace-level full</code> can write prompts and source
+                  snippets to disk. Use redacted unless you need deep debugging.
                 </div>
                 <div class="field">
-                  <label for="bridgeUrl" title="Override the URL the runner uses to reach the local bridge. Default is http://127.0.0.1:11437. Change this when the bridge runs on a different port or host (like inside Docker).">Bridge URL override</label>
+                  <label
+                    for="bridgeUrl"
+                    title="Override the URL the runner uses to reach the local bridge. Default is http://127.0.0.1:11437. Change this when the bridge runs on a different port or host (like inside Docker)."
+                    >Bridge URL override</label
+                  >
                   <input type="text" id="bridgeUrl" placeholder="http://host.docker.internal:11437" />
                 </div>
                 <div class="field">
-                  <label for="callerToken" title="If the bridge has caller authentication enabled (requireCallerAuth in VS Code settings), enter the token here. Can be a literal token or an environment variable reference like $BRIDGE_CALLER_TOKEN.">Caller auth token (optional)</label>
-                  <input type="text" id="callerToken" autocomplete="off" spellcheck="false" placeholder="$BRIDGE_CALLER_TOKEN or local-dev-token" />
+                  <label
+                    for="callerToken"
+                    title="If the bridge has caller authentication enabled (requireCallerAuth in VS Code settings), enter the token here. Can be a literal token or an environment variable reference like $BRIDGE_CALLER_TOKEN."
+                    >Caller auth token (optional)</label
+                  >
+                  <input
+                    type="text"
+                    id="callerToken"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="$BRIDGE_CALLER_TOKEN or local-dev-token"
+                  />
                   <small style="color: var(--muted); margin-top: 0.25rem">
                     For safety, this value is never saved in browser storage. Prefer the environment-variable form.
                   </small>
@@ -1029,98 +1655,169 @@
                 <p style="font-size: 0.78rem; color: var(--muted); margin-bottom: 0.6rem">
                   The runner defaults to the core read/session tools only. Checking tools outside the core emits
                   <code>--capabilities</code> (whole groups) or <code>--tools</code> (partial picks). Shell is hidden
-                  until <code>--allow-shell</code>. <code>apply_patch</code> is advanced patch mode and is hidden
-                  unless you opt in here. Every checked tool is described to the model and is available for autonomous,
+                  until <code>--allow-shell</code>. <code>apply_patch</code> is advanced patch mode and is hidden unless
+                  you opt in here. Every checked tool is described to the model and is available for autonomous,
                   discretionary use—it is not forced to call the tool. Permission is a separate layer: ordinary reads
                   run immediately, while orchestration and worktree actions ask by default. <code>--dont-ask</code>
-                  lets already-enabled orchestration/worktree tools run unattended, but does not expose shell or
-                  approve file writes.
+                  lets already-enabled orchestration/worktree tools run unattended, but does not expose shell or approve
+                  file writes.
                 </p>
                 <div class="checks" id="toolChoices">
                   <div class="capability-group">Read</div>
-                  <label class="check-label tool-choice" title="List files and folders in a directory. The model uses this to explore your project structure — like running 'ls' in Terminal.">
+                  <label
+                    class="check-label tool-choice"
+                    title="List files and folders in a directory. The model uses this to explore your project structure — like running 'ls' in Terminal."
+                  >
                     <input type="checkbox" value="list_files" checked />
                     <span><strong>list_files</strong><small>Read folder entries</small></span>
                   </label>
-                  <label class="check-label tool-choice" title="Read the contents of a file. Supports text files, images (.png/.jpg/.gif/.webp — sent as vision input), and PDFs. The model's primary way to understand your code.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Read the contents of a file. Supports text files, images (.png/.jpg/.gif/.webp — sent as vision input), and PDFs. The model's primary way to understand your code."
+                  >
                     <input type="checkbox" value="read_file" checked />
-                    <span><strong>read_file</strong><small>Read text, images (.png/.jpg/.gif/.webp), or PDF files</small></span>
+                    <span
+                      ><strong>read_file</strong
+                      ><small>Read text, images (.png/.jpg/.gif/.webp), or PDF files</small></span
+                    >
                   </label>
-                  <label class="check-label tool-choice" title="Search for text patterns across your project files. Like grep — the model uses this to find where functions are defined, where variables are used, etc.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Search for text patterns across your project files. Like grep — the model uses this to find where functions are defined, where variables are used, etc."
+                  >
                     <input type="checkbox" value="search_text" checked />
                     <span><strong>search_text</strong><small>Search project text</small></span>
                   </label>
-                  <label class="check-label tool-choice" title="Find files matching a name pattern (like *.test.js or src/**/*.html). Useful when the model needs to locate files without listing every directory.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Find files matching a name pattern (like *.test.js or src/**/*.html). Useful when the model needs to locate files without listing every directory."
+                  >
                     <input type="checkbox" value="glob" checked />
                     <span><strong>glob</strong><small>Find files by name pattern</small></span>
                   </label>
-                  <label class="check-label tool-choice" title="Check which files have been modified, staged, or are untracked in the git repo. Helps the model understand what's changed since the last commit.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Check which files have been modified, staged, or are untracked in the git repo. Helps the model understand what's changed since the last commit."
+                  >
                     <input type="checkbox" value="git_status" checked />
                     <span><strong>git_status</strong><small>Inspect Git changes</small></span>
                   </label>
-                  <label class="check-label tool-choice" id="lspQueryRow" style="display: none" title="Query the Language Server Protocol for go-to-definition, find-references, hover docs, and diagnostics. Requires a running LSP server. Hidden until --enable-lsp is checked.">
+                  <label
+                    class="check-label tool-choice"
+                    id="lspQueryRow"
+                    style="display: none"
+                    title="Query the Language Server Protocol for go-to-definition, find-references, hover docs, and diagnostics. Requires a running LSP server. Hidden until --enable-lsp is checked."
+                  >
                     <input type="checkbox" value="lsp_query" />
                     <span><strong>lsp_query</strong><small>LSP definition/references/hover/diagnostics</small></span>
                   </label>
                   <div class="capability-group">Session</div>
-                  <label class="check-label tool-choice" title="Let the model create and track a task checklist during the run. Helps the model organize multi-step work and show you progress.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Let the model create and track a task checklist during the run. Helps the model organize multi-step work and show you progress."
+                  >
                     <input type="checkbox" value="manage_tasks" checked />
                     <span><strong>manage_tasks</strong><small>In-session task checklist</small></span>
                   </label>
-                  <label class="check-label tool-choice" title="Let the model show a numbered clarification question in the same Terminal running this command. This is the runner's own prompt, not the Claude Code TUI. Unavailable with --dont-ask, plan mode, child agents, or a detached/non-interactive process.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Let the model show a numbered clarification question in the same Terminal running this command. This is the runner's own prompt, not the Claude Code TUI. Unavailable with --dont-ask, plan mode, child agents, or a detached/non-interactive process."
+                  >
                     <input type="checkbox" value="ask_user_question" checked />
                     <span><strong>ask_user_question</strong><small>Ask a clarifying question</small></span>
                   </label>
                   <div class="capability-group">Orchestration</div>
-                  <label class="check-label tool-choice" title="Let the top-level model delegate a focused read-only subtask to a child with its own context window. This asks for confirmation by default; --dont-ask permits already-enabled orchestration to run unattended. The child receives a constrained read-only tool set and cannot spawn further children.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Let the top-level model delegate a focused read-only subtask to a child with its own context window. This asks for confirmation by default; --dont-ask permits already-enabled orchestration to run unattended. The child receives a constrained read-only tool set and cannot spawn further children."
+                  >
                     <input type="checkbox" value="spawn_agent" />
                     <span><strong>spawn_agent</strong><small>Delegate a read-only child; asks by default</small></span>
                   </label>
-                  <label class="check-label tool-choice" title="Create and enter a git worktree — a separate checkout on its own branch. Edits happen there instead of your main branch, so you can review and merge (or discard) safely.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Create and enter a git worktree — a separate checkout on its own branch. Edits happen there instead of your main branch, so you can review and merge (or discard) safely."
+                  >
                     <input type="checkbox" value="enter_worktree" />
                     <span><strong>enter_worktree</strong><small>Isolate edits on a git worktree branch</small></span>
                   </label>
-                  <label class="check-label tool-choice" title="Leave the current worktree and return tools to the main working directory. Can optionally delete the worktree branch, or leave it for you to review and merge later.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Leave the current worktree and return tools to the main working directory. Can optionally delete the worktree branch, or leave it for you to review and merge later."
+                  >
                     <input type="checkbox" value="exit_worktree" />
                     <span><strong>exit_worktree</strong><small>Leave worktree, optionally clean up</small></span>
                   </label>
-                  <label class="check-label tool-choice" title="List all active worktree slots and any orphaned worktree directories left behind by previous runs. Useful for cleanup and seeing what branches exist.">
+                  <label
+                    class="check-label tool-choice"
+                    title="List all active worktree slots and any orphaned worktree directories left behind by previous runs. Useful for cleanup and seeing what branches exist."
+                  >
                     <input type="checkbox" value="list_worktrees" />
-                    <span><strong>list_worktrees</strong><small>List active slots and orphan worktree dirs</small></span>
+                    <span
+                      ><strong>list_worktrees</strong><small>List active slots and orphan worktree dirs</small></span
+                    >
                   </label>
-                  <label class="check-label tool-choice" title="Load a skill document by name from .bridge-runner/skills/. Skills are structured instructions that teach the model specialized workflows — like how to do a code review or run a migration.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Load a skill document by name from .bridge-runner/skills/. Skills are structured instructions that teach the model specialized workflows — like how to do a code review or run a migration."
+                  >
                     <input type="checkbox" value="run_skill" />
                     <span><strong>run_skill</strong><small>Load a skill document body by name</small></span>
                   </label>
                   <div class="capability-group">Write</div>
-                  <label class="check-label tool-choice" title="Replace an exact piece of text in a file with new text. The safest write tool — it only changes what it explicitly matches, so accidental edits are unlikely. Needs --accept-edits or confirmation.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Replace an exact piece of text in a file with new text. The safest write tool — it only changes what it explicitly matches, so accidental edits are unlikely. Needs --accept-edits or confirmation."
+                  >
                     <input type="checkbox" value="edit_file" />
                     <span><strong>edit_file</strong><small>Exact text replacement</small></span>
                   </label>
-                  <label class="check-label tool-choice" title="Create a new file or completely overwrite an existing file. More powerful than edit_file because it replaces the entire file. Needs --accept-edits or confirmation.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Create a new file or completely overwrite an existing file. More powerful than edit_file because it replaces the entire file. Needs --accept-edits or confirmation."
+                  >
                     <input type="checkbox" value="write_file" />
                     <span><strong>write_file</strong><small>Create or replace a file</small></span>
                   </label>
                   <div class="capability-group">Recovery</div>
-                  <label class="check-label tool-choice" title="Restore a file to its state before the runner modified it. The runner keeps backups of every file it touches, so this is always safe. Your safety net for bad edits.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Restore a file to its state before the runner modified it. The runner keeps backups of every file it touches, so this is always safe. Your safety net for bad edits."
+                  >
                     <input type="checkbox" value="undo" />
                     <span><strong>undo</strong><small>Restore backup</small></span>
                   </label>
-                  <label class="check-label tool-choice" title="Undo a specific edit_file operation by its id. More precise than undo — it reverses one particular change instead of restoring the entire file to its pre-run state.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Undo a specific edit_file operation by its id. More precise than undo — it reverses one particular change instead of restoring the entire file to its pre-run state."
+                  >
                     <input type="checkbox" value="undo_edit" />
                     <span><strong>undo_edit</strong><small>Undo one tool edit</small></span>
                   </label>
                   <div class="capability-group">Advanced write</div>
-                  <label class="check-label tool-choice" title="Apply a unified diff patch to a file. More efficient than edit_file for large multi-hunk changes, but harder to review. Opt-in only because patches can be harder for beginners to verify.">
+                  <label
+                    class="check-label tool-choice"
+                    title="Apply a unified diff patch to a file. More efficient than edit_file for large multi-hunk changes, but harder to review. Opt-in only because patches can be harder for beginners to verify."
+                  >
                     <input type="checkbox" value="apply_patch" />
                     <span><strong>apply_patch</strong><small>Patch a file; opt-in only</small></span>
                   </label>
                   <div class="capability-group">Shell</div>
-                  <label class="check-label tool-choice" id="bashToolRow" style="display: none" title="Run shell commands. Starts in your project folder but is unsandboxed local-account authority — not a cwd jail. Hidden until --allow-shell is enabled.">
+                  <label
+                    class="check-label tool-choice"
+                    id="bashToolRow"
+                    style="display: none"
+                    title="Run shell commands. Starts in your project folder but is unsandboxed local-account authority — not a cwd jail. Hidden until --allow-shell is enabled."
+                  >
                     <input type="checkbox" value="bash" />
                     <span><strong>bash</strong><small>Shell commands (unsandboxed)</small></span>
                   </label>
-                  <label class="check-label tool-choice" id="manageShellJobsRow" style="display: none" title="Start, list, poll, and kill background shell processes. Same unsandboxed local-account authority as bash. Hidden until --allow-shell is enabled.">
+                  <label
+                    class="check-label tool-choice"
+                    id="manageShellJobsRow"
+                    style="display: none"
+                    title="Start, list, poll, and kill background shell processes. Same unsandboxed local-account authority as bash. Hidden until --allow-shell is enabled."
+                  >
                     <input type="checkbox" value="manage_shell_jobs" />
                     <span><strong>manage_shell_jobs</strong><small>Background shell jobs (unsandboxed)</small></span>
                   </label>
@@ -1141,9 +1838,22 @@
               </div>
               <pre id="cmdOutput" aria-live="polite"><code></code></pre>
             </div>
-            <div id="validationWarnings" class="warn-panel caution" role="alert" aria-live="polite" style="margin-bottom: 0.5rem"></div>
+            <div
+              id="validationWarnings"
+              class="warn-panel caution"
+              role="alert"
+              aria-live="polite"
+              style="margin-bottom: 0.5rem"
+            ></div>
             <button class="copy-btn" id="copyBtn" onclick="copyCommand()">Copy to clipboard</button>
-            <button class="copy-btn" id="resetBtn" onclick="resetToDefaults()" style="margin-top: 0.4rem; border-color: var(--border); background: transparent; color: var(--muted);">Reset to defaults</button>
+            <button
+              class="copy-btn"
+              id="resetBtn"
+              onclick="resetToDefaults()"
+              style="margin-top: 0.4rem; border-color: var(--border); background: transparent; color: var(--muted)"
+            >
+              Reset to defaults
+            </button>
             <p
               id="copyFeedback"
               role="status"
@@ -1154,52 +1864,108 @@
             </p>
 
             <!-- 3.1: plain-language summary -->
-            <div id="commandSummary" class="command-summary" style="font-size: 0.82rem; color: var(--text); line-height: 1.55; margin-top: 0.8rem; padding: 0.65rem 0.8rem; background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;">
-              <strong style="color: var(--blue); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;">What this command will do</strong>
-              <span id="summaryText" aria-live="polite" style="display: block; margin-top: 0.3rem;"></span>
+            <div
+              id="commandSummary"
+              class="command-summary"
+              style="
+                font-size: 0.82rem;
+                color: var(--text);
+                line-height: 1.55;
+                margin-top: 0.8rem;
+                padding: 0.65rem 0.8rem;
+                background: var(--code-bg);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+              "
+            >
+              <strong style="color: var(--blue); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em"
+                >What this command will do</strong
+              >
+              <span id="summaryText" aria-live="polite" style="display: block; margin-top: 0.3rem"></span>
             </div>
           </div>
 
           <!-- 3.4: preflight checklist -->
-          <div class="card" id="preflightCard" style="font-size: 0.82rem;">
+          <div class="card" id="preflightCard" style="font-size: 0.82rem">
             <h2>Before you run</h2>
-            <ol style="padding-left: 1.2rem; margin: 0.3rem 0 0; color: var(--muted); line-height: 1.7;">
-              <li><strong style="color: var(--text);">Bridge running?</strong> In VS Code, press <code>Cmd+Shift+P</code>, choose <em>Claude Local Bridge: Show Status</em>, and confirm it says the server is running. The bridge intentionally has no public <code>/health</code> route.</li>
-              <li><strong style="color: var(--text);">In the right folder?</strong> Run the command from the runner repo folder shown above. The target project is separate; set it via <code>--cwd</code> or the Target folder field.</li>
-              <li><strong style="color: var(--text);">First time in this folder?</strong> The runner will ask for <code>--trust-workspace</code> consent the first time you target a new project.</li>
-              <li><strong style="color: var(--text);">New to this?</strong> Start with a <em>read-only</em> preset — it inspects files without changing anything.</li>
+            <ol style="padding-left: 1.2rem; margin: 0.3rem 0 0; color: var(--muted); line-height: 1.7">
+              <li>
+                <strong style="color: var(--text)">Bridge running?</strong> In VS Code, press <code>Cmd+Shift+P</code>,
+                choose <em>Claude Local Bridge: Show Status</em>, and confirm it says the server is running. The bridge
+                intentionally has no public <code>/health</code> route.
+              </li>
+              <li>
+                <strong style="color: var(--text)">In the right folder?</strong> Run the command from the runner repo
+                folder shown above. The target project is separate; set it via <code>--cwd</code> or the Target folder
+                field.
+              </li>
+              <li>
+                <strong style="color: var(--text)">First time in this folder?</strong> The runner will ask for
+                <code>--trust-workspace</code> consent the first time you target a new project.
+              </li>
+              <li>
+                <strong style="color: var(--text)">New to this?</strong> Start with a <em>read-only</em> preset — it
+                inspects files without changing anything.
+              </li>
             </ol>
           </div>
           <div class="card" style="font-size: 0.8rem; color: var(--muted)">
             <strong>Tip:</strong> Paste into <strong>Terminal</strong> and press Enter. Bridge:
             <code style="font-size: 0.75rem">127.0.0.1:11437</code>. Full flag list:
-            <code style="font-size: 0.75rem">node bin/local-bridge-runner.js --help</code> (run from the playground
-            folder). If the bridge says <code style="font-size: 0.75rem">Unauthorized: Missing Bearer token</code>,
-            caller auth is enabled; either disable it in VS Code settings or set Caller auth token here. Use
+            <code id="tipHelpCommand" style="font-size: 0.75rem">node bin/local-bridge-runner.js --help</code> (run from
+            the playground folder). If the bridge says
+            <code style="font-size: 0.75rem">Unauthorized: Missing Bearer token</code>, caller auth is enabled; either
+            disable it in VS Code settings or set Caller auth token here. Use
             <code style="font-size: 0.75rem">stream-json</code> when another script or agent needs to parse every runner
             event (including <code>compaction</code> and <code>stopReason</code>). Set a human-readable log path when
             you want a plain text record of the prompt, tool calls, and final answer.
           </div>
           <!-- 3.2: glossary -->
-          <details class="card" id="glossaryCard" style="font-size: 0.82rem; margin-bottom: 0;">
-            <summary style="cursor: pointer; font-weight: 600; color: var(--text); padding: 0.2rem 0;">Glossary — what do these terms mean?</summary>
-            <dl style="margin: 0.5rem 0 0; line-height: 1.6; color: var(--muted);">
-              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">worktree</dt>
-              <dd>A separate checkout of your repo in a different folder, letting you experiment without disturbing your main branch.</dd>
-              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">ledger</dt>
-              <dd>A journal of every event in a run (tool calls, results, model messages). Used by replay/repair to reconstruct or fix runs.</dd>
-              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">compaction</dt>
-              <dd>When the conversation gets too long for the model, the runner summarizes older turns to keep the context window manageable.</dd>
-              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">fork</dt>
-              <dd>Start a new session that shares a parent's history up to a point, then diverges — like a git branch but for agent sessions.</dd>
-              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">transcript</dt>
-              <dd>A JSON-lines file recording every model message and tool call in a run. Useful for debugging or resuming.</dd>
-              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">trace</dt>
-              <dd>A lower-level log of what the runner sent to the bridge, what came back, and internal decisions. Like a flight recorder.</dd>
-              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">chaos-ok</dt>
-              <dd>Acknowledges a risky flag combination (shell + auto-edits + no prompts) you would otherwise be blocked from using.</dd>
-              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem;">LSP</dt>
-              <dd>Language Server Protocol — the technology behind go-to-definition, find-references, and diagnostics in your editor. The <code>lsp_query</code> tool lets the model use it.</dd>
+          <details class="card" id="glossaryCard" style="font-size: 0.82rem; margin-bottom: 0">
+            <summary style="cursor: pointer; font-weight: 600; color: var(--text); padding: 0.2rem 0">
+              Glossary — what do these terms mean?
+            </summary>
+            <dl style="margin: 0.5rem 0 0; line-height: 1.6; color: var(--muted)">
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem">worktree</dt>
+              <dd>
+                A separate checkout of your repo in a different folder, letting you experiment without disturbing your
+                main branch.
+              </dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem">ledger</dt>
+              <dd>
+                A journal of every event in a run (tool calls, results, model messages). Used by replay/repair to
+                reconstruct or fix runs.
+              </dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem">compaction</dt>
+              <dd>
+                When the conversation gets too long for the model, the runner summarizes older turns to keep the context
+                window manageable.
+              </dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem">fork</dt>
+              <dd>
+                Start a new session that shares a parent's history up to a point, then diverges — like a git branch but
+                for agent sessions.
+              </dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem">transcript</dt>
+              <dd>
+                A JSON-lines file recording every model message and tool call in a run. Useful for debugging or
+                resuming.
+              </dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem">trace</dt>
+              <dd>
+                A lower-level log of what the runner sent to the bridge, what came back, and internal decisions. Like a
+                flight recorder.
+              </dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem">chaos-ok</dt>
+              <dd>
+                Acknowledges a risky flag combination (shell + auto-edits + no prompts) you would otherwise be blocked
+                from using.
+              </dd>
+              <dt style="color: var(--text); font-weight: 600; margin-top: 0.35rem">LSP</dt>
+              <dd>
+                Language Server Protocol — the technology behind go-to-definition, find-references, and diagnostics in
+                your editor. The <code>lsp_query</code> tool lets the model use it.
+              </dd>
             </dl>
           </details>
           <div class="card" id="recoveryCard">
@@ -1243,6 +2009,16 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
 
     <script>
       // ── Elements ──
+      const commandMode = document.getElementById('commandMode');
+      const commandModeHint = document.getElementById('commandModeHint');
+      const promptHeading = document.getElementById('promptHeading');
+      const promptLabel = document.getElementById('promptLabel');
+      const promptHelpCommand = document.getElementById('promptHelpCommand');
+      const tipHelpCommand = document.getElementById('tipHelpCommand');
+      const beginnerModeTip = document.getElementById('beginnerModeTip');
+      const runnerPresetsCard = document.getElementById('runnerPresetsCard');
+      const coordinatorCard = document.getElementById('coordinatorCard');
+      const advancedPanel = document.getElementById('advancedPanel');
       const prompt = document.getElementById('prompt');
       const promptTemplate = document.getElementById('promptTemplate');
       const customPromptTemplate = document.getElementById('customPromptTemplate');
@@ -1356,7 +2132,39 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const ackResumeRiskRow = document.getElementById('ackResumeRiskRow');
       const sessionExtractRow = document.getElementById('sessionExtractRow');
       const permissionStyle = document.getElementById('permissionStyle');
+      const permissionStyleLabel = document.getElementById('permissionStyleLabel');
       const permissionStyleHint = document.getElementById('permissionStyleHint');
+      const coordinatorResearch = document.getElementById('coordinatorResearch');
+      const coordinatorSynthesize = document.getElementById('coordinatorSynthesize');
+      const coordinatorExecute = document.getElementById('coordinatorExecute');
+      const coordinatorVerify = document.getElementById('coordinatorVerify');
+      const coordinatorUseWorkers = document.getElementById('coordinatorUseWorkers');
+      const coordinatorNoNetwork = document.getElementById('coordinatorNoNetwork');
+      const coordinatorTrustWorkspace = document.getElementById('coordinatorTrustWorkspace');
+      const coordinatorEnableLsp = document.getElementById('coordinatorEnableLsp');
+      const coordinatorAgents = document.getElementById('coordinatorAgents');
+      const coordinatorWorktrees = document.getElementById('coordinatorWorktrees');
+      const coordinatorSkills = document.getElementById('coordinatorSkills');
+      const coordinatorTestWatch = document.getElementById('coordinatorTestWatch');
+      const coordinatorTestWatchRow = document.getElementById('coordinatorTestWatchRow');
+      const coordinatorResearchPlan = document.getElementById('coordinatorResearchPlan');
+      const coordinatorResearchPlanRow = document.getElementById('coordinatorResearchPlanRow');
+      const coordinatorModel = document.getElementById('coordinatorModel');
+      const coordinatorCustomModel = document.getElementById('coordinatorCustomModel');
+      const coordinatorMaxTokens = document.getElementById('coordinatorMaxTokens');
+      const coordinatorMaxSteps = document.getElementById('coordinatorMaxSteps');
+      const coordinatorOutputFormat = document.getElementById('coordinatorOutputFormat');
+      const coordinatorEffort = document.getElementById('coordinatorEffort');
+      const coordinatorThinking = document.getElementById('coordinatorThinking');
+      const coordinatorTemperature = document.getElementById('coordinatorTemperature');
+      const coordinatorSessionId = document.getElementById('coordinatorSessionId');
+      const coordinatorTraceLevel = document.getElementById('coordinatorTraceLevel');
+      const coordinatorMaxWallClockMs = document.getElementById('coordinatorMaxWallClockMs');
+      const coordinatorMaxCostUsd = document.getElementById('coordinatorMaxCostUsd');
+      const coordinatorBudgetInputTokens = document.getElementById('coordinatorBudgetInputTokens');
+      const coordinatorBudgetOutputTokens = document.getElementById('coordinatorBudgetOutputTokens');
+      const coordinatorBridgeUrl = document.getElementById('coordinatorBridgeUrl');
+      const coordinatorCallerToken = document.getElementById('coordinatorCallerToken');
 
       const PLAYGROUND = '/Users/alanman/Developer/claude-local-bridge-playground';
       const READ_TOOL_NAMES = ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'ask_user_question'];
@@ -1466,6 +2274,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         shellTimeout: 30000,
         outputFormat: 'text',
         traceLevel: 'off',
+        coordinatorPhases: ['research', 'synthesize', 'execute'],
       };
 
       function applyPermissionStyle(styleKey, options = {}) {
@@ -1519,6 +2328,10 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       }
 
       function buildCommandParts() {
+        return commandMode.value === 'coordinator' ? buildCoordinatorCommandParts() : buildRunnerCommandParts();
+      }
+
+      function buildRunnerCommandParts() {
         const parts = ['node bin/local-bridge-runner.js'];
 
         if (cwd.value.trim()) parts.push('--cwd ' + shellQuote(cwd.value.trim()));
@@ -1656,6 +2469,100 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         return parts;
       }
 
+      function getCoordinatorPhases() {
+        const phases = [];
+        if (coordinatorResearch.checked) phases.push('research');
+        if (coordinatorSynthesize.checked) phases.push('synthesize');
+        if (coordinatorExecute.checked) phases.push('execute');
+        if (coordinatorVerify.checked) phases.push('verify');
+        return phases;
+      }
+
+      function getEffectiveCoordinatorModel() {
+        return coordinatorCustomModel.value.trim() || coordinatorModel.value;
+      }
+
+      function buildCoordinatorCommandParts() {
+        const parts = ['node bin/local-bridge-coordinator.js'];
+        const phases = getCoordinatorPhases();
+        const effectiveModel = getEffectiveCoordinatorModel();
+
+        if (cwd.value.trim()) parts.push('--cwd ' + shellQuote(cwd.value.trim()));
+        if (coordinatorSessionId.value.trim()) {
+          parts.push('--session-id ' + shellQuote(coordinatorSessionId.value.trim()));
+        }
+        if (effectiveModel !== DEFAULTS.model) parts.push('--model ' + shellQuote(effectiveModel));
+        if (+coordinatorMaxTokens.value !== DEFAULTS.maxTokens) {
+          parts.push('--max-tokens ' + coordinatorMaxTokens.value);
+        }
+        if (coordinatorExecute.checked && +coordinatorMaxSteps.value !== DEFAULTS.maxSteps) {
+          parts.push('--max-steps ' + coordinatorMaxSteps.value);
+        }
+        if (!sameTools(phases, DEFAULTS.coordinatorPhases)) parts.push('--phases ' + phases.join(','));
+        if (!coordinatorUseWorkers.checked) parts.push('--no-workers');
+        if (coordinatorResearchPlan.value.trim() && coordinatorResearch.checked && coordinatorUseWorkers.checked) {
+          parts.push('--research-plan ' + shellQuote(coordinatorResearchPlan.value.trim()));
+        }
+        if (coordinatorOutputFormat.value !== DEFAULTS.outputFormat) {
+          parts.push('--output-format ' + coordinatorOutputFormat.value);
+        }
+
+        if (coordinatorEffort.value) parts.push('--effort ' + coordinatorEffort.value);
+        if (coordinatorThinking.value !== 'auto') parts.push('--thinking ' + coordinatorThinking.value);
+        if (coordinatorTemperature.value.trim()) {
+          parts.push('--temperature ' + coordinatorTemperature.value.trim());
+        }
+        if (coordinatorBridgeUrl.value.trim()) {
+          parts.push('--bridge-url ' + shellQuote(coordinatorBridgeUrl.value.trim()));
+        }
+        if (coordinatorCallerToken.value.trim()) {
+          parts.push('--caller-token ' + shellQuoteOrEnv(coordinatorCallerToken.value.trim()));
+        }
+
+        if (coordinatorMaxWallClockMs.value.trim()) {
+          parts.push('--max-wall-clock-ms ' + coordinatorMaxWallClockMs.value.trim());
+        }
+        if (coordinatorMaxCostUsd.value.trim()) {
+          parts.push('--max-cost-usd ' + coordinatorMaxCostUsd.value.trim());
+        }
+        if (coordinatorBudgetInputTokens.value.trim()) {
+          parts.push('--budget-input-tokens ' + coordinatorBudgetInputTokens.value.trim());
+        }
+        if (coordinatorBudgetOutputTokens.value.trim()) {
+          parts.push('--budget-output-tokens ' + coordinatorBudgetOutputTokens.value.trim());
+        }
+        if (coordinatorNoNetwork.checked) parts.push('--no-network');
+        if (coordinatorTrustWorkspace.checked) parts.push('--trust-workspace');
+        if (coordinatorTraceLevel.value !== DEFAULTS.traceLevel) {
+          parts.push('--trace-level ' + coordinatorTraceLevel.value);
+        }
+
+        if (coordinatorExecute.checked) {
+          // The permission-style selector controls only the execute phase. The
+          // child research/verify agents keep their fixed read-only surface.
+          const executeCapabilities = [];
+          if (permissionStyle.value !== 'look-only') executeCapabilities.push('edits', 'recovery');
+          if (coordinatorAgents.checked) executeCapabilities.push('agents');
+          if (coordinatorWorktrees.checked) executeCapabilities.push('worktrees');
+          if (coordinatorSkills.checked) executeCapabilities.push('skills');
+          if (executeCapabilities.length) parts.push('--capabilities ' + executeCapabilities.join(','));
+          if (plan.checked) parts.push('--plan');
+          if (acceptEdits.checked) parts.push('--accept-edits');
+          if (dontAsk.checked) parts.push('--dont-ask');
+          if (allowShell.checked) {
+            parts.push('--allow-shell');
+            if (+shellTimeout.value !== DEFAULTS.shellTimeout) parts.push('--shell-timeout ' + shellTimeout.value);
+          }
+          if (chaosOk.checked) parts.push('--chaos-ok');
+          if (coordinatorEnableLsp.checked) parts.push('--enable-lsp');
+          if (allowShell.checked && coordinatorTestWatch.checked) parts.push('--test-watch');
+        }
+
+        const objective = prompt.value.trim();
+        if (objective) parts.push(shellQuote(objective));
+        return parts;
+      }
+
       function getSelectedTools() {
         return toolChoices
           .filter(
@@ -1722,6 +2629,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       }
 
       function buildRawCommand() {
+        if (commandMode.value === 'coordinator') return buildCommandString(false);
         const paths = getAttachedPaths();
         const command = buildCommandString(paths.length > 0 && attachmentMode.value === 'stdin');
         if (paths.length > 0 && attachmentMode.value === 'stdin') {
@@ -1744,16 +2652,44 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       }
 
       function updateUiState() {
+        const coordinatorOn = commandMode.value === 'coordinator';
+        runnerPresetsCard.hidden = coordinatorOn;
+        advancedPanel.hidden = coordinatorOn;
+        coordinatorCard.hidden = !coordinatorOn;
+        promptHeading.textContent = coordinatorOn ? 'Objective' : 'Prompt';
+        promptLabel.textContent = coordinatorOn
+          ? 'What should the coordinator accomplish?'
+          : 'What should the runner do?';
+        promptHelpCommand.textContent = coordinatorOn
+          ? 'node bin/local-bridge-coordinator.js --help'
+          : 'node bin/local-bridge-runner.js --help';
+        tipHelpCommand.textContent = promptHelpCommand.textContent;
+        beginnerModeTip.textContent = coordinatorOn
+          ? 'New here? Choose Look only and start with Research + Synthesize before enabling Execute.'
+          : 'New here? Try a read-only preset first — it inspects files without changing anything.';
+        permissionStyleLabel.textContent = coordinatorOn ? 'What may the execute agent do?' : 'What may the runner do?';
+        commandModeHint.textContent = coordinatorOn
+          ? 'The coordinator runs selected phases in order. Research and verify may fan out to read-only child agents.'
+          : 'The normal runner is one agent loop with direct control over tools, prompts, context, and sessions.';
+
         renderPromptHint();
         const shellOn = allowShell.checked;
         const lspOn = enableLsp.checked;
         bashToolRow.style.display = shellOn ? '' : 'none';
         if (manageShellJobsRow) manageShellJobsRow.style.display = shellOn ? '' : 'none';
         if (lspQueryRow) lspQueryRow.style.display = lspOn ? '' : 'none';
-        shellWarn.classList.toggle('show', shellOn);
+        shellWarn.classList.toggle('show', shellOn && (!coordinatorOn || coordinatorExecute.checked));
+        shellWarn.innerHTML = coordinatorOn
+          ? '&#9888; Shell is on for the <strong>execute agent</strong> — unsandboxed local-account authority. Research and verify workers stay read-only.'
+          : '&#9888; Shell is on — unsandboxed local-account authority. Commands start in your project folder but are <strong>not</strong> confined to it; <code>--no-network</code> is best-effort only.';
         shellTimeoutRow.classList.toggle('is-muted-control', !shellOn);
         noNetworkRow.classList.toggle('is-muted-control', !shellOn);
         testWatchRow.classList.toggle('is-muted-control', !shellOn);
+        coordinatorTestWatchRow.classList.toggle('is-muted-control', !shellOn || !coordinatorExecute.checked);
+        coordinatorResearchPlanRow.classList.toggle(
+          'is-muted-control',
+          !coordinatorResearch.checked || !coordinatorUseWorkers.checked,
+        );
 
         const bashChoice = toolChoices.find((c) => c.value === 'bash');
         const manageShellChoice = toolChoices.find((c) => c.value === 'manage_shell_jobs');
@@ -1817,21 +2753,22 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           !noSessionPersistence.checked;
         sessionExtractRow.classList.toggle('is-muted-control', sessionExtract.checked && !sessionExtractReady);
 
-        const chaosBlocked = hasChaosConflict();
+        const chaosBlocked = hasChaosConflict() && (!coordinatorOn || coordinatorExecute.checked);
         chaosConflict.classList.toggle('show', chaosBlocked);
 
         const resumeModes = countResumeModes();
-        sessionConflict.classList.toggle('show', resumeModes > 1);
+        sessionConflict.classList.toggle('show', !coordinatorOn && resumeModes > 1);
 
         const ledgerUtility = replayMode.checked || repairMode.checked;
-        ledgerNote.classList.toggle('show', ledgerUtility);
+        ledgerNote.classList.toggle('show', !coordinatorOn && ledgerUtility);
         replayMode.closest('.check-label').classList.toggle('is-muted-control', repairMode.checked);
         repairMode.closest('.check-label').classList.toggle('is-muted-control', replayMode.checked);
 
         ackResumeRiskRow.classList.toggle('is-muted-control', !resumeSession.checked);
 
         const cautions = [];
-        if (acceptEdits.checked && !plan.checked) cautions.push('--accept-edits skips write confirmations.');
+        if (acceptEdits.checked && !plan.checked && (!coordinatorOn || coordinatorExecute.checked))
+          cautions.push('--accept-edits skips write confirmations.');
         if (dontAsk.checked && !allowShell.checked)
           cautions.push('--dont-ask does not enable bash; add --allow-shell only when you need shell.');
         if (dontAsk.checked && allowShell.checked && !chaosOk.checked && !(acceptEdits.checked && chaosBlocked))
@@ -1840,29 +2777,48 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           );
         if (plan.checked && (acceptEdits.checked || allowShell.checked))
           cautions.push('--plan dry-runs tools; accept-edits/shell flags still shape what the model sees.');
-        if (trustedWorkspace.checked)
-          cautions.push('--trusted-workspace runs hooks from .bridge-runner/hooks.json in cwd (exec hooks also need "trusted": true in that file).');
-        if (autoMemory.checked)
-          cautions.push('--auto-memory injects opt-in runner memory into context (default off in runner).');
-        if (enableLsp.checked)
+        if (!coordinatorOn && trustedWorkspace.checked)
           cautions.push(
-            '--enable-lsp offers lsp_query to the model. A matching language-server executable must be installed on PATH; missing servers now return a tool error instead of crashing the runner.',
+            '--trusted-workspace runs hooks from .bridge-runner/hooks.json in cwd (exec hooks also need "trusted": true in that file).',
           );
-        if (getPromptTemplates().length)
+        if (!coordinatorOn && autoMemory.checked)
+          cautions.push('--auto-memory injects opt-in runner memory into context (default off in runner).');
+        if ((!coordinatorOn && enableLsp.checked) || (coordinatorOn && coordinatorEnableLsp.checked))
+          cautions.push(
+            '--enable-lsp offers lsp_query to the execute agent. A matching language-server executable must be installed on PATH.',
+          );
+        if (!coordinatorOn && getPromptTemplates().length)
           cautions.push('Prompt templates prepend reusable instructions before the user request.');
-        if (systemPromptFile.value.trim())
+        if (!coordinatorOn && systemPromptFile.value.trim())
           cautions.push('--system-prompt-file replaces the built-in default prompt for this run.');
-        if (appendSystemPrompt.value.trim() || appendSystemPromptFile.value.trim())
+        if (!coordinatorOn && (appendSystemPrompt.value.trim() || appendSystemPromptFile.value.trim()))
           cautions.push('Append-system prompt options add rules after the default or replacement prompt.');
-        if (bridgeUrl.value.trim())
+        if ((!coordinatorOn && bridgeUrl.value.trim()) || (coordinatorOn && coordinatorBridgeUrl.value.trim()))
           cautions.push('--bridge-url changes where model requests are sent; use it for local bridge routing.');
-        if (toolChoices.find((c) => c.value === 'apply_patch')?.checked)
+        if (!coordinatorOn && toolChoices.find((c) => c.value === 'apply_patch')?.checked)
           cautions.push('apply_patch is opt-in patch mode; leave it off for the minimal write surface.');
-        if (ackResumeRisk.checked)
+        if (!coordinatorOn && ackResumeRisk.checked)
           cautions.push(
             '--ack-resume-risk overrides degraded-session gate — use only when you accept poisoned context.',
           );
-        if (repairMode.checked) cautions.push('--repair may mutate session ledger; runner shows a plan first.');
+        if (!coordinatorOn && repairMode.checked)
+          cautions.push('--repair may mutate session ledger; runner shows a plan first.');
+        if (coordinatorOn && coordinatorUseWorkers.checked)
+          cautions.push(
+            'Research/verify workers are independent read-only model runs and can add time and token usage.',
+          );
+        if (
+          coordinatorOn &&
+          !coordinatorExecute.checked &&
+          (permissionStyle.value !== 'look-only' ||
+            coordinatorEnableLsp.checked ||
+            coordinatorAgents.checked ||
+            coordinatorWorktrees.checked ||
+            coordinatorSkills.checked ||
+            coordinatorTestWatch.checked)
+        ) {
+          cautions.push('Execute permissions are saved but inactive because the Execute phase is off.');
+        }
         if (cautions.length) {
           permissionCautions.innerHTML = cautions.map((c) => '&#9888; ' + esc(c)).join('<br>');
           permissionCautions.classList.add('show');
@@ -1871,25 +2827,29 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           permissionCautions.innerHTML = '';
         }
 
-        traceFullWarn.classList.toggle('show', traceLevel.value === 'full');
+        traceFullWarn.classList.toggle('show', !coordinatorOn && traceLevel.value === 'full');
 
         // Keep model-specific controls honest without silently changing the
         // user's selections. Unsupported choices are greyed out, and a saved
         // selection that became incompatible is also surfaced as a warning.
-        const selectedModel = getEffectiveModel();
+        const selectedModel = coordinatorOn ? getEffectiveCoordinatorModel() : getEffectiveModel();
+        const selectedEffort = coordinatorOn ? coordinatorEffort : effort;
+        const selectedThinking = coordinatorOn ? coordinatorThinking : thinking;
+        const selectedTemperature = coordinatorOn ? coordinatorTemperature : temperature;
         const xhighSupported = /claude-(?:fable-5|sonnet-5|opus-(?:5|4-(?:8|7)))/.test(selectedModel);
         const thinkingAlwaysOn = /claude-(?:fable-5|mythos-5|mythos-preview)/.test(selectedModel);
         const adaptiveUnsupported = /claude-(?:sonnet-4-5|haiku-4-5|3-)/.test(selectedModel);
-        const defaultOnlySampling =
-          /claude-(?:fable-5|mythos-(?:5|preview)|sonnet-5|opus-(?:5|4-(?:8|7)))/.test(selectedModel);
-        const xhighOption = effort.querySelector('option[value="xhigh"]');
-        const adaptiveOption = thinking.querySelector('option[value="adaptive"]');
-        const thinkingOffOption = thinking.querySelector('option[value="off"]');
+        const defaultOnlySampling = /claude-(?:fable-5|mythos-(?:5|preview)|sonnet-5|opus-(?:5|4-(?:8|7)))/.test(
+          selectedModel,
+        );
+        const xhighOption = selectedEffort.querySelector('option[value="xhigh"]');
+        const adaptiveOption = selectedThinking.querySelector('option[value="adaptive"]');
+        const thinkingOffOption = selectedThinking.querySelector('option[value="off"]');
         if (xhighOption) xhighOption.disabled = !xhighSupported;
         if (adaptiveOption) adaptiveOption.disabled = adaptiveUnsupported;
         if (thinkingOffOption) thinkingOffOption.disabled = thinkingAlwaysOn;
 
-        if (thinkingNote) {
+        if (thinkingNote && !coordinatorOn) {
           if (thinkingAlwaysOn) {
             thinkingNote.textContent =
               'This model keeps adaptive thinking on automatically. Auto omits the redundant API field; off is unavailable.';
@@ -1904,88 +2864,144 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
               'This older model does not support adaptive thinking. Leave auto selected, or choose off.';
           } else {
             thinkingNote.textContent =
-              'Auto uses the runner\'s known model rules. Explicit adaptive is forwarded for unknown future model IDs.';
+              "Auto uses the runner's known model rules. Explicit adaptive is forwarded for unknown future model IDs.";
           }
         }
 
-        if (temperatureNote) {
+        if (temperatureNote && !coordinatorOn) {
           temperatureNote.textContent = defaultOnlySampling
             ? 'Leave temperature blank for this model. Anthropic rejects non-default sampling values; use prompt instructions instead.'
             : 'This model accepts temperature. Leave it blank unless you intentionally need a non-default sampling value.';
         }
 
         const planNote = document.getElementById('planNote');
-        if (planNote) planNote.style.display = plan.checked ? 'flex' : 'none';
+        if (planNote) {
+          planNote.style.display = plan.checked && (!coordinatorOn || coordinatorExecute.checked) ? 'flex' : 'none';
+        }
 
         // ── 3.3: Input validation ──
-        const promptText = buildPromptText();
+        const promptText = coordinatorOn ? prompt.value.trim() : buildPromptText();
         const targetFolder = cwd.value.trim();
         const validationErrors = [];
         const validationWarnings = [];
 
-        if (!promptText && !reviewMemory.checked && !replayMode.checked && !repairMode.checked)
-          validationErrors.push('Enter a prompt before copying; the CLI rejects a normal run with no prompt.');
+        if (!promptText && (coordinatorOn || (!reviewMemory.checked && !replayMode.checked && !repairMode.checked))) {
+          validationErrors.push(
+            coordinatorOn
+              ? 'Enter an objective before copying; the coordinator rejects a run with no objective.'
+              : 'Enter a prompt before copying; the CLI rejects a normal run with no prompt.',
+          );
+        }
 
         if (targetFolder && !targetFolder.startsWith('/') && !targetFolder.startsWith('~'))
           validationWarnings.push('Target folder should be an absolute path (start with / or ~).');
 
-        if (testWatch.checked && !allowShell.checked)
-          validationWarnings.push('Auto-run tests is saved but inactive until shell is enabled.');
+        if (coordinatorOn) {
+          const coordinatorPhases = getCoordinatorPhases();
+          if (coordinatorPhases.length === 0) {
+            validationErrors.push('Select at least one coordinator phase.');
+          }
+          if (coordinatorVerify.checked && !coordinatorExecute.checked) {
+            validationErrors.push('Verify needs Execute; the runtime has no execute result to verify otherwise.');
+          }
+          if (coordinatorResearchPlan.value.trim() && !coordinatorResearch.checked) {
+            validationWarnings.push('The research-plan path is saved but inactive until Research is selected.');
+          } else if (coordinatorResearchPlan.value.trim() && !coordinatorUseWorkers.checked) {
+            validationWarnings.push('The research-plan path is saved but inactive while workers are disabled.');
+          }
+          if (coordinatorResearch.checked && !coordinatorUseWorkers.checked) {
+            validationWarnings.push(
+              'Research is selected but workers are disabled, so that phase performs no model work.',
+            );
+          }
+          if (coordinatorTestWatch.checked && !allowShell.checked) {
+            validationWarnings.push('Execute test-watch is saved but inactive until Edit + shell is selected.');
+          }
+          if (coordinatorTestWatch.checked && !coordinatorExecute.checked) {
+            validationWarnings.push('Execute test-watch is saved but inactive until Execute is selected.');
+          }
+          if (coordinatorTraceLevel.value === 'full') {
+            validationWarnings.push('Full traces can contain prompts and source snippets on disk.');
+          }
+          if (!Number.isInteger(Number(coordinatorMaxTokens.value)) || Number(coordinatorMaxTokens.value) <= 0) {
+            validationErrors.push('Coordinator response output tokens must be a positive whole number.');
+          }
+          if (!Number.isInteger(Number(coordinatorMaxSteps.value)) || Number(coordinatorMaxSteps.value) <= 0) {
+            validationErrors.push('Coordinator execute max steps must be a positive whole number.');
+          }
+          for (const [label, field, minimum] of [
+            ['Wall-clock ceiling', coordinatorMaxWallClockMs, Number.MIN_VALUE],
+            ['Cost ceiling', coordinatorMaxCostUsd, Number.MIN_VALUE],
+            ['Input-token budget', coordinatorBudgetInputTokens, 0],
+            ['Output-token budget', coordinatorBudgetOutputTokens, 0],
+          ]) {
+            if (
+              field.value.trim() &&
+              (!Number.isFinite(Number(field.value)) || Number(field.value) < minimum)
+            ) {
+              validationErrors.push(
+                label + (minimum > 0 ? ' must be greater than zero.' : ' must be a non-negative number.'),
+              );
+            }
+          }
+        } else {
+          if (testWatch.checked && !allowShell.checked)
+            validationWarnings.push('Auto-run tests is saved but inactive until shell is enabled.');
 
-        if (countResumeModes() > 1)
-          validationErrors.push('Pick only one session start mode: fresh, resume specified, or resume latest.');
+          if (countResumeModes() > 1)
+            validationErrors.push('Pick only one session start mode: fresh, resume specified, or resume latest.');
 
-        if (resumeSession.checked && !sessionId.value.trim() && !sessionPath.value.trim())
-          validationErrors.push('Resume specified session needs a Session id or Session path.');
+          if (resumeSession.checked && !sessionId.value.trim() && !sessionPath.value.trim())
+            validationErrors.push('Resume specified session needs a Session id or Session path.');
 
-        if (
-          sessionExtract.checked &&
-          (!trustedWorkspace.checked || (!sessionId.value.trim() && !sessionPath.value.trim()))
-        )
-          validationErrors.push(
-            'Run-summary memory proposal needs Enable project hooks plus a Session id or Session path.',
-          );
+          if (
+            sessionExtract.checked &&
+            (!trustedWorkspace.checked || (!sessionId.value.trim() && !sessionPath.value.trim()))
+          )
+            validationErrors.push(
+              'Run-summary memory proposal needs Enable project hooks plus a Session id or Session path.',
+            );
 
-        if (sessionExtract.checked && noSessionPersistence.checked)
-          validationErrors.push('Run-summary memory proposal cannot be combined with disabled session persistence.');
+          if (sessionExtract.checked && noSessionPersistence.checked)
+            validationErrors.push('Run-summary memory proposal cannot be combined with disabled session persistence.');
 
-        if ((replayMode.checked || repairMode.checked) && !sessionId.value.trim() && !sessionPath.value.trim())
-          validationErrors.push('Replay / repair needs --session-id or --session-path to find the ledger.');
+          if ((replayMode.checked || repairMode.checked) && !sessionId.value.trim() && !sessionPath.value.trim())
+            validationErrors.push('Replay / repair needs --session-id or --session-path to find the ledger.');
 
-        if (getInvalidPromptArgs().length)
-          validationErrors.push(
-            'Each template argument must be on its own line and start with a key, for example focus=error handling.',
-          );
+          if (getInvalidPromptArgs().length)
+            validationErrors.push(
+              'Each template argument must be on its own line and start with a key, for example focus=error handling.',
+            );
+        }
 
         const shellTimeoutNumber = Number(shellTimeout.value);
-        if (allowShell.checked && (!Number.isFinite(shellTimeoutNumber) || shellTimeoutNumber < 100 || shellTimeoutNumber > 900000))
+        if (
+          allowShell.checked &&
+          (!Number.isFinite(shellTimeoutNumber) || shellTimeoutNumber < 100 || shellTimeoutNumber > 900000)
+        )
           validationErrors.push('Shell timeout must be between 100 and 900000 milliseconds.');
 
-        if (effort.value === 'xhigh' && !xhighSupported)
+        if (selectedEffort.value === 'xhigh' && !xhighSupported)
           validationErrors.push('The selected model does not support --effort xhigh.');
 
-        if (thinking.value === 'off' && thinkingAlwaysOn)
+        if (selectedThinking.value === 'off' && thinkingAlwaysOn)
           validationErrors.push('The selected model keeps adaptive thinking on and cannot use --thinking off.');
 
         if (
-          thinking.value === 'off' &&
+          selectedThinking.value === 'off' &&
           selectedModel === 'claude-opus-5' &&
-          (effort.value === 'xhigh' || effort.value === 'max')
+          (selectedEffort.value === 'xhigh' || selectedEffort.value === 'max')
         )
           validationErrors.push('Claude Opus 5 cannot use --thinking off with xhigh or max effort.');
 
-        if (thinking.value === 'adaptive' && adaptiveUnsupported)
+        if (selectedThinking.value === 'adaptive' && adaptiveUnsupported)
           validationErrors.push('The selected model does not support --thinking adaptive.');
 
-        if (
-          temperature.value.trim() &&
-          Number(temperature.value) !== 1 &&
-          defaultOnlySampling
-        )
+        if (selectedTemperature.value.trim() && Number(selectedTemperature.value) !== 1 && defaultOnlySampling)
           validationErrors.push('The selected model rejects non-default --temperature values; leave it blank.');
 
         const validationEl = document.getElementById('validationWarnings');
-        if (customModel.value.trim()) {
+        if ((coordinatorOn ? coordinatorCustomModel : customModel).value.trim()) {
           validationWarnings.push(
             'Custom model id overrides the picker. Unknown future ids pass through with conservative runtime estimates.',
           );
@@ -2022,6 +3038,11 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         copyBtn.textContent = 'Copy to clipboard';
         copyBtn.classList.remove('copied');
         copyFeedback.innerHTML = '&nbsp;';
+
+        // Persist inside the function itself so every existing event-listener
+        // reference saves. The old late wrapper did not affect listeners that
+        // had already captured the original render function.
+        saveFormState();
       }
 
       function esc(s) {
@@ -2034,6 +3055,27 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         if (!summaryEl) return;
 
         const cwdText = cwd.value.trim() || 'the current folder';
+        if (commandMode.value === 'coordinator') {
+          const phases = getCoordinatorPhases();
+          const workersText = coordinatorUseWorkers.checked
+            ? 'Research/verify may launch <strong>read-only child agents</strong>'
+            : 'Child workers are disabled';
+          const executeText = coordinatorExecute.checked
+            ? 'The execute agent uses <strong>' + esc(permissionStyle.value) + '</strong> authority'
+            : 'No execute agent will run';
+          summaryEl.innerHTML =
+            'The coordinator will work in <code>' +
+            esc(cwdText) +
+            '</code> and run ' +
+            (phases.length ? '<strong>' + phases.map(esc).join(' → ') + '</strong>' : '<strong>no phases</strong>') +
+            '. ' +
+            workersText +
+            '. ' +
+            executeText +
+            '. Checked capabilities are available for agentic judgment; they are not forced tool calls.';
+          return;
+        }
+
         const steps = +maxSteps.value || DEFAULTS.maxSteps;
         const shellOn = allowShell.checked;
         const planOn = plan.checked;
@@ -2049,16 +3091,25 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         const fullAuto = acceptEdits.checked && dontAsk.checked;
 
         let permissionText;
-        if (planOn) permissionText = 'may <strong>inspect files for real</strong>, while proposed effects are recorded instead of executed';
-        else if (shellOn && fullAuto) permissionText = 'may <strong>read, write files, and run shell commands</strong> without asking';
-        else if (shellOn && editAuto) permissionText = 'may <strong>read, write files, and run shell commands</strong> (writes are auto-approved)';
-        else if (shellOn && editAsk) permissionText = 'may <strong>read and write files, and run shell commands</strong> — asks before each write';
-        else if (writeToolsOn && editAuto) permissionText = 'may <strong>read and edit files</strong> without asking (shell is off)';
-        else if (editAsk) permissionText = 'may <strong>read and edit files</strong> — asks in Terminal before each change';
+        if (planOn)
+          permissionText =
+            'may <strong>inspect files for real</strong>, while proposed effects are recorded instead of executed';
+        else if (shellOn && fullAuto)
+          permissionText = 'may <strong>read, write files, and run shell commands</strong> without asking';
+        else if (shellOn && editAuto)
+          permissionText = 'may <strong>read, write files, and run shell commands</strong> (writes are auto-approved)';
+        else if (shellOn && editAsk)
+          permissionText = 'may <strong>read and write files, and run shell commands</strong> — asks before each write';
+        else if (writeToolsOn && editAuto)
+          permissionText = 'may <strong>read and edit files</strong> without asking (shell is off)';
+        else if (editAsk)
+          permissionText = 'may <strong>read and edit files</strong> — asks in Terminal before each change';
         else if (orchestrationOn && dontAsk.checked)
-          permissionText = 'may <strong>read files and use enabled orchestration</strong> without asking — no writes, no shell';
+          permissionText =
+            'may <strong>read files and use enabled orchestration</strong> without asking — no writes, no shell';
         else if (orchestrationOn)
-          permissionText = 'may <strong>read files</strong>; enabled orchestration asks in Terminal — no writes, no shell';
+          permissionText =
+            'may <strong>read files</strong>; enabled orchestration asks in Terminal — no writes, no shell';
         else permissionText = 'may <strong>only read files</strong> — no writes, no shell';
 
         const transcriptText = transcript.value.trim()
@@ -2066,10 +3117,16 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           : 'saves a transcript to <code>~/.bridge-runner/logs/</code>';
 
         summaryEl.innerHTML =
-          'The runner will work in <code>' + esc(cwdText) + '</code>, ' +
-          permissionText + ', ' +
-          'will stop after ' + steps + ' steps, and ' +
-          transcriptText + '.';
+          'The runner will work in <code>' +
+          esc(cwdText) +
+          '</code>, ' +
+          permissionText +
+          ', ' +
+          'will stop after ' +
+          steps +
+          ' steps, and ' +
+          transcriptText +
+          '.';
       }
 
       function shellQuote(s) {
@@ -2100,6 +3157,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
 
       // ── Event listeners ──
       [
+        commandMode,
         prompt,
         promptTemplate,
         customPromptTemplate,
@@ -2172,6 +3230,35 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         excludeDynamicSystem,
         noSessionPersistence,
         permissionStyle,
+        coordinatorResearch,
+        coordinatorSynthesize,
+        coordinatorExecute,
+        coordinatorVerify,
+        coordinatorUseWorkers,
+        coordinatorNoNetwork,
+        coordinatorTrustWorkspace,
+        coordinatorEnableLsp,
+        coordinatorAgents,
+        coordinatorWorktrees,
+        coordinatorSkills,
+        coordinatorTestWatch,
+        coordinatorResearchPlan,
+        coordinatorModel,
+        coordinatorCustomModel,
+        coordinatorMaxTokens,
+        coordinatorMaxSteps,
+        coordinatorOutputFormat,
+        coordinatorEffort,
+        coordinatorThinking,
+        coordinatorTemperature,
+        coordinatorSessionId,
+        coordinatorTraceLevel,
+        coordinatorMaxWallClockMs,
+        coordinatorMaxCostUsd,
+        coordinatorBudgetInputTokens,
+        coordinatorBudgetOutputTokens,
+        coordinatorBridgeUrl,
+        coordinatorCallerToken,
         ...toolChoices,
       ].forEach((el) => {
         el.addEventListener('input', render);
@@ -2209,6 +3296,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       /** Collect all mutable form values into a plain object for storage. */
       function collectFormState() {
         return {
+          commandMode: commandMode.value,
           prompt: prompt.value,
           promptTemplate: promptTemplate.value,
           customPromptTemplate: customPromptTemplate.value,
@@ -2280,7 +3368,40 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           testWatch: testWatch.checked,
           acceptEdits: acceptEdits.checked,
           dontAsk: dontAsk.checked,
-          toolChoices: toolChoices.reduce((map, c) => { map[c.value] = c.checked; return map; }, {}),
+          coordinatorResearch: coordinatorResearch.checked,
+          coordinatorSynthesize: coordinatorSynthesize.checked,
+          coordinatorExecute: coordinatorExecute.checked,
+          coordinatorVerify: coordinatorVerify.checked,
+          coordinatorUseWorkers: coordinatorUseWorkers.checked,
+          coordinatorNoNetwork: coordinatorNoNetwork.checked,
+          coordinatorTrustWorkspace: coordinatorTrustWorkspace.checked,
+          coordinatorEnableLsp: coordinatorEnableLsp.checked,
+          coordinatorAgents: coordinatorAgents.checked,
+          coordinatorWorktrees: coordinatorWorktrees.checked,
+          coordinatorSkills: coordinatorSkills.checked,
+          coordinatorTestWatch: coordinatorTestWatch.checked,
+          coordinatorResearchPlan: coordinatorResearchPlan.value,
+          coordinatorModel: coordinatorModel.value,
+          coordinatorCustomModel: coordinatorCustomModel.value,
+          coordinatorMaxTokens: coordinatorMaxTokens.value,
+          coordinatorMaxSteps: coordinatorMaxSteps.value,
+          coordinatorOutputFormat: coordinatorOutputFormat.value,
+          coordinatorEffort: coordinatorEffort.value,
+          coordinatorThinking: coordinatorThinking.value,
+          coordinatorTemperature: coordinatorTemperature.value,
+          coordinatorSessionId: coordinatorSessionId.value,
+          coordinatorTraceLevel: coordinatorTraceLevel.value,
+          coordinatorMaxWallClockMs: coordinatorMaxWallClockMs.value,
+          coordinatorMaxCostUsd: coordinatorMaxCostUsd.value,
+          coordinatorBudgetInputTokens: coordinatorBudgetInputTokens.value,
+          coordinatorBudgetOutputTokens: coordinatorBudgetOutputTokens.value,
+          coordinatorBridgeUrl: coordinatorBridgeUrl.value,
+          // Like the runner token above, coordinatorCallerToken is never
+          // persisted. Prefer the BRIDGE_CALLER_TOKEN environment variable.
+          toolChoices: toolChoices.reduce((map, c) => {
+            map[c.value] = c.checked;
+            return map;
+          }, {}),
         };
       }
 
@@ -2288,39 +3409,168 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       function applyFormState(state) {
         // Text/select fields
         const textKeys = [
-          'prompt', 'promptTemplate', 'customPromptTemplate', 'promptArgs',
-          'attachmentMode', 'attachedPaths', 'model', 'customModel', 'maxSteps', 'maxTokens',
-          'temperature', 'compactAtTokens', 'maxRunTokens', 'maxToolCalls', 'cwd', 'runnerPath',
-          'permissionStyle', 'outputFormat', 'shellTimeout', 'confirmTimeout',
-          'logLevel', 'transcript', 'humanLog', 'traceLevel',
-          'tracePath', 'bridgeUrl', 'systemPrompt', 'systemPromptFile',
-          'appendSystemPrompt', 'appendSystemPromptFile', 'sessionId', 'sessionPath',
-          'forkFrom', 'maxWallClockMs',
-          'maxCostUsd', 'budgetInputTokens', 'budgetOutputTokens', 'effort', 'thinking',
+          'commandMode',
+          'prompt',
+          'promptTemplate',
+          'customPromptTemplate',
+          'promptArgs',
+          'attachmentMode',
+          'attachedPaths',
+          'model',
+          'customModel',
+          'maxSteps',
+          'maxTokens',
+          'temperature',
+          'compactAtTokens',
+          'maxRunTokens',
+          'maxToolCalls',
+          'cwd',
+          'runnerPath',
+          'permissionStyle',
+          'outputFormat',
+          'shellTimeout',
+          'confirmTimeout',
+          'logLevel',
+          'transcript',
+          'humanLog',
+          'traceLevel',
+          'tracePath',
+          'bridgeUrl',
+          'systemPrompt',
+          'systemPromptFile',
+          'appendSystemPrompt',
+          'appendSystemPromptFile',
+          'sessionId',
+          'sessionPath',
+          'forkFrom',
+          'maxWallClockMs',
+          'maxCostUsd',
+          'budgetInputTokens',
+          'budgetOutputTokens',
+          'effort',
+          'thinking',
+          'coordinatorResearchPlan',
+          'coordinatorModel',
+          'coordinatorCustomModel',
+          'coordinatorMaxTokens',
+          'coordinatorMaxSteps',
+          'coordinatorOutputFormat',
+          'coordinatorEffort',
+          'coordinatorThinking',
+          'coordinatorTemperature',
+          'coordinatorSessionId',
+          'coordinatorTraceLevel',
+          'coordinatorMaxWallClockMs',
+          'coordinatorMaxCostUsd',
+          'coordinatorBudgetInputTokens',
+          'coordinatorBudgetOutputTokens',
+          'coordinatorBridgeUrl',
         ];
         const elMap = {
-          prompt, promptTemplate, customPromptTemplate, promptArgs,
-          attachmentMode, attachedPaths, model, customModel, maxSteps, maxTokens,
-          temperature, compactAtTokens, maxRunTokens, maxToolCalls, cwd, runnerPath,
-          permissionStyle, outputFormat, shellTimeout, confirmTimeout,
-          logLevel, transcript, humanLog, traceLevel,
-          tracePath, bridgeUrl, systemPrompt, systemPromptFile,
-          appendSystemPrompt, appendSystemPromptFile, sessionId, sessionPath,
-          forkFrom, maxWallClockMs,
-          maxCostUsd, budgetInputTokens, budgetOutputTokens, effort, thinking,
+          commandMode,
+          prompt,
+          promptTemplate,
+          customPromptTemplate,
+          promptArgs,
+          attachmentMode,
+          attachedPaths,
+          model,
+          customModel,
+          maxSteps,
+          maxTokens,
+          temperature,
+          compactAtTokens,
+          maxRunTokens,
+          maxToolCalls,
+          cwd,
+          runnerPath,
+          permissionStyle,
+          outputFormat,
+          shellTimeout,
+          confirmTimeout,
+          logLevel,
+          transcript,
+          humanLog,
+          traceLevel,
+          tracePath,
+          bridgeUrl,
+          systemPrompt,
+          systemPromptFile,
+          appendSystemPrompt,
+          appendSystemPromptFile,
+          sessionId,
+          sessionPath,
+          forkFrom,
+          maxWallClockMs,
+          maxCostUsd,
+          budgetInputTokens,
+          budgetOutputTokens,
+          effort,
+          thinking,
+          coordinatorResearchPlan,
+          coordinatorModel,
+          coordinatorCustomModel,
+          coordinatorMaxTokens,
+          coordinatorMaxSteps,
+          coordinatorOutputFormat,
+          coordinatorEffort,
+          coordinatorThinking,
+          coordinatorTemperature,
+          coordinatorSessionId,
+          coordinatorTraceLevel,
+          coordinatorMaxWallClockMs,
+          coordinatorMaxCostUsd,
+          coordinatorBudgetInputTokens,
+          coordinatorBudgetOutputTokens,
+          coordinatorBridgeUrl,
         };
         for (const key of textKeys) {
           if (state[key] !== undefined && elMap[key]) elMap[key].value = state[key];
         }
         // Bool keys
         const boolMap = {
-          stream, verbose, continueFromLatest, newSession, resumeSession,
-          ackResumeRisk, taskScope, compactEachTurn, autoMemory, noArchive,
-          bareContext, includeInstructionDocs,
-          includeRepoContext, includeClaudeMd, includeRepoMap, includeSkills,
-          excludeDynamicSystem, noSessionPersistence, trustedWorkspace,
-          trustWorkspace, chaosOk, sessionExtract, reviewMemory,
-          allowShell, enableLsp, plan, noNetwork, testWatch, acceptEdits, dontAsk,
+          stream,
+          verbose,
+          continueFromLatest,
+          newSession,
+          resumeSession,
+          ackResumeRisk,
+          taskScope,
+          compactEachTurn,
+          autoMemory,
+          noArchive,
+          bareContext,
+          includeInstructionDocs,
+          includeRepoContext,
+          includeClaudeMd,
+          includeRepoMap,
+          includeSkills,
+          excludeDynamicSystem,
+          noSessionPersistence,
+          trustedWorkspace,
+          trustWorkspace,
+          chaosOk,
+          sessionExtract,
+          reviewMemory,
+          allowShell,
+          enableLsp,
+          plan,
+          noNetwork,
+          testWatch,
+          acceptEdits,
+          dontAsk,
+          coordinatorResearch,
+          coordinatorSynthesize,
+          coordinatorExecute,
+          coordinatorVerify,
+          coordinatorUseWorkers,
+          coordinatorNoNetwork,
+          coordinatorTrustWorkspace,
+          coordinatorEnableLsp,
+          coordinatorAgents,
+          coordinatorWorktrees,
+          coordinatorSkills,
+          coordinatorTestWatch,
         };
         for (const [key, el] of Object.entries(boolMap)) {
           if (state[key] !== undefined) el.checked = !!state[key];
@@ -2358,14 +3608,6 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         localStorage.removeItem(STORAGE_KEY);
         window.location.reload();
       }
-
-      // Auto-save on every render (debounced writes aren't needed; render is
-      // already on user action).
-      const _origRender = render;
-      render = function () {
-        _origRender();
-        saveFormState();
-      };
 
       // ── Presets ──
       const PRESETS = {
@@ -2595,8 +3837,17 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           // Post-style overrides — a preset can set a permissionStyle *and*
           // toggle shell/test-watch/LSP on top. This is the whitelist of flags
           // the style is allowed to override (1.2 fix).
-          ['stream', 'verbose', 'bareContext', 'taskScope', 'newSession', 'resumeSession',
-           'allowShell', 'testWatch', 'enableLsp'].forEach((key) => {
+          [
+            'stream',
+            'verbose',
+            'bareContext',
+            'taskScope',
+            'newSession',
+            'resumeSession',
+            'allowShell',
+            'testWatch',
+            'enableLsp',
+          ].forEach((key) => {
             if (Object.prototype.hasOwnProperty.call(p, key)) boolMap[key].checked = !!p[key];
           });
         }

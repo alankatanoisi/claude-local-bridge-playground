@@ -235,4 +235,89 @@ describe('coordinator budget leases', () => {
     assert.equal(byId.get('default'), 4000, 'CLI/input maxTokens reaches the worker inherit bag');
     assert.equal(byId.get('big'), 8000, 'plan node maxTokens overrides the run default');
   });
+
+  it('passes explicit execute authority and preserves shared budgets through verify', async () => {
+    const runtime = makeStubRuntime({ usagePerChild: { input_tokens: 10, output_tokens: 5 } });
+    let kernelInput = null;
+    const coordinator = new Coordinator({
+      workerRuntime: runtime,
+      sessionBaseDir: tempSessionDir(),
+      async runKernel(input) {
+        kernelInput = input;
+        return {
+          stopReason: 'success',
+          finalText: 'execute complete',
+          usage: { input_tokens: 100, output_tokens: 50 },
+          events: [],
+        };
+      },
+    });
+
+    const result = await coordinator.run(
+      baseInput({
+        phases: ['research', 'execute', 'verify'],
+        model: 'claude-sonnet-5',
+        maxTokens: 4096,
+        maxSteps: 24,
+        budgetInputTokens: 1000,
+        budgetOutputTokens: 500,
+        maxWallClockMs: 1000,
+        noNetwork: true,
+        traceLevel: 'redacted',
+        effort: 'high',
+        thinking: 'adaptive',
+        temperature: 1,
+        bridgeUrl: 'http://127.0.0.1:11437',
+        callerToken: 'test-only-token',
+        inheritTrust: true,
+        kernelOptions: {
+          capabilities: ['edits', 'recovery'],
+          acceptEdits: true,
+          allowShell: true,
+          shellTimeout: 45000,
+          enableLsp: true,
+          testWatch: true,
+        },
+      }),
+    );
+
+    assert.ok(kernelInput, 'execute phase called the injected AgentKernel');
+    assert.equal(kernelInput.maxTokens, 4096);
+    assert.equal(kernelInput.maxSteps, 24);
+    assert.equal(kernelInput.budgetInputTokens, 990, 'worker input usage is subtracted before execute');
+    assert.equal(kernelInput.budgetOutputTokens, 495, 'worker output usage is subtracted before execute');
+    assert.equal(kernelInput.inheritTrust, true);
+    assert.equal(kernelInput.noNetwork, true);
+    assert.equal(kernelInput.traceLevel, 'redacted');
+    assert.equal(kernelInput.effort, 'high');
+    assert.equal(kernelInput.thinking, 'adaptive');
+    assert.equal(kernelInput.temperature, 1);
+    assert.equal(kernelInput.bridgeUrl, 'http://127.0.0.1:11437');
+    assert.equal(kernelInput.callerToken, 'test-only-token');
+    assert.deepEqual(kernelInput.capabilities, ['edits', 'recovery']);
+    assert.equal(kernelInput.acceptEdits, true);
+    assert.equal(kernelInput.allowShell, true);
+    assert.equal(kernelInput.shellTimeout, 45000);
+    assert.equal(kernelInput.enableLsp, true);
+    assert.equal(kernelInput.testWatch, true);
+
+    assert.equal(runtime.calls.length, 2, 'research and verify each launch one read-only worker');
+    assert.equal(runtime.calls[1].spec.phase, 'verify');
+    assert.equal(
+      runtime.calls[1].spec.budgetRemaining.input_tokens,
+      890,
+      'verify gets the cap minus research and execute input usage',
+    );
+    assert.equal(
+      runtime.calls[1].spec.budgetRemaining.output_tokens,
+      445,
+      'verify gets the cap minus research and execute output usage',
+    );
+    assert.ok(
+      runtime.calls[1].spec.inherit.maxWallClockMs <= runtime.calls[0].spec.inherit.maxWallClockMs,
+      'later workers never restart the whole-run clock',
+    );
+    assert.deepEqual(result.childUsage, { input_tokens: 20, output_tokens: 10 });
+    assert.deepEqual(result.meteredUsage, { input_tokens: 120, output_tokens: 60 });
+  });
 });
