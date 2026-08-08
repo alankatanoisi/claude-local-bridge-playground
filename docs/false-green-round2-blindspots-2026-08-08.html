@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>False-Green Round 2 — Blind Spots, New Guards, and Agent Prompts (2026-08-08)</title>
+    <style>
+      :root {
+        --ink: #1a1d21;
+        --muted: #5c6570;
+        --paper: #fbfaf7;
+        --card: #ffffff;
+        --line: #d9d4c8;
+        --accent: #7a4b12;
+        --good: #1a6b3c;
+        --warn-bg: #fdf3d7;
+        --warn-line: #d9a92f;
+        --bad-bg: #fbe9e7;
+        --bad-line: #c0554a;
+        --code-bg: #f2efe8;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+        color: var(--ink);
+        background: var(--paper);
+        margin: 0;
+        line-height: 1.6;
+      }
+      main {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 5rem;
+      }
+      h1 {
+        font-size: 1.75rem;
+        margin: 0 0 0.3rem;
+        line-height: 1.25;
+      }
+      h2 {
+        font-size: 1.3rem;
+        margin-top: 3rem;
+        border-bottom: 2px solid var(--line);
+        padding-bottom: 0.35rem;
+      }
+      h3 {
+        font-size: 1.08rem;
+        margin-top: 2rem;
+        color: var(--accent);
+      }
+      h4 {
+        font-size: 0.98rem;
+        margin: 1.4rem 0 0.4rem;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-bottom: 1.25rem;
+      }
+      .banner {
+        border: 1px solid var(--warn-line);
+        background: var(--warn-bg);
+        border-radius: 8px;
+        padding: 0.85rem 1.05rem;
+        margin: 1.3rem 0;
+        font-size: 0.95rem;
+      }
+      .bug {
+        border: 1px solid var(--bad-line);
+        background: var(--bad-bg);
+        border-radius: 8px;
+        padding: 0.85rem 1.05rem;
+        margin: 1rem 0;
+      }
+      .bug h4 {
+        margin: 0 0 0.4rem;
+        color: #8f3126;
+      }
+      .ok {
+        border: 1px solid #9ccfb0;
+        background: #e9f6ee;
+        border-radius: 8px;
+        padding: 0.85rem 1.05rem;
+        margin: 1rem 0;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin: 1rem 0;
+        font-size: 0.87rem;
+        background: var(--card);
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 0.45rem 0.6rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: var(--code-bg);
+      }
+      td.id {
+        white-space: nowrap;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 0.82rem;
+      }
+      code,
+      pre {
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+      }
+      code {
+        background: var(--code-bg);
+        padding: 0.1rem 0.32rem;
+        border-radius: 4px;
+        font-size: 0.85em;
+      }
+      pre {
+        background: #23272d;
+        color: #e8e6df;
+        padding: 0.95rem 1.05rem;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-size: 0.79rem;
+        line-height: 1.5;
+      }
+      pre code {
+        background: none;
+        padding: 0;
+        color: inherit;
+      }
+      .prompt {
+        border: 2px solid var(--accent);
+        border-radius: 8px;
+        margin: 1rem 0 2rem;
+        overflow: hidden;
+      }
+      .prompt header {
+        background: var(--accent);
+        color: #fff;
+        padding: 0.5rem 0.85rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .prompt pre {
+        margin: 0;
+        border-radius: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .glossary {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 1rem 1.15rem;
+        font-size: 0.92rem;
+      }
+      .glossary dt {
+        font-weight: 600;
+        margin-top: 0.6rem;
+      }
+      .glossary dd {
+        margin: 0.1rem 0 0;
+        color: var(--muted);
+      }
+      .tag {
+        display: inline-block;
+        border-radius: 4px;
+        padding: 0 0.4rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .tag.covered {
+        background: #e2f2e8;
+        color: var(--good);
+      }
+      .tag.todo {
+        background: var(--warn-bg);
+        color: #8a6410;
+      }
+      .tag.live {
+        background: var(--bad-bg);
+        color: #8f3126;
+      }
+      nav.toc {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0.9rem 1.15rem;
+        font-size: 0.92rem;
+      }
+      nav.toc ol {
+        margin: 0.4rem 0 0;
+        padding-left: 1.3rem;
+      }
+      .small {
+        font-size: 0.86rem;
+        color: var(--muted);
+      }
+      .kv {
+        font-size: 0.9rem;
+      }
+      .kv td {
+        border: none;
+        padding: 0.15rem 0.6rem 0.15rem 0;
+      }
+      .kv td:first-child {
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      @media (max-width: 640px) {
+        table {
+          font-size: 0.8rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>False-Green Round 2 — Blind Spots, New Guards, and Agent Prompts</h1>
+      <p class="meta">
+        Playground repo · branch <code>claude/test-gaps-coverage-6t9dro</code> · 2026-08-08 ·
+        62 blind spots catalogued · 58 new checks in 6 new test files · 3 live defects found
+      </p>
+
+      <div class="banner">
+        <strong>Read this first.</strong> This report is the follow-on to
+        <code>docs/false-green-test-audit-2026-08-07.html</code>, which delivered the FG-A…FG-G series
+        (76 checks, 64 blind spots). Everything here is <em>additive</em>: I read the existing guards
+        first and deliberately deleted my own duplicates of FG-D10/D11/D12 rather than ship redundant
+        tests. Where I kept something that looks similar, §7 explains exactly what it adds.
+      </div>
+
+      <nav class="toc">
+        <strong>Contents</strong>
+        <ol>
+          <li><a href="#honesty">The premise is false today — the suite is already red</a></li>
+          <li><a href="#method">How I looked for blind spots</a></li>
+          <li><a href="#changes">The 5 hypothetical code changes</a></li>
+          <li><a href="#catalog">Blind-spot catalog — 62 items</a></li>
+          <li><a href="#live">Live defects found while writing the tests</a></li>
+          <li><a href="#files">The 6 new test files</a></li>
+          <li><a href="#overlap">What I did NOT write, and why</a></li>
+          <li><a href="#prompts">Verbatim agent prompts for the 5 changes</a></li>
+          <li><a href="#run">How to run everything</a></li>
+          <li><a href="#glossary">Glossary</a></li>
+        </ol>
+      </nav>
+
+      <h2 id="honesty">1. The premise is false today — the suite is already red</h2>
+
+      <p>
+        The task asks what a <em>100% green</em> run could hide. Before answering that, the honest
+        finding: <strong>this repo does not currently produce a 100% green run.</strong> On a clean
+        checkout of <code>main</code>, before I changed anything:
+      </p>
+
+      <table class="kv">
+        <tr><td>tests</td><td><code>905</code></td></tr>
+        <tr><td>pass</td><td><code>901</code></td></tr>
+        <tr><td>fail</td><td><strong><code>2</code></strong></td></tr>
+        <tr><td>todo (known gaps, do not fail the run)</td><td><code>1</code></td></tr>
+      </table>
+
+      <p>
+        Two things follow. First, any agent that runs <code>npm test</code> after a change and sees
+        <code>fail 2</code> has no way to tell <em>its</em> breakage from the pre-existing breakage —
+        so a real regression can hide inside an accepted failure count. Second, both failures are
+        instructive in their own right.
+      </p>
+
+      <div class="bug">
+        <h4>Pre-existing failure #1 — <code>undo</code> restores the WRONG backup <span class="tag live">live bug</span></h4>
+        <p>
+          <code>test/runner/undo.test.js</code> › “restores from the newest matching timestamped backup”.
+          <code>undo</code> ranks backups with <code>matches.sort((a, b) =&gt; b.mtimeMs - a.mtimeMs)</code>.
+          Two backups written microseconds apart get an <strong>identical</strong> <code>mtimeMs</code>
+          (measured here: both <code>1786159277413.2898</code>), the comparator returns <code>0</code>,
+          and the surviving order is whatever <code>readdir()</code> returned — which put the
+          <em>older</em> backup first. <code>undo</code> then restored <code>old-content</code> over
+          the newer save.
+        </p>
+        <p>
+          This is not a test bug. It is silent data loss in a recovery tool, and it is
+          timing- and filesystem-dependent: on macOS APFS the two writes usually land on different
+          nanosecond stamps, so it passes on Alan's machine and fails here. The tempting “fix” —
+          adding a sleep between the two <code>saveBackup()</code> calls in the test — makes the suite
+          green and leaves the bug. The real fix is a deterministic tie-break:
+          <code>saveBackup()</code> already embeds a monotonic sequence number in the filename, so
+          sort on <code>(mtimeMs, seq)</code>. Recorded as <strong>HS-03</strong>.
+        </p>
+        <p>
+          <strong>It is also intermittent, which is the worst property a failure can have.</strong>
+          Across five full-suite runs I measured <code>fail 2</code> four times and
+          <code>fail 1</code> once — under load the two writes can straddle a millisecond boundary,
+          the mtimes differ, and the test passes. In isolation it failed 5 out of 5. So this test
+          flips between red and green on the same code, on the same machine, which means an agent
+          could “fix” something unrelated, see the count drop to 1, and conclude it had helped.
+          HS-03 is the deterministic version: it forces the tie with <code>utimesSync</code> so the
+          bug is reproducible on every filesystem.
+        </p>
+      </div>
+
+      <div class="bug">
+        <h4>Pre-existing failure #2 — the bash signal test measures the harness, not the product</h4>
+        <p>
+          <code>test/runner/bash.test.js</code> › “reports signal when process is killed” expects
+          <code>"killed by signal"</code>. I traced it: the identical call returns
+          <code>"Command killed by signal SIGABRT"</code> under a bare <code>node</code> process and
+          <code>"Command exited with code 134"</code> under <code>node --test</code>. It is not test
+          order (I replayed all seven preceding cases — still passed) and not the persistent-shell
+          fast path (<code>BRIDGE_RUNNER_PERSISTENT_SHELL</code> is unset). It is the process context:
+          whether the intermediate <code>/bin/sh</code> (dash, here) <em>execs</em> the command — in
+          which case Node sees <code>signal</code> — or forks it, in which case the shell survives and
+          reports exit code 134 (128+6 = SIGABRT).
+        </p>
+        <p>
+          The false-green risk is the obvious repair: relaxing the assertion to accept
+          <code>"exited with code 134"</code> turns the suite green and leaves the
+          signal-reporting branch <strong>permanently unexercised</strong>. <code>FG-M6</code> now
+          guards that branch structurally instead — it fails if the <code>result.signal</code> check
+          is deleted, or reordered after the exit-code check (a killed process can have
+          <code>status: null</code>, so order matters).
+        </p>
+      </div>
+
+      <div class="banner">
+        <strong>Exit-code footgun worth knowing.</strong> <code>npm test | tail</code> reports
+        <em>tail's</em> exit code, not the test runner's — my first background run exited
+        <code>0</code> while two tests were failing. <code>FG-G8</code> already guards the npm script
+        against <code>|| true</code>; nothing can guard your shell pipeline. Read the
+        <code># fail</code> line, not the exit code.
+      </div>
+
+      <h2 id="method">2. How I looked for blind spots</h2>
+
+      <p>
+        A test suite is a set of questions. It goes green either because the answers are right, or
+        because <em>the question was never asked</em>. So rather than reading tests and asking “is
+        this correct?”, I asked: for each realistic near-future change, what would an author edit, and
+        which of those edits changes runtime behaviour without changing any existing assertion?
+      </p>
+
+      <p>Three failure shapes drove the catalog:</p>
+      <ol>
+        <li>
+          <strong>Unquantified coverage.</strong> A point test pins one example
+          (“<code>edit_file</code> asks”). A new sibling added later is outside the net. Fix: sweep
+          the real registry, so future entries are inside the net the moment they register.
+        </li>
+        <li>
+          <strong>Unreachable-but-well-formed additions.</strong> The added thing is internally
+          valid and never runs — a catalog entry shadowed by an earlier regex, a capability group with
+          no name, a test file in an unglobbed directory. Fix: reachability assertions.
+        </li>
+        <li>
+          <strong>Detectors that cannot fail.</strong> A guard whose offender list is empty because
+          the pattern rotted. Fix: pair every empty-list sweep with a <em>liveness</em> proof against
+          something known to match. This paid for itself immediately (see §5, FG-C11).
+        </li>
+      </ol>
+
+      <p>
+        I verified each claim by running code, not by reading it. Where a probe of mine was wrong, I
+        corrected it: my first <code>buildSafeEnv</code> probe passed an argument the function does
+        not accept (it reads <code>process.env</code> directly), which made a leak look like a
+        non-leak. Re-tested properly, it is a leak — item BS-31.
+      </p>
+
+      <h2 id="changes">3. The 5 hypothetical code changes</h2>
+
+      <p>
+        These are not generic examples. Each is drawn from this repo's own stated backlog in
+        <code>CLAUDE.md</code> § “Current Work Thread” and the round-3 residuals, so they are the
+        changes this repo plausibly sees next.
+      </p>
+
+      <table>
+        <tr>
+          <th>ID</th><th>Change</th><th>Why it is next</th><th>Dominant false-green shape</th><th>Guard series</th>
+        </tr>
+        <tr>
+          <td class="id">HC-1</td>
+          <td>Add a new model (<code>claude-opus-5-1</code>) to the model catalog with its own pricing, context window and effort levels</td>
+          <td>Recurring maintenance; catalog is dated <code>2026-07-26</code></td>
+          <td>Well-formed entry that is <em>unreachable</em>; hand-maintained mirrors drift</td>
+          <td class="id">FG-H</td>
+        </tr>
+        <tr>
+          <td class="id">HC-2</td>
+          <td>Add a <code>web_fetch</code> tool behind a new <code>network</code> capability group</td>
+          <td>Natural next capability; the runner has no egress today</td>
+          <td>Every existing guard is about files or shell; egress walks past all of them</td>
+          <td class="id">FG-I</td>
+        </tr>
+        <tr>
+          <td class="id">HC-3</td>
+          <td>Emit OpenTelemetry spans for turns and tool calls (the open <strong>HE-05 OTel half</strong>)</td>
+          <td>Named residual in <code>CLAUDE.md</code></td>
+          <td>A new sink + new egress + credential-carrying env vars, all at once</td>
+          <td class="id">FG-J</td>
+        </tr>
+        <tr>
+          <td class="id">HC-4</td>
+          <td>Retry failed coordinator workers with backoff (the open <strong>A3-F4</strong> residual)</td>
+          <td>Named residual after the live 4-way fan-out landed</td>
+          <td>Budget arithmetic corrupts silently; the run still “succeeds”</td>
+          <td class="id">FG-K</td>
+        </tr>
+        <tr>
+          <td class="id">HC-5</td>
+          <td>Batch ledger appends behind a buffered writer for latency (the open <strong>A1-F4/A1-F5</strong> residuals)</td>
+          <td>Named residuals from the durability bakeoff</td>
+          <td>Durability is only observable on crash; in-process tests cannot see it</td>
+          <td class="id">FG-L</td>
+        </tr>
+      </table>
+
+      <h2 id="catalog">4. Blind-spot catalog — 62 items</h2>
+
+      <p class="small">
+        Each row: the regression a fully green suite would have missed → the check that now asks the
+        question. <span class="tag covered">covered</span> = active assertion ·
+        <span class="tag todo">todo</span> = real gap, encoded as a registered known-failing test ·
+        <span class="tag live">live</span> = a defect in today's code, not merely a test gap.
+      </p>
+
+      <h3>A. HC-1 — adding a model to the catalog (BS-1 … BS-11)</h3>
+      <table>
+        <tr><th>#</th><th>Blind spot</th><th>Coverage</th></tr>
+        <tr><td class="id">BS-1</td><td>A new entry is <strong>shadowed</strong> by an earlier broader matcher and never runs. <code>/^claude-opus-5(?:$|-)/</code> already matches <code>claude-opus-5-1</code>, so appending the new entry leaves Opus 5's pricing in force. FG-D9 passes: the dead entry is internally perfect.</td><td class="id">FG-H1 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-2</td><td>Which entry owns a dashed point-release id is folklore, so nobody notices when it changes owners</td><td class="id">FG-H2 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-3</td><td>Entry facts edited without bumping <code>CATALOG_VERSION</code> — every downstream “catalog may be stale” warning then reports a false date</td><td class="id">FG-H3 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-4</td><td><code>provenance</code> cites a source id that does not exist; the fact looks sourced and is not</td><td class="id">FG-H4 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-5</td><td>A source record loses its <code>status</code>/<code>checked</code> date, so “verified-live” becomes unfalsifiable</td><td class="id">FG-H5 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-6</td><td><code>PRICING_PER_MILLION</code> is a hand-maintained mirror of the catalog; a model added to one and not the other makes two call sites disagree about price</td><td class="id">FG-H6 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-7</td><td>Runner default model and the VS Code <code>defaultModel</code> contribution drift apart — they live in different files and a bump touches one</td><td class="id">FG-H7 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-8</td><td>Shared <code>effortLevels</code> arrays become mutable; one <code>push()</code> anywhere grants an effort level to a whole family</td><td class="id">FG-H8 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-9</td><td>The two estimate tiers (family fallback vs generic default) collapse, or the family tier borrows the sibling's label — presenting a guess under a real model's name</td><td class="id">FG-H9 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-10</td><td>A typo'd <code>pricingSource</code> falls through to the implicit “catalog” label, presenting an inferred price as verified</td><td class="id">FG-H10 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-11</td><td>Cost components <em>swapped</em> (cache reads billed at the input rate and vice versa). The four-component sum is byte-identical, so FG-D12 stays green while cache-heavy runs — the normal case here — mis-bill by ~10×</td><td class="id">FG-H12 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-12</td><td>An unknown lifecycle/thinking/sampling value fails open because nothing reads the enum exhaustively; a retired model stays selectable</td><td class="id">FG-H11 <span class="tag covered">covered</span></td></tr>
+      </table>
+
+      <h3>B. HC-2 — adding a network-capable tool (BS-13 … BS-23)</h3>
+      <table>
+        <tr><th>#</th><th>Blind spot</th><th>Coverage</th></tr>
+        <tr><td class="id">BS-13</td><td>An egress tool categorised <code>read-only</code> (it “reads” pages) is <strong>auto-allowed in every mode</strong>. FG-B4 does not fire because the catalog says read-only</td><td class="id">FG-I1 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-14</td><td>The egress detector itself rots and the sweep passes vacuously</td><td class="id">FG-I1b <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-15</td><td><strong>FG-C11's network detector does not match this repo's own network module.</strong> <code>model-client.js</code> aliases the transport (<code>const transport = isTls ? https : http; transport.request(...)</code>), so the call-shape regex misses it — and would miss a new egress module written in the same house style</td><td class="id">FG-I9 <span class="tag live">live gap</span></td></tr>
+        <tr><td class="id">BS-16</td><td><code>--no-network</code> is a ceiling bit with no enumerated enforcers; the one tool that most obviously should honour it simply would not</td><td class="id">FG-I2 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-17</td><td>A tool clears <code>ctx.noNetwork</code> mid-run to make its own egress legal</td><td class="id">FG-I3 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-18</td><td>The registry scrubs <code>result.text</code> and <code>result.diff</code> only. A fetcher returning <code>body</code>/<code>html</code>/<code>headers</code> reaches transcript, ledger and stdout <strong>unscrubbed</strong></td><td class="id">FG-I4 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-19</td><td>The scrubber the register trusts stops working, making the field register meaningless</td><td class="id">FG-I4b <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-20</td><td>A capability name is accepted by <code>--capabilities</code> but maps to no group (or an empty one): the flag is silently inert and the user gets no tools and no error</td><td class="id">FG-I5 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-21</td><td>The reverse — a group exists but no flag can enable it; its tools look shipped and are unreachable</td><td class="id">FG-I6 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-22</td><td>A typo'd capability is ignored rather than rejected, so the run silently has fewer tools than asked for</td><td class="id">FG-I7 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-23</td><td>A <code>url</code> argument is not a path-shaped key, so <code>file:///etc/passwd</code> and loopback URLs bypass both the deny matrix and cwd confinement — the general form of the N1 residual</td><td class="id">FG-I8 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-24</td><td>The schema reader used by that guard silently reads nothing, making it vacuous</td><td class="id">FG-I8b <span class="tag covered">covered</span></td></tr>
+      </table>
+
+      <h3>C. HC-3 — adding a telemetry sink (BS-25 … BS-33)</h3>
+      <table>
+        <tr><th>#</th><th>Blind spot</th><th>Coverage</th></tr>
+        <tr><td class="id">BS-25</td><td><strong>FG-C10's sink sweep misses 12 of this repo's own sinks.</strong> It greps <code>createWriteStream|appendFileSync</code>; modules writing via <code>writeFileSync</code>, <code>fs.writeSync</code> or <code>process.stdout.write</code> are invisible — including <code>run.js</code>. An exporter writing spans with <code>writeFileSync</code> passes it</td><td class="id">FG-J1 <span class="tag live">live gap</span></td></tr>
+        <tr><td class="id">BS-26</td><td>Nobody realises FG-C10 is narrow, so a green FG-C10 is read as “no new sink was added”</td><td class="id">FG-J1b <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-27</td><td><code>safety.scrubSecrets</code> is <strong>string-only</strong>: called on a span-attributes object it returns it unchanged, secrets intact, and throws nothing. The name gives no hint that <code>scrubDeepSecrets</code> is the object-aware one</td><td class="id">FG-J2 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-28</td><td>Deep scrubbing stops recursing into arrays or nested objects, or stringifies numeric attributes and corrupts them</td><td class="id">FG-J3 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-29</td><td><code>scrubDeepSecrets</code> has <strong>no cycle guard</strong>. A span attribute holding a parent backreference — the ordinary shape of a span tree — overflows the stack <em>inside the redaction boundary</em>, taking the run down while trying to make output safe</td><td class="id">HS-05 <span class="tag todo">todo</span> <span class="tag live">live gap</span></td></tr>
+        <tr><td class="id">BS-30</td><td><code>Error</code>, <code>Map</code> and <code>Set</code> payloads come out empty — no leak, but an exporter would silently record nothing, and “fixing” the emptiness by bypassing the boundary is the natural next step</td><td class="id">FG-J5 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-31</td><td><code>OTEL_EXPORTER_OTLP_HEADERS</code> conventionally holds <code>Authorization=Bearer …</code>. <code>buildSafeEnv</code> is a <em>denylist</em> and <code>OTEL_</code> is on neither the static list nor the prefix list, so that token is handed to <strong>every child process</strong> — every bash command, every spawned agent</td><td class="id">HS-06 <span class="tag todo">todo</span> <span class="tag live">live gap</span></td></tr>
+        <tr><td class="id">BS-32</td><td>A prefix-scrub family (<code>AWS_</code>, <code>ANTHROPIC_</code>, <code>CLAUDE_</code>, <code>OPENAI_</code>) is deleted — a one-character edit with no other symptom — and future variable names in that family start leaking</td><td class="id">FG-J7 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-33</td><td>A new sink is added to <code>src/runner</code> without review because no register enumerates them</td><td class="id">FG-J1 <span class="tag covered">covered</span></td></tr>
+      </table>
+
+      <h3>D. HC-4 — coordinator retry and backoff (BS-34 … BS-44)</h3>
+      <table>
+        <tr><th>#</th><th>Blind spot</th><th>Coverage</th></tr>
+        <tr><td class="id">BS-34</td><td>A retry re-acquires a budget lease <strong>without releasing</strong> the failed attempt's. Tokens stay reserved forever, later siblings are refused, the run “completes” having done less work — and the broker's own invariant still holds, so nothing throws</td><td class="id">FG-K1, FG-K2 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-35</td><td>A retry releases the same lease twice and folds the usage in twice; the bill doubles and the run succeeds</td><td class="id">FG-K3 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-36</td><td>Oversubscription is only checked at the end of a run, so a transient mid-sequence violation is invisible</td><td class="id">FG-K1 (asserts after every step) <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-37</td><td>A retry loop against an exhausted budget eventually gets a “yes” and spends past the ceiling</td><td class="id">FG-K4 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-38</td><td>A later successful retry <em>erases</em> the record that an earlier attempt was never reconciled, so the run's usage total silently becomes a partial number presented as complete</td><td class="id">FG-K5 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-39</td><td>An uncapped run fabricates leases a retry loop mistakes for reconcilable work, or records uncapped spawns as incomplete children</td><td class="id">FG-K6 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-40</td><td>Batching depends on the order nodes arrive in, so “it worked on the retry” is an ordering accident rather than a fix</td><td class="id">FG-K7 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-41</td><td>A “simplification” merges batches; node count is unchanged and dependencies now run concurrently with their dependents</td><td class="id">FG-K8 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-42</td><td>The retry's <code>try/catch</code> swallows the loud errors <code>groupPhasePlanByDeps</code> throws, so a cyclic or malformed spec silently serialises instead of failing</td><td class="id">FG-K9 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-43</td><td>A retry wrapper converts a worker rejection into a resolved “failed” result, which stops the coordinator's own error path (the one that releases the lease) from ever running</td><td class="id">FG-K10 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-44</td><td>A retry adds a runner to a batch without updating the lease divisor, so the first sibling eats the whole remainder and its siblings are refused</td><td class="id">FG-K11 <span class="tag covered">covered</span></td></tr>
+      </table>
+
+      <h3>E. HC-5 — batching ledger writes (BS-45 … BS-53)</h3>
+      <table>
+        <tr><th>#</th><th>Blind spot</th><th>Coverage</th></tr>
+        <tr><td class="id">BS-45</td><td>A buffered writer is <strong>indistinguishable from a synchronous one inside a single process</strong> — flush-on-read hides it — so the whole existing suite passes while durability is gone</td><td class="id">FG-L1 (reads through the filesystem, not the API) <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-46</td><td>The tracked byte offset counts buffered bytes, so the resume cursor points past end-of-file; FG-F7's guard then fires on <em>every</em> clean run and silently degrades all resumes to full scans</td><td class="id">FG-L2 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-47</td><td>A run that dies never calls <code>close()</code>; whatever sat in the buffer is gone. No in-process test kills a process, and the real crash tests are few and slow</td><td class="id">FG-L3 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-48</td><td>Cursor-restore and full-scan recovery <em>disagree</em>. FG-F7/F8 prove the fallback triggers; nothing proved the two readers reach the same state, so resume could start from a stale sequence and replay or skip effects</td><td class="id">FG-L4 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-49</td><td>A new write path loses the <code>0600</code>/<code>0700</code> private mode on files that contain prompt text and file paths</td><td class="id">FG-L5 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-50</td><td>A flush emits a partial line, corrupting a <em>concurrent</em> writer's records — damage that appears only in the other process's data, which no single-writer test can see</td><td class="id">FG-L6 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-51</td><td><code>readAll()</code> and a direct file read disagree, so replay tooling and crash-recovery tooling see different histories</td><td class="id">FG-L7 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-52</td><td>Sequence numbers stay monotonic in memory while leaving gaps on disk</td><td class="id">FG-L3, FG-L7 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-53</td><td>Pending intents are reconstructed from a buffer rather than from durable state, so a crash loses the record of an in-flight effect</td><td class="id">FG-L3 <span class="tag covered">covered</span></td></tr>
+      </table>
+
+      <h3>F. Cross-cutting — assertions that cannot fail (BS-54 … BS-62)</h3>
+      <table>
+        <tr><th>#</th><th>Blind spot</th><th>Coverage</th></tr>
+        <tr><td class="id">BS-54</td><td>A test case that calls production code and asserts <em>nothing</em> passes whenever the code does not throw. FG-G6 catches a whole file with no assertions; nothing caught a single case</td><td class="id">FG-M1 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-55</td><td><code>assert.throws(fn)</code> with no matcher passes on <em>any</em> error — so a refactor that turns a validation error into a <code>TypeError</code> crash keeps the test green while inverting its meaning</td><td class="id">FG-M2 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-56</td><td>An unawaited <code>assert.rejects</code> is evaluated after the test has already reported <code>ok</code></td><td class="id">FG-M3 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-57</td><td><code>{ skip: cond }</code> removes a test on some machines only and reports <code>ok</code> — strictly more dangerous than <code>{ todo }</code> (which FG-G3 pins and which reports <code>not ok</code>). Coverage silently varies by platform</td><td class="id">FG-M4 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-58</td><td>A guard's own detector rots and its empty offender list reads as success — the failure mode that is invisible by construction</td><td class="id">FG-M8, FG-I1b, FG-I4b, FG-I8b, FG-J1b <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-59</td><td>A source-scanning guard matches its <em>own documentation</em>. FG-G3 shipped red this way on 2026-08-07; the mirror-image bug (a naive block-comment stripper eating from a <code>/*</code> inside a string, e.g. the glob patterns in <code>glob.test.js</code>) invented two phantom offenders for me during this work</td><td class="id">FG-M8 (literal-aware stripper + self-exclusion) <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-60</td><td>A test's outcome depends on the process it runs in, so it measures the harness rather than the product — and the natural repair permanently disables the branch it was meant to cover</td><td class="id">FG-M6 <span class="tag covered">covered</span></td></tr>
+        <tr><td class="id">BS-61</td><td>Nondeterministic ordering (a comparator returning 0 on ties) makes a test pass on one filesystem and fail on another, while the underlying product bug is real on both</td><td class="id">HS-03 <span class="tag todo">todo</span> <span class="tag live">live bug</span></td></tr>
+        <tr><td class="id">BS-62</td><td><code>test/setup.js</code> still <em>loads</em> (FG-G7) but no longer <em>does</em> anything — the archive/trust isolation markers silently stop applying and tests start touching real user state</td><td class="id">FG-M7 <span class="tag covered">covered</span></td></tr>
+      </table>
+
+      <h2 id="live">5. Live defects found while writing the tests</h2>
+
+      <p>
+        Per the repo's verification rule, these are <strong>reported, not quietly fixed</strong>. Each
+        is encoded as a registered known-failing test so it cannot be forgotten, and each is a real
+        behaviour of today's code — not a hypothetical.
+      </p>
+
+      <table>
+        <tr><th>ID</th><th>Defect</th><th>Impact</th><th>Fix shape</th></tr>
+        <tr>
+          <td class="id">HS-03</td>
+          <td><code>undo</code> ranks backups by <code>mtimeMs</code> alone; same-millisecond backups tie and readdir order decides</td>
+          <td>Silent data loss — <code>undo</code> restores stale content. Already the cause of a hard failure in the existing suite, and an <strong>intermittent</strong> one (4× fail, 1× pass across five full runs), so the failure count itself is untrustworthy</td>
+          <td>Tie-break on the monotonic sequence number already embedded in the backup filename: sort by <code>(mtimeMs, seq)</code></td>
+        </tr>
+        <tr>
+          <td class="id">HS-05</td>
+          <td><code>scrubDeepSecrets</code> recurses with no seen-set</td>
+          <td>A cyclic payload overflows the stack <em>inside the redaction boundary</em> and takes the run down. Blocks HC-3, where cyclic span trees are normal</td>
+          <td>Add a <code>WeakSet</code> cycle guard; emit a <code>[Circular]</code> marker</td>
+        </tr>
+        <tr>
+          <td class="id">HS-06</td>
+          <td><code>OTEL_*</code> is absent from <code>SCRUBBED_ENV_VARS</code> and from the scrubbed prefix list</td>
+          <td>An OTLP bearer token in <code>OTEL_EXPORTER_OTLP_HEADERS</code> is inherited by every spawned shell and agent. Real today for anyone with OTLP configured</td>
+          <td>Add an <code>OTEL_</code> prefix family to <code>buildSafeEnv</code></td>
+        </tr>
+        <tr>
+          <td class="id">BS-15</td>
+          <td>FG-C11's network detector does not match <code>model-client.js</code> (transport aliasing)</td>
+          <td>A new egress module in the house style passes the existing egress guard</td>
+          <td>FG-I1 now uses import-based detection; FG-I9 pins the discrepancy so FG-C11 is never read as complete</td>
+        </tr>
+        <tr>
+          <td class="id">BS-25</td>
+          <td>FG-C10's sink detector misses 12 of this repo's own sinks, including <code>run.js</code></td>
+          <td>A new file/stdout sink passes the existing sink guard</td>
+          <td>FG-J1 sweeps the wider primitive set against a reviewed register of 15</td>
+        </tr>
+      </table>
+
+      <div class="ok">
+        <strong>Note on how BS-15 was found.</strong> I wrote FG-I1b — a liveness check asserting my
+        egress detector still matches <code>model-client.js</code> — expecting it to pass trivially.
+        It failed, which is how the FG-C11 hole surfaced. This is the strongest argument in the report
+        for pairing every empty-list sweep with a liveness proof.
+      </div>
+
+      <h2 id="files">6. The 6 new test files</h2>
+
+      <table>
+        <tr><th>File (all in <code>test/runner/</code>)</th><th>Series</th><th>Checks</th><th>What it locks</th></tr>
+        <tr>
+          <td><code>false-green-model-evolution.test.js</code></td><td class="id">FG-H</td><td>12</td>
+          <td>Entry reachability (the shadowed-entry trap), point-release ownership snapshot, catalog fingerprint ↔ version coupling, provenance foreign keys, source-status honesty, back-compat pricing-map agreement, runner↔extension default agreement, frozen shared arrays, estimate-tier separation, <code>pricingSource</code> enum, lifecycle enum, per-component cost independence</td>
+        </tr>
+        <tr>
+          <td><code>false-green-egress-surface.test.js</code></td><td class="id">FG-I</td><td>12</td>
+          <td>No network-capable tool auto-allows; import-based egress detector + liveness; the FG-C11 incompleteness pin; <code>noNetwork</code> enforcement register and one-way ceiling; scrubbed result-field register + scrubber liveness; capability-group round-trip (name↔group↔tools); unknown-capability rejection; URL-shaped-argument containment review + schema-reader liveness</td>
+        </tr>
+        <tr>
+          <td><code>false-green-telemetry-sink.test.js</code></td><td class="id">FG-J</td><td>8 (2 todo)</td>
+          <td>Widened sink inventory against a 15-module register; proof FG-C10 is narrow; the <code>scrubSecrets</code>-vs-<code>scrubDeepSecrets</code> trap; deep-recursion contract preserving non-string data; cycle-guard gap (HS-05); Error/Map/Set emptying; OTEL credential inheritance (HS-06); env prefix-family liveness with invented names</td>
+        </tr>
+        <tr>
+          <td><code>false-green-orchestration-retry.test.js</code></td><td class="id">FG-K</td><td>11</td>
+          <td>Oversubscription invariant asserted after every step of an acquire/fail/retry sequence; observable reservation leak; double-release yields no re-addable usage; idempotent refusal; incomplete-child persistence; uncapped semantics; order-independent batching; strict dependency ordering; loud failures for cycles/missing deps/duplicate ids; rejection propagation; per-sibling lease slicing</td>
+        </tr>
+        <tr>
+          <td><code>false-green-ledger-durability.test.js</code></td><td class="id">FG-L</td><td>7</td>
+          <td>On-disk visibility immediately after <code>append()</code> (read through the filesystem, not the API); offset ↔ file-size equality; loss-free recovery with no <code>close()</code>; cursor-path ≡ scan-path equivalence; <code>0600</code>/<code>0700</code> modes; whole-line atomicity under interleaved writers; <code>readAll()</code> ↔ raw-file agreement</td>
+        </tr>
+        <tr>
+          <td><code>false-green-oracle-strength.test.js</code></td><td class="id">FG-M</td><td>8 (1 todo)</td>
+          <td>Every case asserts something; every <code>throws</code>/<code>rejects</code> pins which error; every <code>rejects</code> is awaited; skip register; HS-03 undo nondeterminism; bash signal-branch structure; setup-shim isolation markers; and FG-M8, which proves the literal-aware comment stripper and all three detectors still fire on synthetic bad input</td>
+        </tr>
+      </table>
+
+      <p class="small">
+        Zero-tolerance note: FG-M1/M2/M3 report <strong>no</strong> violations across all 129 existing
+        test files. They lock in a good state rather than grandfather a bad one — which is why they
+        can be equality assertions rather than budgets.
+      </p>
+
+      <h2 id="overlap">7. What I did NOT write, and why</h2>
+
+      <p>
+        Redundant tests are a cost, not coverage: they add runtime, they add edit surface, and they
+        make the suite look stronger than it is. Three of my drafted checks duplicated existing FG-D
+        guards, so I deleted them and kept only the delta:
+      </p>
+
+      <table>
+        <tr><th>Drafted</th><th>Already covered by</th><th>What I kept</th></tr>
+        <tr>
+          <td>“DEFAULT_MODEL is known, active and catalog-priced”</td>
+          <td class="id">FG-D10</td>
+          <td>Only the <strong>package.json ↔ catalog</strong> cross-check (FG-H7) — the part FG-D10 cannot see, because the two defaults live in different files</td>
+        </tr>
+        <tr>
+          <td>“unknown models are not catalog-priced”</td>
+          <td class="id">FG-D11</td>
+          <td>Only the <strong>separation of the two estimate tiers</strong> and the no-borrowed-label rule (FG-H9) — FG-D11 treats both estimates as one case</td>
+        </tr>
+        <tr>
+          <td>“cost arithmetic matches published rates”</td>
+          <td class="id">FG-D12</td>
+          <td>FG-H12, kept because it is <strong>strictly stronger</strong>: FG-D12 bills 1M of every component at once and compares against the sum, which is invariant under any <em>permutation</em> of the four rates. FG-H12 bills each component alone, pinning every rate to its own dimension</td>
+        </tr>
+      </table>
+
+      <p>
+        I also did not re-test torn ledger tails, cursor-past-EOF, or schema-version fallback — FG-F6…F9
+        own those, and FG-L deliberately covers only the properties a <em>buffered writer</em> breaks.
+      </p>
+
+      <h2 id="prompts">8. Verbatim agent prompts for the 5 changes</h2>
+
+      <p>
+        Copy one block at a time into a fresh agent session. Each is written to be handed to an agent
+        that has <strong>not</strong> read this report, so each carries its own context. None of them
+        mention the guards by name — that is deliberate: if the prompt named the tests, the agent
+        would code to the test instead of making the change naturally, and you would learn nothing
+        about whether the guards catch a realistic implementation.
+      </p>
+
+      <div class="banner">
+        <strong>After the agent finishes, run this yourself:</strong>
+        <code>npm test</code> then <code>npm run lint</code> then <code>npm run format:check</code>.
+        Expect the two pre-existing failures described in §1 and the four registered
+        <code>todo</code> entries. <em>Any other failure is the guard catching the change.</em>
+      </div>
+
+      <h3>HC-1 — add a new model to the catalog</h3>
+      <div class="prompt">
+        <header>Paste block — HC-1</header>
+        <pre><code>Anthropic has released a new model, `claude-opus-5-1`. Add it to this repo's model
+catalog so the runner prices it correctly and validates its request controls.
+
+Facts to encode (treat these as given for this task):
+  - model id prefix: claude-opus-5-1
+  - label: "Claude Opus 5.1"
+  - context window: 1,000,000 tokens
+  - max output tokens: 128,000
+  - effort levels: the same set Opus 5 supports, plus "max"
+  - thinking: always-on
+  - sampling: default-only
+  - lifecycle: active
+  - pricing per million tokens: input 6.0, output 30.0, cache_read 0.6, cache_write 12.0
+
+Requirements:
+  1. The catalog is the single source of truth for pricing, capabilities and limits
+     (src/runner/model-catalog.js). Add the model there.
+  2. Make sure every consumer that should know about the new model does know about it.
+     Look at what already consumes the catalog before deciding what "every consumer"
+     means here.
+  3. Keep the catalog's honesty rules intact: every fact records where it came from,
+     and estimated numbers must never be presented as verified ones.
+
+Run `npm test`, `npm run lint` and `npm run format:check` when you are done, and report
+the real output. Do not weaken or delete an existing test to make the suite pass; if a
+test fails, explain what it is telling you before you change anything.</code></pre>
+      </div>
+
+      <h3>HC-2 — add a network-capable <code>web_fetch</code> tool</h3>
+      <div class="prompt">
+        <header>Paste block — HC-2</header>
+        <pre><code>Add a new runner tool called `web_fetch` that retrieves a URL over HTTP(S) and returns
+the response body as text, so the agent can read documentation pages during a run.
+
+Requirements:
+  1. It takes a `url` argument and an optional `max_bytes` argument (default 100_000).
+  2. It must be OFF by default. Put it behind a new optional capability group called
+     `network`, enabled with `--capabilities network`.
+  3. Follow the existing tool conventions in src/runner/tools/ — definition(), execute(),
+     meta — and register it wherever tools are registered.
+  4. Truncate oversized responses and report that truncation in the result.
+  5. Respect the runner's existing safety posture. Read src/runner/safety.js,
+     src/runner/permissions.js and src/runner/authority.js first and decide what that
+     posture implies for a tool that reaches the network. Explain your decisions in
+     comments.
+
+Run `npm test`, `npm run lint` and `npm run format:check` when you are done, and report
+the real output. Do not weaken or delete an existing test to make the suite pass; if a
+test fails, explain what it is telling you before you change anything.</code></pre>
+      </div>
+
+      <h3>HC-3 — emit OpenTelemetry spans (the HE-05 OTel half)</h3>
+      <div class="prompt">
+        <header>Paste block — HC-3</header>
+        <pre><code>Close the OpenTelemetry half of HE-05: add optional span emission to the runner so a run
+can be inspected in a tracing backend.
+
+Requirements:
+  1. New module src/runner/telemetry/otel-exporter.js. Off unless
+     `--otel` is passed (add the flag) or OTEL_EXPORTER_OTLP_ENDPOINT is set.
+  2. Emit one span per turn and one span per tool call. Span attributes should carry
+     enough to debug a run: tool name, arguments, duration, token usage, stop reason,
+     and on failure the error.
+  3. Write spans as newline-delimited JSON to a local file when no OTLP endpoint is
+     configured, so the feature is usable with no collector.
+  4. Exporter problems must never take the run down — telemetry is best-effort.
+  5. Do not implement an OTLP network client in this change; file output only. Leave a
+     clearly marked seam where the network exporter would go.
+
+Note that spans carry prompt text, file paths and tool arguments. Read
+src/runner/redaction-boundary.js and src/runner/safety.js before writing the exporter,
+and explain in comments how your payloads are handled.
+
+Run `npm test`, `npm run lint` and `npm run format:check` when you are done, and report
+the real output. Do not weaken or delete an existing test to make the suite pass; if a
+test fails, explain what it is telling you before you change anything.</code></pre>
+      </div>
+
+      <h3>HC-4 — retry failed coordinator workers (the A3-F4 residual)</h3>
+      <div class="prompt">
+        <header>Paste block — HC-4</header>
+        <pre><code>Close A3-F4: make the coordinator retry workers that fail, instead of letting a single
+transient failure lose a whole phase.
+
+Requirements:
+  1. A worker whose spawn throws, or that exits non-zero, is retried up to 2 more times
+     (3 attempts total). Make the attempt count configurable with a `--worker-retries`
+     flag, default 2.
+  2. Exponential backoff between attempts: 250ms, then 1000ms. Keep the test suite fast —
+     the delay must be injectable or skippable so tests do not actually sleep.
+  3. A worker that is REFUSED for lack of budget is not a transient failure. Handle that
+     case distinctly from a crash.
+  4. The run's reported usage must stay accurate across retries, and the coordinator's
+     budget invariant must continue to hold: the sum of active leases plus recorded usage
+     never exceeds the parent caps. Read src/runner/budget-broker.js and the lease
+     handling in src/runner/coordinator.js before you start, and say in comments how your
+     retry path preserves that invariant.
+  5. Record retries in the run result so a field test can see how many happened.
+
+Run `npm test`, `npm run lint` and `npm run format:check` when you are done, and report
+the real output. Do not weaken or delete an existing test to make the suite pass; if a
+test fails, explain what it is telling you before you change anything.</code></pre>
+      </div>
+
+      <h3>HC-5 — batch ledger writes (the A1-F4 / A1-F5 residuals)</h3>
+      <div class="prompt">
+        <header>Paste block — HC-5</header>
+        <pre><code>Work on the A1-F4/A1-F5 durability residuals: the session ledger currently does a
+synchronous write plus an atomic cursor rewrite on EVERY event, and that per-event cost
+shows up in turn latency on long runs.
+
+Task: reduce the per-event write cost of src/runner/session-ledger.js.
+
+Suggested direction (use your judgement, and say what you chose and why):
+  - Buffer appended records in memory and flush them in batches — say every 16 events or
+    every 50ms, whichever comes first.
+  - Stop rewriting the cursor sidecar on every single append; write it on flush instead.
+  - Flush on close(), and on process exit.
+
+Constraints:
+  - Sequence numbers must stay monotonic and gapless.
+  - Resume must keep working, including after an unclean shutdown.
+
+Read the class carefully before changing it — in particular how the byte offset is
+tracked and what the cursor sidecar is used for on resume. Explain in comments what your
+implementation guarantees about a run that is killed with SIGKILL.
+
+Run `npm test`, `npm run lint` and `npm run format:check` when you are done, and report
+the real output. Do not weaken or delete an existing test to make the suite pass; if a
+test fails, explain what it is telling you before you change anything.</code></pre>
+      </div>
+
+      <h3>What each prompt should trip</h3>
+      <table>
+        <tr><th>Change</th><th>Expected to fail if implemented naively</th></tr>
+        <tr><td class="id">HC-1</td><td><code>FG-H1</code> if the entry is appended after the Opus 5 matcher (it will be unreachable); <code>FG-H3</code> if <code>CATALOG_VERSION</code> is not bumped; <code>FG-H6</code> if the back-compat pricing map is not updated; <code>FG-D9</code>/<code>FG-H11</code> on malformed fields</td></tr>
+        <tr><td class="id">HC-2</td><td><code>FG-I1</code> if categorised <code>read-only</code>; <code>FG-I5</code>/<code>FG-I6</code>/<code>FG-I7</code> if the <code>network</code> group is half-registered; <code>FG-I8</code> for an unreviewed <code>url</code> argument; <code>FG-I2</code> if <code>--no-network</code> is not honoured; <code>FG-I4</code> if the body is returned under a field other than <code>text</code>; <code>FG-D1</code> for an orphan tool module</td></tr>
+        <tr><td class="id">HC-3</td><td><code>FG-J1</code> for the unreviewed sink; <code>FG-J2</code>/<code>FG-J3</code> if attributes go through <code>scrubSecrets</code> instead of <code>scrubDeepSecrets</code>; <code>HS-05</code> becomes a real crash once cyclic attributes appear; <code>FG-C11</code>/<code>FG-I1</code> if a network client is added</td></tr>
+        <tr><td class="id">HC-4</td><td><code>FG-K1</code>/<code>FG-K2</code> if the failed lease is not released before re-acquiring; <code>FG-K3</code> on double-counted usage; <code>FG-K5</code> if the incomplete record is cleared; <code>FG-K9</code> if the retry <code>try/catch</code> swallows plan errors; <code>FG-K10</code> if rejections become resolved results</td></tr>
+        <tr><td class="id">HC-5</td><td><code>FG-L1</code> the moment records stop hitting disk on append; <code>FG-L2</code> when the offset counts buffered bytes; <code>FG-L3</code> for the no-<code>close()</code> crash case; <code>FG-L4</code> if cursor and scan recovery diverge; <code>FG-L6</code> if a flush emits a partial line; <code>FG-L5</code> if a new write path drops <code>0600</code></td></tr>
+      </table>
+
+      <h2 id="run">9. How to run everything</h2>
+
+      <p>Run these in <strong>Terminal</strong>, from the playground folder.</p>
+
+      <pre><code># 1. Confirm you are in the right place (should end in claude-local-bridge-playground)
+pwd
+
+# 2. Install dependencies if you have never run lint here
+#    (node_modules was absent in the container I used, which is why `npm run lint`
+#     failed with "Cannot find module 'globals'" until I installed)
+npm install
+
+# 3. The whole suite
+npm test
+
+# 4. Just the false-green guards (fast — no runner spawning)
+node --require ./test/setup.js --test test/runner/false-green-*.test.js
+
+# 5. The other standard checks
+npm run lint
+npm run format:check
+npm run check:docs</code></pre>
+
+      <p><strong>What success looks like right now:</strong></p>
+      <table class="kv">
+        <tr><td>whole suite</td><td><code>tests 963 · pass 956 · fail 2 · skipped 1 · todo 4</code> — the 2 fails are the pre-existing ones in §1. Expect <code>fail 1</code> occasionally: the <code>undo</code> failure is intermittent (4× <code>fail 2</code>, 1× <code>fail 1</code> across five runs)</td></tr>
+        <tr><td>false-green files only</td><td><code>tests 136 · pass 131 · fail 0 · skipped 1 · todo 4</code></td></tr>
+        <tr><td>lint / format / check:docs</td><td>clean</td></tr>
+      </table>
+
+      <p class="small">
+        The four <code>todo</code> entries are HS-02 (torn-tail append), HS-03 (undo tie-break),
+        HS-05 (cycle guard) and HS-06 (OTEL env). A <code>todo</code> prints <code>not ok</code> but
+        does <strong>not</strong> fail the run — that is why <code>FG-G3</code> pins the register, so
+        one can never be added without review. HS-01 also exists but self-skips on
+        case-sensitive filesystems, so it reports <code>ok</code> here.
+      </p>
+
+      <h2 id="glossary">10. Glossary</h2>
+      <div class="glossary">
+        <dl>
+          <dt>False green</dt>
+          <dd>A test run that reports success while the thing you cared about is broken — usually because no test ever asked the relevant question.</dd>
+
+          <dt>Change-detector test</dt>
+          <dd>A test that pins current behaviour so any change to it must be deliberate. It does not prove the behaviour is <em>right</em>; it proves nobody changed it by accident. Several guards here are openly change-detectors and say so.</dd>
+
+          <dt>Liveness proof</dt>
+          <dd>A companion check that a detector still recognises something it definitely should. Without one, a sweep that reports “no offenders” cannot be distinguished from a sweep that is broken.</dd>
+
+          <dt>Vacuous pass</dt>
+          <dd>A test that passes because its assertion never really ran — an unawaited async assertion, an empty offender list from a rotted pattern, or a case with no assertion at all.</dd>
+
+          <dt><code>todo</code> vs <code>skip</code></dt>
+          <dd>Both are ways a test stops protecting you. A <code>todo</code> test runs and prints <code>not ok</code> but does not fail the run — good for recording a known gap. A <code>skip</code>ped test does not run and prints <code>ok</code> — which is why it is more dangerous, and why FG-M4 now registers them.</dd>
+
+          <dt>First-match-wins</dt>
+          <dd>The model catalog is scanned in order and the first matching pattern is returned. That is why a more specific entry must be placed <em>before</em> a broader one, not appended at the end.</dd>
+
+          <dt>Lease (budget)</dt>
+          <dd>A reservation of tokens a parent run sets aside for a child worker, so two children cannot both spend the same remaining budget. Reserved tokens must be returned (“released”) whether the child succeeds or fails.</dd>
+
+          <dt>Ledger / cursor</dt>
+          <dd>The ledger is an append-only log of what a run did, one JSON object per line. The cursor is a small sidecar file recording how far along the ledger the run had got, so resuming does not have to re-read the whole file.</dd>
+
+          <dt>Sink</dt>
+          <dd>Anywhere bytes leave the program and persist or become visible — a file, stdout, a network request. Every sink must pass through the redaction boundary so secrets are scrubbed.</dd>
+
+          <dt>Egress</dt>
+          <dd>Outbound network access. The runner has none today except the model client, which is why adding it is a distinct risk class.</dd>
+        </dl>
+      </div>
+
+      <p class="small" style="margin-top: 3rem">
+        Sources of truth referenced: <code>docs/false-green-test-audit-2026-08-07.html</code> (FG-A…G,
+        64 blind spots), <code>CLAUDE.md</code> § Safety Rules and § Current Work Thread,
+        <code>docs/runner-claims-validation-2026-07-31.md</code>. All numbers in this report were
+        produced by running the code on 2026-08-08, not by reading it.
+      </p>
+    </main>
+  </body>
+</html>

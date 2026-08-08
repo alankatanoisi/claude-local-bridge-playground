@@ -118,6 +118,15 @@ describe('FG-G suite-execution integrity', () => {
   const KNOWN_TODOS = {
     'test/runner/false-green-deny-matrix.test.js': 1, // HS-01 case-variant key bypass
     'test/runner/false-green-contract-durability.test.js': 1, // HS-02 torn-tail append
+    // HS-03: `undo` sorts backups by mtime only, so two backups written in the
+    // same millisecond resolve in readdir order and the OLDER one can win —
+    // undo then restores stale content. Fix is a (mtimeMs, seq) tie-break.
+    'test/runner/false-green-oracle-strength.test.js': 1,
+    // HS-05: scrubDeepSecrets has no cycle guard (a self-referencing payload
+    // overflows the stack inside the redaction boundary).
+    // HS-06: OTEL_* env vars are not withheld from child processes, so an
+    // OTLP bearer token would be inherited by every spawned shell/agent.
+    'test/runner/false-green-telemetry-sink.test.js': 2,
   };
 
   it('FG-G3: todo-masked tests match the reviewed register exactly', () => {
