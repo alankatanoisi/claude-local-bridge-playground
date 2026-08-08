@@ -117,6 +117,22 @@ const MUTATIONS = [
     replace: '  if (false) {',
     expectRedIn: 'test/runner/false-green-permission-matrix.test.js',
   },
+  {
+    id: 'M8-git-consent-push',
+    why: 'Drops push from the history-mutating git verbs, so git push would skip the consent gate.',
+    file: 'src/runner/shell-policy.js',
+    find: "const GIT_STATE_VERBS = ['commit', 'push', 'checkout', 'switch', 'merge'];",
+    replace: "const GIT_STATE_VERBS = ['commit', 'checkout', 'switch', 'merge'];",
+    expectRedIn: 'test/runner/worktree-determinism.test.js',
+  },
+  {
+    id: 'M9-worktree-escape',
+    why: 'Neuters the worktree-escape check so shell could reach the original checkout by path.',
+    file: 'src/runner/shell-policy.js',
+    find: 'if (!ctx || !ctx.activeWorktreeSlot || !ctx.worktreeRepoRoot) return null;',
+    replace: 'if (!ctx || !ctx.activeWorktreeSlot || !ctx.worktreeRepoRoot) return null;\n  return null;',
+    expectRedIn: 'test/runner/worktree-determinism.test.js',
+  },
 ];
 
 // --- helpers ---------------------------------------------------------------

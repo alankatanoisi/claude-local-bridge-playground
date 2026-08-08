@@ -254,10 +254,38 @@ function _checkUncached(toolName, args, ctx) {
     }
   }
 
+  // D2: captured here (the scan already ran) but ACTED ON later, after the
+  // shell-enabled and allowlist checks — a no-shell run must still hard-deny
+  // bash, not ask about a git verb inside it.
+  let gitStateVerb = null;
   if (toolName === 'bash' && args && args.command) {
     const { scanShellCommand } = require('./shell-policy');
     const scan = scanShellCommand(args.command, ctx);
     for (const issue of scan.issues) {
+      if (issue.kind === 'git_state_change') {
+        gitStateVerb = issue.verb;
+      }
+      // D3: reaching the original checkout by path defeats --worktree isolation.
+      if (issue.kind === 'worktree_escape_path') {
+        return enrichDecision(
+          {
+            decision: 'deny',
+            reason: 'Shell command reaches outside the active worktree into the original checkout: ' + issue.token,
+          },
+          {
+            category: 'shell',
+            mode,
+            ruleId: 'worktree_confinement',
+            matchedGuards: ['worktree_escape'],
+            severity: 'hard_deny',
+            explanation:
+              'This run is confined to its worktree (--worktree). Shell commands may not reference the original ' +
+              'checkout at ' +
+              issue.token +
+              '. Operate on paths inside the worktree instead.',
+          },
+        );
+      }
       if (issue.kind === 'hard_deny_path' || issue.kind === 'blocked_path_pattern') {
         return enrichDecision(
           {
@@ -351,6 +379,30 @@ function _checkUncached(toolName, args, ctx) {
         ruleId: 'allowed_tools',
         severity: 'hard_deny',
         explanation: 'Tool not in --tools/--allowed-tools list.',
+      },
+    );
+  }
+
+  // D2 (2026-08-07 incident): a history-mutating git verb through the shell
+  // always asks, in every mode, even --accept-edits --dont-ask. Committing,
+  // pushing, or switching branches is repo-state authority that no automation
+  // flag should imply — the same class of consent as destructive worktree
+  // cleanup below. Reached only after shell is confirmed enabled and exposed.
+  if (toolName === 'bash' && gitStateVerb) {
+    const proposed = describeGitStateChange(gitStateVerb, args);
+    return enrichDecision(
+      { decision: 'ask', proposedAction: mode === 'plan' ? '(plan mode) ' + proposed : proposed },
+      {
+        category: 'shell',
+        mode,
+        ruleId: 'git_consent',
+        matchedGuards: ['git_state_change'],
+        severity: 'bypassable_ask',
+        explanation:
+          'git ' +
+          gitStateVerb +
+          ' changes repository history or moves HEAD. It always asks — automation flags never imply consent to ' +
+          'commit, push, or switch branches (guards against the 2026-08-07 shared-checkout incident).',
       },
     );
   }
@@ -482,6 +534,26 @@ function describeDestructiveWorktreeCleanup(args, ctx) {
     '  actions: git worktree remove --force <path>; then git branch -D <branch>\n' +
     '  recovery: force-deleted branches and uncommitted worktree files are difficult or impossible to recover\n' +
     'This is NOT covered by --accept-edits. Approve only if you intend permanent deletion.'
+  );
+}
+
+/**
+ * Confirmation copy for a history-mutating git verb (D2). Leads with the verb
+ * and the command so Alan sees exactly what will run before y/n.
+ */
+function describeGitStateChange(verb, args) {
+  const cmd = (args && args.command) || '(no command)';
+  const shown = cmd.length > 120 ? cmd.slice(0, 117) + '...' : cmd;
+  return (
+    'git ' +
+    verb +
+    ' — repository-history action requires explicit confirmation:\n' +
+    '  command: ' +
+    shown +
+    '\n' +
+    'This is NOT covered by --accept-edits or --dont-ask. Approve only if you intend to ' +
+    verb +
+    '.'
   );
 }
 

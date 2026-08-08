@@ -369,6 +369,14 @@ the worktree; all subsequent tools operate inside it until you switch slots or c
 the original cwd and, with `cleanup=true`, removes the worktree and branch. Default is `cleanup=false` to preserve
 work for review. Requires `--cwd` to be a git repo.
 
+For **deterministic** isolation, pass `--worktree` at startup: the runner enters a fresh worktree
+**before the first model request**, so the whole run is confined to it and the original checkout is never
+the working root. Unlike prompting the model to call `enter_worktree` (which it can decline or, via shell,
+escape), `--worktree` is a harness guarantee. It implies `--capabilities worktrees` and fails closed if
+`--cwd` is not a git repo. While a worktree is active, shell commands referencing the original checkout by
+path are denied, and `git commit` / `push` / `checkout` / `switch` / `merge` always ask for confirmation
+(no automation flag skips repository-history consent). See `docs/threat-model.md` → "Worktree confinement".
+
 List orphan worktrees from the CLI (no model call):
 
 ```bash

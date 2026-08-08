@@ -44,6 +44,54 @@ const NETWORK_PATTERNS = [
 
 const HARD_DENY_PATH_SEGMENTS = ['.git/', '.ssh/', '.aws/', '.claude/', '.bridge-runner/', 'actions-runner/'];
 
+// D2 (2026-08-07 incident): git verbs that mutate repository history or move
+// HEAD. These always require a fresh confirmation — automation flags
+// (--accept-edits / --dont-ask) must never imply consent to commit, push, or
+// switch branches, because that is exactly how uncommitted multi-author work
+// got swept into one commit and how an unattended branch switch redirected a
+// human's commit. Read-only git verbs (status/log/diff/show) are deliberately
+// absent so ordinary inspection stays frictionless.
+const GIT_STATE_VERBS = ['commit', 'push', 'checkout', 'switch', 'merge'];
+
+// Match `git <verb>`, tolerating global options like `git -C path commit` or
+// `git --no-pager checkout`. Only the FIRST git subcommand token is inspected.
+const GIT_STATE_VERB_PATTERN = new RegExp(
+  '\\bgit\\s+(?:-[^\\s]+(?:\\s+[^\\s-][^\\s]*)?\\s+)*(' + GIT_STATE_VERBS.join('|') + ')\\b',
+);
+
+/**
+ * Return the first history-mutating git verb in a command, or null.
+ * ctx-independent: the git consent gate applies whenever shell is enabled.
+ */
+function detectGitStateChange(command) {
+  const m = String(command || '').match(GIT_STATE_VERB_PATTERN);
+  return m ? m[1] : null;
+}
+
+/**
+ * D3 (best-effort worktree confinement): when a worktree is active, a bash
+ * command that references the ORIGINAL checkout's path is trying to reach back
+ * out of the isolated tree. Return the matched root string, or null.
+ *
+ * Honesty caveat (kept in docs too): this blocks path-STRING references to the
+ * original root. It is not OS isolation — a novel absolute path outside both
+ * roots, or a relative-path trick, remains shell-authority territory. It closes
+ * the OBSERVED escape (agents cd/edit back into the original checkout by path).
+ */
+function detectWorktreeEscape(command, ctx) {
+  if (!ctx || !ctx.activeWorktreeSlot || !ctx.worktreeRepoRoot) return null;
+  const cmd = String(command || '');
+  const activePath = String(ctx.cwdRealpath || ctx.cwd || '');
+  const roots = [ctx.worktreeRepoRoot.repoRoot, ctx.worktreeRepoRoot.cwd, ctx.worktreeRepoRoot.cwdRealpath]
+    .filter((p) => typeof p === 'string' && p.length > 0)
+    // Never flag the active worktree path itself, even if it nests oddly.
+    .filter((p) => p !== activePath);
+  for (const root of roots) {
+    if (cmd.includes(root)) return root;
+  }
+  return null;
+}
+
 const BLOCKED_ENV_VAR_PATTERNS = [
   /\$ANTHROPIC_/i,
   /\$AWS_/i,
@@ -134,7 +182,27 @@ function scanShellCommand(command, ctx = {}) {
     }
   }
 
-  return { allowed: issues.length === 0, issues };
+  // D3: worktree escape is a hard deny — reaching the original checkout by path
+  // defeats the whole point of --worktree isolation.
+  const escapeRoot = detectWorktreeEscape(cmd, ctx);
+  if (escapeRoot) {
+    issues.push({ kind: 'worktree_escape_path', token: escapeRoot });
+  }
+
+  // D2: history-mutating git verbs require a fresh confirmation. This is an
+  // ASK, not a deny, so it must NOT flip `allowed` — background-shell and
+  // hook-runner treat `!allowed` as a hard block, and a git verb should reach
+  // the interactive confirmation flow (permissions.js), not be silently killed.
+  const gitVerb = detectGitStateChange(cmd);
+  if (gitVerb) {
+    issues.push({ kind: 'git_state_change', verb: gitVerb });
+  }
+
+  // `allowed` reflects only hard-deny-class issues. git_state_change is an ask
+  // signal carried in `issues` for the permission gate to act on; it does not
+  // block the non-interactive callers.
+  const hardIssues = issues.filter((i) => i.kind !== 'git_state_change');
+  return { allowed: hardIssues.length === 0, issues };
 }
 
 function validateChaosCombo(flags) {
@@ -151,7 +219,10 @@ function validateChaosCombo(flags) {
 module.exports = {
   scanShellCommand,
   validateChaosCombo,
+  detectGitStateChange,
+  detectWorktreeEscape,
   HARD_DENY_PATH_SEGMENTS,
+  GIT_STATE_VERBS,
   extractPathTokens,
   isBlockedPathToken,
   SHELL_AUTHORITY_SHORT,

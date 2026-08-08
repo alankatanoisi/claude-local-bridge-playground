@@ -87,6 +87,7 @@ Options:\n\
   --permission-mode <m>   default | plan | accept-edits | dont-ask | accept-edits-dont-ask | auto (legacy alias for dont-ask)\n\
   --tools <names>         Comma-separated tools to expose; include apply_patch to opt into patch mode\n\
   --capabilities <groups> Enable optional tool groups beyond the default core: edits, recovery, agents, worktrees, skills, lsp (shell needs --allow-shell)\n\
+  --worktree           Start the run INSIDE a fresh git worktree (deterministic isolation; implies --capabilities worktrees). The original checkout is never touched.\n\
   --no-session-persistence    Disable resume checkpoints (*.state.json); manifests/ledger/diagnostics may still write\n\
   --review-memory       List pending memory promotions for approval\n\
   --session-extract     Queue a run-summary memory proposal after a successful trusted persisted session\n\
@@ -191,6 +192,7 @@ async function main() {
         'permission-mode': { type: 'string' },
         tools: { type: 'string' },
         capabilities: { type: 'string' },
+        worktree: { type: 'boolean' },
         'no-session-persistence': { type: 'boolean' },
         replay: { type: 'boolean' },
         repair: { type: 'boolean' },
@@ -461,6 +463,16 @@ async function main() {
     }
   }
 
+  // --worktree is deterministic isolation: the runner enters a fresh worktree at
+  // startup (see run.js). It needs the worktrees tool group so exit_worktree /
+  // list_worktrees stay reachable, so the flag implies that group without the
+  // operator having to also type --capabilities worktrees.
+  const enterWorktreeAtStart = !!args.values.worktree;
+  if (enterWorktreeAtStart) {
+    if (!capabilityGroups) capabilityGroups = [];
+    if (!capabilityGroups.includes('worktrees')) capabilityGroups.push('worktrees');
+  }
+
   // --continue resolves the newest canonical session checkpoint later, after
   // the CLI has validated the other session-selection flags.
   const shouldContinue = !!args.values.continue;
@@ -644,6 +656,7 @@ async function main() {
     exposedTools,
     allowedTools: exposedTools,
     capabilities: capabilityGroups,
+    enterWorktreeAtStart,
     maxContextTokens,
     maxRunTokens,
     compactAtTokens,
