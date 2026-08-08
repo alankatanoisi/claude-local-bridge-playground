@@ -60,6 +60,7 @@ Three defenses, all deterministic (harness-enforced, never model-discretion):
 ## File-by-file plan
 
 ### 1. `bin/local-bridge-runner.js`
+
 - Add to `parseArgs` options: `worktree: { type: 'boolean' }`.
 - Help text: under the capabilities line add
   `--worktree            Start the run inside a fresh git worktree (deterministic isolation; implies capabilities worktrees)`.
@@ -68,6 +69,7 @@ Three defenses, all deterministic (harness-enforced, never model-discretion):
   (find where `capabilities` string is parsed/forwarded; append before normalize).
 
 ### 2. `src/runner/run.js`
+
 - Find the setup sequence AFTER `validateCwd` + trust gate + authority ceiling creation and BEFORE
   the system prompt / first model request (grep anchors: `validateCwd`, `evaluateWorkspaceTrust`,
   `createAuthorityCeiling`).
@@ -85,6 +87,7 @@ Three defenses, all deterministic (harness-enforced, never model-discretion):
 - Note: `ctx.worktreeRepoRoot` is set by the tool via `saveRepoRoot` — D3 keys off it.
 
 ### 3. `src/runner/shell-policy.js`
+
 - Add `GIT_STATE_VERBS = ['commit','push','checkout','switch','merge']` and
   `detectGitStateChange(cmd)` → returns the first matched verb or null. Regex shape:
   `/\bgit\s+(?:-[^\s]+\s+)*(commit|push|checkout|switch|merge)\b/` (tolerate `git -C x commit`).
@@ -95,21 +98,24 @@ Three defenses, all deterministic (harness-enforced, never model-discretion):
 - Export the new helpers for tests.
 
 ### 4. `src/runner/permissions.js`
+
 - In `_checkUncached`, the existing bash scan loop: add `worktree_escape_path` to the hard-deny
   branch (same shape as `hard_deny_path`; ruleId `worktree_confinement`, severity `hard_deny`,
   explanation says the run is confined to its worktree and names the blocked root).
 - After the `shell_disabled` and `allowedTools` checks (i.e., shell is genuinely enabled and exposed),
   BEFORE `MODES` lookup: if tool is bash and the scan found `git_state_change`, return
   `enrichDecision({ decision: 'ask', proposedAction: describeGitStateChange(verb, args) }, { ruleId:
-  'git_consent', severity: 'bypassable_ask', explanation: 'git commit/push/checkout/switch/merge always
-  ask — automation flags never imply repo-history consent (2026-08-07 incident).' })`.
+'git_consent', severity: 'bypassable_ask', explanation: 'git commit/push/checkout/switch/merge always
+ask — automation flags never imply repo-history consent (2026-08-07 incident).' })`.
   In plan mode, prefix `(plan mode) ` like the destructive-cleanup path does.
   NOTE: scan currently runs only inside `if (toolName === 'bash' && args && args.command)` near the
   top — capture its result in a variable there instead of re-scanning.
 - `describeGitStateChange`: show the verb + first ~100 chars of the command + one honesty line.
 
 ### 5. Tests — `test/runner/worktree-determinism.test.js` (new)
+
 Follow the FG house style (real modules, no mocks of code under test).
+
 - WD-1: `permissions.check('bash', {command:'git push origin main'}, ctx{allowShell,dontAsk,acceptEdits,chaosOk-not-needed-at-lib-level})`
   → decision `ask`, ruleId `git_consent`. Same for `git commit -m x`, `git checkout -b y`,
   `git -C /tmp switch main`, `git merge foo`.
@@ -133,12 +139,13 @@ Follow the FG house style (real modules, no mocks of code under test).
     `/worktree failed|not a git repo/i`, and NO transport error string (fail-closed ordering).
 - WD-7: register the new invariants in the mutation harness `scripts/mutation-check.js`: add a
   mutation that removes `'push'` from GIT_STATE_VERBS with `expectRedIn:
-  'test/runner/worktree-determinism.test.js'` (keep the FG-G9 anchor rules in mind: anchor string
+'test/runner/worktree-determinism.test.js'` (keep the FG-G9 anchor rules in mind: anchor string
   must match source byte-for-byte, exactly once, no comment between `file:` and `find:`).
   Update `test/runner/false-green-suite-integrity.test.js` KNOWN_TODOS ONLY if you add todo tests
   (you should not need any).
 
 ### 6. Docs (required by CLAUDE.md when CLI/safety behavior changes)
+
 - `README.md`: add `--worktree` to the flag list; one sentence on the git consent gate.
 - `docs/runner-quickstart.html`: same, brief.
 - `docs/command-builder.html`: add a "Start in worktree" checkbox emitting `--worktree` (grey-out /
@@ -151,6 +158,7 @@ Follow the FG house style (real modules, no mocks of code under test).
   relative-path tricks or novel absolute paths outside both roots remain shell-authority territory.
 
 ### 7. Checks (run all; report real output)
+
 ```bash
 node --require ./test/setup.js --test test/runner/worktree-determinism.test.js
 node --require ./test/setup.js --test test/runner/false-green-*.test.js
@@ -160,9 +168,11 @@ npm run format:check   # run `npm run format` on the touched files if needed, th
 npm run check:docs
 node scripts/mutation-check.js M8-git-consent   # or whatever id you gave the new mutation
 ```
+
 Expected: full suite `fail 0`, `todo 2` (HS-01/HS-02 — pre-existing, not yours).
 
 ### 8. Commit + handoff
+
 - Commit on `fix/worktree-determinism` only. Message:
   `Add deterministic worktree isolation: --worktree startup flag, git consent gate, shell root-confinement`.
 - Do NOT push, do NOT merge, do NOT touch main. End with the standard handoff block

@@ -63,14 +63,26 @@ describe('ask_user_question tool gates', () => {
     // opened an actual prompt and blocked waiting for a human, failing only
     // after a multi-minute timeout. Same commit, opposite results, neither one
     // a fact about the product.
-    const original = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
+    // TWO doors must be shut. openPromptStream() (src/runner/user-question.js)
+    // tries fs.openSync('/dev/tty') FIRST and only falls back to
+    // process.stdin.isTTY. A controlling terminal exists whenever the suite is
+    // launched from a real Terminal — even with stdout piped — so shutting only
+    // the isTTY door leaves the primary path open and the tool really prompts.
+    const fs = require('fs');
+    const originalOpenSync = fs.openSync;
+    const originalIsTTY = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
+    fs.openSync = function forcedNoTty(target, ...rest) {
+      if (String(target) === '/dev/tty') throw new Error('no controlling terminal (forced by test)');
+      return originalOpenSync.call(this, target, ...rest);
+    };
     Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true });
     try {
       const result = await askUserQuestionTool.execute(baseArgs, {});
       assert.equal(result.ok, false);
       assert.ok(result.text.includes('interactive terminal'));
     } finally {
-      if (original) Object.defineProperty(process.stdin, 'isTTY', original);
+      fs.openSync = originalOpenSync;
+      if (originalIsTTY) Object.defineProperty(process.stdin, 'isTTY', originalIsTTY);
       else delete process.stdin.isTTY;
     }
   });
