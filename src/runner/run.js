@@ -484,6 +484,7 @@ async function run(options) {
     testWatch,
     enableLsp,
     capabilities,
+    enterWorktreeAtStart,
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
@@ -603,6 +604,35 @@ async function run(options) {
     return;
   }
   ctx.cwdRealpath = cwdCheck.realpath;
+
+  // Deterministic worktree isolation (--worktree). Enter a fresh worktree BEFORE
+  // any session snapshot or model request, so the whole run is confined to it and
+  // the original checkout is never the working root. This is a HARNESS guarantee,
+  // not a model choice: unlike a prompt asking the model to call enter_worktree,
+  // nothing downstream can decline or drift out of it. Entry happens only after
+  // the trust gate and cwd validation above — a worktree must not bypass trust,
+  // and the trust fingerprint is of the ORIGINAL cwd.
+  //
+  // Fail closed: if the operator asked for isolation and we cannot provide it
+  // (cwd is not a git repo, or `git worktree add` fails), refuse the run rather
+  // than silently continue unisolated — an unisolated run that looks isolated is
+  // exactly the false-green this flag exists to prevent (2026-08-07 incident).
+  if (enterWorktreeAtStart) {
+    const enterWorktree = require('./tools/enter-worktree');
+    const wtRes = enterWorktree.execute({ description: 'started via --worktree' }, ctx);
+    if (!wtRes || !wtRes.ok) {
+      const reason = '--worktree could not create an isolated worktree: ' + (wtRes ? wtRes.text : 'unknown error');
+      emitHint(reason, { quiet, verbose, stopReason: STOP_REASONS.CWD_INVALID });
+      process.exitCode = 1;
+      return;
+    }
+    // Marker line the CLI-contract test greps for to prove entry happened before
+    // transport. First line of the tool result carries the branch + path.
+    if (!quiet) {
+      const firstLine = String(wtRes.text || '').split('\n')[0];
+      process.stderr.write('[runner] --worktree: ' + firstLine + '\n');
+    }
+  }
 
   const runId = makeTraceId(options.runId);
   const archiveEnabled = isArchiveEnabled({ noArchive });

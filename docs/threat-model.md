@@ -150,6 +150,17 @@ safari write-up: `docs/permission-safari-2-findings-2026-07-21.md`.
 - **Blocked path patterns** in command text: `.env`, `.ssh/`, `.aws/`, `.claude/`, `.gnupg/`, `id_rsa`, `id_ed25519`, `*.pem`, `*.key`, `*.p8`, `*.p12`, service-account names
 - **Blocked env var references**: `$ANTHROPIC_API_KEY`, `$AWS_ACCESS_KEY_ID`, `$GH_TOKEN`, `$SSH_AUTH_SOCK` (and braced `${}` variants)
 - **Filtered environment**: `execSync` runs with scrubbed `process.env` — no `AWS_*`, `ANTHROPIC_*`, `CLAUDE_*`, `OPENAI_*`, `GH_TOKEN`, `NPM_TOKEN`, or `SSH_AUTH_SOCK`
+- **Git consent gate (D2)**: `git commit`, `git push`, `git checkout`, `git switch`, and `git merge` through the shell **always ask**, in every mode — `--accept-edits` / `--dont-ask` never imply consent to change repository history or move `HEAD`. Read-only git (`status`, `log`, `diff`, `show`, `branch --list`) is unaffected.
+
+## Worktree confinement (`--worktree`, 2026-08-07)
+
+Prompt-level "enter a worktree first" is **advisory** — the model can call `enter_worktree` and then, because `bash` is unsandboxed local-account authority, reach back into the original checkout by absolute path. Three deterministic (harness-enforced) defenses close that gap:
+
+- **D1 — `--worktree` startup flag**: the runner enters a fresh git worktree **before the first model request**, in `run()` setup, after the trust gate and cwd validation. The model never chooses; there is nothing to decline or drift out of. Fail-closed: if the cwd is not a git repo (or `git worktree add` fails), the run exits non-zero before any model call — an unisolated run that looks isolated is the exact false-green this prevents. Implies the `worktrees` capability group.
+- **D2 — git consent gate**: see above. This is what stops an unattended `git checkout -b` from silently redirecting work in the shared checkout.
+- **D3 — shell root-confinement**: while a worktree is active, a `bash` command whose text references the original checkout's path (`repoRoot` / original `cwd` / its realpath) is **hard-denied**.
+
+**Honesty caveat (matches the shell-authority doctrine):** D3 blocks path-string references to the original root. It is **not** OS isolation — a relative-path trick, or a novel absolute path outside both roots, remains shell-authority territory. D3 closes the *observed* escape (agents editing/`cd`-ing back into the original checkout by path), not every conceivable one. `git push`/`fetch`/`pull` remain subject to `--no-network` separately; `pull` is not in the D2 verb list (documented residual — it is network-flagged, not history-gated).
 
 ## How protections compose
 
@@ -165,7 +176,8 @@ User prompt
       - reject duplicate, orphaned, missing, or misplaced IDs before network I/O
   → permissions.check():
       1. resolveFileTarget() — confinePath + deny matrix on lexical **and** realpath basename + realpath containment
-      2. Shell arg scanning — command text inspection → deny on pattern (severity: hard_deny)
+      2. Shell arg scanning — command text inspection → deny on pattern (severity: hard_deny);
+         worktree-escape path (D3) → hard_deny; history-mutating git verb (D2) → unbypassable ask
       3. Category-based decision — allow/ask/deny with severity metadata
   → If ask: user confirms interactively
   → tool.execute() re-checks resolveFileTarget for file tools (HE-01 defense-in-depth) and runs with:

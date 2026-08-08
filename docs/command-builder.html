@@ -700,6 +700,18 @@
                 <input type="text" id="cwd" placeholder="/Users/alanman/path/to/project" />
               </div>
             </div>
+            <div class="field checks">
+              <label
+                title="Start the runner INSIDE a fresh git worktree, before it does anything. Deterministic: the runner is confined to the worktree and your original checkout is never touched — you do not need to prompt it. Requires the target folder to be a git repo. Also makes git commit/push/checkout/switch/merge always ask, and blocks shell from reaching the original checkout."
+              >
+                <input type="checkbox" id="worktreeStart" /> Start inside a fresh worktree
+                <code>--worktree</code>
+              </label>
+              <p class="style-hint">
+                Harness-enforced isolation. Unlike asking the model to "work in a worktree" (which it can drift out of
+                via shell), this confines the whole run. Fails fast if the target folder is not a git repo.
+              </p>
+            </div>
             <div class="field">
               <label
                 for="runnerPath"
@@ -2056,6 +2068,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const verbose = document.getElementById('verbose');
       const outputFormat = document.getElementById('outputFormat');
       const allowShell = document.getElementById('allowShell');
+      const worktreeStart = document.getElementById('worktreeStart');
       const shellTimeout = document.getElementById('shellTimeout');
       const confirmTimeout = document.getElementById('confirmTimeout');
       const logLevel = document.getElementById('logLevel');
@@ -2340,6 +2353,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         if (trustedWorkspace.checked) parts.push('--trusted-workspace');
         if (trustWorkspace.checked) parts.push('--trust-workspace');
         if (chaosOk.checked) parts.push('--chaos-ok');
+        if (worktreeStart.checked) parts.push('--worktree');
         if (sessionExtract.checked) parts.push('--session-extract');
         if (reviewMemory.checked) {
           parts.push('--review-memory');
