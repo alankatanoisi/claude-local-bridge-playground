@@ -6,6 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { ClaudeBridge, CostBudget, MockBridge } = require('../src/bridge');
+const { openCampaignBudget } = require('../src/campaign-budget');
 const { loadExperimentConfig } = require('../src/config');
 const { PhasedCoordinator } = require('../src/coordinator');
 
@@ -34,7 +35,13 @@ async function main() {
       `requested cap $${requestedCap} exceeds configuration ceiling $${config.maxExperimentCostUsd}`,
     );
   }
-  const budget = new CostBudget(mode === 'live' ? requestedCap : 0);
+  // Live runs meter against the durable campaign ledger (R1); a run without
+  // --campaign starts a fresh durable campaign whose id is printed in the
+  // summary so follow-up commands can join the same allowance.
+  const budget =
+    mode === 'live'
+      ? await openCampaignBudget({ campaignId: args.campaign || null, limitUsd: requestedCap })
+      : new CostBudget(0);
   const models = selectModels(args, config, axis);
   const summaries = [];
   let failedRuns = 0;

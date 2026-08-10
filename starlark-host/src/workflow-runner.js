@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { ClaudeBridge, CostBudget, MockBridge } = require('./bridge');
+const { openCampaignBudget } = require('./campaign-budget');
 const { PhasedCoordinator } = require('./coordinator');
 const { atomicWrite } = require('./ledger');
 const { discoverRepositoryDocuments } = require('./repo-manifest');
@@ -79,6 +80,7 @@ async function runWorkflow({
   faultProfile = 'none',
   traceLevel = config.traceLevel || 'off',
   maxCostUsd = 0,
+  campaignId = null,
   runRoot = path.join(ROOT, 'workflow-runs'),
   prototypeRoot = ROOT,
 }) {
@@ -86,7 +88,13 @@ async function runWorkflow({
   const workflow = config.workflows[workflowName];
   const collection = await prepareWorkflowDocuments({ config, workflowName, prototypeRoot });
   const runDir = makeRunDir({ runRoot, workflowName, mode, plannerModel, workerModel, faultProfile });
-  const budget = new CostBudget(mode === 'live' ? maxCostUsd : 0);
+  // Live spend is metered by the durable campaign ledger (R1): separate
+  // commands naming the same campaign share ONE allowance instead of each
+  // starting a fresh in-memory cap. Mock runs stay in-memory and free.
+  const budget =
+    mode === 'live'
+      ? await openCampaignBudget({ campaignId, limitUsd: maxCostUsd })
+      : new CostBudget(0);
   const traceId = `workflow-${crypto.randomUUID()}`;
   const bridge =
     mode === 'live'
@@ -240,6 +248,11 @@ function summarizeWorkflow({
     synthesisOk: !state.synthesisFailure,
     durationMs,
     estimatedCostUsd: budget.usedUsd,
+    // Durable campaign fields (absent for in-memory mock budgets).
+    campaignId: budget.campaignId || null,
+    campaignLimitUsd: budget.campaignId ? budget.limitUsd : null,
+    campaignRemainingUsd: budget.campaignId ? budget.remainingUsd : null,
+    budgetLedgerPath: budget.ledgerPath || null,
     runDir,
     trace: state.trace,
   };

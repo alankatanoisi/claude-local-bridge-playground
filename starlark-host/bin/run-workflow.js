@@ -17,6 +17,7 @@ async function main() {
     faultProfile: args.faultProfile || 'none',
     traceLevel: args.traceLevel || config.traceLevel || 'off',
     maxCostUsd: args.maxCostUsd === undefined ? 0 : Number(args.maxCostUsd),
+    campaignId: args.campaign || null,
   });
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
 }

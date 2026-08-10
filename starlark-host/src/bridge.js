@@ -126,7 +126,9 @@ class ClaudeBridge {
     const estimatedInputTokens = Math.ceil((system.length + prompt.length) / 3);
     const pessimisticCost =
       (estimatedInputTokens / 1_000_000) * rates.input + (maxTokens / 1_000_000) * rates.output;
-    const reservation = this.budget.reserve(pessimisticCost, label);
+    // Await tolerates both budgets: the in-memory CostBudget is synchronous,
+    // the durable campaign budget takes a cross-process lock.
+    const reservation = await this.budget.reserve(pessimisticCost, label);
 
     const capability = this.capabilities.capabilityForModel(model);
     // Haiku 4.5 and older families do not accept the newer effort/adaptive
@@ -161,7 +163,7 @@ class ClaudeBridge {
         turn: traceTurn,
       }, timeoutMs);
     } catch (error) {
-      this.budget.release(reservation);
+      await this.budget.release(reservation);
       throw error;
     }
     const text = (response.content || [])
@@ -170,7 +172,7 @@ class ClaudeBridge {
       .join('\n')
       .trim();
     const summary = this.pricing.summarizeUsage(model, response.usage || {});
-    this.budget.settle(reservation, {
+    await this.budget.settle(reservation, {
       label,
       model,
       usage: response.usage || {},
@@ -297,7 +299,7 @@ class MockBridge {
       text = 'Mock synthesis: the host validated plans, recorded failures, retried eligible work, and retained artifacts.';
     }
     const call = { label, model: 'mock', usage: {}, costUsd: 0, durationMs: 1, requestId: null };
-    this.budget.record(call);
+    await this.budget.record(call);
     return { text, usage: {}, costUsd: 0, rawStopReason: 'end_turn' };
   }
 }

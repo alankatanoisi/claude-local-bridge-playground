@@ -1,6 +1,9 @@
-# Starlark Phased-Hybrid Prototype
+# Starlark Host (phased-hybrid control plane)
 
-This scratch project tests one narrow architecture:
+This subtree is the graduated `s1-starlark-phased-hybrid` prototype
+(architecture-review recommendation R3 — see
+`docs/2026-08-06-starlark-architecture-review.md` at the repo root). It tests
+one narrow architecture:
 
 ```text
 Claude planner -> generated Starlark -> validated job descriptors
@@ -132,6 +135,31 @@ node bin/run-experiment.js \
 
 The dollar figures are local estimates based on the playground catalog. They do
 not prove which Anthropic subscription or promotional-credit bucket was charged.
-The cost cap applies to one process. When several commands belong to one campaign,
-subtract prior estimated use from the next command's allowance; durable campaign
-budgeting across separate invocations remains future work.
+
+## Durable campaign budgets (R1/R2)
+
+Every live run meters its spend against a durable campaign ledger under
+`~/.bridge-runner/campaigns/<campaignId>/budget.ledger.jsonl` — an append-only
+JSONL file shared across separate commands and processes. A live run without
+`--campaign` starts a fresh campaign and prints its id in the summary; pass
+that id to later commands to draw from the same allowance:
+
+```bash
+node bin/run-workflow.js --workflow repo_fanout --mode live \
+  --campaign campaign-2026-08-10-example --max-cost-usd 2 ...
+node bin/run-workflow.js --workflow test_triage --mode live \
+  --campaign campaign-2026-08-10-example --max-cost-usd 2 ...
+```
+
+Both commands above share ONE $2 cap: the second sees what the first spent.
+Properties, tested in `test/campaign-budget.test.js`:
+
+- Reserve/settle/release records are appended under a cross-process lock, so
+  two concurrent commands cannot both pass the same ceiling check.
+- A reservation left behind by a crashed process is released automatically,
+  recorded as an explicit `stale_pid` correction — never rewritten away.
+- The cap is fixed at campaign creation; rejoining with a different
+  `--max-cost-usd` is an error. Start a new campaign to change budgets.
+- Metering is in dollars and cache-aware: `cache_read_input_tokens` and
+  `cache_creation_input_tokens` move the remaining balance (R2 regression).
+- Mock runs stay in-memory and free; they do not create campaign ledgers.
