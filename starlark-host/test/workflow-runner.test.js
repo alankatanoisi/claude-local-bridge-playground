@@ -6,9 +6,10 @@ const os = require('os');
 const path = require('path');
 const test = require('node:test');
 
+const { loadExperimentConfig } = require('../src/config');
 const { ROOT, prepareWorkflowDocuments, runWorkflow } = require('../src/workflow-runner');
 
-const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'experiment.config.json'), 'utf8'));
+const config = loadExperimentConfig();
 
 test('repository workflow performs bounded host discovery', async () => {
   const collection = await prepareWorkflowDocuments({ config, workflowName: 'repo_fanout' });

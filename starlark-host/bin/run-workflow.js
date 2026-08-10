@@ -1,14 +1,12 @@
 #!/usr/bin/env node
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-
-const { ROOT, runWorkflow } = require('../src/workflow-runner');
+const { loadExperimentConfig } = require('../src/config');
+const { runWorkflow } = require('../src/workflow-runner');
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'experiment.config.json'), 'utf8'));
+  const config = loadExperimentConfig();
   const mode = args.mode || 'mock';
   const summary = await runWorkflow({
     config,

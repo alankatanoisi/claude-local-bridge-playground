@@ -1,7 +1,7 @@
 {
   "bridgeUrl": "http://127.0.0.1:11437/v1/messages",
-  "runnerRepo": "/Users/alanman/Developer/claude-local-bridge-playground",
-  "targetRoot": "/Users/alanman/Developer/claude-local-bridge-playground",
+  "runnerRepo": "..",
+  "targetRoot": "..",
   "objective": "Assess how the runner preserves user-owned control of durable state, budgets, permissions, and worker orchestration. Produce evidence grounded only in the assigned documents and identify concrete failure modes.",
   "plannerModels": [
     "claude-fable-5",

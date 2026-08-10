@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 'use strict';
 
-const fs = require('fs');
 const path = require('path');
 
+const { loadExperimentConfig } = require('../src/config');
 const { generateEvaluationMatrix, runOfflineMatrix } = require('../src/evaluation-matrix');
 const { ROOT } = require('../src/workflow-runner');
 
 async function main() {
-  const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'experiment.config.json'), 'utf8'));
+  const config = loadExperimentConfig();
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const matrixDir = path.join(ROOT, 'matrix-runs', stamp);
   const matrix = await generateEvaluationMatrix();

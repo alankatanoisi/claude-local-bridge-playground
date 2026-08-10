@@ -6,13 +6,14 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { ClaudeBridge, CostBudget, MockBridge } = require('../src/bridge');
+const { loadExperimentConfig } = require('../src/config');
 const { PhasedCoordinator } = require('../src/coordinator');
 
 const ROOT = path.resolve(__dirname, '..');
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const config = JSON.parse(fs.readFileSync(path.join(ROOT, 'experiment.config.json'), 'utf8'));
+  const config = loadExperimentConfig();
   const mode = args.mode || 'mock';
   const axis = args.axis || 'planner';
   const faultProfile = args.faultProfile || 'mixed';

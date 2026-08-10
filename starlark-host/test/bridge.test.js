@@ -7,7 +7,9 @@ const test = require('node:test');
 
 const { ClaudeBridge, CostBudget } = require('../src/bridge');
 
-const RUNNER_REPO = '/Users/alanman/Developer/claude-local-bridge-playground';
+// The host is a subtree of the runner repository, so the repo root that
+// provides the pricing/capability catalogs is always two levels up.
+const RUNNER_REPO = path.resolve(__dirname, '../..');
 
 test('Claude adapter sends concurrent Messages requests and settles reservations', async (t) => {
   let active = 0;
