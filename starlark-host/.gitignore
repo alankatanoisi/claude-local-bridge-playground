@@ -1,0 +1,11 @@
+# Run evidence directories contain prompts, source-file payloads, and model
+# outputs. They are sensitive local artifacts (see docs/2026-08-06-starlark-*
+# reports) and must never be committed.
+runs/
+workflow-runs/
+matrix-runs/
+
+# Compiled Go evaluator — rebuild locally with `npm run build:evaluator`.
+bin/starlark-eval
+
+.DS_Store

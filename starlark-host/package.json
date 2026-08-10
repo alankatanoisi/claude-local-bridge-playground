@@ -1,0 +1,22 @@
+{
+  "name": "starlark-phased-hybrid-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A bounded Starlark planning experiment with mock and local Claude workers.",
+  "scripts": {
+    "build:evaluator": "go build -o bin/starlark-eval ./cmd/starlark-eval",
+    "test": "node --test test/*.test.js",
+    "verify": "npm run build:evaluator && npm test",
+    "preflight": "node bin/run-experiment.js --mode mock --fault-profile mixed",
+    "mock": "node bin/run-experiment.js --mode mock --fault-profile mixed",
+    "workflow:repo": "node bin/run-workflow.js --workflow repo_fanout --mode mock --fault-profile none",
+    "workflow:triage": "node bin/run-workflow.js --workflow test_triage --mode mock --fault-profile mixed",
+    "matrix:offline": "node bin/run-matrix.js",
+    "canary": "node bin/run-experiment.js --mode live --axis planner --model claude-fable-5 --fault-profile mixed --trace-level full --max-cost-usd 10",
+    "matrix:planner": "node bin/run-experiment.js --mode live --axis planner --matrix --fault-profile mixed --trace-level full --max-cost-usd 10",
+    "matrix:worker": "node bin/run-experiment.js --mode live --axis worker --matrix --fault-profile mixed --trace-level full --max-cost-usd 10"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

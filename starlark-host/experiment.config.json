@@ -1,0 +1,101 @@
+{
+  "bridgeUrl": "http://127.0.0.1:11437/v1/messages",
+  "runnerRepo": "/Users/alanman/Developer/claude-local-bridge-playground",
+  "targetRoot": "/Users/alanman/Developer/claude-local-bridge-playground",
+  "objective": "Assess how the runner preserves user-owned control of durable state, budgets, permissions, and worker orchestration. Produce evidence grounded only in the assigned documents and identify concrete failure modes.",
+  "plannerModels": [
+    "claude-fable-5",
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8",
+    "claude-haiku-4-5"
+  ],
+  "fixedPlannerModel": "claude-fable-5",
+  "fixedWorkerModel": "claude-sonnet-5",
+  "workerModels": [
+    "claude-fable-5",
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "claude-opus-4-8"
+  ],
+  "effort": "medium",
+  "traceLevel": "full",
+  "maxExperimentCostUsd": 10,
+  "maxJobsPerPhase": 4,
+  "maxConcurrency": 2,
+  "maxAttemptsPerInput": 2,
+  "maxDocumentBytes": 40000,
+  "maxTaskCharacters": 1200,
+  "maxStarlarkSteps": 200000,
+  "starlarkTimeoutMs": 2000,
+  "workerProfiles": {
+    "code_analyst": {
+      "route": "analysis",
+      "description": "Analyze one explicitly supplied source document.",
+      "maxOutputTokens": 2600,
+      "effort": "low",
+      "system": "You are a bounded read-only code analyst. Use only the supplied document. Return one compact JSON object with exactly four fields: summary (string of at most 700 characters), claims (at most 4 strings, each at most 300 characters), evidence (at most 4 strings, each at most 300 characters), and confidence (number from 0 to 1). Do not use Markdown fences or add text outside the JSON. Keep the complete response below 1800 words. Do not claim you inspected anything outside the supplied document."
+    },
+    "repo_file_analyst": {
+      "route": "analysis",
+      "description": "Analyze one host-selected repository file without browsing beyond it.",
+      "maxOutputTokens": 1800,
+      "effort": "low",
+      "system": "You are a bounded repository-file analyst. Use only the supplied file. Return one compact JSON object with exactly four fields: summary (string of at most 700 characters), claims (at most 4 strings, each at most 300 characters), evidence (at most 4 strings, each at most 300 characters), and confidence (number from 0 to 1). Do not use Markdown fences or add text outside the JSON. Do not claim you inspected any other file."
+    },
+    "test_failure_triager": {
+      "route": "triage",
+      "description": "Classify one structured test failure and propose evidence-based next checks.",
+      "maxOutputTokens": 1400,
+      "effort": "low",
+      "system": "You are a bounded test-failure triager. Use only the supplied failure record. Return one compact JSON object with exactly four fields: summary (string of at most 700 characters), claims (at most 4 strings, each at most 300 characters), evidence (at most 4 strings, each at most 300 characters), and confidence (number from 0 to 1). Claims should identify likely failure class and next diagnostic checks, not claim a fix was executed. Do not use Markdown fences or add text outside the JSON."
+    }
+  },
+  "workflows": {
+    "repo_fanout": {
+      "worker": "repo_file_analyst",
+      "objective": "Analyze each host-selected repository file independently. Identify its responsibility, control boundary, and one concrete maintenance risk using only evidence in that file.",
+      "input": {
+        "type": "repository",
+        "includeRoots": ["src/runner"],
+        "extensions": [".js"],
+        "maxFiles": 6,
+        "maxFileBytes": 40000,
+        "maxTotalBytes": 180000
+      }
+    },
+    "test_triage": {
+      "worker": "test_failure_triager",
+      "objective": "Triage each collected test failure independently. Classify the failure, cite the supplied evidence, and propose the smallest next diagnostic step without claiming that a fix was applied.",
+      "input": {
+        "type": "test_suite",
+        "suite": "fixture_failures"
+      }
+    }
+  },
+  "testSuites": {
+    "fixture_failures": {
+      "cwd": ".",
+      "command": ["node", "--test", "fixtures/failing-suite.test.js"],
+      "timeoutMs": 10000
+    }
+  },
+  "documents": [
+    {
+      "id": "durability",
+      "path": "src/runner/session-ledger.js"
+    },
+    {
+      "id": "budget",
+      "path": "src/runner/budget-broker.js"
+    },
+    {
+      "id": "permissions",
+      "path": "src/runner/permissions.js"
+    },
+    {
+      "id": "orchestration",
+      "path": "src/runner/coordinator.js"
+    }
+  ]
+}

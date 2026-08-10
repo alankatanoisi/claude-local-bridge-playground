@@ -1,0 +1,424 @@
+'use strict';
+
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
+const { FaultInjector } = require('./failures');
+const { RunLedger, atomicWrite } = require('./ledger');
+const { evaluateStarlark, extractStarlark } = require('./starlark');
+const { validateJobs } = require('./validator');
+
+const PLANNER_SYSTEM = `You are the planning model inside a user-owned orchestration system. Return only Starlark source code. The code must define def plan(ctx) and return a list of job dictionaries. Starlark has no imports, while loops, exceptions, async functions, filesystem, network, shell, or model access. Unlike Python, adjacent string literals are not implicitly joined; use + when combining strings. The host validates every descriptor and chooses all model IDs.`;
+const RECOVERY_SYSTEM = `You are the recovery-planning model inside a user-owned orchestration system. Return only Starlark source code defining def recover(ctx). Return retry job descriptors only for failures where retryable is true. Every retry must include retry_of. Do not retry permanent failures.`;
+const SYNTHESIS_SYSTEM = `You are the final synthesis model for an authorized, defensive code-quality experiment on the user's own local runner. Use only the supplied successful worker artifacts and failure records. Distinguish evidence from inference, report incomplete coverage, and explain how the control plane handled deliberate failures. Do not provide exploit instructions. Do not claim that a failed job succeeded.`;
+
+class PhasedCoordinator {
+  constructor({
+    config,
+    bridge,
+    plannerModel,
+    workerModel,
+    faultProfile,
+    runDir,
+    documents,
+    workerName,
+    workerRegistry,
+  }) {
+    this.config = config;
+    this.bridge = bridge;
+    this.plannerModel = plannerModel;
+    this.workerModel = workerModel;
+    this.documents = documents || null;
+    this.workerName = workerName || config.workerName || 'code_analyst';
+    this.workerRegistry = workerRegistry || null;
+    if (!config.workerProfiles[this.workerName]) throw new Error(`unknown active worker '${this.workerName}'`);
+    this.faults = new FaultInjector(faultProfile);
+    this.ledger = new RunLedger(runDir);
+    this.state = {
+      phase: 'created',
+      plannerModel,
+      workerModel,
+      workerName: this.workerName,
+      workerProfiles: workerRegistry ? workerRegistry.publicProfiles() : null,
+      trace: bridge.traceMetadata ? bridge.traceMetadata() : null,
+      jobs: [],
+      results: [],
+      calls: [],
+    };
+  }
+
+  async run() {
+    const documents = this.documents || loadDocuments(this.config);
+    const publicDocuments = documents.map(publicDocument);
+    // Inputs are local run artifacts rather than model conversation state.
+    // This gives the user a replayable evidence bundle even if a provider trace
+    // is unavailable, while the Starlark program still sees metadata only.
+    for (const document of documents) {
+      this.ledger.writeArtifact(`input-${document.id}`, {
+        ...publicDocument(document),
+        text: document.text,
+      });
+    }
+    this.ledger.append('run_started', {
+      plannerModel: this.plannerModel,
+      workerModel: this.workerModel,
+      workerName: this.workerName,
+      trace: this.state.trace,
+      objective: this.config.objective,
+      documents: publicDocuments,
+    });
+
+    this.state.phase = 'planning';
+    this.checkpoint();
+    const policy = this.policy(publicDocuments);
+    const initialPlan = await this.generateValidatedPlan({
+      phaseLabel: 'plan',
+      functionName: 'plan',
+      system: PLANNER_SYSTEM,
+      prompt: buildPlanPrompt(this.config, publicDocuments, this.workerName),
+      context: { objective: this.config.objective, documents: publicDocuments },
+      policy,
+      validationPhase: 'plan',
+      maxTokens: 3000,
+      acceptedEvent: 'plan_validated',
+    });
+    const jobs = initialPlan.jobs;
+    this.state.planMetrics = initialPlan.metrics;
+    this.state.jobs = jobs;
+
+    this.state.phase = 'workers';
+    this.checkpoint();
+    const initialResults = await this.runJobs(jobs, documents, 1);
+    this.state.results.push(...initialResults);
+
+    const failures = initialResults
+      .filter((result) => !result.ok)
+      .map((result) => ({
+        job_id: result.job.id,
+        worker: result.job.worker,
+        task: result.job.task,
+        input_ids: result.job.input_ids,
+        retryable: result.error.retryable,
+        code: result.error.code,
+      }));
+
+    let recoveryJobs = [];
+    if (failures.length) {
+      this.state.phase = 'recovery_planning';
+      this.checkpoint();
+      const recoveryPlan = await this.generateValidatedPlan({
+        phaseLabel: 'recover',
+        functionName: 'recover',
+        system: RECOVERY_SYSTEM,
+        prompt: buildRecoveryPrompt(this.config, publicDocuments, failures, this.workerName),
+        context: { objective: this.config.objective, documents: publicDocuments, failures },
+        policy: {
+          ...policy,
+          failedJobIds: failures.filter((failure) => failure.retryable).map((failure) => failure.job_id),
+          exactJobs: undefined,
+          requireAllInputs: false,
+        },
+        validationPhase: 'recovery',
+        maxTokens: 2500,
+        acceptedEvent: 'recovery_plan_validated',
+      });
+      recoveryJobs = recoveryPlan.jobs;
+      this.state.recoveryMetrics = recoveryPlan.metrics;
+      this.state.phase = 'recovery_workers';
+      this.checkpoint();
+      const recoveryResults = await this.runJobs(recoveryJobs, documents, 2);
+      this.state.results.push(...recoveryResults);
+    }
+
+    this.state.phase = 'synthesis';
+    this.checkpoint();
+    const synthesisResponse = await this.bridge.call({
+      model: this.plannerModel,
+      system: SYNTHESIS_SYSTEM,
+      prompt: buildSynthesisPrompt(this.config.objective, this.state.results),
+      maxTokens: 2500,
+      label: `synthesize:${this.plannerModel}`,
+    });
+    const synthesisFailure = validateSynthesisResponse(synthesisResponse);
+    this.state.phase = synthesisFailure ? 'partial' : 'completed';
+    this.state.synthesis = synthesisFailure ? null : synthesisResponse.text;
+    this.state.synthesisFailure = synthesisFailure;
+    this.state.cost = { usedUsd: this.bridge.budget.usedUsd, calls: this.bridge.budget.calls };
+    this.checkpoint();
+    if (synthesisFailure) {
+      this.ledger.append('synthesis_failed', synthesisFailure);
+    } else {
+      this.ledger.writeArtifact('synthesis', { text: synthesisResponse.text });
+    }
+    this.ledger.append('run_completed', {
+      successful: this.state.results.filter((result) => result.ok).length,
+      failed: this.state.results.filter((result) => !result.ok).length,
+      synthesisOk: !synthesisFailure,
+      estimatedCostUsd: this.bridge.budget.usedUsd,
+    });
+    atomicWrite(path.join(this.ledger.runDir, 'result.json'), this.state);
+    return this.state;
+  }
+
+  policy(documents) {
+    const profile = this.config.workerProfiles[this.workerName];
+    return {
+      maxJobsPerPhase: this.config.maxJobsPerPhase,
+      inputIds: documents.map((document) => document.id),
+      // The plan is deliberately restricted to this workflow's symbolic
+      // worker. Other registered workers exist, but generated code cannot
+      // silently switch task type or provider route.
+      workerNames: [this.workerName],
+      defaultTimeoutMs: 30000,
+      maxTimeoutMs: 60000,
+      defaultMaxOutputTokens: profile.maxOutputTokens,
+      maxOutputTokens: profile.maxOutputTokens,
+      maxTaskCharacters: this.config.maxTaskCharacters,
+      failedJobIds: [],
+      exactJobs: documents.length,
+      oneInputPerJob: true,
+      requireAllInputs: true,
+      allowDependencies: false,
+    };
+  }
+
+  async generateValidatedPlan({
+    phaseLabel,
+    functionName,
+    system,
+    prompt,
+    context,
+    policy,
+    validationPhase,
+    maxTokens,
+    acceptedEvent,
+  }) {
+    let rejection = null;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      const repairSuffix = rejection
+        ? `\n\nYour previous Starlark was rejected by the host. Error:\n${rejection.error}\n\nRejected source:\n${rejection.source}\n\nReturn a corrected complete program only.`
+        : '';
+      const response = await this.bridge.call({
+        model: this.plannerModel,
+        system,
+        prompt: prompt + repairSuffix,
+        maxTokens,
+        label: `${phaseLabel}:${this.plannerModel}:attempt:${attempt}`,
+      });
+      const source = extractStarlark(response.text);
+      this.ledger.writeArtifact(`${phaseLabel}-source-attempt-${attempt}`, { source });
+      try {
+        const evaluated = await evaluateStarlark({
+          source,
+          functionName,
+          context,
+          maxSteps: this.config.maxStarlarkSteps,
+          timeoutMs: this.config.starlarkTimeoutMs,
+        });
+        const jobs = validateJobs(evaluated.result, policy, validationPhase);
+        const metrics = { attempts: attempt, repairs: attempt - 1, firstPassValid: attempt === 1 };
+        this.ledger.append(acceptedEvent, { jobs, starlarkSteps: evaluated.steps, metrics });
+        return { jobs, metrics };
+      } catch (error) {
+        rejection = { source, error: error.message };
+        this.ledger.append(`${phaseLabel}_rejected`, { attempt, error: error.message });
+        if (attempt === 2) throw error;
+      }
+    }
+    throw new Error(`${phaseLabel} did not produce a valid plan`);
+  }
+
+  async runJobs(jobs, documents, attempt) {
+    const byId = new Map(documents.map((document) => [document.id, document]));
+    return mapConcurrent(jobs, this.config.maxConcurrency, async (job, index) => {
+      this.ledger.append('job_started', { jobId: job.id, attempt, worker: job.worker });
+      const before = this.faults.beforeCall(index, attempt);
+      if (before) return this.recordFailure(job, attempt, before);
+
+      const supplied = job.input_ids.map((id) => byId.get(id));
+      let response;
+      try {
+        const request = {
+          prompt: buildWorkerPrompt(this.config.objective, job, supplied),
+          maxTokens: job.max_output_tokens,
+          timeoutMs: job.timeout_ms,
+          label: `worker:${job.id}:attempt:${attempt}`,
+        };
+        if (this.workerRegistry) {
+          response = await this.workerRegistry.execute({ workerName: job.worker, ...request });
+        } else {
+          const profile = this.config.workerProfiles[job.worker];
+          response = await this.bridge.call({
+            model: this.workerModel,
+            system: profile.system,
+            effort: profile.effort || 'low',
+            ...request,
+          });
+        }
+      } catch (error) {
+        return this.recordFailure(job, attempt, {
+          error: { code: error.retryable ? 'bridge_transient' : 'bridge_error', retryable: Boolean(error.retryable), message: error.message },
+          charged: false,
+        });
+      }
+
+      const altered = this.faults.afterCall(index, attempt, response);
+      if (altered.injectedFailure) return this.recordFailure(job, attempt, altered);
+      try {
+        const output = parseWorkerOutput(altered.text);
+        const artifact = this.ledger.writeArtifact(`${job.id}-attempt-${attempt}`, output);
+        const result = { ok: true, job, attempt, artifact, output, usage: altered.usage, costUsd: altered.costUsd };
+        this.ledger.append('job_succeeded', { jobId: job.id, attempt, artifact, confidence: output.confidence });
+        return result;
+      } catch (error) {
+        return this.recordFailure(job, attempt, {
+          error: { code: 'invalid_worker_output', retryable: true, message: error.message },
+          charged: true,
+        });
+      }
+    });
+  }
+
+  recordFailure(job, attempt, failure) {
+    const result = { ok: false, job, attempt, error: failure.error, charged: Boolean(failure.charged) };
+    this.ledger.append('job_failed', {
+      jobId: job.id,
+      attempt,
+      error: failure.error,
+      charged: Boolean(failure.charged),
+    });
+    return result;
+  }
+
+  checkpoint() {
+    this.ledger.checkpoint(this.state);
+  }
+}
+
+function loadDocuments(config) {
+  return config.documents.map((document) => {
+    const absolutePath = path.resolve(config.targetRoot, document.path);
+    const relativePath = path.relative(config.targetRoot, absolutePath);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+      throw new Error(`document escapes target root: ${document.path}`);
+    }
+    const buffer = fs.readFileSync(absolutePath);
+    if (buffer.length > config.maxDocumentBytes) {
+      throw new Error(`document exceeds ${config.maxDocumentBytes} bytes: ${document.path}`);
+    }
+    return {
+      id: document.id,
+      relativePath,
+      bytes: buffer.length,
+      sha256: crypto.createHash('sha256').update(buffer).digest('hex'),
+      text: buffer.toString('utf8'),
+    };
+  });
+}
+
+function publicDocument({ id, kind, relativePath, bytes, sha256, metadata }) {
+  return {
+    id,
+    kind: kind || 'document',
+    path: relativePath,
+    bytes,
+    sha256,
+    ...(metadata ? { metadata } : {}),
+  };
+}
+
+function buildPlanPrompt(config, documents, workerName = config.workerName || 'code_analyst') {
+  const profile = config.workerProfiles[workerName];
+  return `${config.objective}\n\nAvailable bounded inputs:\n${JSON.stringify(documents, null, 2)}\n\nCONTROLLED-TRIAL POLICY (the host rejects any violation):\n- Return exactly ${documents.length} independent jobs: exactly one job for each input ID, with every input covered once.\n- Use worker ${workerName} and one input_id per job.\n- depends_on must be an empty list.\n- timeout_ms must be an integer from 1000 through 60000; use 30000.\n- max_output_tokens must be an integer from 100 through ${profile.maxOutputTokens}; use ${profile.maxOutputTokens}.\n- task must be 10 through ${config.maxTaskCharacters} characters.\n- Each job must contain exactly: id, worker, task, input_ids, depends_on, timeout_ms, max_output_tokens.\n- Do not include retry_of in the initial plan. Do not choose or name a model ID or provider.`;
+}
+
+function buildRecoveryPrompt(config, documents, failures, workerName = config.workerName || 'code_analyst') {
+  const profile = config.workerProfiles[workerName];
+  return `${config.objective}\n\nDocuments:\n${JSON.stringify(documents, null, 2)}\n\nFailures:\n${JSON.stringify(failures, null, 2)}\n\nRECOVERY POLICY (the host rejects any violation):\n- Return at most ${config.maxJobsPerPhase} retry jobs and retry only failures whose retryable field is true.\n- Each retry must preserve the failed job's worker and input_ids and name that job in retry_of.\n- depends_on must be an empty list.\n- timeout_ms must be an integer from 1000 through 60000; use 30000.\n- max_output_tokens must be an integer from 100 through ${profile.maxOutputTokens}; use ${profile.maxOutputTokens}.\n- task must be 10 through ${config.maxTaskCharacters} characters.\n- Each job must contain exactly: id, retry_of, worker, task, input_ids, depends_on, timeout_ms, max_output_tokens.\n- Do not choose or name a model ID.`;
+}
+
+function buildWorkerPrompt(objective, job, documents) {
+  const sections = documents.map(
+    (document) => `DOCUMENT ${document.id} (${document.relativePath}, sha256 ${document.sha256}):\n${document.text}`,
+  );
+  return `OBJECTIVE:\n${objective}\n\nASSIGNED TASK:\n${job.task}\n\n${sections.join('\n\n')}`;
+}
+
+function buildSynthesisPrompt(objective, results) {
+  const compact = results.map((result) =>
+    result.ok
+      ? { job_id: result.job.id, attempt: result.attempt, ok: true, output: result.output }
+      : { job_id: result.job.id, attempt: result.attempt, ok: false, error: result.error },
+  );
+  return `OBJECTIVE:\n${objective}\n\nWORKER RESULTS AND FAILURES:\n${JSON.stringify(compact, null, 2)}`;
+}
+
+function parseWorkerOutput(text) {
+  const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+  const output = JSON.parse(cleaned);
+  const keys = Object.keys(output).sort();
+  if (JSON.stringify(keys) !== JSON.stringify(['claims', 'confidence', 'evidence', 'summary'])) {
+    throw new Error('worker JSON must contain exactly summary, claims, evidence, confidence');
+  }
+  if (typeof output.summary !== 'string' || !output.summary.trim() || output.summary.length > 700) {
+    throw new Error('summary must be 1..700 characters');
+  }
+  if (
+    !Array.isArray(output.claims) ||
+    output.claims.length > 4 ||
+    output.claims.some((value) => typeof value !== 'string' || value.length > 300)
+  ) {
+    throw new Error('claims must contain at most 4 strings of at most 300 characters');
+  }
+  if (
+    !Array.isArray(output.evidence) ||
+    output.evidence.length > 4 ||
+    output.evidence.some((value) => typeof value !== 'string' || value.length > 300)
+  ) {
+    throw new Error('evidence must contain at most 4 strings of at most 300 characters');
+  }
+  if (typeof output.confidence !== 'number' || output.confidence < 0 || output.confidence > 1) {
+    throw new Error('confidence must be between 0 and 1');
+  }
+  return output;
+}
+
+function validateSynthesisResponse(response) {
+  if (response.rawStopReason === 'refusal') {
+    return { code: 'model_refusal', message: 'synthesis model returned stop_reason refusal' };
+  }
+  if (response.rawStopReason === 'max_tokens') {
+    return { code: 'truncated_synthesis', message: 'synthesis model reached its token ceiling' };
+  }
+  if (!response.text || !response.text.trim()) {
+    return { code: 'empty_synthesis', message: 'synthesis model returned no text' };
+  }
+  return null;
+}
+
+async function mapConcurrent(items, limit, fn) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (true) {
+      const index = cursor++;
+      if (index >= items.length) return;
+      results[index] = await fn(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
+module.exports = {
+  PhasedCoordinator,
+  buildPlanPrompt,
+  buildRecoveryPrompt,
+  buildSynthesisPrompt,
+  buildWorkerPrompt,
+  loadDocuments,
+  parseWorkerOutput,
+  publicDocument,
+  validateSynthesisResponse,
+};
