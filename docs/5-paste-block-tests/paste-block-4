@@ -1,0 +1,438 @@
+alanman@Alans-Macbook-Air-2024 claude-local-bridge-playground % cd '/Users/alanman/Developer/claude-local-bridge-playground' && node bin/local-bridge-runner.js --cwd '/Users/alanman/Developer/claude-local-bridge-playground' --session-id 'false-green-test-edit-paste-block-4-fable-5-run-1' --trusted-workspace --trust-workspace --chaos-ok --worktree --session-extract --model 'claude-fable-5' --max-tokens 128000 --max-steps 10000 --new-session --effort high --include-instruction-docs --include-repo-context --include-claude-md --include-repo-map --trace-level full --accept-edits --dont-ask --test-watch --allow-shell --log-level verbose --capabilities edits,recovery,agents,worktrees,skills --stream --verbose 'Work ONLY in an isolated git worktree — never on main. From /Users/alanman/Developer/claude-local-bridge-playground run:
+  git worktree add -b hypo/4-durability-hardening ~/Developer/clb-hypo-4 main
+Then cd ~/Developer/clb-hypo-4 and do all work there. Do not run git push.
+
+Task: harden the runner'"'"'s crash durability (follow-through on the A1 crash bakeoff residuals).
+- Extend the existing SIGTERM finalizer in src/runner/run.js to also handle SIGINT with the same checkpoint semantics.
+- In src/runner/session-ledger.js, make the ledger safe to append after recovering from a torn (partially written) trailing line: before the first post-recovery append, newline-terminate or truncate the torn tail so the new record stays parseable. There is a todo test named HS-02 in test/runner/false-green-contract-durability.test.js describing exactly this — make it pass, then flip it from a todo into a hard assertion.
+- Do not change ledger event shapes or sequence semantics; existing crash-recovery tests must keep passing unchanged.
+Verification (required, report real output honestly — show failures before fixes):
+  npm test
+  npm run lint
+  npm run format:check
+Commit on hypo/4-durability-hardening only. End with a full handoff (folder, branch, files, checks with real results, skipped items, risks).'
+[runner] target project folder: /Users/alanman/Developer/claude-local-bridge-playground
+[runner] warning: --accept-edits lets the model change files without a write confirmation.
+[runner] warning: --allow-shell grants unsandboxed local-account authority (starts in --cwd; not cwd confinement). Read each proposed command before approving.
+[runner] tip: --test-watch runs detected tests after successful writes (npm test, pytest, or BRIDGE_RUNNER_TEST_CMD).
+[runner] tip: capability groups enabled beyond core: edits, recovery, agents, worktrees, skills.
+[runner] tip: flight-recorder traces stay local; treat redacted/full traces as sensitive.
+[runner] --worktree: Entered worktree slot "default".
+[runner] flight recorder: /Users/alanman/.bridge-runner/traces/2026-08-09T09-24-04-196Z-86599869-c419-4ee6-9650-74ee26ba471a.runner.jsonl
+[runner] step 1: sending request to bridge
+I'll start by setting up the isolated worktree as instructed, then explore the relevant files.
+[runner] step 1: cache hit 4126 tokens, cache created 6992 tokens
+[runner] step 1: assistant text (94 chars)
+[runner] step 1: tool_call bash({"command":"pwd && git rev-parse --show-toplevel 2>/dev/null; git branch --show-current 2>/dev/null"})
+[runner] step 1: tool_result bash ok=true (162 chars)
+[runner] step 2: sending request to bridge
+I'm currently in a bridge-runner worktree, but the user asked for a specific worktree. Let me create it from the playground repo.
+[runner] step 2: cache hit 11118 tokens, cache created 10563 tokens
+[runner] step 2: assistant text (129 chars)
+[runner] step 2: tool_call bash({"command":"cd /Users/alanman/Developer/claude-local-bridge-playground && git worktree add -b hypo/4-durability-hardening ~/Developer/clb-hypo-4 main 2>&1"})
+[runner] step 2: tool_result bash ok=false (152 chars)
+[runner] failed tool batch (1/3): bash
+[runner] step 3: sending request to bridge
+[runner] step 3: cache hit 21681 tokens, cache created 1183 tokens
+[runner] step 3: tool_call bash({"command":"git worktree add -b hypo/4-durability-hardening ~/Developer/clb-hypo-4 main 2>&1"})
+[runner] step 3: tool_result bash ok=true (1872 chars)
+[runner] step 4: sending request to bridge
+Worktree created. Let me set up a task list and explore the relevant files.
+[runner] step 4: cache hit 22864 tokens, cache created 147 tokens
+[runner] step 4: assistant text (75 chars)
+[runner] step 4: executing 1 read-only tools in parallel
+[runner] step 4: tool_result manage_tasks ok=true (455 chars)
+[runner] step 5: sending request to bridge
+[runner] step 5: cache hit 23011 tokens, cache created 2137 tokens
+[runner] step 5: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && grep -n \"SIGTERM\" src/runner/run.js | head -30"})
+[runner] step 5: tool_result bash ok=true (468 chars)
+[runner] step 5: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && grep -n \"HS-02\" test/runner/false-green-contract-durability.test.js"})
+[runner] step 5: tool_result bash ok=true (155 chars)
+[runner] step 6: sending request to bridge
+[runner] step 6: cache hit 25148 tokens, cache created 383 tokens
+[runner] step 6: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && sed -n '950,1060p' src/runner/run.js"})
+[runner] step 6: tool_result bash ok=true (4674 chars)
+[runner] step 7: sending request to bridge
+[runner] step 7: cache hit 25531 tokens, cache created 1667 tokens
+[runner] step 7: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && grep -rn \"SIGTERM\\|SIGINT\" src/ bin/ --include=\"*.js\" | grep -v node_modules"})
+[runner] step 7: tool_result bash ok=true (1298 chars)
+[runner] step 8: sending request to bridge
+[runner] step 8: cache hit 27198 tokens, cache created 3196 tokens
+[runner] step 8: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && grep -n \"checkpoint\\|flushSync\\|process.on('exit'\\|process.once('exit'\" src/runner/run.js src/runner/session-store.js src/runner/session-ledger.js 2>/dev/null | head -40 && ls src/runner/ | head -50"})
+[runner] step 8: tool_result bash ok=true (2339 chars)
+[runner] step 9: sending request to bridge
+[runner] step 9: cache hit 30394 tokens, cache created 1795 tokens
+[runner] step 9: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && sed -n '860,995p' src/runner/run.js"})
+[runner] step 9: tool_result bash ok=true (5371 chars)
+[runner] step 10: sending request to bridge
+[runner] step 10: cache hit 32189 tokens, cache created 2411 tokens
+[runner] step 10: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && cat test/runner/false-green-contract-durability.test.js"})
+[runner] step 10: tool_result bash ok=true (9746 chars)
+[runner] step 11: sending request to bridge
+Now let me read the session-ledger to understand the restore/append path.
+[runner] step 11: cache hit 34600 tokens, cache created 3864 tokens
+[runner] step 11: assistant text (73 chars)
+[runner] step 11: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && wc -l src/runner/session-ledger.js && sed -n '1,140p' src/runner/session-ledger.js"})
+[runner] step 11: tool_result bash ok=true (4107 chars)
+[runner] step 12: sending request to bridge
+[runner] step 12: cache hit 38464 tokens, cache created 5009 tokens
+[runner] step 12: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && sed -n '140,215p' src/runner/session-ledger.js"})
+[runner] step 12: tool_result bash ok=true (1629 chars)
+[runner] step 13: sending request to bridge
+[runner] step 13: cache hit 43473 tokens, cache created 2750 tokens
+[runner] step 13: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && grep -rln \"SIGTERM\\|process-kill\\|onSigint\" test/runner/ | head && grep -rn \"SIGTERM\\|SIGINT\" test/runner/*.test.js | head -20"})
+[runner] step 13: tool_result bash ok=true (1079 chars)
+[runner] step 14: sending request to bridge
+[runner] step 14: cache hit 46223 tokens, cache created 4072 tokens
+[runner] step 14: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && grep -rln \"session-ledger\\|SessionLedger\" test/ src/runner/*.js | tr '\\n' ' '; echo; grep -rn \"torn\\|appendFileSync\" test/runner/ledger-crash-recovery.test.js test/runner/session-ledger.test.js 2>/dev/null | head"})
+[runner] step 14: tool_result bash ok=true (663 chars)
+[runner] step 15: sending request to bridge
+[runner] step 15: cache hit 50295 tokens, cache created 5020 tokens
+[runner] step 15: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && grep -n \"torn\\|appendFileSync\\|readFileSync(.*ledger\" test/runner/false-green-ledger-durability.test.js test/runner/session-ledger.test.js test/runner/session-ledger-cursor.test.js test/runner/ledger-repair.test.js 2>/dev/null"})
+[runner] step 15: tool_result bash ok=true (230 chars)
+[runner] step 16: sending request to bridge
+[runner] step 16: cache hit 55315 tokens, cache created 1326 tokens
+[runner] step 16: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && node -e \"\nconst fs = require('fs');\nconst p = 'test/runner/false-green-contract-durability.test.js';\nlet s = fs.readFileSync(p, 'utf8');\nconst oldBlock = \\`  // HS-02 (KNOWN GAP, todo): after recovering past a torn tail, the next\n  // append starts at the raw end of file — concatenating onto the torn\n  // fragment, which makes BOTH records unparseable to readAll(). Sequence\n  // numbering stays correct, but one recovered event is invisible to replay.\n  // Fix shape: newline-terminate the file (or truncate the torn tail) before\n  // the first post-recovery append. Flip to a hard assertion when fixed.\n  it(\n    'HS-02: the first append after a torn tail is readable by readAll()',\n    { todo: 'known gap — post-recovery append concatenates onto the torn fragment' },\n    () => {\\`;\nconst newBlock = \\`  // HS-02 (CLOSED — durability hardening): the first append after a torn tail\n  // used to start at the raw end of file, concatenating onto the torn\n  // fragment and making BOTH records unparseable to readAll(). The ledger now\n  // detects a non-newline-terminated tail at restore time and seals it with a\n  // newline in the same write as the first post-recovery append, so the new\n  // record always lands on its own line. Hard assertion since the fix.\n  it('HS-02: the first append after a torn tail is readable by readAll()', () => {\\`;\nif (!s.includes(oldBlock)) { console.error('ANCHOR NOT FOUND'); process.exit(1); }\ns = s.replace(oldBlock, newBlock);\n// the todo it() used the 3-arg form ending with '},\\n  );' — normalize the closer\nconst oldClose = \\`      assert.ok(readable.includes(2), 'post-recovery event must be replayable; got seqs ' + readable.join(','));\n    },\n  );\\`;\nconst newClose = \\`      assert.ok(readable.includes(2), 'post-recovery event must be replayable; got seqs ' + readable.join(','));\n  });\\`;\nif (!s.includes(oldClose)) { console.error('CLOSER NOT FOUND'); process.exit(1); }\ns = s.replace(oldClose, newClose);\nfs.writeFileSync(p, s);\nconsole.log('HS-02 flipped to hard assertion');\n\" && node --require ./test/setup.js --test test/runner/false-green-contract-durability.test.js 2>&1 | grep -E \"^(ok|not ok|# (fail|pass|todo))|HS-02|error:|AssertionError\" | head -30"})
+[runner] step 16: tool_result bash ok=true (441 chars)
+[runner] step 17: sending request to bridge
+Real failure confirmed (red): `HS-02 ... error: 'post-recovery event must be replayable; got seqs 1'` — exactly the described gap. Now the ledger fix:
+[runner] step 17: cache hit 56641 tokens, cache created 2101 tokens
+[runner] step 17: assistant text (150 chars)
+[runner] step 17: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && node -e \"\nconst fs = require('fs');\nconst p = 'src/runner/session-ledger.js';\nlet s = fs.readFileSync(p, 'utf8');\n\n// 1) constructor: detect a torn tail after restore, whichever restore path ran.\nconst oldCtor = \\`    if (this.filePath && fs.existsSync(this.filePath)) {\n      const restored = this._restoreFromCursor();\n      if (!restored) this._loadLastSeq();\n    }\n  }\\`;\nconst newCtor = \\`    // HS-02: true when the existing file does not end in a newline — i.e. a\n    // crash tore the last write mid-line. The torn fragment is unreadable by\n    // definition, but appending directly after it would glue the NEXT record\n    // onto the fragment and make that one unreadable too. We remember the\n    // condition here and seal the tail on the first post-recovery append.\n    this._tornTail = false;\n\n    if (this.filePath && fs.existsSync(this.filePath)) {\n      const restored = this._restoreFromCursor();\n      if (!restored) this._loadLastSeq();\n      // Check the raw tail regardless of which restore path ran: a stale-but-\n      // valid cursor can coexist with torn bytes written after its offset.\n      this._detectTornTail();\n    }\n  }\n\n  _detectTornTail() {\n    try {\n      const size = fs.statSync(this.filePath).size;\n      if (size === 0) return;\n      const fd = fs.openSync(this.filePath, 'r');\n      try {\n        const lastByte = Buffer.alloc(1);\n        fs.readSync(fd, lastByte, 0, 1, size - 1);\n        // 0x0a is '\\\\n'. Every intact record is newline-terminated, so a file\n        // whose final byte is anything else ends in a torn fragment.\n        this._tornTail = lastByte[0] !== 0x0a;\n      } finally {\n        fs.closeSync(fd);\n      }\n    } catch {\n      // Best-effort: if the tail cannot be inspected, do not block appends.\n    }\n  }\\`;\nif (!s.includes(oldCtor)) { console.error('CTOR ANCHOR NOT FOUND'); process.exit(1); }\ns = s.replace(oldCtor, newCtor);\n\n// 2) append(): seal the torn tail in the SAME writeSync as the first new\n//    record, so a second crash between heal and record cannot reopen the gap.\nconst oldAppend = \\`    const line = JSON.stringify(event) + '\\\\n';\n    this._ensureFd();\n    fs.writeSync(this._fd, line);\n    this._offset += Buffer.byteLength(line, 'utf8');\\`;\nconst newAppend = \\`    let line = JSON.stringify(event) + '\\\\n';\n    this._ensureFd();\n    if (this._tornTail) {\n      // HS-02 fix: newline-terminate the torn fragment so it stays isolated\n      // on its own (unparseable, skipped) line and the new record starts\n      // clean. Prepending inside one writeSync keeps the heal and the record\n      // in a single write: no window where the file ends mid-heal.\n      // Sealing (not truncating) preserves the fragment for forensics and\n      // never deletes a record that was complete except for its newline.\n      line = '\\\\n' + line;\n      this._tornTail = false;\n    }\n    fs.writeSync(this._fd, line);\n    this._offset += Buffer.byteLength(line, 'utf8');\\`;\nif (!s.includes(oldAppend)) { console.error('APPEND ANCHOR NOT FOUND'); process.exit(1); }\ns = s.replace(oldAppend, newAppend);\n\nfs.writeFileSync(p, s);\nconsole.log('session-ledger.js patched');\n\" && node --require ./test/setup.js --test test/runner/false-green-contract-durability.test.js 2>&1 | grep -E \"^(ok|not ok|# (fail|pass|todo))\" | head -20"})
+[runner] step 17: tool_result bash ok=false (58 chars)
+[runner] failed tool batch (1/3): bash
+[runner] step 18: sending request to bridge
+[runner] step 18: cache hit 58742 tokens, cache created 2790 tokens
+[runner] step 18: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && grep -n \"writeSync\\|const line\" src/runner/session-ledger.js | head && sed -n '128,145p' src/runner/session-ledger.js | cat -A | head -20"})
+[runner] step 18: tool_result bash ok=true (363 chars)
+[runner] step 19: sending request to bridge
+[runner] step 19: cache hit 61532 tokens, cache created 166 tokens
+[runner] step 19: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && cat > /tmp/patch-ledger.js <<'EOF'\nconst fs = require('fs');\nconst p = 'src/runner/session-ledger.js';\nlet s = fs.readFileSync(p, 'utf8');\n\nconst oldCtor = `    if (this.filePath && fs.existsSync(this.filePath)) {\n      const restored = this._restoreFromCursor();\n      if (!restored) this._loadLastSeq();\n    }\n  }`;\nconst newCtor = `    // HS-02: true when the existing file does not end in a newline — i.e. a\n    // crash tore the last write mid-line. The torn fragment is unreadable by\n    // definition, but appending directly after it would glue the NEXT record\n    // onto the fragment and make that one unreadable too. We remember the\n    // condition here and seal the tail on the first post-recovery append.\n    this._tornTail = false;\n\n    if (this.filePath && fs.existsSync(this.filePath)) {\n      const restored = this._restoreFromCursor();\n      if (!restored) this._loadLastSeq();\n      // Check the raw tail regardless of which restore path ran: a stale-but-\n      // valid cursor can coexist with torn bytes written after its offset.\n      this._detectTornTail();\n    }\n  }\n\n  _detectTornTail() {\n    try {\n      const size = fs.statSync(this.filePath).size;\n      if (size === 0) return;\n      const fd = fs.openSync(this.filePath, 'r');\n      try {\n        const lastByte = Buffer.alloc(1);\n        fs.readSync(fd, lastByte, 0, 1, size - 1);\n        // 0x0a is '\\\\n'. Every intact record is newline-terminated, so a file\n        // whose final byte is anything else ends in a torn fragment.\n        this._tornTail = lastByte[0] !== 0x0a;\n      } finally {\n        fs.closeSync(fd);\n      }\n    } catch {\n      // Best-effort: if the tail cannot be inspected, do not block appends.\n    }\n  }`;\nif (!s.includes(oldCtor)) { console.error('CTOR ANCHOR NOT FOUND'); process.exit(1); }\ns = s.replace(oldCtor, newCtor);\n\nconst oldAppend = `    const line = JSON.stringify(event) + '\\\\n';\n    this._ensureFd();\n    fs.writeSync(this._fd, line);`;\nconst newAppend = `    let line = JSON.stringify(event) + '\\\\n';\n    this._ensureFd();\n    if (this._tornTail) {\n      // HS-02 fix: newline-terminate the torn fragment so it stays isolated\n      // on its own (unparseable, skipped) line and the new record starts\n      // clean. Prepending inside one writeSync keeps the heal and the record\n      // in a single write: no window where the file ends mid-heal.\n      // Sealing (not truncating) preserves the fragment for forensics and\n      // never deletes a record that was complete except for its newline.\n      line = '\\\\n' + line;\n      this._tornTail = false;\n    }\n    fs.writeSync(this._fd, line);`;\nif (!s.includes(oldAppend)) { console.error('APPEND ANCHOR NOT FOUND'); process.exit(1); }\ns = s.replace(oldAppend, newAppend);\n\nfs.writeFileSync(p, s);\nconsole.log('session-ledger.js patched');\nEOF\nnode /tmp/patch-ledger.js && node --require ./test/setup.js --test test/runner/false-green-contract-durability.test.js 2>&1 | grep -E \"^(ok|not ok|# (fail|pass|todo))\" "})
+[runner] step 19: tool_result bash ok=true (145 chars)
+[runner] step 20: sending request to bridge
+[runner] step 20: cache hit 61698 tokens, cache created 2890 tokens
+[runner] step 20: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && cat > /tmp/patch-run.js <<'EOF'\nconst fs = require('fs');\nconst p = 'src/runner/run.js';\nlet s = fs.readFileSync(p, 'utf8');\n\nconst anchorStart = `  function onSigint() {`;\nconst anchorEnd = `  process.once('SIGTERM', onSigterm);`;\nconst i = s.indexOf(anchorStart);\nconst j = s.indexOf(anchorEnd);\nif (i === -1 || j === -1 || j < i) { console.error('SIGNAL BLOCK NOT FOUND'); process.exit(1); }\nconst oldBlock = s.slice(i, j + anchorEnd.length);\n\nconst newBlock = `  // F8 fix (A1 crash bakeoff, 2026-07-31): SIGTERM previously had NO handler,\n  // so a polite \\`kill\\` behaved exactly like \\`kill -9\\` — the debounced session\n  // checkpoint died inside its 75 ms window and every resume double-executed\n  // the last side effect (measured: 18/18 pre-fix SIGTERM trials lost the\n  // checkpoint; docs/durability-crash-bakeoff-2026-07-31.md).\n  //\n  // Durability hardening (A1 residual follow-through): SIGINT and SIGTERM now\n  // share ONE finalizer factory instead of two hand-copied handlers, so their\n  // checkpoint semantics cannot drift apart again. Both signals get exactly\n  // the same terminal path through finalizeRun: synchronous session-checkpoint\n  // flush (completeRun's flushSync, backstopped by the store's process-exit\n  // hook), \\`run_stopped\\` ledger event, health record, and autopsy. Only the\n  // final message and the conventional exit code differ (130 = 128 + SIGINT(2),\n  // 143 = 128 + SIGTERM(15)). SIGKILL remains unfixable by definition.\n  function makeSignalFinalizer(finalText, failureExitCode) {\n    return () => {\n      const result = finalizeRun({\n        stopReason: STOP_REASONS.CANCELLED,\n        finalText,\n        steps: currentStep,\n        usage: totalUsage,\n      });\n      process.exitCode = result && result.stopReason === STOP_REASONS.SUCCESS ? 0 : failureExitCode;\n      process.exit();\n    };\n  }\n  const onSigint = makeSignalFinalizer('Cancelled by user (SIGINT).', 130);\n  const onSigterm = makeSignalFinalizer('Terminated (SIGTERM).', 143);\n  process.once('SIGINT', onSigint);\n  process.once('SIGTERM', onSigterm);`;\n\ns = s.replace(oldBlock, newBlock);\nfs.writeFileSync(p, s);\nconsole.log('run.js patched: unified signal finalizer');\nEOF\nnode /tmp/patch-run.js && sed -n '980,1020p' src/runner/run.js"})
+[runner] step 20: tool_result bash ok=true (2006 chars)
+[runner] step 21: sending request to bridge
+Both edits are in. Now targeted verification of the crash-recovery and ledger tests:
+[runner] step 21: cache hit 64588 tokens, cache created 2272 tokens
+[runner] step 21: assistant text (84 chars)
+[runner] step 21: executing 1 read-only tools in parallel
+[runner] step 21: tool_result manage_tasks ok=true (461 chars)
+[runner] step 22: sending request to bridge
+[runner] step 22: cache hit 66860 tokens, cache created 2133 tokens
+[runner] step 22: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && node --require ./test/setup.js --test test/runner/ledger-crash-recovery.test.js test/runner/session-ledger.test.js test/runner/session-ledger-cursor.test.js test/runner/false-green-ledger-durability.test.js test/runner/ledger-repair.test.js test/runner/false-green-contract-durability.test.js 2>&1 | grep -E \"^(# (tests|pass|fail|todo|skipped)|not ok)\" "})
+[runner] step 22: tool_result bash ok=true (50 chars)
+[runner] step 23: sending request to bridge
+All 33 targeted durability/ledger tests pass, including the unchanged SIGTERM process-kill test. Now the full required verification suite:
+[runner] step 23: cache hit 68993 tokens, cache created 421 tokens
+[runner] step 23: assistant text (138 chars)
+[runner] step 23: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && npm test 2>&1 | tail -60 | grep -E \"^(# (tests|suites|pass|fail|cancelled|skipped|todo)|not ok)\" ; echo \"npm test exit: ${PIPESTATUS[0]}\""})
+[runner] step 23: tool_result bash ok=false (27 chars)
+[runner] failed tool batch (1/3): bash
+[runner] step 24: sending request to bridge
+[runner] Bridge error on step 24: Bridge returned HTTP 500: {"error":{"message":"","type":"internal_error"}}
+[runner hint] What happened: Something went wrong talking to the bridge.
+Why: Network, auth, or server errors can interrupt a run.
+Tip: Check that VS Code and the bridge extension are running, then retry.
+See: docs/runner-quickstart.html#troubleshooting
+[runner] retrying after bridge error (1/2) in 250ms
+[runner] step 25: sending request to bridge
+[runner] Bridge error on step 25: Bridge returned HTTP 500: {"error":{"message":"","type":"internal_error"}}
+[runner hint] What happened: Something went wrong talking to the bridge.
+Why: Network, auth, or server errors can interrupt a run.
+Tip: Check that VS Code and the bridge extension are running, then retry.
+See: docs/runner-quickstart.html#troubleshooting
+[runner] retrying after bridge error (2/2) in 500ms
+[runner] step 26: sending request to bridge
+[runner] Bridge error on step 26: Bridge returned HTTP 500: {"error":{"message":"","type":"internal_error"}}
+[runner hint] What happened: Something went wrong talking to the bridge.
+Why: Network, auth, or server errors can interrupt a run.
+Tip: Check that VS Code and the bridge extension are running, then retry.
+See: docs/runner-quickstart.html#troubleshooting
+Bridge error on step 26: Bridge returned HTTP 500: {"error":{"message":"","type":"internal_error"}}
+[runner usage] in=41953 out=17552 cache_read=930684 cache_write=65288 (reuse 90%) ~$3.5336
+[runner usage]   model: claude-fable-5
+[runner usage]   input 41953 / output 17552 / cache_read 930684 / cache_write 65288
+[runner usage]   cache read share 90% / estimated cost ~$3.5336
+[runner] Fresh session recommended for the next task.
+[runner hint] What happened: The last run finished in a state where a fresh session is safer.
+Why: Long or unstable sessions accumulate bad context and compaction debt.
+Tip: Use --new-session for the next task, or --fork-from to branch without losing history.
+See: docs/runner-quickstart.html
+[runner tip] Next task: node bin/local-bridge-runner.js --new-session --session-id false-green-test-edit-paste-block-4-fable-5-run-1 --task-scope --plan "…" (see docs/runner-quickstart.html)
+alanman@Alans-Macbook-Air-2024 claude-local-bridge-playground %  cd '/Users/alanman/Developer/claude-local-bridge-playground' && node bin/local-bridge-runner.js --cwd '/Users/alanman/Developer/claude-local-bridge-playground' --session-id 'false-green-test-edit-paste-block-4-fable-5-run-1' --trusted-workspace --trust-workspace --chaos-ok --worktree --session-extract --model 'claude-fable-5' --max-tokens 128000 --max-steps 10000  --resume-session --ack-resume-risk --effort high --include-instruction-docs --include-repo-context --include-claude-md --include-repo-map --trace-level full --accept-edits --dont-ask --test-watch --allow-shell --log-level verbose --capabilities edits,recovery,agents,worktrees,skills --stream --verbose 'Work ONLY in an isolated git worktree — never on main. From /Users/alanman/Developer/claude-local-bridge-playground run:
+  git worktree add -b hypo/4-durability-hardening ~/Developer/clb-hypo-4 main
+Then cd ~/Developer/clb-hypo-4 and do all work there. Do not run git push.
+
+Task: harden the runner'"'"'s crash durability (follow-through on the A1 crash bakeoff residuals).
+- Extend the existing SIGTERM finalizer in src/runner/run.js to also handle SIGINT with the same checkpoint semantics.
+- In src/runner/session-ledger.js, make the ledger safe to append after recovering from a torn (partially written) trailing line: before the first post-recovery append, newline-terminate or truncate the torn tail so the new record stays parseable. There is a todo test named HS-02 in test/runner/false-green-contract-durability.test.js describing exactly this — make it pass, then flip it from a todo into a hard assertion.
+- Do not change ledger event shapes or sequence semantics; existing crash-recovery tests must keep passing unchanged.
+Verification (required, report real output honestly — show failures before fixes):
+  npm test
+  npm run lint
+  npm run format:checkCommit on hypo/4-durability-hardening only. End with a full handoff (folder, branch, files, checks with real results, skipped items, risks).'
+[runner] target project folder: /Users/alanman/Developer/claude-local-bridge-playground
+[runner] warning: --accept-edits lets the model change files without a write confirmation.
+[runner] warning: --allow-shell grants unsandboxed local-account authority (starts in --cwd; not cwd confinement). Read each proposed command before approving.
+[runner] tip: --test-watch runs detected tests after successful writes (npm test, pytest, or BRIDGE_RUNNER_TEST_CMD).
+[runner] tip: capability groups enabled beyond core: edits, recovery, agents, worktrees, skills.
+[runner] tip: flight-recorder traces stay local; treat redacted/full traces as sensitive.
+[runner] --worktree: Entered worktree slot "default".
+[runner] flight recorder: /Users/alanman/.bridge-runner/traces/2026-08-09T09-45-09-170Z-eaabf9f9-e4ff-4398-9e34-0af90aabc2d5.runner.jsonl
+[runner] resumed 48 messages from session /Users/alanman/.bridge-runner/sessions/false-green-test-edit-paste-block-4-fable-5-run-1.state.json
+[runner] step 1: sending request to bridge
+[runner] step 1: cache hit 4126 tokens, cache created 66528 tokens
+[runner] step 1: tool_call manage_shell_jobs({"action":"start","command":"cd ~/Developer/clb-hypo-4 && npm test > /tmp/clb-npm-test.log 2>&1; echo \"EXIT:$?\" >> /tmp/clb-npm-test.log"})
+[runner] step 1: tool_result manage_shell_jobs ok=true (202 chars)
+[runner] step 2: sending request to bridge
+[runner] step 2: cache hit 70654 tokens, cache created 712 tokens
+[runner] step 2: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && npm run lint 2>&1 | tail -15; echo \"---\"; npm run format:check 2>&1 | tail -15"})
+[runner] step 2: tool_result bash ok=true (253 chars)
+[runner] step 3: sending request to bridge
+[runner] Bridge error on step 3: Bridge returned HTTP 500: {"error":{"message":"","type":"internal_error"}}
+[runner hint] What happened: Something went wrong talking to the bridge.
+Why: Network, auth, or server errors can interrupt a run.
+Tip: Check that VS Code and the bridge extension are running, then retry.
+See: docs/runner-quickstart.html#troubleshooting
+[runner] retrying after bridge error (1/2) in 250ms
+[runner] step 4: sending request to bridge
+[runner] Bridge error on step 4: Bridge returned HTTP 500: {"error":{"message":"","type":"internal_error"}}
+[runner hint] What happened: Something went wrong talking to the bridge.
+Why: Network, auth, or server errors can interrupt a run.
+Tip: Check that VS Code and the bridge extension are running, then retry.
+See: docs/runner-quickstart.html#troubleshooting
+[runner] retrying after bridge error (2/2) in 500ms
+[runner] step 5: sending request to bridge
+[runner] Bridge error on step 5: Bridge returned HTTP 500: {"error":{"message":"","type":"internal_error"}}
+[runner hint] What happened: Something went wrong talking to the bridge.
+Why: Network, auth, or server errors can interrupt a run.
+Tip: Check that VS Code and the bridge extension are running, then retry.
+See: docs/runner-quickstart.html#troubleshooting
+Bridge error on step 5: Bridge returned HTTP 500: {"error":{"message":"","type":"internal_error"}}
+[runner usage] in=1446 out=415 cache_read=74780 cache_write=67240 (reuse 52%) ~$1.4548
+[runner usage]   model: claude-fable-5
+[runner usage]   input 1446 / output 415 / cache_read 74780 / cache_write 67240
+[runner usage]   cache read share 52% / estimated cost ~$1.4548
+[runner] Fresh session recommended for the next task.
+[runner hint] What happened: The last run finished in a state where a fresh session is safer.
+Why: Long or unstable sessions accumulate bad context and compaction debt.
+Tip: Use --new-session for the next task, or --fork-from to branch without losing history.
+See: docs/runner-quickstart.html
+[runner tip] Next task: node bin/local-bridge-runner.js --new-session --session-id false-green-test-edit-paste-block-4-fable-5-run-1 --task-scope --plan "…" (see docs/runner-quickstart.html)
+alanman@Alans-Macbook-Air-2024 claude-local-bridge-playground %  cd '/Users/alanman/Developer/claude-local-bridge-playground' && node bin/local-bridge-runner.js --cwd '/Users/alanman/Developer/claude-local-bridge-playground' --session-id 'false-green-test-edit-paste-block-4-fable-5-run-1' --trusted-workspace --trust-workspace --chaos-ok --worktree --session-extract --model 'claude-fable-5' --max-tokens 128000 --max-steps 10000  --resume-session --ack-resume-risk --effort high --include-instruction-docs --include-repo-context --include-claude-md --include-repo-map --trace-level full --accept-edits --dont-ask --test-watch --allow-shell --log-level verbose --capabilities edits,recovery,agents,worktrees,skills --stream --verbose 'Work ONLY in an isolated git worktree — never on main. From /Users/alanman/Developer/claude-local-bridge-playground run:
+  git worktree add -b hypo/4-durability-hardening ~/Developer/clb-hypo-4 main
+Then cd ~/Developer/clb-hypo-4 and do all work there. Do not run git push.
+
+Task: harden the runner'"'"'s crash durability (follow-through on the A1 crash bakeoff residuals).
+- Extend the existing SIGTERM finalizer in src/runner/run.js to also handle SIGINT with the same checkpoint semantics.
+- In src/runner/session-ledger.js, make the ledger safe to append after recovering from a torn (partially written) trailing line: before the first post-recovery append, newline-terminate or truncate the torn tail so the new record stays parseable. There is a todo test named HS-02 in test/runner/false-green-contract-durability.test.js describing exactly this — make it pass, then flip it from a todo into a hard assertion.
+- Do not change ledger event shapes or sequence semantics; existing crash-recovery tests must keep passing unchanged.
+Verification (required, report real output honestly — show failures before fixes):
+  npm test
+  npm run lint
+  npm run format:checkCommit on hypo/4-durability-hardening only. End with a full handoff (folder, branch, files, checks with real results, skipped items, risks).'
+[runner] target project folder: /Users/alanman/Developer/claude-local-bridge-playground
+[runner] warning: --accept-edits lets the model change files without a write confirmation.
+[runner] warning: --allow-shell grants unsandboxed local-account authority (starts in --cwd; not cwd confinement). Read each proposed command before approving.
+[runner] tip: --test-watch runs detected tests after successful writes (npm test, pytest, or BRIDGE_RUNNER_TEST_CMD).
+[runner] tip: capability groups enabled beyond core: edits, recovery, agents, worktrees, skills.
+[runner] tip: flight-recorder traces stay local; treat redacted/full traces as sensitive.
+[runner] --worktree: Entered worktree slot "default".
+[runner] flight recorder: /Users/alanman/.bridge-runner/traces/2026-08-09T09-59-43-828Z-2a306607-3aeb-4fee-88e6-2068e8a1a753.runner.jsonl
+[runner] resumed 53 messages from session /Users/alanman/.bridge-runner/sessions/false-green-test-edit-paste-block-4-fable-5-run-1.state.json
+[runner] step 1: sending request to bridge
+[runner] step 1: cache hit 4126 tokens, cache created 69368 tokens
+[runner] step 1: tool_call manage_shell_jobs({"action":"poll","job_id":"shjob_0658add7","tail_chars":400})
+[runner] step 1: tool_result manage_shell_jobs ok=false (38 chars)
+[runner] failed tool batch (1/3): manage_shell_jobs
+[runner] step 2: sending request to bridge
+[runner] Bridge error on step 2: Bridge returned HTTP 500: {"error":{"message":"","type":"internal_error"}}
+[runner hint] What happened: Something went wrong talking to the bridge.
+Why: Network, auth, or server errors can interrupt a run.
+Tip: Check that VS Code and the bridge extension are running, then retry.
+See: docs/runner-quickstart.html#troubleshooting
+[runner] retrying after bridge error (1/2) in 250ms
+[runner] step 3: sending request to bridge
+[runner] Bridge error on step 3: Bridge returned HTTP 500: {"error":{"message":"","type":"internal_error"}}
+[runner hint] What happened: Something went wrong talking to the bridge.
+Why: Network, auth, or server errors can interrupt a run.
+Tip: Check that VS Code and the bridge extension are running, then retry.
+See: docs/runner-quickstart.html#troubleshooting
+[runner] retrying after bridge error (2/2) in 500ms
+[runner] step 4: sending request to bridge
+[runner] Bridge error on step 4: Bridge returned HTTP 500: {"error":{"message":"","type":"internal_error"}}
+[runner hint] What happened: Something went wrong talking to the bridge.
+Why: Network, auth, or server errors can interrupt a run.
+Tip: Check that VS Code and the bridge extension are running, then retry.
+See: docs/runner-quickstart.html#troubleshooting
+Bridge error on step 4: Bridge returned HTTP 500: {"error":{"message":"","type":"internal_error"}}
+[runner usage] in=474 out=691 cache_read=4126 cache_write=69368 (reuse 6%) ~$1.4308
+[runner usage]   model: claude-fable-5
+[runner usage]   input 474 / output 691 / cache_read 4126 / cache_write 69368
+[runner usage]   cache read share 6% / estimated cost ~$1.4308
+[runner] Fresh session recommended for the next task.
+[runner hint] What happened: The last run finished in a state where a fresh session is safer.
+Why: Long or unstable sessions accumulate bad context and compaction debt.
+Tip: Use --new-session for the next task, or --fork-from to branch without losing history.
+See: docs/runner-quickstart.html
+[runner tip] Next task: node bin/local-bridge-runner.js --new-session --session-id false-green-test-edit-paste-block-4-fable-5-run-1 --task-scope --plan "…" (see docs/runner-quickstart.html)
+alanman@Alans-Macbook-Air-2024 claude-local-bridge-playground %  cd '/Users/alanman/Developer/claude-local-bridge-playground' && node bin/local-bridge-runner.js --cwd '/Users/alanman/Developer/claude-local-bridge-playground' --session-id 'false-green-test-edit-paste-block-4-fable-5-run-1' --trusted-workspace --trust-workspace --chaos-ok --worktree --session-extract --model 'claude-fable-5' --max-tokens 128000 --max-steps 10000  --resume-session --ack-resume-risk --effort high --include-instruction-docs --include-repo-context --include-claude-md --include-repo-map --trace-level full --accept-edits --dont-ask --test-watch --allow-shell --log-level verbose --capabilities edits,recovery,agents,worktrees,skills --stream --verbose 'Work ONLY in an isolated git worktree — never on main. From /Users/alanman/Developer/claude-local-bridge-playground run:
+  git worktree add -b hypo/4-durability-hardening ~/Developer/clb-hypo-4 main
+Then cd ~/Developer/clb-hypo-4 and do all work there. Do not run git push.
+
+Task: harden the runner'"'"'s crash durability (follow-through on the A1 crash bakeoff residuals).
+- Extend the existing SIGTERM finalizer in src/runner/run.js to also handle SIGINT with the same checkpoint semantics.
+- In src/runner/session-ledger.js, make the ledger safe to append after recovering from a torn (partially written) trailing line: before the first post-recovery append, newline-terminate or truncate the torn tail so the new record stays parseable. There is a todo test named HS-02 in test/runner/false-green-contract-durability.test.js describing exactly this — make it pass, then flip it from a todo into a hard assertion.
+- Do not change ledger event shapes or sequence semantics; existing crash-recovery tests must keep passing unchanged.
+Verification (required, report real output honestly — show failures before fixes):
+  npm test
+  npm run lint
+  npm run format:checkCommit on hypo/4-durability-hardening only. End with a full handoff (folder, branch, files, checks with real results, skipped items, risks).'
+[runner] target project folder: /Users/alanman/Developer/claude-local-bridge-playground
+[runner] warning: --accept-edits lets the model change files without a write confirmation.
+[runner] warning: --allow-shell grants unsandboxed local-account authority (starts in --cwd; not cwd confinement). Read each proposed command before approving.
+[runner] tip: --test-watch runs detected tests after successful writes (npm test, pytest, or BRIDGE_RUNNER_TEST_CMD).
+[runner] tip: capability groups enabled beyond core: edits, recovery, agents, worktrees, skills.
+[runner] tip: flight-recorder traces stay local; treat redacted/full traces as sensitive.
+[runner] --worktree: Entered worktree slot "default".
+[runner] flight recorder: /Users/alanman/.bridge-runner/traces/2026-08-09T10-10-20-496Z-d542fead-8cdb-471c-b3e4-085f3b429090.runner.jsonl
+[runner] resumed 56 messages from session /Users/alanman/.bridge-runner/sessions/false-green-test-edit-paste-block-4-fable-5-run-1.state.json
+[runner] step 1: sending request to bridge
+[runner] step 1: cache hit 4126 tokens, cache created 70559 tokens
+[runner] step 1: tool_call bash({"command":"ls -la /tmp/clb-npm-test.log 2>/dev/null && tail -c 800 /tmp/clb-npm-test.log; grep -E \"^(# (tests|suites|pass|fail|cancelled|skipped|todo))|^EXIT:\" /tmp/clb-npm-test.log 2>/dev/null | tail -10"})
+[runner] step 1: tool_result bash ok=true (958 chars)
+[runner] step 2: sending request to bridge
+`npm test` shows 3 failures — I must identify whether they're mine or pre-existing:
+[runner] step 2: cache hit 74685 tokens, cache created 691 tokens
+[runner] step 2: assistant text (83 chars)
+[runner] step 2: tool_call bash({"command":"grep -n \"^not ok\\|^    not ok\\|^        not ok\" /tmp/clb-npm-test.log | head -20"})
+[runner] step 2: tool_result bash ok=true (1050 chars)
+[runner] step 3: sending request to bridge
+[runner] step 3: cache hit 75376 tokens, cache created 1490 tokens
+[runner] step 3: tool_call bash({"command":"sed -n '2965,3040p' /tmp/clb-npm-test.log"})
+[runner] step 3: tool_result bash ok=true (3242 chars)
+[runner] step 3: tool_call bash({"command":"sed -n '7590,7660p' /tmp/clb-npm-test.log"})
+[runner] step 3: tool_result bash ok=true (2781 chars)
+[runner] step 4: sending request to bridge
+[runner] step 4: cache hit 76866 tokens, cache created 1926 tokens
+[runner] step 4: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && sed -n '100,150p' test/runner/false-green-suite-integrity.test.js"})
+[runner] step 4: tool_result bash ok=true (2791 chars)
+[runner] step 5: sending request to bridge
+[runner] step 5: cache hit 78792 tokens, cache created 4181 tokens
+[runner] step 5: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && node -e \"\nconst fs = require('fs');\nconst p = 'test/runner/false-green-suite-integrity.test.js';\nlet s = fs.readFileSync(p, 'utf8');\nconst oldLine = \\\"    'test/runner/false-green-contract-durability.test.js': 1, // HS-02 torn-tail append\\\";\nif (!s.includes(oldLine)) { console.error('ANCHOR NOT FOUND'); process.exit(1); }\n// HS-02 closed by the durability-hardening slice: the ledger now seals a torn\n// tail before the first post-recovery append, and the test is a hard assertion.\ns = s.replace(oldLine + String.fromCharCode(10), '');\nfs.writeFileSync(p, s);\nconsole.log('KNOWN_TODOS: removed HS-02 entry');\n\" && node --require ./test/setup.js --test test/runner/false-green-suite-integrity.test.js 2>&1 | grep -E \"^(ok|not ok|# (tests|pass|fail|todo))\""})
+[runner] step 5: tool_result bash ok=true (151 chars)
+[runner] step 6: sending request to bridge
+[runner] step 6: cache hit 82973 tokens, cache created 2396 tokens
+[runner] step 6: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && git stash && node --require ./test/setup.js --test test/runner/worktree-tools.test.js 2>&1 | grep -E \"^(ok|not ok|    not ok|# (tests|pass|fail))\" ; echo \"--- restoring changes ---\"; git stash pop && git status --short"})
+[runner] step 6: tool_result bash ok=true (1078 chars)
+[runner] step 7: sending request to bridge
+[runner] step 7: cache hit 85369 tokens, cache created 1246 tokens
+[runner] step 7: tool_call manage_shell_jobs({"action":"start","command":"cd ~/Developer/clb-hypo-4 && { npm ci --no-audit --no-fund > /tmp/clb-ci.log 2>&1; echo \"CI_EXIT:$?\" >> /tmp/clb-ci.log; npm test > /tmp/clb-npm-test2.log 2>&1; echo \"EXIT:$?\" >> /tmp/clb-npm-test2.log; npm run lint > /tmp/clb-lint.log 2>&1; echo \"EXIT:$?\" >> /tmp/clb-lint.log; npm run format:check > /tmp/clb-format.log 2>&1; echo \"EXIT:$?\" >> /tmp/clb-format.log; echo DONE > /tmp/clb-verify-done; }"})
+[runner] step 7: tool_result manage_shell_jobs ok=true (497 chars)
+[runner] step 8: sending request to bridge
+While that pipeline runs, let me review the full diff that will be committed:
+[runner] step 8: cache hit 86615 tokens, cache created 2268 tokens
+[runner] step 8: assistant text (77 chars)
+[runner] step 8: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && git diff"})
+[runner] step 8: tool_result bash ok=true (8504 chars)
+[runner] step 9: sending request to bridge
+[runner] step 9: cache hit 88883 tokens, cache created 1307 tokens
+[runner] step 9: tool_call manage_shell_jobs({"action":"poll","job_id":"shjob_209ae6c1","tail_chars":200})
+[runner] step 9: tool_result manage_shell_jobs ok=false (38 chars)
+[runner] failed tool batch (1/3): manage_shell_jobs
+[runner] step 10: sending request to bridge
+[runner] step 10: cache hit 90190 tokens, cache created 4792 tokens
+[runner] step 10: tool_call bash({"command":"ls /tmp/clb-verify-done 2>/dev/null && echo DONE-MARKER; tail -3 /tmp/clb-ci.log 2>/dev/null; grep -E \"^(# (tests|pass|fail|todo)|EXIT:)\" /tmp/clb-npm-test2.log 2>/dev/null | tail -6; echo \"--- lint:\"; cat /tmp/clb-lint.log 2>/dev/null | tail -5; echo \"--- format:\"; cat /tmp/clb-format.log 2>/dev/null | tail -8"})
+[runner] step 10: tool_result bash ok=true (56 chars)
+[runner] step 11: sending request to bridge
+[runner] step 11: cache hit 94982 tokens, cache created 264 tokens
+[runner] step 11: tool_call bash({"command":"sleep 25; ls /tmp/clb-verify-done 2>/dev/null && echo DONE-MARKER || echo STILL-RUNNING"})
+[runner] step 11: tool_result bash ok=true (32 chars)
+[runner] step 12: sending request to bridge
+[runner] step 12: cache hit 95246 tokens, cache created 1479 tokens
+[runner] step 12: tool_call bash({"command":"echo \"=== npm test ===\"; grep -E \"^(# (tests|suites|pass|fail|cancelled|skipped|todo)|EXIT:)\" /tmp/clb-npm-test2.log; grep -n \"^not ok\\|^    not ok\" /tmp/clb-npm-test2.log | head; echo; echo \"=== lint ===\"; cat /tmp/clb-lint.log; echo \"=== format:check ===\"; tail -12 /tmp/clb-format.log"})
+[runner] step 12: tool_result bash ok=true (1369 chars)
+[runner] step 13: sending request to bridge
+As expected: lint clean; format flags only the HS-02 indentation in my touched file; the single real test failure is the proven-environmental worktree test. Fix formatting, re-verify affected tests, then run one final full suite against the exact code to be committed:
+[runner] step 13: cache hit 96725 tokens, cache created 1184 tokens
+[runner] step 13: assistant text (268 chars)
+[runner] step 13: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && npx prettier --write test/runner/false-green-contract-durability.test.js && git diff --stat && npx prettier --check \"src/runner/run.js\" \"src/runner/session-ledger.js\" \"test/runner/false-green-contract-durability.test.js\" \"test/runner/false-green-suite-integrity.test.js\" && node --require ./test/setup.js --test test/runner/false-green-contract-durability.test.js test/runner/false-green-suite-integrity.test.js 2>&1 | grep -E \"^(# (tests|pass|fail|todo)|not ok)\""})
+[runner] step 13: tool_result bash ok=true (505 chars)
+[runner] step 14: sending request to bridge
+[runner] step 14: cache hit 97909 tokens, cache created 1977 tokens
+[runner] step 14: tool_call manage_shell_jobs({"action":"start","command":"cd ~/Developer/clb-hypo-4 && { npm test > /tmp/clb-final-test.log 2>&1; echo \"EXIT:$?\" >> /tmp/clb-final-test.log; npm run format:check > /tmp/clb-final-format.log 2>&1; echo \"EXIT:$?\" >> /tmp/clb-final-format.log; npm run lint > /tmp/clb-final-lint.log 2>&1; echo \"EXIT:$?\" >> /tmp/clb-final-lint.log; echo DONE > /tmp/clb-final-done; }"})
+[runner] step 14: tool_result manage_shell_jobs ok=true (432 chars)
+[runner] step 15: sending request to bridge
+[runner] step 15: cache hit 99886 tokens, cache created 1409 tokens
+[runner] step 15: tool_call bash({"command":"sleep 28; ls /tmp/clb-final-done 2>/dev/null && echo DONE || echo RUNNING"})
+[runner] step 15: tool_result bash ok=true (7 chars)
+[runner] step 16: sending request to bridge
+[runner] step 16: cache hit 101295 tokens, cache created 1194 tokens
+[runner] step 16: tool_call bash({"command":"sleep 28; ls /tmp/clb-final-done 2>/dev/null && echo DONE || echo RUNNING"})
+[runner] step 16: tool_result bash ok=true (24 chars)
+[runner] step 17: sending request to bridge
+[runner] step 17: cache hit 102489 tokens, cache created 964 tokens
+[runner] step 17: tool_call bash({"command":"echo \"=== FINAL npm test ===\"; grep -E \"^(# (tests|suites|pass|fail|cancelled|skipped|todo)|EXIT:)\" /tmp/clb-final-test.log; grep -c \"^not ok\\|^    not ok\" /tmp/clb-final-test.log; grep \"^not ok\\|^    not ok\" /tmp/clb-final-test.log; echo \"=== FINAL format:check ===\"; tail -4 /tmp/clb-final-format.log; echo \"=== FINAL lint ===\"; tail -3 /tmp/clb-final-lint.log"})
+[runner] step 17: tool_result bash ok=true (1118 chars)
+[runner] step 18: sending request to bridge
+All checks complete against the final code. Now commit on the feature branch only:
+[runner] step 18: cache hit 103453 tokens, cache created 1132 tokens
+[runner] step 18: assistant text (82 chars)
+[runner] step 18: tool_call bash({"command":"cd ~/Developer/clb-hypo-4 && git branch --show-current && git status --short && git add src/runner/run.js src/runner/session-ledger.js test/runner/false-green-contract-durability.test.js test/runner/false-green-suite-integrity.test.js && git commit -m \"Harden crash durability: unified SIGINT/SIGTERM finalizer + torn-tail-safe ledger appends (HS-02)\n\nA1 crash-bakeoff residual follow-through:\n\n- run.js: SIGINT and SIGTERM handlers were two hand-copied near-duplicates;\n  they now share one makeSignalFinalizer factory so both signals get\n  identical checkpoint semantics through finalizeRun by construction\n  (checkpoint flush, run_stopped ledger event, health record, autopsy).\n  Behavior unchanged: exit codes stay 130 (SIGINT) / 143 (SIGTERM).\n\n- session-ledger.js: HS-02 fix. A crash that tears the trailing JSONL line\n  used to poison the FIRST post-recovery append too (the new record was\n  concatenated onto the torn fragment, making both unreadable by readAll()).\n  The ledger now detects a non-newline-terminated tail at restore time and\n  seals it with a newline prepended to the first post-recovery append in a\n  single writeSync. Sealing (not truncating) preserves the fragment for\n  forensics. No event-shape or sequence-semantics changes.\n\n- HS-02 flipped from { todo } to a hard assertion (red-first verified:\n  'got seqs 1' before the fix, green after) and removed from the FG-G3\n  KNOWN_TODOS register in the same commit, as that guard requires.\" && git log --oneline -2"})
+
+─── CONFIRM ───
+git commit — repository-history action requires explicit confirmation:
+  command: cd ~/Developer/clb-hypo-4 && git branch --show-current && git status --short && git add src/runner/run.js src/runner/...
+This is NOT covered by --accept-edits or --dont-ask. Approve only if you intend to commit.
+────────────────
+Allow? [y/N]: y
+→ Approved
+[runner] step 18: tool_result bash ok=true (564 chars)
+[runner] step 19: sending request to bridge
+[runner] step 19: cache hit 104585 tokens, cache created 2232 tokens
+[runner] step 19: executing 1 read-only tools in parallel
+[runner] step 19: tool_result manage_tasks ok=true (170 chars)
+[runner] step 20: sending request to bridge
+# Handoff
+
+## Folder and branch
+- **Folder:** `~/Developer/clb-hypo-4` (isolated git worktree — a "worktree" is a second checkout of the same repository in its own folder, so `main` in the primary checkout was never touched)
+- **Branch:** `hypo/4-durability-hardening`, created from `main` (`e110bef`)
+- **Commit:** `4c1c381` — *"Harden crash durability: unified SIGINT/SIGTERM finalizer + torn-tail-safe ledger appends (HS-02)"*
+- **Not pushed** (as instructed — `git push` was never run)
+
+## Files changed (4)
+| File | Change |
+|---|---|
+| `src/runner/run.js` | Replaced the two hand-copied `onSigint`/`onSigterm` handlers with one shared `makeSignalFinalizer` factory. **Honest finding:** SIGINT was *already* funneled through `finalizeRun` in this checkout (the F8 comment even says SIGTERM was catching up to what "SIGINT already had"), so the substantive value here is structural: both signals now share one code path, so their checkpoint semantics cannot drift apart. Behavior, exit codes (130/143), and comments' factual history preserved. |
+| `src/runner/session-ledger.js` | HS-02 fix: `_detectTornTail()` checks at restore time whether the file's last byte is `\n` (checked on **both** restore paths — cursor and full-scan — since a stale-but-valid cursor can coexist with torn bytes). The first post-recovery append prepends a `\n` inside the **same** `writeSync`, sealing the torn fragment on its own line with no window where the file ends mid-heal. Sealing rather than truncating preserves the fragment for forensics and never deletes a record that was complete except for its newline. No event-shape or sequence changes. |
+| `test/runner/false-green-contract-durability.test.js` | HS-02 flipped from `{ todo }` to a hard assertion; comment rewritten to describe the closed gap. |
+| `test/runner/false-green-suite-integrity.test.js` | Removed the HS-02 entry from the FG-G3 `KNOWN_TODOS` register — required in the same commit by that guard's own contract. |
+
+## Checks run — real results
+- **Red-first proof:** flipping HS-02 to a hard assertion *before* the fix produced a genuine failure: `not ok — error: 'post-recovery event must be replayable; got seqs 1'`. After the ledger fix: pass.
+- **`npm test` (final, on exact committed code):** `# tests 975 / pass 970 / fail 1 / todo 4`, exit 1.
+  - The **4 todo** lines (HS-01, HS-03, HS-05, HS-06) are the registered known gaps — they report `not ok # TODO` but do not fail the suite. HS-02 no longer appears among them.
+  - The **1 real failure** is `worktree tools — enter/exit lifecycle › supports parallel slots in one run`. I **proved it is pre-existing/environmental**, not a regression: with my changes `git stash`ed (clean `main` code), the same test still failed in this environment (this suite creates nested git worktrees while itself running inside a linked worktree). An earlier run also flaked its sibling test (`exit without cleanup keeps the worktree`), which passed in later runs — same environmental root.
+  - An earlier mid-work run showed `fail 3`; the extra failure was FG-G3 correctly flagging my todo-register drift, fixed by updating `KNOWN_TODOS` (that guard working as designed).
+- **`npm run lint`:** exit 0, no findings.
+- **`npm run format:check`:** exit 0 (first run flagged my HS-02 indentation; fixed with `prettier --write` on that one file, then re-ran everything — the final full suite ran against the exact committed bytes).
+- **Targeted:** all 33 ledger/crash tests pass unchanged, including the existing SIGTERM process-kill test in `ledger-crash-recovery.test.js`.
+
+## Skipped
+- `npm run check:docs` — not in the required verification list and no docs changed.
+- No live SIGINT process-kill field test was added: `ledger-crash-recovery.test.js` explicitly documents SIGTERM as "the deterministic half" (SIGINT delivery is nondeterministic under the test harness), so I did not add a flaky sibling.
+
+## Risks / follow-ups
+- The worktree-tools environmental failure means `npm test` exits 1 in this worktree even though nothing regressed — anyone re-verifying should run it from the primary checkout or read the failure detail before concluding.
+- The torn-tail seal writes an extra blank-line-isolated fragment into the ledger file; `readAll()`/`detectGaps()` already skip unparseable lines, but any *future* strict line-by-line parser would need the same tolerance.
+- The worktree `~/Developer/clb-hypo-4` and branch remain for review; when done, clean up from the primary checkout with `git worktree remove ~/Developer/clb-hypo-4` (and `git branch -D hypo/4-durability-hardening` if discarding). Its `node_modules` (installed via `npm ci` for lint/prettier) goes away with it.
+[runner] step 20: cache hit 106817 tokens, cache created 1295 tokens
+[runner] step 20: assistant text (4682 chars)
+[runner usage] in=26152 out=9131 cache_read=1747262 cache_write=103986 (reuse 93%) ~$4.5451
+[runner usage]   model: claude-fable-5
+[runner usage]   input 26152 / output 9131 / cache_read 1747262 / cache_write 103986
+[runner usage]   cache read share 93% / estimated cost ~$4.5451
+alanman@Alans-Macbook-Air-2024 claude-local-bridge-playground
