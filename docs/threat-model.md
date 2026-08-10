@@ -1,5 +1,22 @@
 # Runner Threat Model
 
+## Relationship to the repository security policy
+
+The root [`SECURITY.md`](../SECURITY.md) governs repository-wide scan scope, reportability, exclusions, severity context,
+and owner-accepted risk for both the bridge and runner. This document explains the runner's detailed mechanisms. If the
+two documents conflict on what a scanner should report or suppress, the root policy controls until the owner updates it.
+
+Owner decisions recorded on August 10, 2026:
+
+- Programs already able to connect to this Mac's loopback interface are treated as part of the trusted local
+  environment for the current experimental lab. Optional caller authentication being disabled is therefore not a
+  finding by itself; the decision must be revisited before broader deployment.
+- Explicit `--allow-shell` use accepts unsandboxed local-account authority, and `--no-network` is accepted as a
+  best-effort guard rather than hard network isolation. Bypasses of the opt-in boundary and false isolation claims remain
+  reportable.
+- HS-01, HS-02, HS-03, HS-05, and HS-06 remain unresolved limitations. They are documented context, not accepted-safe
+  findings and not suppression authority; see the root policy and their registered `false-green` tests.
+
 ## Scope
 
 This document is about the **runner**: the local agent loop, tool permissions, file access, shell access, transcripts,
@@ -160,7 +177,7 @@ Prompt-level "enter a worktree first" is **advisory** — the model can call `en
 - **D2 — git consent gate**: see above. This is what stops an unattended `git checkout -b` from silently redirecting work in the shared checkout.
 - **D3 — shell root-confinement**: while a worktree is active, a `bash` command whose text references the original checkout's path (`repoRoot` / original `cwd` / its realpath) is **hard-denied**.
 
-**Honesty caveat (matches the shell-authority doctrine):** D3 blocks path-string references to the original root. It is **not** OS isolation — a relative-path trick, or a novel absolute path outside both roots, remains shell-authority territory. D3 closes the *observed* escape (agents editing/`cd`-ing back into the original checkout by path), not every conceivable one. `git push`/`fetch`/`pull` remain subject to `--no-network` separately; `pull` is not in the D2 verb list (documented residual — it is network-flagged, not history-gated).
+**Honesty caveat (matches the shell-authority doctrine):** D3 blocks path-string references to the original root. It is **not** OS isolation — a relative-path trick, or a novel absolute path outside both roots, remains shell-authority territory. D3 closes the _observed_ escape (agents editing/`cd`-ing back into the original checkout by path), not every conceivable one. `git push`/`fetch`/`pull` remain subject to `--no-network` separately; `pull` is not in the D2 verb list (documented residual — it is network-flagged, not history-gated).
 
 ## How protections compose
 

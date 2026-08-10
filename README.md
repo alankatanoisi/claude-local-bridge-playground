@@ -31,6 +31,14 @@ Transport policy still has guardrails:
 
 Treat runs as personal research and local tooling, and experimental exploration during this AI Renaissance.
 
+## Security policy
+
+The repository-wide [`SECURITY.md`](./SECURITY.md) defines what security reviewers should assess across both the bridge
+and runner, which properties must remain true, how local-only deployment affects severity, and which limitations the
+repository owner has consciously accepted. The accepted limitations do not authorize widening the runner's authority or
+hiding a newly demonstrated bypass. For the runner's detailed control mechanics and known gaps, read
+[`docs/threat-model.md`](./docs/threat-model.md) alongside the root policy.
+
 For the local CLI runner prototype that now ships in this repo, see [docs/runner-quickstart.html](./docs/runner-quickstart.html).
 To explore which Claude Code harness capabilities are prudent to add next, see
 [docs/runner-expansion-roadmap.md](./docs/runner-expansion-roadmap.md).

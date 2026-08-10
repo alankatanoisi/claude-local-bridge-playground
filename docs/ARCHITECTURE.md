@@ -6,6 +6,10 @@ workers each surveyed one layer of this document — see
 `docs/coordinator-fanout-field-test-2026-07-31.md`). Perishable status does not belong here;
 dated experiment docs under `docs/` carry the current state of any open gap.
 
+Repository-wide security-review scope, reportability, exclusions, and owner-accepted limitations live in
+[`SECURITY.md`](../SECURITY.md). This architecture reference describes how the system is assembled; it does not override
+that policy or turn an observed control into proof that the control is complete.
+
 ## The two products in this repo
 
 | Layer      | What it is                                                                                                                                  | Where it lives                                                               |

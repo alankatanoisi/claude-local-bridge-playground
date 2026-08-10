@@ -156,6 +156,7 @@ Runner tasks should usually stay in:
 ## Key Files
 
 - `README.md`: main project and runner guide.
+- `SECURITY.md`: repository-wide security scope, invariants, reportability, exclusions, and accepted risk.
 - `CLAUDE.md`: Claude-specific working notes.
 - `package.json`: VS Code extension metadata, scripts, and defaults.
 - `src/server.js`: local bridge HTTP server.
@@ -172,6 +173,9 @@ Runner tasks should usually stay in:
 
 Keep these invariants:
 
+- Read `SECURITY.md` before security review or safety-boundary changes. It controls repository-wide scan scope,
+  reportability, exclusions, and owner-accepted limitations; accepted limitations do not permit unrelated authority
+  widening.
 - Shell is hidden unless `--allow-shell` is set.
 - `--dont-ask` must not enable shell by itself.
 - Block `.env`, private keys, credential JSON, token files, `.ssh`, `.aws`, `.claude`, and path escapes.
