@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Five Paste-Block Runtime Audit — 2026-08-10</title>
+<style>
+:root{--ink:#18212d;--muted:#657181;--paper:#f8f5ee;--card:#fffdf8;--line:#d9d4c8;--navy:#112438;--navy2:#18364e;--cyan:#42c6c8;--gold:#e8b04b;--red:#c6403d;--orange:#cb6e30;--green:#277a5a;--shadow:0 18px 50px rgba(17,36,56,.12)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:linear-gradient(180deg,#e9eff1 0,#f8f5ee 34rem);color:var(--ink);font:16px/1.68 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}a{color:#176b7a;text-decoration-thickness:1px;text-underline-offset:3px}a:hover{color:#0d4854}.hero{background:radial-gradient(circle at 82% 12%,rgba(66,198,200,.24),transparent 27rem),linear-gradient(135deg,var(--navy),var(--navy2));color:white;padding:4.8rem max(5vw,2rem) 5.4rem;border-bottom:5px solid var(--cyan)}.eyebrow{margin:0 0 1rem;color:#aee8e6;font-size:.78rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase}.hero h1{max-width:1000px;margin:0;font-family:Georgia,"Times New Roman",serif;font-size:clamp(2.45rem,6vw,5.3rem);line-height:.98;letter-spacing:-.045em}.hero p{max-width:820px;margin:1.7rem 0 0;color:#dbe7ec;font-size:1.08rem}.hero-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;max-width:1050px;margin-top:2.4rem;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.15);border-radius:14px;overflow:hidden}.metric{padding:1.1rem 1.2rem;background:rgba(8,25,40,.32)}.metric strong{display:block;color:white;font-size:1.45rem;line-height:1.2}.metric span{color:#bcd0d9;font-size:.78rem;text-transform:uppercase;letter-spacing:.08em}.layout{display:grid;grid-template-columns:270px minmax(0,980px);gap:3.1rem;justify-content:center;align-items:start;padding:3rem 2rem 6rem}.toc{position:sticky;top:1.5rem;background:rgba(255,253,248,.9);backdrop-filter:blur(12px);border:1px solid var(--line);border-radius:16px;padding:1.1rem;box-shadow:0 8px 30px rgba(17,36,56,.07);max-height:calc(100vh - 3rem);overflow:auto}.toc b{display:block;color:var(--navy);font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;margin:.2rem .45rem .75rem}.toc a{display:block;padding:.48rem .55rem;border-radius:8px;color:#425263;text-decoration:none;font-size:.84rem;line-height:1.25}.toc a:hover{background:#e8f2f1;color:#103d48}.report{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:clamp(1.5rem,4vw,4rem);box-shadow:var(--shadow)}.alert{border-left:6px solid var(--red);background:#fff0ed;padding:1.15rem 1.35rem;margin:0 0 2.5rem;border-radius:0 12px 12px 0}.alert strong{color:#8d211f}.report>h1{display:none}.report h2{margin:3.8rem 0 1.15rem;padding-top:.4rem;border-top:1px solid var(--line);font-family:Georgia,"Times New Roman",serif;font-size:2rem;line-height:1.15;color:var(--navy)}.report h2:first-of-type{margin-top:0;border-top:0}.report h3{margin:2.6rem 0 .8rem;color:#18364e;font-size:1.28rem}.report h4{margin:2rem 0 .6rem}.heading-anchor{color:inherit;text-decoration:none}.report p{margin:.8rem 0 1rem}.report li{margin:.36rem 0}.report strong{color:#142f45}.report code{font-family:"SFMono-Regular",Consolas,monospace;font-size:.88em;background:#edf1f1;border:1px solid #dce4e3;border-radius:5px;padding:.12em .36em;color:#234759}.report blockquote{margin:1.4rem 0;padding:.7rem 1.2rem;border-left:4px solid var(--cyan);background:#eef8f7;color:#3d5660}.report table{border-collapse:separate;border-spacing:0;width:100%;margin:1.2rem 0 2rem;font-size:.88rem;border:1px solid var(--line);border-radius:12px;overflow:hidden;display:block;max-width:100%;overflow-x:auto}.report thead{background:var(--navy);color:white}.report th,.report td{padding:.72rem .8rem;text-align:left;vertical-align:top;border-right:1px solid var(--line);border-bottom:1px solid var(--line);min-width:110px}.report th:last-child,.report td:last-child{border-right:0}.report tbody tr:nth-child(even){background:#f4f1e9}.report tbody tr:last-child td{border-bottom:0}.report th{color:white;font-size:.78rem;letter-spacing:.025em}.report hr{border:0;border-top:1px solid var(--line);margin:2.5rem 0}.footer{padding:2rem;text-align:center;color:var(--muted);font-size:.82rem}.print-note{margin-top:1rem;color:#91a3ad;font-size:.76rem}
+@media(max-width:1050px){.layout{grid-template-columns:minmax(0,900px)}.toc{position:relative;top:auto;max-height:none;columns:2}.hero-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){.hero{padding:3.3rem 1.25rem 3.7rem}.hero h1{font-size:2.65rem}.layout{padding:1.2rem .7rem 4rem;gap:1.2rem}.report{padding:1.25rem;border-radius:14px}.toc{columns:1}.hero-grid{grid-template-columns:1fr 1fr}.metric strong{font-size:1.2rem}.report h2{font-size:1.65rem}}
+@media print{body{background:white;font-size:10pt}.hero{padding:1.4cm;background:var(--navy)!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.hero h1{font-size:28pt}.layout{display:block;padding:0}.toc{display:none}.report{border:0;box-shadow:none;padding:1.2cm}.report h2{break-after:avoid}.report table{display:table;font-size:7.5pt}.alert{break-inside:avoid}.footer{display:none}a{color:inherit;text-decoration:none}}
+</style>
+</head>
+<body>
+<header class="hero">
+<p class="eyebrow">Evidence-led systems review · August 10, 2026</p>
+<h1>Five Paste-Block Runs<br>Runtime Audit &amp; Postmortem</h1>
+<p>What the implementations changed, why the 500 waves occurred, what survived resume, where the new false-green guards helped, and which composed failure modes remain.</p>
+<div class="hero-grid" aria-label="Audit summary">
+<div class="metric"><strong>17</strong><span>runner invocations</span></div>
+<div class="metric"><strong>40</strong><span>bridge errors</span></div>
+<div class="metric"><strong>267 / 267</strong><span>paired tool effects</span></div>
+<div class="metric"><strong>0 of 5</strong><span>merge-ready as-is</span></div>
+</div>
+</header>
+<div class="layout">
+<nav class="toc" aria-label="Report navigation"><b>In this report</b><a href="#executive-conclusion">Executive conclusion</a>
+<a href="#priority-findings">Priority findings</a>
+<a href="#scope-and-evidence-method">Scope and evidence method</a>
+<a href="#what-happened-across-all-five-runs">What happened across all five runs</a>
+<a href="#500-error-autopsy">500-error autopsy</a>
+<a href="#context-management-and-cache-behavior">Context management and cache behavior</a>
+<a href="#tooling-and-tool-result-hygiene">Tooling and tool-result hygiene</a>
+<a href="#implementation-review-by-task">Implementation review by task</a>
+<a href="#repository-and-test-suite-assessment">Repository and test-suite assessment</a>
+<a href="#review-of-false-green-round2-blindspots-2026-08-08-html">Review of false-green-round2-blindspots-2026-08-08.html</a>
+<a href="#recommended-next-actions-not-performed">Recommended next actions (not performed)</a>
+<a href="#what-was-intentionally-not-done">What was intentionally not done</a>
+<a href="#final-disposition">Final disposition</a></nav>
+<main class="report">
+<div class="alert"><strong>Immediate containment:</strong> a raw Claude OAuth credential is present in the Task 3 terminal capture and on <code>origin/main</code>. It is not reproduced in this report. Revoke or rotate it before ordinary implementation cleanup.</div>
+<h1 id="five-paste-block-implementation-runs-runtime-audit-and-postmortem"><a class="heading-anchor" href="#five-paste-block-implementation-runs-runtime-audit-and-postmortem" aria-label="Link to this section">Five Paste-Block Implementation Runs: Runtime Audit and Postmortem</a></h1>
+<p><strong>Audit date:</strong> 2026-08-10 (America/Los_Angeles)<br><strong>Run window reviewed:</strong> 2026-08-09 09:16–11:00 UTC (02:16–04:00 PDT)<br><strong>Repository:</strong> <code>/Users/alanman/Developer/claude-local-bridge-playground</code><br><strong>Branch and revision audited:</strong> <code>main</code> at <code>2bdc167db894469ca729ca436078473d652d216c</code><br><strong>Mode:</strong> read-only implementation/runtime assessment; no fixes, merges, cleanup, staging, commits, or pushes</p>
+<h2 id="executive-conclusion"><a class="heading-anchor" href="#executive-conclusion" aria-label="Link to this section">Executive conclusion</a></h2>
+<p>The experiment demonstrated real recovery value, but it did <strong>not</strong> produce five merge-ready implementations.</p>
+<ul>
+<li>All five tasks eventually committed their intended branch work after a shared series of upstream/transport failures.</li>
+<li>The persistent session layer behaved well: 635 ledger events remained monotonic, all 267 tool-effect intents had matching results, and all five sessions ended healthy with <code>resume_ok</code>.</li>
+<li>The runner made 17 invocations. Twelve ended in <code>bridge_error</code>; five ended in <code>success</code>. Across those attempts, the runner recorded 40 bridge errors.</li>
+<li>The 500s were not ordinary test failures. They occurred after the bridge had accepted and transformed the requests and started the upstream Anthropic request. They arrived in synchronized waves across otherwise different tasks, including two streams that had already received HTTP 200 headers before aborting.</li>
+<li>The current authenticated bridge works now: an independent one-turn live call on 2026-08-10 returned the exact requested response with exit code 0. Task 5&#39;s two-turn workflow branch also completed two real bridge turns in order.</li>
+<li>Current <code>main</code> is <strong>not fully green</strong>: <code>npm test</code> reported 975 tests, 969 passes, 1 real failure, and 5 registered <code>todo</code> failures. The focused false-green files exit 0 with 131 passes and 5 <code>todo</code> failures, which is an important reminder that a zero exit code still does not mean every known gap is closed.</li>
+<li>None of the five task branches should be merged unchanged. Independent adversarial probes found concrete defects in Tasks 1, 2, and 4; Task 3 records fabricated provenance for an explicitly hypothetical model; Task 5 works on the happy path but has no interrupted-workflow continuation and cannot be combined with runner-managed worktree startup.</li>
+<li>A raw Claude OAuth credential assignment is present in <code>docs/5-paste-block-tests/paste-block-3</code> and is also present on <code>origin/main</code>. The secret is intentionally not reproduced here. Treat it as exposed: revoke/rotate it promptly and plan a careful repository-history cleanup. No containment action was taken during this read-only audit.</li>
+</ul>
+<h2 id="priority-findings"><a class="heading-anchor" href="#priority-findings" aria-label="Link to this section">Priority findings</a></h2>
+<table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Finding</th>
+<th>Evidence-backed impact</th>
+<th>Disposition</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>P0</strong></td>
+<td>A raw Claude OAuth credential is stored in the Task 3 terminal capture and pushed to <code>origin/main</code>.</td>
+<td>Anyone or any system with repository access may have received the credential. Log redaction worked elsewhere, but manually pasted terminal text bypassed that boundary.</td>
+<td>Rotate/revoke first; then remove the value from the current tree and Git history. Do not merely redact the report.</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>Runner-managed worktrees live under <code>~/.bridge-runner/worktrees</code>, while native file tools deny paths containing <code>.bridge-runner</code>.</td>
+<td>Direct probes and the real traces show <code>read_file</code>, <code>list_files</code>, <code>search_text</code>, and <code>edit_file</code> rejecting ordinary project files in managed worktrees. The agents fell back heavily to <code>bash</code>.</td>
+<td>Add an explicit, narrowly scoped trusted-worktree exception at the filesystem safety boundary and test the composed path.</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td><code>--resume-session --worktree</code> creates a fresh startup worktree on each invocation rather than re-entering the prior worktree.</td>
+<td>All 17 attempts used separate timestamped worktrees. Task 3 ended with two checkouts of the same branch; the older checkout&#39;s index represents a full staged reversal while its worktree files equal the branch head.</td>
+<td>Make worktree identity durable session state, or require an explicit stable worktree path on resume.</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>Task 2&#39;s telemetry exporter follows a final-file symlink and creates files with mode <code>0644</code>.</td>
+<td>A temporary adversarial probe appended outside <code>~/.bridge-runner</code> through a symlink. A normal new telemetry file was readable by group/others under umask <code>022</code>.</td>
+<td>Reject an existing symlink final target and use the repository&#39;s private-file helper/open flags (<code>0600</code>).</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>Task 1&#39;s “binary-safe” copy is not binary-safe across undo/recovery.</td>
+<td>Copy succeeded; <code>undo_edit</code> also reported success, but invalid UTF-8 bytes were replaced with UTF-8 replacement sequences. Text hashing also disagrees with raw-file recovery hashes.</td>
+<td>Use buffer hashing and buffer-preserving undo end to end; add invalid-UTF-8 overwrite/undo/revert tests.</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>Task 3 marks an invented, currently 404 URL as <code>verified-live</code>.</td>
+<td>The prompt explicitly called the model hypothetical, yet production catalog data, pricing, lifecycle, and source status were asserted as facts.</td>
+<td>Keep hypothetical catalog exercises in fixtures, or label them synthetic. Never use <code>verified-live</code> without actually fetching an official source.</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>Task 4&#39;s torn-tail fix can create duplicate sequence numbers with a stale valid cursor.</td>
+<td>Probe ledger sequence was <code>[1, 2, 2]</code> when a complete seq-2 record lacked only its newline and the cursor still pointed to seq 1.</td>
+<td>Reconcile bytes after the cursor before assigning the next sequence; keep HS-02 open until this composed case passes.</td>
+</tr>
+<tr>
+<td><strong>P1</strong></td>
+<td>Transport retries consume task steps and are coupled to <code>step &lt; max_steps</code>.</td>
+<td>With <code>max_steps=1</code>, a controlled HTTP 500 received no retry. With <code>max_steps=3</code>, two 500s consumed steps 1 and 2, then the same request recovered on step 3.</td>
+<td>Give transport attempts a separate counter/budget; add jitter and a longer bounded backoff appropriate for concurrent outage waves.</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>Task 5 cannot resume an interrupted workflow and refuses <code>--workflow</code> with <code>--worktree</code>.</td>
+<td>A bridge/process failure stops the workflow; re-running starts step 1 in a fresh workflow session. There is no durable workflow-level cursor.</td>
+<td>Persist workflow identity, file digest, completed-step index, and session ID; re-enter one stable worktree across all steps.</td>
+</tr>
+<tr>
+<td><strong>P2</strong></td>
+<td>Background job IDs do not survive process-level resumes.</td>
+<td>Eight tool failures were attempts to query process-local job IDs from a prior runner invocation.</td>
+<td>Mark old jobs explicitly orphaned on resume and teach the model/runtime to re-discover or restart work once.</td>
+</tr>
+</tbody></table>
+<h2 id="scope-and-evidence-method"><a class="heading-anchor" href="#scope-and-evidence-method" aria-label="Link to this section">Scope and evidence method</a></h2>
+<p>This audit correlated four independent evidence planes rather than trusting terminal prose alone:</p>
+<ol>
+<li>The five pasted terminal captures under <code>docs/5-paste-block-tests/</code>.</li>
+<li>The five session state, ledger, and autopsy sets under <code>~/.bridge-runner/sessions/</code>.</li>
+<li>Seventeen full runner traces under <code>~/.bridge-runner/traces/</code>, plus bridge-side request lifecycle evidence.</li>
+<li>The actual Git worktrees, branches, commits, diffs, current suite, targeted tests, adversarial probes, a controlled 500 mock, and live authenticated bridge calls.</li>
+</ol>
+<p>The supplied context worktree, <code>~/.bridge-runner/worktrees/false-green-test-audit</code>, is clean but stale at <code>93a8fce</code> from August 7. It was useful historical context, not the source of truth for the August 8–10 runtime. Current <code>main</code> and the five task branches were audited instead.</p>
+<h2 id="what-happened-across-all-five-runs"><a class="heading-anchor" href="#what-happened-across-all-five-runs" aria-label="Link to this section">What happened across all five runs</a></h2>
+<h3 id="aggregate-runtime-ledger"><a class="heading-anchor" href="#aggregate-runtime-ledger" aria-label="Link to this section">Aggregate runtime ledger</a></h3>
+<table>
+<thead>
+<tr>
+<th>Measure</th>
+<th align="right">Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Runner invocations</td>
+<td align="right">17</td>
+</tr>
+<tr>
+<td>Invocations ending <code>bridge_error</code></td>
+<td align="right">12</td>
+</tr>
+<tr>
+<td>Invocations ending <code>success</code></td>
+<td align="right">5</td>
+</tr>
+<tr>
+<td>Runner-visible bridge errors</td>
+<td align="right">40</td>
+</tr>
+<tr>
+<td>Tool requests / effect intents</td>
+<td align="right">267</td>
+</tr>
+<tr>
+<td>Matching tool results</td>
+<td align="right">267</td>
+</tr>
+<tr>
+<td>Tool results with <code>ok:false</code></td>
+<td align="right">40</td>
+</tr>
+<tr>
+<td>Ledger events</td>
+<td align="right">635</td>
+</tr>
+<tr>
+<td>Ledger sequence gaps</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Orphan trace tool requests/results</td>
+<td align="right">0 / 0</td>
+</tr>
+<tr>
+<td>Context projections marked lossy</td>
+<td align="right">49 (Task 2: 30; Task 5: 19)</td>
+</tr>
+<tr>
+<td>Input tokens</td>
+<td align="right">491,298</td>
+</tr>
+<tr>
+<td>Output tokens</td>
+<td align="right">250,355</td>
+</tr>
+<tr>
+<td>Cache-read tokens</td>
+<td align="right">15,167,207</td>
+</tr>
+<tr>
+<td>Cache-creation tokens</td>
+<td align="right">4,509,176</td>
+</tr>
+<tr>
+<td>Cache reuse share of cache activity</td>
+<td align="right">77.08%</td>
+</tr>
+<tr>
+<td>Catalog-estimated API-equivalent cost</td>
+<td align="right">about <strong>$122.78</strong>; not verified billing</td>
+</tr>
+</tbody></table>
+<h3 id="per-run-summary"><a class="heading-anchor" href="#per-run-summary" aria-label="Link to this section">Per-run summary</a></h3>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th align="right">Attempts</th>
+<th align="right">500/bridge errors</th>
+<th align="right">Tools (failed)</th>
+<th align="right">Cache read / create</th>
+<th align="right">Reuse share</th>
+<th>Context behavior</th>
+<th>Commit</th>
+<th>Audit verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1 — <code>copy_file</code></td>
+<td align="right">4</td>
+<td align="right">10</td>
+<td align="right">42 (8)</td>
+<td align="right">2,638,446 / 337,776</td>
+<td align="right">88.65%</td>
+<td>No lossy projection; max calibrated request 129,044</td>
+<td><code>b88bcca</code></td>
+<td>Mechanically complete, but binary undo is corrupting. Do not merge.</td>
+</tr>
+<tr>
+<td>2 — file OTel spans</td>
+<td align="right">3</td>
+<td align="right">6</td>
+<td align="right">67 (11)</td>
+<td align="right">2,557,146 / 2,404,203</td>
+<td align="right">51.54%</td>
+<td>30 lossy projections; 5,634,307 characters removed; 90 results clipped and 964 stubbed</td>
+<td><code>37bb741</code></td>
+<td>Useful design, unsafe final-file handling and incomplete outage observability. Do not merge.</td>
+</tr>
+<tr>
+<td>3 — hypothetical model catalog</td>
+<td align="right">3</td>
+<td align="right">6</td>
+<td align="right">49 (8)</td>
+<td align="right">3,479,464 / 299,892</td>
+<td align="right">92.06%</td>
+<td>No lossy projection; max 126,013</td>
+<td><code>bc1fd19</code></td>
+<td>Tests pass against invented facts; provenance is false. Reject as production change.</td>
+</tr>
+<tr>
+<td>4 — signal/torn-tail durability</td>
+<td align="right">4</td>
+<td align="right">9</td>
+<td align="right">47 (5)</td>
+<td align="right">2,756,852 / 305,882</td>
+<td align="right">90.01%</td>
+<td>No lossy projection; max 108,004</td>
+<td><code>4c1c381</code></td>
+<td>Signal finalizer is useful, but HS-02 closure is incomplete. Do not merge as-is.</td>
+</tr>
+<tr>
+<td>5 — JSON workflow</td>
+<td align="right">3</td>
+<td align="right">9</td>
+<td align="right">62 (8)</td>
+<td align="right">3,735,299 / 1,161,423</td>
+<td align="right">76.28%</td>
+<td>19 lossy projections; 2,561,975 characters removed; 76 clipped and 541 stubbed</td>
+<td><code>d91b233</code></td>
+<td>Happy path works, but no workflow resume/worktree continuity. Prototype only.</td>
+</tr>
+</tbody></table>
+<p>The cache numbers show that session continuation was economically and operationally meaningful, especially for Tasks 1, 3, and 4. Tasks 2 and 5 accumulated much more cache creation after large resumes and compaction. The cache percentages are ratios of cache-read tokens to cache-read plus cache-creation tokens; they are not hit rates per request.</p>
+<h2 id="500-error-autopsy"><a class="heading-anchor" href="#500-error-autopsy" aria-label="Link to this section">500-error autopsy</a></h2>
+<h3 id="what-500-meant-here"><a class="heading-anchor" href="#what-500-meant-here" aria-label="Link to this section">What “500” meant here</a></h3>
+<p>Anthropic documents HTTP 500 <code>api_error</code> as an unexpected internal error and recommends retrying transient errors with exponential backoff. It also warns that a streaming request can fail after an initial HTTP 200 response. See the official <a href="https://platform.claude.com/docs/en/api/errors">Claude API error documentation</a>.</p>
+<p>The local evidence narrows the fault domain:</p>
+<ul>
+<li>Each failing request passed <code>bridge_request_received</code>, request transformation, and <code>upstream_request_started</code> toward <code>api.anthropic.com</code> before the bridge recorded <code>upstream_request_error</code>.</li>
+<li>Successful requests immediately before and after the waves returned HTTP 200.</li>
+<li>There were no observed 400/413 request-shape errors, 401 authentication errors, or 429/529 capacity responses in these five run traces.</li>
+<li>Failures synchronized across unrelated tasks around 09:38–09:41 UTC, 09:46–09:48 UTC, and 10:00 UTC. That synchronization makes a task-specific code change or one task&#39;s context size an unlikely root cause.</li>
+<li>Most upstream error messages were empty/generic. One was <code>socket hang up</code>. Two late failures received upstream 200 response headers, then the stream aborted before a complete response.</li>
+<li>The public <a href="https://status.claude.com/">Claude status page</a>, reviewed on August 10, did not list an August 8–9 incident. That absence is not proof that no localized or unreported fault occurred.</li>
+</ul>
+<p><strong>Most likely classification:</strong> a shared transient upstream or network/request-path failure between the local bridge and Anthropic. The evidence does <strong>not</strong> justify claiming that Anthropic itself definitely had a published service incident, nor does it point to the five implementation diffs as the cause.</p>
+<h3 id="automatic-retry-behavior"><a class="heading-anchor" href="#automatic-retry-behavior" aria-label="Link to this section">Automatic retry behavior</a></h3>
+<p>Current <code>main</code> permits two transient bridge retries, using 250 ms and 500 ms waits with no jitter. The five concurrent tasks therefore retried in near-lockstep during a multi-minute disturbance. A ten-minute manual pause before the final resumes was far more effective than the sub-second automatic window.</p>
+<p>A controlled local mock established another blind spot:</p>
+<ul>
+<li><code>max_steps=1</code>: the first HTTP 500 ended the run immediately; zero retry attempts.</li>
+<li><code>max_steps=3</code>: two HTTP 500s triggered the 250 ms and 500 ms waits; the third request succeeded, and the run reported <code>steps:3</code>.</li>
+</ul>
+<p>The retry budget is therefore not independent. Transport retries consume the task&#39;s model/tool step allowance and disappear entirely on the last allowed step. FG-K in the round-2 report tests <strong>coordinator lease/budget retry</strong>, not this bridge transport path.</p>
+<h3 id="manual-resume-and-resilience"><a class="heading-anchor" href="#manual-resume-and-resilience" aria-label="Link to this section">Manual resume and resilience</a></h3>
+<p>The user&#39;s decision to resume the same session was productive:</p>
+<ul>
+<li>Every session ledger remained parseable and monotonic.</li>
+<li>All tool-effect intents had corresponding results, including failures.</li>
+<li>The final state for every session was <code>success</code>, non-degraded, <code>historyQuality: raw_complete</code>, and <code>recommendation: resume_ok</code>.</li>
+<li>No trace had an orphan <code>tool_requested</code> or <code>tool_finished</code> identifier.</li>
+<li>Failed attempts remained recorded rather than being overwritten by the final success.</li>
+</ul>
+<p>However, “same session” did not mean “same worktree” or “same process resources”:</p>
+<ul>
+<li>Every <code>--resume-session --worktree</code> invocation created a new timestamped startup worktree.</li>
+<li>The state metadata continued to name the first worktree, even after later attempts operated elsewhere.</li>
+<li>Background shell-job IDs were process-local and became unknown after a resume.</li>
+<li>Tasks 1, 2, 4, and 5 worked around worktree drift by explicitly changing to stable <code>~/Developer/clb-hypo-N</code> folders.</li>
+<li>Task 3 did not get its requested stable <code>~/Developer/clb-hypo-3</code>. It now has a clean final checkout plus an older checkout whose index and worktree disagree across all five changed files.</li>
+</ul>
+<h2 id="context-management-and-cache-behavior"><a class="heading-anchor" href="#context-management-and-cache-behavior" aria-label="Link to this section">Context management and cache behavior</a></h2>
+<p>The persistence and projection layers behaved as designed, but their status vocabulary can mislead an operator:</p>
+<ul>
+<li><code>historyQuality: raw_complete</code> means the canonical saved history remained intact.</li>
+<li>Tasks 2 and 5 still sent <strong>lossy outgoing projections</strong> once they reached the <code>compact</code> tier. Old results were head/tail clipped, stubbed, and supplemented with a session anchor.</li>
+<li><code>compactionGeneration: 0</code> and <code>compactionEpoch: 0</code> remained true because no checkpoint epoch was created. That does not mean no information was removed from outgoing requests.</li>
+</ul>
+<p>Task 2 was the heaviest context case: 30 lossy requests removed a cumulative 5.63 million characters, clipping 90 old results and stubbing 964 appearances. Task 5 had 19 lossy requests, removing 2.56 million characters. Both tasks still completed, and their ledgers preserved the raw records.</p>
+<p>This is a positive result for canonical-history durability, but the UI/reporting should distinguish more plainly among:</p>
+<ul>
+<li>raw history on disk,</li>
+<li>the current outgoing request projection,</li>
+<li>checkpoint generation,</li>
+<li>and cache reuse for the projected prefix.</li>
+</ul>
+<h2 id="tooling-and-tool-result-hygiene"><a class="heading-anchor" href="#tooling-and-tool-result-hygiene" aria-label="Link to this section">Tooling and tool-result hygiene</a></h2>
+<p>The tool envelope and ledger pairing were strong; tool usability inside the selected worktree was not.</p>
+<h3 id="what-worked"><a class="heading-anchor" href="#what-worked" aria-label="Link to this section">What worked</a></h3>
+<ul>
+<li>267 intent/result pairs, no missing results.</li>
+<li>Failure results were retained, redacted, and model-visible.</li>
+<li>Safety gates blocked attempts to reach the original checkout, sensitive patterns such as <code>.env</code>, and paths outside the active worktree.</li>
+<li>Commit operations still required explicit user approval and were recorded in the terminal captures.</li>
+</ul>
+<h3 id="what-degraded-performance"><a class="heading-anchor" href="#what-degraded-performance" aria-label="Link to this section">What degraded performance</a></h3>
+<p>The dominant failure pattern was a composition bug: the startup worktree is intentionally placed under <code>~/.bridge-runner/worktrees</code>, but the generic deny matrix treats <code>.bridge-runner</code> as sensitive. Direct current-main probes returned <code>Blocked by deny matrix (basename)</code> for both <code>read_file README.md</code> and <code>list_files src/runner</code> in an actual managed worktree.</p>
+<p>The traces show the practical effect:</p>
+<ul>
+<li>ordinary <code>read_file</code>, <code>list_files</code>, <code>search_text</code>, and <code>edit_file</code> calls were refused;</li>
+<li>agents moved to large <code>bash</code> commands and ad hoc Node/Python rewrite scripts;</li>
+<li>commands sometimes tripped the content scanner merely by mentioning <code>.env</code>, <code>.bridge-runner/</code>, or token-related source text;</li>
+<li>long tests were shifted into background jobs, whose IDs did not survive process restarts;</li>
+<li>every run&#39;s handoff disclosed some version of this workaround.</li>
+</ul>
+<p>This is not a reason to weaken the deny matrix globally. It is a reason to model the runner-created worktree root explicitly as an allowed project boundary while continuing to deny unrelated <code>~/.bridge-runner</code> session, trace, and credential artifacts.</p>
+<h2 id="implementation-review-by-task"><a class="heading-anchor" href="#implementation-review-by-task" aria-label="Link to this section">Implementation review by task</a></h2>
+<h3 id="task-1-copy-file-b88bcca"><a class="heading-anchor" href="#task-1-copy-file-b88bcca" aria-label="Link to this section">Task 1 — <code>copy_file</code> (<code>b88bcca</code>)</a></h3>
+<p><strong>What the branch changed:</strong> 8 files, +305/−9. It added one write-category tool, catalog/visibility registration, 12 focused tests, and updates to README, command builder, quickstart, and threat model.</p>
+<p><strong>What is good:</strong></p>
+<ul>
+<li>source and destination go through path resolution and deny-matrix checks;</li>
+<li>symlink endpoints and self-copy are rejected;</li>
+<li>overwrite is fail-closed if backup creation fails;</li>
+<li>new destinations are recorded as created for current-run undo;</li>
+<li>registration and documentation surfaces are coherent;</li>
+<li>its 12 focused tests pass, and lint/docs/format checks pass.</li>
+</ul>
+<p><strong>Independent defect:</strong> the copy operation accepts buffers, but hashes and <code>undo_edit</code> convert bytes through UTF-8 text. The adversarial probe used an original destination containing invalid UTF-8 bytes. Copy returned success; undo returned success; the restored bytes did not equal the original. Replacement bytes (<code>ef bf bd</code>) appeared. A binary source can also produce a text-derived <code>new_sha256</code> that disagrees with the run-manifest&#39;s raw-file hash, making an unchanged file appear diverged.</p>
+<p><strong>Verdict:</strong> not merge-ready. “Binary-safe” must cover copy, hashing, backup preview, undo, and run-level recovery as one invariant.</p>
+<h3 id="task-2-opt-in-file-telemetry-37bb741"><a class="heading-anchor" href="#task-2-opt-in-file-telemetry-37bb741" aria-label="Link to this section">Task 2 — opt-in file telemetry (<code>37bb741</code>)</a></h3>
+<p><strong>What the branch changed:</strong> 11 files, +447/−65. It added <code>--otel-export</code>, a JSONL file exporter, ten tests, three reviewed guard allowlist updates, runtime integration, and user/security documentation.</p>
+<p><strong>What is good:</strong></p>
+<ul>
+<li>telemetry is opt-in and file-only;</li>
+<li>the schema is intentionally narrow and excludes prompts, arguments, results, and file bodies;</li>
+<li>structured records pass through the central deep secret scrubber;</li>
+<li>parent-directory realpaths are checked;</li>
+<li>write failure disables telemetry without failing the task;</li>
+<li>its ten focused tests pass, and lint/docs/format checks pass.</li>
+</ul>
+<p><strong>Independent defects:</strong></p>
+<ol>
+<li>Only the parent is realpathed. If the final filename already exists as a symlink, <code>appendFileSync</code> follows it. The probe appended a span to a file outside <code>~/.bridge-runner</code>.</li>
+<li>New span files are created through default <code>appendFileSync</code> behavior. Under umask <code>022</code>, the observed mode was <code>0644</code>, not the private-artifact expectation of <code>0600</code>.</li>
+<li>Spans are emitted only after a completed model response/tool batch. A bridge error exits through the catch path without recording the failed step, so this observability feature omits the exact outages it is most needed to explain.</li>
+<li>The branch still inherits the registered HS-05 circular-object and HS-06 <code>OTEL_*</code> child-environment gaps.</li>
+</ol>
+<p><strong>Verdict:</strong> promising shape, unsafe file-sink implementation. Do not merge before final-target and private-mode adversarial tests exist.</p>
+<h3 id="task-3-hypothetical-model-catalog-refresh-bc1fd19"><a class="heading-anchor" href="#task-3-hypothetical-model-catalog-refresh-bc1fd19" aria-label="Link to this section">Task 3 — hypothetical model catalog refresh (<code>bc1fd19</code>)</a></h3>
+<p><strong>What the branch changed:</strong> 5 files, +31/−5. It added <code>claude-haiku-5</code> catalog/pricing facts, updated a family fallback, bumped the catalog version/fingerprint, updated the command builder, and changed model tests.</p>
+<p><strong>What is good mechanically:</strong></p>
+<ul>
+<li>the entry is reachable and internally consistent;</li>
+<li>catalog version and fingerprint pins were updated together;</li>
+<li>pricing lookup and UI option counts agree;</li>
+<li>19 focused catalog/evolution tests pass; lint/docs/format checks pass.</li>
+</ul>
+<p><strong>Integrity failure:</strong> the prompt explicitly described the model as hypothetical, yet the branch asserts exact context, output, effort, thinking, lifecycle, and price facts in production data. It adds a source URL with status <code>verified-live</code> and a checked date, but the URL currently returns HTTP 404. The tests verify internal consistency, not truth.</p>
+<p>Changing the expected fingerprint at the same time as invented facts demonstrates a limit of self-pinned tests: they can ensure deliberate bookkeeping but cannot establish external provenance.</p>
+<p><strong>Worktree residue:</strong> the final branch checkout is clean. The earlier <code>2026-08-09T0921-92f03b</code> checkout is <code>MM</code> on all five files: its index stages a 31-line removal/5-line addition reversal, while its working files restore the branch-head changes. This is recoverable but confusing and should not be cleaned automatically during an assessment.</p>
+<p><strong>Verdict:</strong> reject as production data. Retain only as an explicitly synthetic fixture if useful.</p>
+<h3 id="task-4-signal-and-torn-tail-durability-4c1c381"><a class="heading-anchor" href="#task-4-signal-and-torn-tail-durability-4c1c381" aria-label="Link to this section">Task 4 — signal and torn-tail durability (<code>4c1c381</code>)</a></h3>
+<p><strong>What the branch changed:</strong> 4 files, +84/−52. It routes SIGTERM through the same finalizer as SIGINT, adds finalizer cleanup, seals a non-newline ledger tail before appending, converts HS-02 from <code>todo</code> to a hard test, and removes HS-02 from the known-todo register.</p>
+<p><strong>What is good:</strong></p>
+<ul>
+<li>the unified signal finalizer is clearer and preserves the existing deterministic SIGTERM process test;</li>
+<li>the simple partial-JSON torn-tail case is repaired without deleting forensic bytes;</li>
+<li>focused crash/durability tests pass;</li>
+<li>lint/docs/format checks pass.</li>
+</ul>
+<p><strong>Independent defect:</strong> <code>_restoreFromCursor()</code> accepts a cursor whose offset is behind the file end. <code>_detectTornTail()</code> sees only that the final byte lacks a newline; it does not reconcile a complete JSON record after the cursor. The next append increments from the cursor&#39;s old sequence and duplicates the complete record&#39;s sequence. The probe produced <code>[1,2,2]</code>.</p>
+<p>This means HS-02 was narrowed from “any torn tail” to “an invalid partial JSON fragment after a current/no cursor,” then marked closed too broadly.</p>
+<p><strong>Verdict:</strong> separate the useful signal-finalizer change from the incomplete ledger closure, or expand the ledger repair before merging.</p>
+<h3 id="task-5-deterministic-json-workflow-d91b233"><a class="heading-anchor" href="#task-5-deterministic-json-workflow-d91b233" aria-label="Link to this section">Task 5 — deterministic JSON workflow (<code>d91b233</code>)</a></h3>
+<p><strong>What the branch changed:</strong> 7 files, +839/−69. It added <code>--workflow</code>, a strict JSON schema, sequential same-session execution, 24 tests, and full user/security documentation.</p>
+<p><strong>What is good:</strong></p>
+<ul>
+<li>steps may contain only <code>prompt</code> and bounded <code>maxSteps</code>;</li>
+<li>unknown authority-bearing fields fail closed;</li>
+<li>workflow file path, size, realpath, and deny-matrix rules are enforced;</li>
+<li>command-line authority is passed unchanged to every step;</li>
+<li>execution stops on the first failed step;</li>
+<li>a current live bridge probe completed both ordered steps successfully with no bridge error;</li>
+<li>its 24 focused tests pass; lint/docs/format checks pass.</li>
+</ul>
+<p><strong>Durability/integration limits:</strong></p>
+<ul>
+<li>the CLI explicitly rejects workflow use with <code>--resume-session</code>, <code>--continue</code>, and <code>--worktree</code>;</li>
+<li>the first step always starts a new session, so an interrupted workflow cannot continue at the failed step;</li>
+<li>there is no workflow-level record containing file digest, next step, per-step outcome, or stable worktree identity;</li>
+<li>a process failure after step 1 can leave a useful runner session, but the workflow CLI cannot legally consume it to continue step 2;</li>
+<li>the user must manually create a stable worktree and point <code>--cwd</code> to it, which bypasses the runner&#39;s new startup isolation UX.</li>
+</ul>
+<p><strong>Verdict:</strong> a solid minimal happy-path prototype, not yet a resilient workflow facility.</p>
+<h2 id="repository-and-test-suite-assessment"><a class="heading-anchor" href="#repository-and-test-suite-assessment" aria-label="Link to this section">Repository and test-suite assessment</a></h2>
+<h3 id="current-architecture-after-the-false-green-changes"><a class="heading-anchor" href="#current-architecture-after-the-false-green-changes" aria-label="Link to this section">Current architecture after the false-green changes</a></h3>
+<p>The August 7–8 work materially improved the repository:</p>
+<ul>
+<li>FG-A..FG-F added dynamic catalog/permission/redaction/durability sweeps.</li>
+<li>FG-G added test registration, mutation, and “known red must actually be red” integrity controls.</li>
+<li>deterministic startup worktrees and shell-root confinement were added.</li>
+<li>FG-H..FG-M added model evolution, egress, telemetry, coordinator retry, ledger durability, and oracle-strength guards.</li>
+</ul>
+<p>These controls caught real bookkeeping mistakes during the five tasks. The agents had to register new sinks, update CLI/documentation manifests, retain known-todo integrity, and disclose full-suite failures rather than claiming green.</p>
+<p>The main architectural weakness is now <strong>cross-composition coverage</strong>. Many guards validate one subsystem at a time, while the observed defects arise where two individually reasonable controls meet:</p>
+<ul>
+<li>managed worktree location × sensitive-root deny matrix;</li>
+<li>resume-session × startup worktree identity;</li>
+<li>transport retry × model/tool step budget;</li>
+<li>final telemetry path × symlink/file-mode rules;</li>
+<li>binary copy × text-based undo/hashing;</li>
+<li>stale cursor × complete record without a newline;</li>
+<li>workflow sequencing × crash/resume semantics;</li>
+<li>human-copied terminal text × trace/log redaction.</li>
+</ul>
+<h3 id="independent-check-results"><a class="heading-anchor" href="#independent-check-results" aria-label="Link to this section">Independent check results</a></h3>
+<table>
+<thead>
+<tr>
+<th>Checkout</th>
+<th>Full <code>npm test</code></th>
+<th>Focused task tests</th>
+<th>Lint</th>
+<th>Docs</th>
+<th>Format</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>main</code> <code>2bdc167</code></td>
+<td>975 tests; 969 pass; <strong>1 fail</strong>; 5 todo</td>
+<td>false-green files: 136 tests; 131 pass; 0 fail; <strong>5 todo</strong>; exit 0</td>
+<td>pass</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>Task 1 <code>b88bcca</code></td>
+<td>987; 981 pass; <strong>1 fail</strong>; 5 todo</td>
+<td>12/12 pass</td>
+<td>pass</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>Task 2 <code>37bb741</code></td>
+<td>985; 979 pass; <strong>1 fail</strong>; 5 todo</td>
+<td>10/10 pass</td>
+<td>pass</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>Task 3 <code>bc1fd19</code></td>
+<td>975; 969 pass; <strong>1 fail</strong>; 5 todo</td>
+<td>19/19 pass</td>
+<td>pass</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>Task 4 <code>4c1c381</code></td>
+<td>975; 970 pass; <strong>1 fail</strong>; 4 todo</td>
+<td>14/14 selected crash/durability tests pass</td>
+<td>pass</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+<tr>
+<td>Task 5 <code>d91b233</code></td>
+<td>999; 993 pass; <strong>1 fail</strong>; 5 todo</td>
+<td>24/24 pass</td>
+<td>pass</td>
+<td>pass</td>
+<td>pass</td>
+</tr>
+</tbody></table>
+<p>All full-suite runs were repeated one at a time. A discarded parallel verification attempt produced additional worktree-test contention and is not used in the table.</p>
+<p>The one real full-suite failure is <code>worktree tools — enter/exit lifecycle › supports parallel slots in one run</code>. Its immediate cause on this Mac is a pre-existing global path, <code>~/.bridge-runner/worktrees/slot-a</code>, dated August 9 at 02:23 PDT. The test uses a fixed global path and is therefore not hermetic. That failure is distinct from—but thematically related to—the observed resume/worktree identity problem.</p>
+<p>The five current <code>todo</code> failures are still material:</p>
+<ul>
+<li>HS-01: case-variant sensitive filename handling on case-insensitive filesystems.</li>
+<li>HS-02: first append after a torn ledger tail (current main only; Task 4 proposes an incomplete closure).</li>
+<li>HS-03: deterministic newest-backup selection when mtimes collide.</li>
+<li>HS-05: cycle-safe deep secret scrubbing.</li>
+<li>HS-06: removal of <code>OTEL_*</code> credentials from child environments.</li>
+</ul>
+<h3 id="live-and-controlled-runtime-validation"><a class="heading-anchor" href="#live-and-controlled-runtime-validation" aria-label="Link to this section">Live and controlled runtime validation</a></h3>
+<ul>
+<li><strong>Current authenticated bridge:</strong> pass. One real <code>claude-fable-5</code> request returned <code>LIVE_BRIDGE_OK</code>, exit 0, one step, and a complete success result in about 4.7 seconds.</li>
+<li><strong>Task 5 live workflow:</strong> pass for the happy path. Two real ordered prompts returned both requested markers with exit 0 and no bridge error.</li>
+<li><strong>Controlled 500 retry:</strong> recovered from two 500s only with three available task steps; did not retry with one available step.</li>
+<li><strong>No replay of the August 9 outage:</strong> the original upstream condition no longer exists and was not artificially attributed to Anthropic.</li>
+</ul>
+<h2 id="review-of-false-green-round2-blindspots-2026-08-08-html"><a class="heading-anchor" href="#review-of-false-green-round2-blindspots-2026-08-08-html" aria-label="Link to this section">Review of <code>false-green-round2-blindspots-2026-08-08.html</code></a></h2>
+<p>The report is substantively useful and unusually candid. Its strongest contribution is not a claim of universal correctness; it is the creation of review registers and liveness checks that force future changes to acknowledge new models, sinks, modules, ledger paths, and retry structures.</p>
+<h3 id="what-the-report-got-right"><a class="heading-anchor" href="#what-the-report-got-right" aria-label="Link to this section">What the report got right</a></h3>
+<ul>
+<li>It distinguishes guard coverage from runtime proof.</li>
+<li>It identifies the danger of self-confirming tests and adds reachability/fingerprint checks.</li>
+<li>It adds sink inventories and forces new telemetry/egress code through named review points.</li>
+<li>It keeps known defects as registered <code>todo</code> failures rather than silently deleting them.</li>
+<li>It correctly treats mutation and test-discovery integrity as first-class concerns.</li>
+<li>It predicted Task 2&#39;s need to update reviewed sink/oracle registers and Task 3&#39;s need to bump catalog bookkeeping.</li>
+</ul>
+<h3 id="what-the-five-runs-add-or-correct"><a class="heading-anchor" href="#what-the-five-runs-add-or-correct" aria-label="Link to this section">What the five runs add or correct</a></h3>
+<table>
+<thead>
+<tr>
+<th>Round-2 area</th>
+<th>What these runs showed</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>FG-H model evolution</td>
+<td>Internal reachability and fingerprint consistency do not prove facts or provenance. Task 3 made invented data perfectly self-consistent.</td>
+</tr>
+<tr>
+<td>FG-I egress</td>
+<td>Network/module inventory remained useful, but no current guard links manual terminal capture to repository secret scanning.</td>
+</tr>
+<tr>
+<td>FG-J telemetry</td>
+<td>Sink registration and structured redaction are necessary but did not cover a final-file symlink, <code>0600</code> mode, or whether failed model steps emit telemetry.</td>
+</tr>
+<tr>
+<td>FG-K retry</td>
+<td>It covers coordinator lease/budget retry, not runner-to-bridge transport retry, jitter, synchronized clients, or step-budget coupling.</td>
+</tr>
+<tr>
+<td>FG-L ledger durability</td>
+<td>It covers buffering, flush, mode, and concurrency, but the Task 4 closure missed a stale cursor plus complete unterminated JSON record.</td>
+</tr>
+<tr>
+<td>FG-M oracle strength</td>
+<td>The integrity suite did its job on registered tests, but fixed global worktree paths make part of the suite non-hermetic.</td>
+</tr>
+<tr>
+<td>Cross-cutting</td>
+<td>The report needs composed end-to-end scenarios: managed worktree + native tools; resume + worktree; copy + binary undo; workflow + process crash.</td>
+</tr>
+</tbody></table>
+<h3 id="overall-judgment-of-the-round-2-report"><a class="heading-anchor" href="#overall-judgment-of-the-round-2-report" aria-label="Link to this section">Overall judgment of the round-2 report</a></h3>
+<p>Keep it as a valuable threat model and guard inventory, but revise any executive reading that equates “58 new checks” with closure of all named blind spots. The five runs validate the report&#39;s own warning: static and unit guards provide evidence, not proof. The next round should prioritize a smaller set of cross-composition and bounded live scenarios rather than adding another large set of isolated structural checks.</p>
+<h2 id="recommended-next-actions-not-performed"><a class="heading-anchor" href="#recommended-next-actions-not-performed" aria-label="Link to this section">Recommended next actions (not performed)</a></h2>
+<ol>
+<li><strong>Contain the exposed OAuth credential first.</strong> Revoke/rotate it, then plan current-tree and history cleanup. Assume remote exposure; do not rely on deleting only the local line.</li>
+<li><strong>Open a short, evidence-linked remediation register</strong> for the nine priority findings in this report. Keep the five implementation branches unmerged until each branch-specific issue has an adversarial regression test.</li>
+<li><strong>Fix the runner-managed worktree safety composition</strong> before more agent implementation trials. Native project tools should work inside the runner&#39;s own isolated worktree without granting access to sibling session/trace/credential data.</li>
+<li><strong>Separate transport retry attempts from task steps.</strong> Add bounded exponential backoff with jitter, request-ID/error-class capture, and a concurrent-client outage test.</li>
+<li><strong>Persist worktree identity in session state.</strong> On resume, re-enter the same validated worktree or fail with an explicit choice; do not silently create a new one.</li>
+<li><strong>Keep HS-02 open.</strong> Expand Task 4&#39;s tests to stale-current/ahead cursors, valid unterminated records, partial records, pending intents, and sequence monotonicity.</li>
+<li><strong>Decide branch disposition explicitly:</strong> repair Tasks 1/2/4, convert Task 3 to a synthetic fixture or discard it, and label Task 5 as a non-durable prototype until workflow-level resume exists.</li>
+<li><strong>Make the full suite hermetic.</strong> Use per-test temporary worktree roots and unique branch/path names; do not depend on global <code>slot-a</code> state.</li>
+<li><strong>Add a pre-commit secret scan for pasted evidence.</strong> Trace/log scrubbers cannot protect text manually copied into tracked docs.</li>
+</ol>
+<h2 id="what-was-intentionally-not-done"><a class="heading-anchor" href="#what-was-intentionally-not-done" aria-label="Link to this section">What was intentionally not done</a></h2>
+<ul>
+<li>No implementation source or test was edited.</li>
+<li>No task branch was merged, rebased, reset, cleaned, staged, committed, or pushed.</li>
+<li>No stale worktree, index state, branch, session artifact, or global <code>slot-a</code> folder was deleted.</li>
+<li>The exposed credential was not printed, tested, revoked, or rewritten.</li>
+<li>No claim was made that the upstream failures were a published Anthropic incident.</li>
+<li>No live destructive tool or repository write was requested from the model.</li>
+</ul>
+<h2 id="final-disposition"><a class="heading-anchor" href="#final-disposition" aria-label="Link to this section">Final disposition</a></h2>
+<p>The five-run exercise was successful as a <strong>systems test</strong>. It exposed failure modes that isolated suites missed, and it showed that the session ledger can carry a substantial implementation task through repeated upstream failures without losing canonical history or tool-result pairing.</p>
+<p>It was not successful as a five-feature delivery batch. The correct next move is review-driven remediation, not merging the branches because their focused tests pass.</p>
+
+</main>
+</div>
+<footer class="footer">Generated from the agent-facing Markdown report on August 10, 2026 at 12:17 AM PDT.<div class="print-note">Self-contained HTML · responsive screen layout · print stylesheet included</div></footer>
+</body>
+</html>
