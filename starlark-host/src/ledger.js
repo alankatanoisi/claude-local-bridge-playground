@@ -11,6 +11,20 @@ class RunLedger {
     this.artifactDir = path.join(runDir, 'artifacts');
     this.seq = 0;
     fs.mkdirSync(this.artifactDir, { recursive: true });
+    // R10: reopening an existing run (resume-synthesis) must CONTINUE the
+    // sequence, never restart at 1 — appended corrections stay ordered after
+    // the original events.
+    if (fs.existsSync(this.eventsPath)) {
+      for (const line of fs.readFileSync(this.eventsPath, 'utf8').split('\n')) {
+        if (!line) continue;
+        try {
+          const event = JSON.parse(line);
+          if (event.seq > this.seq) this.seq = event.seq;
+        } catch {
+          // a torn line does not block resume; seq continues from the last good one
+        }
+      }
+    }
   }
 
   append(type, payload = {}) {

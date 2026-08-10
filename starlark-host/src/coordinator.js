@@ -9,12 +9,11 @@ const { FaultInjector } = require('./failures');
 const { RunLedger, atomicWrite } = require('./ledger');
 const { evaluateStarlark, extractStarlark } = require('./starlark');
 const { lintStarlark } = require('./starlark-lint');
+const { buildSynthesisPrompt, runSynthesis, validateSynthesisResponse } = require('./synthesis');
 const { validateJobs } = require('./validator');
 
 const PLANNER_SYSTEM = `You are the planning model inside a user-owned orchestration system. Return only Starlark source code. The code must define def plan(ctx) and return a list of job dictionaries. Starlark has no imports, while loops, exceptions, async functions, filesystem, network, shell, or model access. Unlike Python, adjacent string literals are not implicitly joined; use + when combining strings. The host validates every descriptor and chooses all model IDs.`;
 const RECOVERY_SYSTEM = `You are the recovery-planning model inside a user-owned orchestration system. Return only Starlark source code defining def recover(ctx). Return retry job descriptors only for failures where retryable is true. Every retry must include retry_of. Do not retry permanent failures.`;
-const SYNTHESIS_SYSTEM = `You are the final synthesis model for an authorized, defensive code-quality experiment on the user's own local runner. Use only the supplied successful worker artifacts and failure records. Distinguish evidence from inference, report incomplete coverage, and explain how the control plane handled deliberate failures. Do not provide exploit instructions. Do not claim that a failed job succeeded.`;
-
 class PhasedCoordinator {
   constructor({
     config,
@@ -135,23 +134,29 @@ class PhasedCoordinator {
 
     this.state.phase = 'synthesis';
     this.checkpoint();
-    const synthesisResponse = await this.bridge.call({
+    // R10: synthesis is independently fallible AND independently retryable —
+    // worker artifacts above are already durable, so a synthesis failure must
+    // never cost a worker re-run (see resume-synthesis.js). Strategy 'auto'
+    // switches to map-reduce when the result set outgrows one bounded call.
+    const synthesis = await runSynthesis({
+      bridge: this.bridge,
       model: this.plannerModel,
-      system: SYNTHESIS_SYSTEM,
-      prompt: buildSynthesisPrompt(this.config.objective, this.state.results),
-      maxTokens: 2500,
-      label: `synthesize:${this.plannerModel}`,
+      objective: this.config.objective,
+      results: this.state.results,
+      options: this.config.synthesis,
     });
-    const synthesisFailure = validateSynthesisResponse(synthesisResponse);
+    const synthesisFailure = synthesis.ok ? null : synthesis.failure;
     this.state.phase = synthesisFailure ? 'partial' : 'completed';
-    this.state.synthesis = synthesisFailure ? null : synthesisResponse.text;
+    this.state.synthesis = synthesis.text;
     this.state.synthesisFailure = synthesisFailure;
+    this.state.synthesisStrategy = synthesis.strategy;
+    this.state.synthesisCalls = synthesis.calls;
     this.state.cost = { usedUsd: this.bridge.budget.usedUsd, calls: this.bridge.budget.calls };
     this.checkpoint();
     if (synthesisFailure) {
       this.ledger.append('synthesis_failed', synthesisFailure);
     } else {
-      this.ledger.writeArtifact('synthesis', { text: synthesisResponse.text });
+      this.ledger.writeArtifact('synthesis', { text: synthesis.text });
     }
     this.ledger.append('run_completed', {
       successful: this.state.results.filter((result) => result.ok).length,
@@ -401,15 +406,6 @@ function buildWorkerPrompt(objective, job, documents) {
   return `OBJECTIVE:\n${objective}\n\nASSIGNED TASK:\n${job.task}\n\n${sections.join('\n\n')}`;
 }
 
-function buildSynthesisPrompt(objective, results) {
-  const compact = results.map((result) =>
-    result.ok
-      ? { job_id: result.job.id, attempt: result.attempt, ok: true, output: result.output }
-      : { job_id: result.job.id, attempt: result.attempt, ok: false, error: result.error },
-  );
-  return `OBJECTIVE:\n${objective}\n\nWORKER RESULTS AND FAILURES:\n${JSON.stringify(compact, null, 2)}`;
-}
-
 function parseWorkerOutput(text) {
   const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
   const output = JSON.parse(cleaned);
@@ -438,19 +434,6 @@ function parseWorkerOutput(text) {
     throw new Error('confidence must be between 0 and 1');
   }
   return output;
-}
-
-function validateSynthesisResponse(response) {
-  if (response.rawStopReason === 'refusal') {
-    return { code: 'model_refusal', message: 'synthesis model returned stop_reason refusal' };
-  }
-  if (response.rawStopReason === 'max_tokens') {
-    return { code: 'truncated_synthesis', message: 'synthesis model reached its token ceiling' };
-  }
-  if (!response.text || !response.text.trim()) {
-    return { code: 'empty_synthesis', message: 'synthesis model returned no text' };
-  }
-  return null;
 }
 
 async function mapConcurrent(items, limit, fn) {
