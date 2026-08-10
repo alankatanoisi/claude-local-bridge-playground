@@ -1,16 +1,10 @@
 'use strict';
 
-const ID_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/;
-const ALLOWED_KEYS = new Set([
-  'id',
-  'worker',
-  'task',
-  'input_ids',
-  'depends_on',
-  'timeout_ms',
-  'max_output_tokens',
-  'retry_of',
-]);
+// R5: the allowed keys and fixed lower bounds come from the single policy
+// source, so the prompt disclosure and this enforcement cannot drift apart.
+const { ALLOWED_KEYS, LIMITS } = require('./descriptor-policy');
+
+const ID_PATTERN = LIMITS.idPattern;
 
 function validateJobs(raw, policy, phase = 'plan') {
   if (!Array.isArray(raw)) throw new Error('Starlark result must be a list of job descriptors');
@@ -35,9 +29,13 @@ function validateJobs(raw, policy, phase = 'plan') {
     if (seen.has(job.id)) throw new Error(`duplicate job id '${job.id}'`);
     seen.add(job.id);
     if (!knownWorkers.has(job.worker)) throw new Error(`job '${job.id}' requests unknown worker '${job.worker}'`);
-    const maxTaskCharacters = policy.maxTaskCharacters || 2000;
-    if (typeof job.task !== 'string' || job.task.length < 10 || job.task.length > maxTaskCharacters) {
-      throw new Error(`job '${job.id}' task must be 10..${maxTaskCharacters} characters`);
+    const maxTaskCharacters = policy.maxTaskCharacters || LIMITS.taskMaxCharactersDefault;
+    if (
+      typeof job.task !== 'string' ||
+      job.task.length < LIMITS.taskMinCharacters ||
+      job.task.length > maxTaskCharacters
+    ) {
+      throw new Error(`job '${job.id}' task must be ${LIMITS.taskMinCharacters}..${maxTaskCharacters} characters`);
     }
     if (!Array.isArray(job.input_ids) || job.input_ids.length < 1) {
       throw new Error(`job '${job.id}' must reference at least one input`);
@@ -56,12 +54,16 @@ function validateJobs(raw, policy, phase = 'plan') {
       throw new Error(`job '${job.id}' declares dependencies, but this controlled trial requires independent jobs`);
     }
     const timeoutMs = job.timeout_ms === undefined ? policy.defaultTimeoutMs : job.timeout_ms;
-    if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > policy.maxTimeoutMs) {
+    if (!Number.isInteger(timeoutMs) || timeoutMs < LIMITS.timeoutMinMs || timeoutMs > policy.maxTimeoutMs) {
       throw new Error(`job '${job.id}' timeout is outside policy`);
     }
     const maxOutputTokens =
       job.max_output_tokens === undefined ? policy.defaultMaxOutputTokens : job.max_output_tokens;
-    if (!Number.isInteger(maxOutputTokens) || maxOutputTokens < 100 || maxOutputTokens > policy.maxOutputTokens) {
+    if (
+      !Number.isInteger(maxOutputTokens) ||
+      maxOutputTokens < LIMITS.outputTokensMin ||
+      maxOutputTokens > policy.maxOutputTokens
+    ) {
       throw new Error(`job '${job.id}' max_output_tokens is outside policy`);
     }
     if (phase === 'recovery') {

@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
+const { policyDisclosure } = require('./descriptor-policy');
 const { FaultInjector } = require('./failures');
 const { RunLedger, atomicWrite } = require('./ledger');
 const { evaluateStarlark, extractStarlark } = require('./starlark');
@@ -76,7 +77,7 @@ class PhasedCoordinator {
       phaseLabel: 'plan',
       functionName: 'plan',
       system: PLANNER_SYSTEM,
-      prompt: buildPlanPrompt(this.config, publicDocuments, this.workerName),
+      prompt: buildPlanPrompt(this.config, publicDocuments, this.workerName, policy),
       context: { objective: this.config.objective, documents: publicDocuments },
       policy,
       validationPhase: 'plan',
@@ -111,7 +112,7 @@ class PhasedCoordinator {
         phaseLabel: 'recover',
         functionName: 'recover',
         system: RECOVERY_SYSTEM,
-        prompt: buildRecoveryPrompt(this.config, publicDocuments, failures, this.workerName),
+        prompt: buildRecoveryPrompt(this.config, publicDocuments, failures, this.workerName, policy),
         context: { objective: this.config.objective, documents: publicDocuments, failures },
         policy: {
           ...policy,
@@ -328,14 +329,43 @@ function publicDocument({ id, kind, relativePath, bytes, sha256, metadata }) {
   };
 }
 
-function buildPlanPrompt(config, documents, workerName = config.workerName || 'code_analyst') {
-  const profile = config.workerProfiles[workerName];
-  return `${config.objective}\n\nAvailable bounded inputs:\n${JSON.stringify(documents, null, 2)}\n\nCONTROLLED-TRIAL POLICY (the host rejects any violation):\n- Return exactly ${documents.length} independent jobs: exactly one job for each input ID, with every input covered once.\n- Use worker ${workerName} and one input_id per job.\n- depends_on must be an empty list.\n- timeout_ms must be an integer from 1000 through 60000; use 30000.\n- max_output_tokens must be an integer from 100 through ${profile.maxOutputTokens}; use ${profile.maxOutputTokens}.\n- task must be 10 through ${config.maxTaskCharacters} characters.\n- Each job must contain exactly: id, worker, task, input_ids, depends_on, timeout_ms, max_output_tokens.\n- Do not include retry_of in the initial plan. Do not choose or name a model ID or provider.`;
+// R5: both prompts render their policy sections from descriptor-policy.js, so
+// the bounds the model reads are the bounds the validator enforces — always.
+function buildPlanPrompt(config, documents, workerName = config.workerName || 'code_analyst', policy) {
+  const effectivePolicy = policy || policyFromConfig(config, workerName, documents);
+  const disclosure = policyDisclosure({
+    policy: effectivePolicy,
+    phase: 'plan',
+    workerName,
+    documentCount: documents.length,
+  });
+  return `${config.objective}\n\nAvailable bounded inputs:\n${JSON.stringify(documents, null, 2)}\n\n${disclosure}`;
 }
 
-function buildRecoveryPrompt(config, documents, failures, workerName = config.workerName || 'code_analyst') {
+function buildRecoveryPrompt(config, documents, failures, workerName = config.workerName || 'code_analyst', policy) {
+  const effectivePolicy = policy || policyFromConfig(config, workerName, documents);
+  const disclosure = policyDisclosure({
+    policy: effectivePolicy,
+    phase: 'recovery',
+    workerName,
+    documentCount: documents.length,
+  });
+  return `${config.objective}\n\nDocuments:\n${JSON.stringify(documents, null, 2)}\n\nFailures:\n${JSON.stringify(failures, null, 2)}\n\n${disclosure}`;
+}
+
+// Fallback policy shape for direct prompt-builder calls (tests, tooling) that
+// do not pass the coordinator's policy object. Mirrors PhasedCoordinator.policy().
+function policyFromConfig(config, workerName, documents) {
   const profile = config.workerProfiles[workerName];
-  return `${config.objective}\n\nDocuments:\n${JSON.stringify(documents, null, 2)}\n\nFailures:\n${JSON.stringify(failures, null, 2)}\n\nRECOVERY POLICY (the host rejects any violation):\n- Return at most ${config.maxJobsPerPhase} retry jobs and retry only failures whose retryable field is true.\n- Each retry must preserve the failed job's worker and input_ids and name that job in retry_of.\n- depends_on must be an empty list.\n- timeout_ms must be an integer from 1000 through 60000; use 30000.\n- max_output_tokens must be an integer from 100 through ${profile.maxOutputTokens}; use ${profile.maxOutputTokens}.\n- task must be 10 through ${config.maxTaskCharacters} characters.\n- Each job must contain exactly: id, retry_of, worker, task, input_ids, depends_on, timeout_ms, max_output_tokens.\n- Do not choose or name a model ID.`;
+  return {
+    maxJobsPerPhase: config.maxJobsPerPhase,
+    maxTimeoutMs: 60000,
+    defaultTimeoutMs: 30000,
+    defaultMaxOutputTokens: profile.maxOutputTokens,
+    maxOutputTokens: profile.maxOutputTokens,
+    maxTaskCharacters: config.maxTaskCharacters,
+    inputIds: documents.map((document) => document.id),
+  };
 }
 
 function buildWorkerPrompt(objective, job, documents) {
