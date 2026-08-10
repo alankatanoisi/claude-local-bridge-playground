@@ -276,10 +276,13 @@ items rather than starting a parallel tracker.
   ledger-aware resume) closed same evening** — `HANDOFF-f6-ledger-aware-resume-2026-07-31.md`.
   Residual: A1-F4/A1-F5, A3-F4, DBOS arm, HE-05 OTel half.
 
-- **Starlark thread — Bundle A (R3+R1/R2) executed 2026-08-10:** prototype graduated into
-  `starlark-host/`; durable cross-process dollar-metered campaign budgets landed and were live-proven.
-  Handoff: `HANDOFF-bundle-a-starlark-2026-08-10.md`. Remaining bands: Bundle B (R5–R7, +R10),
-  Bundle C (R4 paid matrix).
+- **Starlark thread — Bundles A and B executed 2026-08-10:** A (R3+R1/R2) graduated the prototype into
+  `starlark-host/` with durable cross-process dollar-metered campaign budgets, live-proven; B
+  (R5/R6/R7/R10) added policy single-sourcing + concordance tests, Starlark pre-lint with auto-repair,
+  an adversarial evaluator corpus (+ stdout ceiling), and map-reduce/resumable synthesis — live-proven by
+  healing A's truncated canary for ~$0.015 without re-running workers. Handoffs:
+  `HANDOFF-bundle-a-starlark-2026-08-10.md`, `HANDOFF-bundle-b-starlark-2026-08-10.md`. Remaining:
+  Bundle C (R4 paid matrix; needs a ceiling decision), then R8/R9/R12.
 
 **Three ID namespaces exist in `docs/`.** The runtime-concordance series `P0-01…P0-12` is closed; the
 future-directions band `FD-01…FD-05` is _also_ labelled P0 by the 07-22 handoff; the 2026-07-28 harness

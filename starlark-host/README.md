@@ -163,3 +163,40 @@ Properties, tested in `test/campaign-budget.test.js`:
 - Metering is in dollars and cache-aware: `cache_read_input_tokens` and
   `cache_creation_input_tokens` move the remaining balance (R2 regression).
 - Mock runs stay in-memory and free; they do not create campaign ledgers.
+
+## Plan hygiene and hostile-input hardening (R5/R6/R7)
+
+- `src/descriptor-policy.js` is the single source of descriptor policy: the
+  validator's allowed keys/bounds and the prompts' policy text both render
+  from it, and `test/descriptor-policy.test.js` holds the field→enforcement
+  concordance (every accepted field must be observable at its enforcement
+  point — probed functionally, not assumed).
+- `src/starlark-lint.js` pre-lints generated programs before the Go
+  evaluator: adjacent string literals (the Python-ism seen live) are
+  auto-repaired and recorded on the ledger; f-strings, `while`, imports,
+  `load()`, exceptions, and classes come back as line-numbered diagnostics
+  that guide the model's repair attempt without spending an evaluator round.
+- `test/adversarial-starlark.test.js` keeps a hostile-program corpus aimed at
+  the evaluator boundary (comprehension bombs, recursion, homoglyph entry
+  points, descriptor smuggling, output floods). The evaluator harness now
+  also caps evaluator stdout (default 4 MB) and fails closed.
+
+## Synthesis strategies and synthesis-only resume (R10)
+
+Synthesis is independently fallible AND independently retryable. The
+coordinator's `auto` strategy uses one bounded call for small result sets and
+switches to map-reduce (chunk summaries, then one combining call) when the
+result set outgrows a single ceiling-bound response. A `partial` run whose
+workers succeeded is healed WITHOUT re-running workers:
+
+```bash
+node bin/resume-synthesis.js \
+  --run-dir workflow-runs/<the partial run> \
+  --campaign <campaign id> --max-cost-usd 2 \
+  --model claude-haiku-4-5 --strategy map_reduce --trace-level full
+```
+
+Resume events append to the same run ledger with continuing sequence
+numbers; nothing is rewritten. Field-proven 2026-08-10: the fan-out canary
+that truncated its monolithic synthesis was completed by the same model via
+map-reduce for ~$0.015.
