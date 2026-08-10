@@ -1,5 +1,11 @@
 'use strict';
 
+// This JSON file is the machine-editable source of truth for stable fallback
+// identity headers. Keeping these values in structured data lets the local
+// fingerprint automation update one narrow file instead of rewriting runtime
+// JavaScript with fragile text substitutions.
+const fallbackFingerprint = require('./claude-code-fingerprint-fallback.json');
+
 // ─────────────────────────────────────────────
 // Adaptive Fingerprint Capture
 //
@@ -193,26 +199,16 @@ function buildAdaptiveAuthHeaders(ctx, creds) {
         headers[key] = value;
       }
     } else {
-      // Fall back to the latest known Claude Code header fingerprint.
-      // Verified from Anthropic's official Claude Code 2.1.223 macOS arm64
-      // package on 2026-08-06. The verification used a temporary local mock
-      // with a dummy key, so no real credential or paid API call was involved.
+      // Fall back to the latest locally verified Claude Code header identity.
+      // The manifest is refreshed only from a dummy-credential localhost
+      // capture, so this path never needs a real OAuth token or paid API call.
       //
       // P1-06 containment: the fallback no longer fabricates request-specific
       // state (no session id, no retry-count, no timeout) and no longer opts
       // every request into request-shape betas (context-1m, fallback-credit).
-      headers['accept'] = 'application/json';
-      headers['anthropic-beta'] = 'claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14';
-      headers['anthropic-dangerous-direct-browser-access'] = 'true';
-      headers['user-agent'] = 'claude-cli/2.1.223 (external, sdk-cli)';
-      headers['x-app'] = 'cli';
-      headers['x-stainless-arch'] = 'arm64';
-      headers['x-stainless-lang'] = 'js';
-      headers['x-stainless-os'] = 'MacOS';
-      headers['x-stainless-package-version'] = '0.94.0';
-      headers['x-stainless-runtime'] = 'node';
-      // This is Claude Code's captured runtime, not this bridge process's runtime.
-      headers['x-stainless-runtime-version'] = 'v26.3.0';
+      for (const [name, value] of Object.entries(fallbackFingerprint.stableHeaders)) {
+        headers[name] = value;
+      }
     }
   }
 
@@ -269,4 +265,5 @@ module.exports = {
   STABLE_IDENTITY_HEADERS,
   REQUEST_SPECIFIC_HEADERS,
   REQUEST_SHAPE_BETA_PREFIXES,
+  fallbackFingerprint,
 };

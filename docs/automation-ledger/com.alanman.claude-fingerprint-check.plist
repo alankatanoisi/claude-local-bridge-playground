@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.alanman.claude-fingerprint-check</string>
+
+  <!--
+    /usr/bin/env locates Node using the deliberately small PATH below. This
+    supports the normal Homebrew locations without invoking an interactive
+    shell or loading shell startup files.
+  -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>node</string>
+    <string>/Users/alanman/Developer/claude-local-bridge-playground/scripts/claude-code-fingerprint.js</string>
+    <string>due</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/alanman/Developer/claude-local-bridge-playground</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+
+  <!-- Monday is weekday 2 in launchd's Sunday-first numbering. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key>
+    <integer>2</integer>
+    <key>Hour</key>
+    <integer>12</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+
+  <!-- The cheap due wrapper supplies catch-up opportunities every four hours. -->
+  <key>StartInterval</key>
+  <integer>14400</integer>
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>ThrottleInterval</key>
+  <integer>60</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/alanman/.bridge-runner/fingerprint-checks/launchagent.stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/alanman/.bridge-runner/fingerprint-checks/launchagent.stderr.log</string>
+</dict>
+</plist>

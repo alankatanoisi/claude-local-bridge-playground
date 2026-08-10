@@ -32,11 +32,14 @@
   "scripts": {
     "test": "node --require ./test/setup.js --test test/*.test.js test/runner/*.test.js",
     "test:starlark": "npm --prefix starlark-host run verify",
-    "lint": "eslint --config eslint.config.cjs src/ test/",
-    "lint:fix": "eslint --config eslint.config.cjs src/ test/ --fix",
-    "format": "prettier --write \"src/**/*.js\" \"test/**/*.js\" \"*.json\" \"*.md\"",
-    "format:check": "prettier --check \"src/**/*.js\" \"test/**/*.js\" \"*.json\" \"*.md\"",
+    "lint": "eslint --config eslint.config.cjs src/ test/ scripts/claude-code-fingerprint.js",
+    "lint:fix": "eslint --config eslint.config.cjs src/ test/ scripts/claude-code-fingerprint.js --fix",
+    "format": "prettier --write \"src/**/*.js\" \"test/**/*.js\" \"scripts/claude-code-fingerprint.js\" \"*.json\" \"*.md\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"test/**/*.js\" \"scripts/claude-code-fingerprint.js\" \"*.json\" \"*.md\"",
     "check:docs": "node scripts/check-doc-defaults.js && node scripts/check-runner-manifest.js",
+    "fingerprint:check": "node scripts/claude-code-fingerprint.js check",
+    "fingerprint:due": "node scripts/claude-code-fingerprint.js due",
+    "fingerprint:prepare": "node scripts/claude-code-fingerprint.js prepare",
     "runner:eval": "node bin/local-bridge-runner.js runner eval",
     "test:keploy": "jest --coverage --coverageReporters=text --coverageReporters=cobertura --collectCoverageFrom='./**/*.{js,jsx,ts,tsx}'"
   },

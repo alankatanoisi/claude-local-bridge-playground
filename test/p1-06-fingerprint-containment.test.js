@@ -15,6 +15,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert');
 
 const fingerprint = require('../src/fingerprint');
+const fallback = require('../src/claude-code-fingerprint-fallback.json');
 
 describe('P1-06 header classification', () => {
   it('splits captured headers into stable-identity and request-specific groups', () => {
@@ -116,11 +117,10 @@ describe('P1-06 fallback fingerprint containment', () => {
     assert.equal(headers['x-claude-code-session-id'], undefined);
     assert.equal(headers['x-stainless-retry-count'], undefined);
     assert.equal(headers['x-stainless-timeout'], undefined);
-    // Beta list keeps the stable protocol/client flags observed in Claude Code
-    // 2.1.223's OAuth request shape...
-    assert.match(headers['anthropic-beta'], /claude-code-20250219/);
-    assert.match(headers['anthropic-beta'], /oauth-2025-04-20/);
-    assert.match(headers['anthropic-beta'], /interleaved-thinking-2025-05-14/);
+    // Beta list keeps the stable protocol/client flags from the locally
+    // verified manifest...
+    assert.equal(headers['user-agent'], fallback.stableHeaders['user-agent']);
+    assert.equal(headers['anthropic-beta'], fallback.stableHeaders['anthropic-beta']);
     // ...but no request-shape or billing opt-ins.
     assert.doesNotMatch(headers['anthropic-beta'], /context-1m-/);
     assert.doesNotMatch(headers['anthropic-beta'], /fallback-credit-/);

@@ -161,25 +161,25 @@ describe('credentials.buildAuthHeaders', () => {
 
   it('uses the hardcoded fallback fingerprint without request-specific state (P1-06)', () => {
     const { buildAuthHeaders } = require('../src/credentials');
+    const fallback = require('../src/claude-code-fingerprint-fallback.json');
     const headers = buildAuthHeaders(
       { liveFingerprint: null, sessionId: 'session-123' },
       { accessToken: 'tok-123', source: 'keychain' },
     );
 
     // Stable client identity still replays.
-    assert.equal(headers['user-agent'], 'claude-cli/2.1.223 (external, sdk-cli)');
-    assert.equal(headers['x-stainless-package-version'], '0.94.0');
-    assert.equal(headers['x-stainless-runtime-version'], 'v26.3.0');
+    assert.equal(headers['user-agent'], fallback.stableHeaders['user-agent']);
+    assert.equal(headers['x-stainless-package-version'], fallback.stableHeaders['x-stainless-package-version']);
+    assert.equal(headers['x-stainless-runtime-version'], fallback.stableHeaders['x-stainless-runtime-version']);
     // P1-06 containment: no session/retry/timeout fabrication, no
     // request-shape beta opt-ins on unrelated requests.
     assert.equal(headers['x-claude-code-session-id'], undefined);
     assert.equal(headers['x-stainless-retry-count'], undefined);
     assert.equal(headers['x-stainless-timeout'], undefined);
+    assert.equal(headers['anthropic-beta'], fallback.stableHeaders['anthropic-beta']);
     assert.doesNotMatch(headers['anthropic-beta'], /context-1m-/);
     assert.doesNotMatch(headers['anthropic-beta'], /fallback-credit-/);
     assert.doesNotMatch(headers['anthropic-beta'], /structured-outputs-/);
-    assert.match(headers['anthropic-beta'], /oauth-2025-04-20/);
-    assert.match(headers['anthropic-beta'], /interleaved-thinking-2025-05-14/);
     assert.doesNotMatch(headers['anthropic-beta'], /mid-conversation-system-/);
     assert.doesNotMatch(headers['anthropic-beta'], /effort-/);
   });

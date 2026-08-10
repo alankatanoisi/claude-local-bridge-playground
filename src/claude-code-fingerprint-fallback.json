@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-08-06",
+  "claudeCodeVersion": "2.1.223",
+  "stableHeaders": {
+    "accept": "application/json",
+    "anthropic-beta": "claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14",
+    "anthropic-dangerous-direct-browser-access": "true",
+    "user-agent": "claude-cli/2.1.223 (external, sdk-cli)",
+    "x-app": "cli",
+    "x-stainless-arch": "arm64",
+    "x-stainless-lang": "js",
+    "x-stainless-os": "MacOS",
+    "x-stainless-package-version": "0.94.0",
+    "x-stainless-runtime": "node",
+    "x-stainless-runtime-version": "v26.3.0"
+  }
+}

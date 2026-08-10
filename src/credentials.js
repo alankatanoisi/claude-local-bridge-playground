@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 const { log } = require('./utils');
 const { buildAdaptiveAuthHeaders, getLiveSystemBlocks, adaptiveMessagesPath } = require('./fingerprint');
+const fallbackFingerprint = require('./claude-code-fingerprint-fallback.json');
 
 // ─────────────────────────────────────────────
 // Credential Discovery
@@ -216,23 +217,16 @@ function getCredentialAuthMode(creds) {
   return 'none';
 }
 
-// Stable header values verified from Anthropic's official Claude Code 2.1.223
-// macOS arm64 package on 2026-08-06. `src/fingerprint.js` owns actual header
-// construction; this exported object remains for compatibility and for the
-// body-level fallback values consumed below.
+// `src/claude-code-fingerprint-fallback.json` owns the stable header values.
+// `src/fingerprint.js` owns actual header construction; this exported object
+// remains for compatibility and for the body-level fallback values below.
 const CLAUDE_CODE_FINGERPRINT = {
-  userAgent: 'claude-cli/2.1.223 (external, sdk-cli)',
-  anthropicBeta: 'claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14',
+  userAgent: fallbackFingerprint.stableHeaders['user-agent'],
+  anthropicBeta: fallbackFingerprint.stableHeaders['anthropic-beta'],
   // Stainless = the Anthropic SDK's self-identification headers.
-  stainless: {
-    'x-stainless-arch': 'arm64',
-    'x-stainless-lang': 'js',
-    'x-stainless-os': 'MacOS',
-    'x-stainless-package-version': '0.94.0',
-    'x-stainless-runtime': 'node',
-    // Use Claude Code's captured runtime, not the Node version running this bridge.
-    'x-stainless-runtime-version': 'v26.3.0',
-  },
+  stainless: Object.fromEntries(
+    Object.entries(fallbackFingerprint.stableHeaders).filter(([name]) => name.startsWith('x-stainless-')),
+  ),
   // These body-level blocks are older than the header fingerprint above, but
   // the bridge still needs a fallback shape when live capture has not observed
   // body system blocks yet. Prefer live blocks whenever they exist.

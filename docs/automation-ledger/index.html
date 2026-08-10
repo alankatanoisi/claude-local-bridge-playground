@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Claude Code Fingerprint Automation</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --page: #f4f6f8;
+        --surface: #ffffff;
+        --text: #17202a;
+        --muted: #5f6b76;
+        --line: #d8dee4;
+        --accent: #176b51;
+        --accent-soft: #e4f3ed;
+        --warning: #8a4b08;
+        --warning-soft: #fff2dd;
+        --code: #19232d;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --page: #11161a;
+          --surface: #192027;
+          --text: #edf2f5;
+          --muted: #aeb9c2;
+          --line: #36414b;
+          --accent: #7bd3b2;
+          --accent-soft: #153b30;
+          --warning: #f4bd75;
+          --warning-soft: #3a2a16;
+          --code: #0c1115;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        line-height: 1.6;
+      }
+
+      header,
+      main,
+      footer {
+        width: min(960px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+
+      header {
+        padding: 52px 0 26px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h1,
+      h2,
+      h3 {
+        letter-spacing: 0;
+        line-height: 1.2;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: 2.75rem;
+      }
+
+      h2 {
+        margin: 42px 0 14px;
+        font-size: 1.45rem;
+      }
+
+      h3 {
+        margin: 26px 0 10px;
+        font-size: 1.08rem;
+      }
+
+      p,
+      li {
+        max-width: 78ch;
+      }
+
+      .lede {
+        margin: 0;
+        color: var(--muted);
+        font-size: 1.08rem;
+      }
+
+      main {
+        padding: 10px 0 56px;
+      }
+
+      .mode-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 12px;
+        margin: 20px 0;
+      }
+
+      .mode {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--surface);
+      }
+
+      .mode h3 {
+        margin-top: 0;
+      }
+
+      .notice {
+        padding: 16px 18px;
+        border-left: 4px solid var(--warning);
+        background: var(--warning-soft);
+      }
+
+      .safe {
+        border-left-color: var(--accent);
+        background: var(--accent-soft);
+      }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.92em;
+      }
+
+      pre {
+        overflow-x: auto;
+        padding: 16px;
+        border-radius: 6px;
+        background: var(--code);
+        color: #f3f7f9;
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(120px, 1fr));
+        gap: 8px;
+        margin: 18px 0;
+      }
+
+      .flow div {
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        background: var(--surface);
+        text-align: center;
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 720px) {
+        h1 {
+          font-size: 2rem;
+        }
+
+        .flow {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      footer {
+        padding: 22px 0 38px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Claude Code Fingerprint Automation</h1>
+      <p class="lede">
+        A conservative weekly checker, guarded patch preparer, and durable project ledger for the local bridge
+        playground.
+      </p>
+    </header>
+
+    <main>
+      <p class="notice">
+        This is personal, unsanctioned research. It does not establish Anthropic approval. The automation never uses a
+        real OAuth token, never calls Anthropic for capture, and never commits, pushes, or merges.
+      </p>
+
+      <h2>Three explicit modes</h2>
+      <div class="mode-grid">
+        <section class="mode">
+          <h3>Check</h3>
+          <code>npm run fingerprint:check</code>
+          <p>
+            Captures stable localhost-only identity values, compares them, and writes reports. It does not edit source.
+          </p>
+        </section>
+        <section class="mode">
+          <h3>Due</h3>
+          <code>npm run fingerprint:due</code>
+          <p>Runs a real check only when the last successful check is at least seven days old.</p>
+        </section>
+        <section class="mode">
+          <h3>Prepare</h3>
+          <code>npm run fingerprint:prepare</code>
+          <p>May create a dated patch branch and update one manifest, but only from a clean, current repository.</p>
+        </section>
+      </div>
+
+      <h2>How the safe capture works</h2>
+      <div class="flow" aria-label="Fingerprint capture flow">
+        <div>Local Claude binary</div>
+        <div>Dummy OAuth value</div>
+        <div>127.0.0.1 mock</div>
+        <div>Header allowlist</div>
+        <div>Sanitized comparison</div>
+      </div>
+      <p class="safe notice">
+        The child process uses a temporary config directory, safe mode, no tools, and a localhost Anthropic base URL.
+        Request bodies are drained but never stored. Authorization, sessions, retries, timeouts, billing values, and
+        account metadata are never placed in a report.
+      </p>
+
+      <h2>Records</h2>
+      <p>Detailed owner-only records are kept outside Git:</p>
+      <pre><code>~/.bridge-runner/fingerprint-checks/</code></pre>
+      <p>One concise, append-only entry per real run is created in the project:</p>
+      <pre><code>docs/automation-ledger/fingerprint-checks/YYYY-MM-DDTHH-mm-ss-check.md</code></pre>
+      <p>
+        A scheduled ledger entry is intentionally uncommitted. It makes the repository dirty, so prepare mode will wait
+        until a human reviews and handles the current work.
+      </p>
+
+      <h2>Manual first run</h2>
+      <p>Open Terminal and run:</p>
+      <pre><code>cd /Users/alanman/Developer/claude-local-bridge-playground
+npm run fingerprint:check</code></pre>
+      <p>
+        Success prints the action, private report path, and project ledger path. Drift appears as
+        <code>report only</code>; check mode still does not edit the fallback.
+      </p>
+
+      <h2>Weekly schedule with catch-up</h2>
+      <p>
+        The tracked LaunchAgent template prefers Monday at noon, runs the cheap due wrapper every four hours, and checks
+        at login. The due wrapper is authoritative: it exits immediately unless seven days have passed. A missed Monday
+        run becomes one catch-up run when the Mac is next available.
+      </p>
+      <p class="notice">The LaunchAgent template exists in the repo, but it has not been installed or loaded.</p>
+
+      <h3>Install only after explicit approval</h3>
+      <pre><code>mkdir -p /Users/alanman/Library/LaunchAgents
+cp -n /Users/alanman/Developer/claude-local-bridge-playground/docs/automation-ledger/com.alanman.claude-fingerprint-check.plist /Users/alanman/Library/LaunchAgents/
+plutil -lint /Users/alanman/Library/LaunchAgents/com.alanman.claude-fingerprint-check.plist
+launchctl bootstrap gui/$(id -u) /Users/alanman/Library/LaunchAgents/com.alanman.claude-fingerprint-check.plist</code></pre>
+      <p><code>plutil</code> should print <code>OK</code>. A successful bootstrap is normally silent.</p>
+
+      <h3>Turn the schedule off</h3>
+      <pre><code>launchctl bootout gui/$(id -u)/com.alanman.claude-fingerprint-check</code></pre>
+
+      <h2>Review boundary</h2>
+      <p>
+        When drift is reported, review the records, resolve existing local changes, run prepare, inspect the generated
+        branch and validation results, and only then decide whether to commit or push. The machine-editable header
+        source is <code>src/claude-code-fingerprint-fallback.json</code>. Older body-level fallback system blocks remain
+        separate and are never auto-updated.
+      </p>
+    </main>
+
+    <footer>Claude Local Bridge playground · Local fingerprint maintenance guide</footer>
+  </body>
+</html>
