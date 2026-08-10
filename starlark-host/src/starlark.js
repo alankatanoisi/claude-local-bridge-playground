@@ -12,16 +12,43 @@ function extractStarlark(text) {
   return (fenced ? fenced[1] : text).trim();
 }
 
-function evaluateStarlark({ source, functionName, context, maxSteps, timeoutMs, binary = DEFAULT_BINARY }) {
+// R7: the step ceiling bounds COMPUTE, not OUTPUT. A hostile program can
+// build one enormous string in few steps ("a" * 10**8) and flood the host
+// through stdout. Cap the response size and fail closed.
+const DEFAULT_MAX_OUTPUT_BYTES = 4_000_000;
+
+function evaluateStarlark({
+  source,
+  functionName,
+  context,
+  maxSteps,
+  timeoutMs,
+  binary = DEFAULT_BINARY,
+  maxOutputBytes = DEFAULT_MAX_OUTPUT_BYTES,
+}) {
   return new Promise((resolve, reject) => {
     const child = spawn(binary, [], { stdio: ['pipe', 'pipe', 'pipe'] });
     const stdout = [];
     const stderr = [];
+    let stdoutBytes = 0;
+    let overflowed = false;
 
-    child.stdout.on('data', (chunk) => stdout.push(chunk));
+    child.stdout.on('data', (chunk) => {
+      stdoutBytes += chunk.length;
+      if (stdoutBytes > maxOutputBytes) {
+        if (!overflowed) {
+          overflowed = true;
+          child.kill('SIGKILL');
+          reject(new Error(`Starlark evaluator output exceeded ${maxOutputBytes} bytes; rejected`));
+        }
+        return;
+      }
+      stdout.push(chunk);
+    });
     child.stderr.on('data', (chunk) => stderr.push(chunk));
     child.on('error', reject);
     child.on('close', (code) => {
+      if (overflowed) return; // already rejected above
       const raw = Buffer.concat(stdout).toString('utf8');
       if (code !== 0) {
         reject(new Error(`Starlark evaluator exited ${code}: ${Buffer.concat(stderr).toString('utf8')}`));
