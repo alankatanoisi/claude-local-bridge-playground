@@ -165,8 +165,16 @@ test('planner gets one measured repair turn after a rejected Starlark plan', asy
   });
 
   const result = await coordinator.run();
-  // lintFixes counts R6 auto-repairs on the ACCEPTED attempt (none here).
-  assert.deepEqual(result.planMetrics, { attempts: 2, repairs: 1, firstPassValid: false, lintFixes: 0 });
+  // lintFixes counts R6 auto-repairs on the ACCEPTED attempt (none here);
+  // model/escalations are the R13 ladder fields (single-tier ladder here).
+  assert.deepEqual(result.planMetrics, {
+    attempts: 2,
+    repairs: 1,
+    firstPassValid: false,
+    lintFixes: 0,
+    model: 'mock-planner',
+    escalations: 0,
+  });
   const events = fs.readFileSync(path.join(runDir, 'events.jsonl'), 'utf8');
   assert.match(events, /plan_rejected/);
 });

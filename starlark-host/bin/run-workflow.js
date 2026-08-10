@@ -13,6 +13,8 @@ async function main() {
     workflowName: args.workflow || 'repo_fanout',
     mode,
     plannerModel: args.plannerModel || config.fixedPlannerModel,
+    // R13: --planner-ladder haiku-model,sonnet-model,… (cheapest first).
+    plannerLadder: args.plannerLadder ? args.plannerLadder.split(',').map((model) => model.trim()) : null,
     workerModel: args.workerModel || config.fixedWorkerModel,
     faultProfile: args.faultProfile || 'none',
     traceLevel: args.traceLevel || config.traceLevel || 'off',

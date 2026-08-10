@@ -19,6 +19,7 @@ class PhasedCoordinator {
     config,
     bridge,
     plannerModel,
+    plannerLadder,
     workerModel,
     faultProfile,
     runDir,
@@ -29,6 +30,19 @@ class PhasedCoordinator {
     this.config = config;
     this.bridge = bridge;
     this.plannerModel = plannerModel;
+    // R13: cost-tiered planner routing. The ladder is ordered cheapest-first;
+    // planning starts on tier 0 and escalates one tier ONLY when a tier
+    // exhausts its repair attempts (the R4 data behind this: the cheapest
+    // planner had the best structural compliance, so escalation should be an
+    // exception path, not the default). A single-entry ladder reproduces the
+    // pre-R13 behavior exactly.
+    this.plannerLadder =
+      Array.isArray(plannerLadder) && plannerLadder.length > 0 ? plannerLadder : [plannerModel];
+    // The tier that most recently produced an ACCEPTED program. Recovery
+    // starts where planning ended (no point re-failing the cheap tier), and
+    // synthesis uses this model too.
+    this.activePlannerModel = this.plannerLadder[0];
+    this.ladderIndex = 0;
     this.workerModel = workerModel;
     this.documents = documents || null;
     this.workerName = workerName || config.workerName || 'code_analyst';
@@ -39,6 +53,7 @@ class PhasedCoordinator {
     this.state = {
       phase: 'created',
       plannerModel,
+      plannerLadder: this.plannerLadder,
       workerModel,
       workerName: this.workerName,
       workerProfiles: workerRegistry ? workerRegistry.publicProfiles() : null,
@@ -140,7 +155,9 @@ class PhasedCoordinator {
     // switches to map-reduce when the result set outgrows one bounded call.
     const synthesis = await runSynthesis({
       bridge: this.bridge,
-      model: this.plannerModel,
+      // R13: synthesis runs on whichever ladder tier last produced an
+      // accepted program (equals plannerModel when no ladder is configured).
+      model: this.activePlannerModel,
       objective: this.config.objective,
       results: this.state.results,
       options: this.config.synthesis,
@@ -201,20 +218,75 @@ class PhasedCoordinator {
     maxTokens,
     acceptedEvent,
   }) {
+    // R13: try each ladder tier in turn, two attempts per tier. Escalation is
+    // recorded on the ledger so the repair tax of cheap-first routing stays
+    // measurable. Tiers below the current index are never revisited.
+    let lastError = null;
+    let totalAttempts = 0;
+    for (; this.ladderIndex < this.plannerLadder.length; this.ladderIndex += 1) {
+      const tier = this.plannerLadder[this.ladderIndex];
+      try {
+        const accepted = await this.generateValidatedPlanOnModel({
+          model: tier,
+          phaseLabel,
+          functionName,
+          system,
+          prompt,
+          context,
+          policy,
+          validationPhase,
+          maxTokens,
+          acceptedEvent,
+          attemptOffset: totalAttempts,
+        });
+        this.activePlannerModel = tier;
+        return accepted;
+      } catch (error) {
+        lastError = error;
+        totalAttempts += 2;
+        const next = this.plannerLadder[this.ladderIndex + 1];
+        if (next) {
+          this.ledger.append(`${phaseLabel}_escalated`, {
+            from: tier,
+            to: next,
+            error: error.message,
+          });
+        }
+      }
+    }
+    throw lastError || new Error(`${phaseLabel} did not produce a valid plan`);
+  }
+
+  async generateValidatedPlanOnModel({
+    model,
+    phaseLabel,
+    functionName,
+    system,
+    prompt,
+    context,
+    policy,
+    validationPhase,
+    maxTokens,
+    acceptedEvent,
+    attemptOffset = 0,
+  }) {
     let rejection = null;
     for (let attempt = 1; attempt <= 2; attempt += 1) {
       const repairSuffix = rejection
         ? `\n\nYour previous Starlark was rejected by the host. Error:\n${rejection.error}\n\nRejected source:\n${rejection.source}\n\nReturn a corrected complete program only.`
         : '';
       const response = await this.bridge.call({
-        model: this.plannerModel,
+        model,
         system,
         prompt: prompt + repairSuffix,
         maxTokens,
-        label: `${phaseLabel}:${this.plannerModel}:attempt:${attempt}`,
+        label: `${phaseLabel}:${model}:attempt:${attempt}`,
       });
+      // Artifact numbering is global across ladder tiers so an escalated
+      // phase never overwrites the cheap tier's rejected source.
+      const globalAttempt = attemptOffset + attempt;
       const source = extractStarlark(response.text);
-      this.ledger.writeArtifact(`${phaseLabel}-source-attempt-${attempt}`, { source });
+      this.ledger.writeArtifact(`${phaseLabel}-source-attempt-${globalAttempt}`, { source });
 
       // R6: deterministic pre-lint. Mechanical Python-isms are auto-repaired
       // (and recorded); everything else becomes a precise rejection that
@@ -241,17 +313,20 @@ class PhasedCoordinator {
         });
         const jobs = validateJobs(evaluated.result, policy, validationPhase);
         const metrics = {
-          attempts: attempt,
-          repairs: attempt - 1,
-          firstPassValid: attempt === 1,
+          attempts: globalAttempt,
+          repairs: globalAttempt - 1,
+          firstPassValid: globalAttempt === 1,
           lintFixes: lint.applied.length,
+          model,
+          escalations: this.ladderIndex,
         };
         this.ledger.append(acceptedEvent, { jobs, starlarkSteps: evaluated.steps, metrics });
         return { jobs, metrics };
       } catch (error) {
         rejection = { source, error: error.message };
         this.ledger.append(`${phaseLabel}_rejected`, {
-          attempt,
+          attempt: globalAttempt,
+          model,
           error: error.message,
           ...(error.lintRules ? { lintRules: error.lintRules } : {}),
         });

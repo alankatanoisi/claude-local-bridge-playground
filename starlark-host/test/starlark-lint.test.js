@@ -144,7 +144,14 @@ test('coordinator: adjacent-string plan is auto-repaired and accepted first-pass
   });
   const result = await coordinator.run();
   assert.equal(result.phase, 'completed');
-  assert.deepEqual(result.planMetrics, { attempts: 1, repairs: 0, firstPassValid: true, lintFixes: 1 });
+  assert.deepEqual(result.planMetrics, {
+    attempts: 1,
+    repairs: 0,
+    firstPassValid: true,
+    lintFixes: 1,
+    model: 'mock-planner',
+    escalations: 0,
+  });
   const events = fs.readFileSync(path.join(runDir, 'events.jsonl'), 'utf8');
   assert.match(events, /plan_lint_repaired/);
   assert.match(events, /adjacent-strings/);
