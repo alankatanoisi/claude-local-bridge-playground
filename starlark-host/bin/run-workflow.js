@@ -20,6 +20,9 @@ async function main() {
     traceLevel: args.traceLevel || config.traceLevel || 'off',
     maxCostUsd: args.maxCostUsd === undefined ? 0 : Number(args.maxCostUsd),
     campaignId: args.campaign || null,
+    // R9: --worker-provider deterministic_analyst routes worker jobs to the
+    // zero-cost static profiler instead of the Claude bridge.
+    workerProvider: args.workerProvider || 'local_claude_bridge',
   });
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
 }

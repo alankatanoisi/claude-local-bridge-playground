@@ -7,6 +7,7 @@ const path = require('path');
 const { ClaudeBridge, CostBudget, MockBridge } = require('./bridge');
 const { openCampaignBudget } = require('./campaign-budget');
 const { PhasedCoordinator } = require('./coordinator');
+const { createDeterministicProvider } = require('./deterministic-analyst');
 const { atomicWrite } = require('./ledger');
 const { discoverRepositoryDocuments } = require('./repo-manifest');
 const { collectTestFailureDocuments } = require('./test-triage');
@@ -82,6 +83,7 @@ async function runWorkflow({
   traceLevel = config.traceLevel || 'off',
   maxCostUsd = 0,
   campaignId = null,
+  workerProvider = 'local_claude_bridge',
   runRoot = path.join(ROOT, 'workflow-runs'),
   prototypeRoot = ROOT,
 }) {
@@ -111,11 +113,15 @@ async function runWorkflow({
         })
       : new MockBridge({ budget, workerName: workflow.worker });
 
-  const modelRoutes = routesForProfiles(config.workerProfiles, workerModel);
+  if (!['local_claude_bridge', 'deterministic_analyst'].includes(workerProvider)) {
+    throw new Error(`unknown worker provider '${workerProvider}'`);
+  }
+  const modelRoutes = routesForProfiles(config.workerProfiles, workerModel, workerProvider);
   const workerRegistry = createBridgeWorkerRegistry({
     profiles: config.workerProfiles,
     bridge,
     modelRoutes,
+    extraProviders: { deterministic_analyst: createDeterministicProvider() },
   });
   const workflowConfig = {
     ...config,
@@ -164,11 +170,11 @@ async function runWorkflow({
   }
 }
 
-function routesForProfiles(profiles, workerModel) {
+function routesForProfiles(profiles, workerModel, provider = 'local_claude_bridge') {
   const routes = {};
   for (const profile of Object.values(profiles)) {
     routes[profile.route] = {
-      provider: 'local_claude_bridge',
+      provider,
       model: workerModel,
     };
   }

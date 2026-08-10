@@ -78,7 +78,7 @@ class WorkerRegistry {
   }
 }
 
-function createBridgeWorkerRegistry({ profiles, bridge, modelRoutes }) {
+function createBridgeWorkerRegistry({ profiles, bridge, modelRoutes, extraProviders }) {
   return new WorkerRegistry({
     profiles,
     routes: modelRoutes,
@@ -86,6 +86,10 @@ function createBridgeWorkerRegistry({ profiles, bridge, modelRoutes }) {
       local_claude_bridge: {
         execute: (request) => bridge.call(request),
       },
+      // R9: additional host-owned providers (e.g. the deterministic analyst)
+      // compose here. Routes select the provider; generated descriptors never
+      // see provider names, so a provider swap cannot change what plans say.
+      ...(extraProviders || {}),
     },
   });
 }
