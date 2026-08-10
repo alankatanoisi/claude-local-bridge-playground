@@ -40,6 +40,8 @@ hiding a newly demonstrated bypass. For the runner's detailed control mechanics 
 [`docs/threat-model.md`](./docs/threat-model.md) alongside the root policy.
 
 For the local CLI runner prototype that now ships in this repo, see [docs/runner-quickstart.html](./docs/runner-quickstart.html).
+The Starlark phased-hybrid control plane (graduated prototype, recommendation R3) lives in
+[`starlark-host/`](./starlark-host/README.md); run its checks with `npm run test:starlark` (requires a Go toolchain).
 To explore which Claude Code harness capabilities are prudent to add next, see
 [docs/runner-expansion-roadmap.md](./docs/runner-expansion-roadmap.md).
 For the manual self-hosted GitHub Actions proof of concept, see

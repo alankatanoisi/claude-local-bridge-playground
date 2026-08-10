@@ -276,6 +276,11 @@ items rather than starting a parallel tracker.
   ledger-aware resume) closed same evening** — `HANDOFF-f6-ledger-aware-resume-2026-07-31.md`.
   Residual: A1-F4/A1-F5, A3-F4, DBOS arm, HE-05 OTel half.
 
+- **Starlark thread — Bundle A (R3+R1/R2) executed 2026-08-10:** prototype graduated into
+  `starlark-host/`; durable cross-process dollar-metered campaign budgets landed and were live-proven.
+  Handoff: `HANDOFF-bundle-a-starlark-2026-08-10.md`. Remaining bands: Bundle B (R5–R7, +R10),
+  Bundle C (R4 paid matrix).
+
 **Three ID namespaces exist in `docs/`.** The runtime-concordance series `P0-01…P0-12` is closed; the
 future-directions band `FD-01…FD-05` is _also_ labelled P0 by the 07-22 handoff; the 2026-07-28 harness
 review uses `HE-01…HE-11`. Write the specific ID you mean (`FD-01`, `HE-01`, never a bare "P0"). Register
@@ -319,7 +324,7 @@ Same content as `AGENTS.md` — keep mirrored.
 - A sibling Codex lab lives at `/Users/alanman/Developer/codex-local-bridge-playground`; keep that work separate from this Claude playground unless Alan explicitly asks to cross-apply.
 - Local runner session artifacts often live under `~/.bridge-runner`; prefer a unified transcript/index layout when changing logging rather than inventing a second parallel scheme.
 - Runtime concordance / P0–P1 remediation status is tracked in dated docs under `docs/` (assessment HTML plus agent-facing handoffs); annotate those when closing items rather than inventing a parallel tracker.
-- Orchestration prototype scratch code lives in `~/Developer/orchestration-prototypes/` (outside git); only dated result docs belong in the repo's `docs/`.
+- Orchestration prototype scratch code lives in `~/Developer/orchestration-prototypes/` (outside git); only dated result docs belong in the repo's `docs/`. Exception: the Starlark phased-hybrid prototype graduated into this repo as `starlark-host/` on 2026-08-10 (recommendation R3); its run evidence (`starlark-host/{runs,workflow-runs,matrix-runs}/`) stays untracked and sensitive, and live spend is metered by durable campaign ledgers under `~/.bridge-runner/campaigns/`.
 - Runner session ledgers under `~/.bridge-runner` can contain prompts and file paths; when analyzing them, report aggregate counts only and never quote ledger payload text.
 
 ## Handoff
