@@ -32,13 +32,14 @@ async function main() {
   const faultProfile = args.faultProfile || 'mixed';
   if (!['none', 'mixed'].includes(faultProfile)) throw new Error('--fault-profile must be none or mixed');
 
+  const axis = args.axis || 'planner';
+  if (!['planner', 'worker'].includes(axis)) throw new Error('--axis must be planner or worker');
+  const configured = axis === 'planner' ? config.plannerModels : config.workerModels;
   const models =
-    !args.models || args.models === 'all'
-      ? config.plannerModels
-      : args.models.split(',').map((model) => model.trim());
+    !args.models || args.models === 'all' ? configured : args.models.split(',').map((model) => model.trim());
   for (const model of models) {
-    if (!config.plannerModels.includes(model)) {
-      throw new Error(`model is not configured for the planner axis: ${model}`);
+    if (!configured.includes(model)) {
+      throw new Error(`model is not configured for the ${axis} axis: ${model}`);
     }
   }
 
@@ -67,6 +68,9 @@ async function main() {
     faultProfile,
     traceLevel: args.traceLevel || 'full',
     evalRoot,
+    axis,
+    plannerModel: args.plannerModel || config.fixedPlannerModel,
+    workerModel: args.workerModel || config.fixedWorkerModel,
     onTrialComplete: (trial) => {
       // One progress line per finished trial so long batches are observable.
       process.stderr.write(
@@ -79,17 +83,27 @@ async function main() {
 
   const summary = {
     mode,
+    axis,
     faultProfile,
     reps,
     models,
-    workerModel: config.fixedWorkerModel,
+    fixedPlannerModel: axis === 'worker' ? args.plannerModel || config.fixedPlannerModel : null,
+    fixedWorkerModel: axis === 'planner' ? args.workerModel || config.fixedWorkerModel : null,
     campaignId: budget.campaignId || null,
     campaignLimitUsd: budget.campaignId ? budget.limitUsd : null,
     campaignRemainingUsd: budget.campaignId ? budget.remainingUsd : null,
     budgetLedgerPath: budget.ledgerPath || null,
     evalRoot,
     perModel: aggregate(trials),
-    trials: trials.map((trial) => ({ model: trial.model, rep: trial.rep, runDir: trial.runDir, ...trial.score })),
+    trials: trials.map((trial) => ({
+      model: trial.model,
+      axis: trial.axis,
+      plannerModel: trial.plannerModel,
+      workerModel: trial.workerModel,
+      rep: trial.rep,
+      runDir: trial.runDir,
+      ...trial.score,
+    })),
   };
   atomicWrite(path.join(evalRoot, 'eval-summary.json'), summary);
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n');

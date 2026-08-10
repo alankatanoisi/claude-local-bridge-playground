@@ -119,6 +119,12 @@ test('mock repeated trials run the full loop and aggregate per model', async () 
   assert.ok(trials.every((trial) => trial.score.planFirstPassValid === true));
   assert.ok(trials.every((trial) => fs.existsSync(path.join(trial.runDir, 'state.json'))));
 
+  // Axis attribution: the varied model landed on the planner slot, the fixed
+  // worker model stayed put in every trial.
+  assert.ok(trials.every((trial) => trial.axis === 'planner'));
+  assert.ok(trials.every((trial) => trial.plannerModel === trial.model));
+  assert.ok(trials.every((trial) => trial.workerModel === 'mock-worker'));
+
   const summary = aggregate(trials);
   assert.deepEqual(Object.keys(summary).sort(), ['mock-a', 'mock-b']);
   assert.equal(summary['mock-a'].trials, 2);

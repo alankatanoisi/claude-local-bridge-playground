@@ -199,12 +199,19 @@ async function runRepeatedTrials({
   faultProfile = 'mixed',
   traceLevel = 'full',
   evalRoot,
+  // axis 'planner' varies the planner with workers fixed (R4); axis 'worker'
+  // varies the worker with the planner fixed. Exactly one axis moves per
+  // evaluation so a difference is always attributable.
+  axis = 'planner',
+  plannerModel = config.fixedPlannerModel,
   workerModel = config.fixedWorkerModel,
   onTrialComplete = () => {},
 }) {
   fs.mkdirSync(evalRoot, { recursive: true, mode: 0o700 });
   const trials = [];
   for (const model of models) {
+    const trialPlanner = axis === 'planner' ? model : plannerModel;
+    const trialWorker = axis === 'worker' ? model : workerModel;
     for (let rep = 1; rep <= reps; rep += 1) {
       const runDir = makeRunDir(evalRoot, model, rep);
       const traceId = `eval-${crypto.randomUUID()}`;
@@ -224,8 +231,8 @@ async function runRepeatedTrials({
       const coordinator = new PhasedCoordinator({
         config,
         bridge,
-        plannerModel: model,
-        workerModel,
+        plannerModel: trialPlanner,
+        workerModel: trialWorker,
         faultProfile,
         runDir,
         documents: loadDocuments(config),
@@ -244,6 +251,9 @@ async function runRepeatedTrials({
       }
       const trial = {
         model,
+        axis,
+        plannerModel: trialPlanner,
+        workerModel: trialWorker,
         rep,
         runDir,
         score: scoreRun({
