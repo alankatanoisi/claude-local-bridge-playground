@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Claude Local Bridge Runner Architecture Progress Review -- 2026-08-10</title>
+    <style>
+      :root {
+        --ink: #18212b;
+        --muted: #5d6975;
+        --paper: #f7f8fa;
+        --panel: #ffffff;
+        --line: #d6dce2;
+        --navy: #16324f;
+        --green: #176b4d;
+        --green-bg: #e7f4ee;
+        --amber: #8a5800;
+        --amber-bg: #fff4d6;
+        --red: #9b2c2c;
+        --red-bg: #fdecec;
+        --blue: #235d91;
+        --blue-bg: #eaf2fa;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--paper);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+        line-height: 1.58;
+      }
+
+      header {
+        color: white;
+        background: var(--navy);
+        border-bottom: 5px solid #2d7a66;
+      }
+
+      .header-inner,
+      main,
+      nav {
+        width: min(1160px, calc(100% - 36px));
+        margin: 0 auto;
+      }
+
+      .header-inner {
+        padding: 48px 0 42px;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: #b9ded3;
+        font-size: 0.8rem;
+        font-weight: 750;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        max-width: 900px;
+        margin: 0;
+        font-size: 3.45rem;
+        line-height: 1.08;
+        letter-spacing: 0;
+      }
+
+      .subtitle {
+        max-width: 850px;
+        margin: 18px 0 0;
+        color: #d9e6ef;
+        font-size: 1.08rem;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 20px;
+        margin-top: 26px;
+        color: #d9e6ef;
+        font-size: 0.88rem;
+      }
+
+      nav {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 14px 0;
+      }
+
+      nav a {
+        flex: 0 0 auto;
+        color: var(--navy);
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 7px 11px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      main {
+        padding: 22px 0 60px;
+      }
+
+      section {
+        padding: 30px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      section:first-child {
+        border-top: 0;
+      }
+
+      h2 {
+        margin: 0 0 16px;
+        color: var(--navy);
+        font-size: 1.62rem;
+        letter-spacing: 0;
+      }
+
+      h3 {
+        margin: 28px 0 10px;
+        color: #24445e;
+        font-size: 1.15rem;
+        letter-spacing: 0;
+      }
+
+      p,
+      li {
+        max-width: 960px;
+      }
+
+      code {
+        color: #153c5c;
+        background: #edf1f4;
+        border-radius: 3px;
+        padding: 0.1em 0.3em;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.91em;
+      }
+
+      .lede {
+        max-width: 980px;
+        margin: 0;
+        font-size: 1.2rem;
+        line-height: 1.55;
+      }
+
+      .verdict {
+        margin: 24px 0;
+        padding: 20px 22px;
+        color: #0f4033;
+        background: var(--green-bg);
+        border-left: 5px solid var(--green);
+        font-size: 1.08rem;
+        font-weight: 700;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin: 22px 0;
+      }
+
+      .metric,
+      .callout,
+      .step {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+      }
+
+      .metric {
+        min-height: 118px;
+        padding: 18px;
+      }
+
+      .metric strong {
+        display: block;
+        color: var(--navy);
+        font-size: 1.65rem;
+      }
+
+      .metric span {
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      .callout {
+        margin: 18px 0;
+        padding: 17px 19px;
+      }
+
+      .callout.good {
+        background: var(--green-bg);
+        border-color: #a9d8c8;
+      }
+
+      .callout.warn {
+        background: var(--amber-bg);
+        border-color: #e5ca83;
+      }
+
+      .callout.bad {
+        background: var(--red-bg);
+        border-color: #e8b2b2;
+      }
+
+      .callout.info {
+        background: var(--blue-bg);
+        border-color: #b5d0e8;
+      }
+
+      .callout-title {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 800;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        margin: 18px 0 24px;
+        background: white;
+        border: 1px solid var(--line);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.91rem;
+      }
+
+      th,
+      td {
+        padding: 11px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        color: white;
+        background: var(--navy);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .badge {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+
+      .p0 {
+        color: var(--red);
+        background: var(--red-bg);
+      }
+
+      .p1 {
+        color: var(--amber);
+        background: var(--amber-bg);
+      }
+
+      .p2 {
+        color: var(--blue);
+        background: var(--blue-bg);
+      }
+
+      .architecture {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr auto 1fr;
+        align-items: stretch;
+        gap: 10px;
+        margin: 24px 0;
+      }
+
+      .arch-box {
+        display: flex;
+        min-height: 120px;
+        flex-direction: column;
+        justify-content: center;
+        padding: 16px;
+        background: white;
+        border: 1px solid var(--line);
+        border-top: 4px solid var(--blue);
+        border-radius: 5px;
+      }
+
+      .arch-box strong {
+        color: var(--navy);
+      }
+
+      .arch-box small {
+        margin-top: 7px;
+        color: var(--muted);
+      }
+
+      .arrow {
+        display: flex;
+        align-items: center;
+        color: var(--muted);
+        font-size: 1.4rem;
+      }
+
+      .target {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin: 20px 0;
+      }
+
+      .target .arch-box {
+        min-height: 150px;
+        border-top-color: var(--green);
+      }
+
+      .steps {
+        display: grid;
+        gap: 12px;
+        margin: 20px 0;
+      }
+
+      .step {
+        display: grid;
+        grid-template-columns: 62px 1fr;
+        overflow: hidden;
+      }
+
+      .step-number {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        background: var(--navy);
+        font-size: 1.25rem;
+        font-weight: 800;
+      }
+
+      .step-body {
+        padding: 15px 18px;
+      }
+
+      .step-body strong {
+        display: block;
+        color: var(--navy);
+      }
+
+      .step-body p {
+        margin: 5px 0 0;
+      }
+
+      .small {
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      footer {
+        padding: 28px 0 40px;
+        color: var(--muted);
+        border-top: 1px solid var(--line);
+      }
+
+      @media (max-width: 860px) {
+        .grid,
+        .target {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .architecture {
+          grid-template-columns: 1fr;
+        }
+
+        .arrow {
+          justify-content: center;
+          transform: rotate(90deg);
+        }
+      }
+
+      @media (max-width: 560px) {
+        .header-inner,
+        main,
+        nav {
+          width: min(100% - 24px, 1160px);
+        }
+
+        .header-inner {
+          padding: 34px 0 30px;
+        }
+
+        h1 {
+          font-size: 2.2rem;
+        }
+
+        .grid,
+        .target {
+          grid-template-columns: 1fr;
+        }
+
+        .step {
+          grid-template-columns: 48px 1fr;
+        }
+
+        th,
+        td {
+          padding: 9px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="header-inner">
+        <p class="eyebrow">Architecture review - August 10, 2026</p>
+        <h1>Claude Local Bridge Runner: Progress Toward User-Owned Orchestration</h1>
+        <p class="subtitle">
+          A source-grounded comparison of the current runner against the July 29 discussion about programmatic tool
+          calling, agents as tools, code-driven orchestration, and who owns each loop.
+        </p>
+        <div class="meta">
+          <span>Baseline: <strong>e822aec</strong></span>
+          <span>Reviewed: <strong>39ec363</strong></span>
+          <span>Branch: <strong>main</strong></span>
+          <span>Remote parity: <strong>0 ahead / 0 behind</strong></span>
+        </div>
+      </div>
+    </header>
+
+    <nav aria-label="Report sections">
+      <a href="#verdict">Verdict</a>
+      <a href="#change">Change</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#scorecard">Scorecard</a>
+      <a href="#findings">Findings</a>
+      <a href="#target">Target</a>
+      <a href="#next">Next work</a>
+      <a href="#validation">Validation</a>
+    </nav>
+
+    <main>
+      <section id="verdict">
+        <h2>Executive Verdict</h2>
+        <p class="lede">
+          The runner now has a strong local single-agent loop, genuine bounded subagents, real concurrent research
+          fan-out, budget leases, effect journaling, and process-death recovery. It still does not have one durable,
+          provider-neutral campaign host that owns the complete graph, outputs, budgets, retries, cancellation, and
+          acceptance decision.
+        </p>
+        <div class="verdict">
+          We can call multiple bounded agents and generate safe programmatic plans. We cannot yet resume and govern a
+          whole multi-worker campaign as one durable user-owned object.
+        </div>
+        <div class="grid">
+          <div class="metric">
+            <strong>Strong</strong><span>Single-agent tool, permission, evidence, and recovery loop</span>
+          </div>
+          <div class="metric">
+            <strong>Early</strong><span>Native multi-agent coordinator with real concurrency</span>
+          </div>
+          <div class="metric">
+            <strong>Separate</strong><span>Starlark code-as-plan prototype and symbolic worker registry</span>
+          </div>
+        </div>
+        <div class="callout info">
+          <span class="callout-title">Recommended architectural decision</span>
+          Make the native coordinator the durable campaign host. Keep Starlark as a capability-free plan compiler that
+          emits validated descriptors into that host. Do not grow two independent control planes.
+        </div>
+      </section>
+
+      <section id="change">
+        <h2>What Changed Since July 29</h2>
+        <div class="grid">
+          <div class="metric"><strong>32</strong><span>commits after the selected baseline</span></div>
+          <div class="metric">
+            <strong>155</strong><span>files changed across source, tests, reports, and evidence</span>
+          </div>
+          <div class="metric">
+            <strong>32,127</strong><span>insertions, including extensive structural test and report work</span>
+          </div>
+          <div class="metric"><strong>975</strong><span>tests in the current full suite</span></div>
+          <div class="metric"><strong>20</strong><span>registered runner tools</span></div>
+          <div class="metric">
+            <strong>78</strong><span>runner command-line flags checked for documentation drift</span>
+          </div>
+        </div>
+        <p>
+          The most meaningful runtime work landed in the coordinator, budget leasing, ledger repair, permission and path
+          contracts, deterministic worktree startup, shell confinement, and false-green test families. July 31 also
+          produced bounded CodeAct, worker-contract, concurrency, and crash-recovery experiments. August 6 added a
+          separate Starlark host that expresses code as plan rather than code as action.
+        </p>
+      </section>
+
+      <section id="architecture">
+        <h2>Architecture Now</h2>
+        <div class="architecture" aria-label="Current architecture diagram">
+          <div class="arch-box">
+            <strong>User and optional coordinator</strong>
+            <small>Objective, phase list, research plan, authority, token and time ceilings</small>
+          </div>
+          <div class="arrow" aria-hidden="true">-></div>
+          <div class="arch-box">
+            <strong>Agent kernel and worker runtime</strong>
+            <small>Claude runner loop, read-only child subprocesses, deterministic research batches</small>
+          </div>
+          <div class="arrow" aria-hidden="true">-></div>
+          <div class="arch-box">
+            <strong>Host-owned tools and evidence</strong>
+            <small>Permission gate, effect ledger, session checkpoint, traces, archives, worktrees</small>
+          </div>
+        </div>
+
+        <h3>What is mature enough to build on</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Layer</th>
+                <th>Current strength</th>
+                <th>Why it matters</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Authority</td>
+                <td>Immutable parent ceiling; children may only narrow</td>
+                <td>The host, not the model, owns permission</td>
+              </tr>
+              <tr>
+                <td>Tool pipeline</td>
+                <td>One path for gate, confirmation, execution, redaction, sinks, and effect pairs</td>
+                <td>Typed tools remain inspectable and auditable</td>
+              </tr>
+              <tr>
+                <td>Durability</td>
+                <td>Atomic session state, synchronous ledger, repair, kill testing</td>
+                <td>Inner-loop work survives real process failure</td>
+              </tr>
+              <tr>
+                <td>Subagents</td>
+                <td>Separate process/context, read-only, depth one, usage manifest</td>
+                <td>Agents can function as bounded tools</td>
+              </tr>
+              <tr>
+                <td>Fan-out</td>
+                <td>Dependency-free research nodes run concurrently with split leases</td>
+                <td>The harness now owns real parallel scheduling</td>
+              </tr>
+              <tr>
+                <td>Programmatic planning</td>
+                <td>Starlark prototype emits inert descriptors only</td>
+                <td>Generated code can be expressive without ambient authority</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Where the architecture stops</h3>
+        <p>
+          The coordinator retains research results and phase progress in process memory, uses free-form worker text as
+          its contract, and routes every native worker through the same Claude runner. The Starlark host has a better
+          symbolic worker seam but is separate, outside this repository's runtime, and proven live against only one
+          provider adapter.
+        </p>
+      </section>
+
+      <section id="scorecard">
+        <h2>Progress Against Our Discussion</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Objective</th>
+                <th>Status</th>
+                <th>Current reality</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>User owns the loop</td>
+                <td><span class="badge p1">Partial</span></td>
+                <td>Strong inside one runner session; campaign state remains process-local</td>
+              </tr>
+              <tr>
+                <td>Agents as tools</td>
+                <td><span class="badge p2">Implemented</span></td>
+                <td><code>spawn_agent</code> is bounded, read-only, depth one, and usage-accounted</td>
+              </tr>
+              <tr>
+                <td>Concurrent host scheduling</td>
+                <td><span class="badge p2">Implemented</span></td>
+                <td>Research DAG batches use real <code>Promise.all</code> fan-out</td>
+              </tr>
+              <tr>
+                <td>Non-agentic workers</td>
+                <td><span class="badge p1">Separate proof</span></td>
+                <td>Demonstrated outside native runtime; coordinator launches runner subprocesses only</td>
+              </tr>
+              <tr>
+                <td>Provider-neutral routing</td>
+                <td><span class="badge p1">Structural only</span></td>
+                <td>Symbolic registry exists in scratch prototype; one live adapter</td>
+              </tr>
+              <tr>
+                <td>Programmatic orchestration</td>
+                <td><span class="badge p1">Experiment only</span></td>
+                <td>CodeAct and Starlark worked; native runtime consumes static JSON plans</td>
+              </tr>
+              <tr>
+                <td>Durable campaign resume</td>
+                <td><span class="badge p0">Missing</span></td>
+                <td>Inner session resumes; completed coordinator jobs are not checkpointed</td>
+              </tr>
+              <tr>
+                <td>Typed output and acceptance</td>
+                <td><span class="badge p0">Weak</span></td>
+                <td>Free-form text extraction; failed output can be accepted as evidence</td>
+              </tr>
+              <tr>
+                <td>User-owned budgets</td>
+                <td><span class="badge p1">Partial</span></td>
+                <td>Token leases work in one process; cache use and cross-process state are not enforced</td>
+              </tr>
+              <tr>
+                <td>User-owned evidence</td>
+                <td><span class="badge p2">Strong/partial</span></td>
+                <td>Runner evidence is rich; coordinator artifacts are not incrementally durable</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="findings">
+        <h2>Current Findings</h2>
+        <div class="callout bad">
+          <span class="callout-title"
+            ><span class="badge p0">P0</span> Removed credential remains in reachable Git history</span
+          >
+          The current file is clean, but a parent revision on <code>origin/main</code> contains one value recognized by
+          the central redactor. Revoke or rotate first, then coordinate history cleanup and add secret scanning for
+          pasted terminal evidence.
+        </div>
+        <div class="callout warn">
+          <span class="callout-title"
+            ><span class="badge p1">P1</span> Native tools reject runner-created worktrees</span
+          >
+          Worktrees live under <code>~/.bridge-runner/worktrees</code>; the global deny matrix blocks every
+          <code>.bridge-runner</code> path. This forces agents from safer typed tools into large shell scripts.
+        </div>
+        <div class="callout warn">
+          <span class="callout-title"><span class="badge p1">P1</span> Resume silently changes worktree identity</span>
+          Startup isolation creates a fresh worktree before prior session state loads, and worktree identity is not
+          stored in session metadata. Resumed reasoning can point at different filesystem state.
+        </div>
+        <div class="callout warn">
+          <span class="callout-title"
+            ><span class="badge p1">P1</span> Verification can fail while the phase reports completed</span
+          >
+          An injected failed verification worker produced <code>verify: completed</code> and <code>error: null</code>.
+          Verification is currently advisory, not a terminal acceptance gate.
+        </div>
+        <div class="callout warn">
+          <span class="callout-title"
+            ><span class="badge p1">P1</span> Failed research text can become implementation evidence</span
+          >
+          Claims and paths are extracted regardless of worker exit state, and the compiler does not filter failed,
+          refused, killed, or truncated results.
+        </div>
+        <div class="callout warn">
+          <span class="callout-title"><span class="badge p1">P1</span> Infrastructure retries consume task turns</span>
+          Transient bridge retries advance the outer step loop. A one-step task gets no retry even when retry budget
+          remains.
+        </div>
+        <div class="callout info">
+          <span class="callout-title"
+            ><span class="badge p2">P2</span> Campaign durability and data flow remain incomplete</span
+          >
+          Research node state, attempts, outputs, artifacts, and phase cursor are not saved per transition. Dependency
+          edges order workers but do not carry predecessor outputs.
+        </div>
+        <div class="callout info">
+          <span class="callout-title"
+            ><span class="badge p2">P2</span> One non-hermetic test and five security todos remain</span
+          >
+          The full suite has one fixed-global-worktree failure. HS-01, HS-02, HS-03, HS-05, and HS-06 remain registered
+          as known gaps rather than silently green.
+        </div>
+      </section>
+
+      <section id="target">
+        <h2>Recommended Target</h2>
+        <p class="lede">
+          One local durable campaign host should own every mechanical loop. Models may propose plans and interpret
+          results; they do not own job state, authority, budget reservations, retry policy, or terminal acceptance.
+        </p>
+        <div class="target" aria-label="Target architecture components">
+          <div class="arch-box">
+            <strong>Validated plan</strong
+            ><small>Plain JSON for fixed jobs; capability-free Starlark for bounded expansion</small>
+          </div>
+          <div class="arch-box">
+            <strong>Durable host</strong
+            ><small>Campaign state, DAG, attempts, cancellation, resume, idempotency, acceptance</small>
+          </div>
+          <div class="arch-box">
+            <strong>Worker registry</strong
+            ><small>Claude runner, Gemini service, deterministic code, sandboxed CodeAct</small>
+          </div>
+          <div class="arch-box">
+            <strong>Evidence store</strong
+            ><small>Typed outputs, artifact hashes, claim provenance, budget and effect ledgers</small>
+          </div>
+        </div>
+        <div class="callout good">
+          <span class="callout-title">Ownership rule</span>
+          The generated Starlark program has zero capabilities. It emits descriptors. The host validates, reserves,
+          dispatches, records, retries, cancels, and decides whether the campaign is complete.
+        </div>
+      </section>
+
+      <section id="next">
+        <h2>What To Work On Next</h2>
+        <div class="steps">
+          <div class="step">
+            <div class="step-number">0</div>
+            <div class="step-body">
+              <strong>Contain credential history</strong>
+              <p>
+                Rotate or revoke, coordinate history cleanup, and add a secret scan covering docs and terminal captures.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-number">1</div>
+            <div class="step-body">
+              <strong>Repair worktree, resume, and retry composition</strong>
+              <p>
+                Let native tools operate inside the exact managed worktree, persist its identity, resume the same root,
+                make tests hermetic, and separate transport attempts from semantic steps.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-body">
+              <strong>Make coordinator outcomes honest</strong>
+              <p>
+                Reject failed worker evidence, attach per-claim provenance, require a typed verification verdict, and
+                model partial terminal states explicitly.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-body">
+              <strong>Choose one control plane</strong>
+              <p>
+                Use the native coordinator as the host; move Starlark under version control as a descriptor compiler,
+                not a second scheduler.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-number">4</div>
+            <div class="step-body">
+              <strong>Add a durable campaign ledger</strong>
+              <p>
+                Persist plan digest, job states, leases, attempts, artifacts, cursor, cancellation, and resume after
+                every transition.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-number">5</div>
+            <div class="step-body">
+              <strong>Add a typed worker registry</strong>
+              <p>
+                Start with deterministic analysis, the Claude runner, and a Gemini file-analysis adapter modeled after
+                the existing Shortcut workflow.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-number">6</div>
+            <div class="step-body">
+              <strong>Integrate programmatic planning</strong>
+              <p>
+                JSON cheap path, Starlark for matrices, program/input hashing, deterministic lint, strict evaluation and
+                descriptor ceilings.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-number">7</div>
+            <div class="step-body">
+              <strong>Prove it on the bulk file-renaming workflow</strong>
+              <p>
+                Run a 100-file, multi-worker, cost-bounded campaign with durable artifacts, idempotent renames,
+                kill/resume, and cancellation tests.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="callout info">
+          <span class="callout-title">Do not build next</span>
+          Another coordinator, unrestricted Python as the plan language, many provider adapters before one contract is
+          durable, or more isolated guard inventories without composed runtime tests.
+        </div>
+      </section>
+
+      <section id="validation">
+        <h2>Validation</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Check</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Repository and remote parity</td>
+                <td>Correct playground <code>main</code>; synchronized at review start</td>
+              </tr>
+              <tr>
+                <td>Full tests</td>
+                <td><strong>Failed:</strong> 975 total; 969 pass; 1 fail; 5 todo; 46.5 seconds</td>
+              </tr>
+              <tr>
+                <td>Real failure</td>
+                <td>Parallel worktree slot test uses existing fixed global <code>slot-a</code> path</td>
+              </tr>
+              <tr>
+                <td>Lint</td>
+                <td>Passed</td>
+              </tr>
+              <tr>
+                <td>Documentation consistency</td>
+                <td>Passed</td>
+              </tr>
+              <tr>
+                <td>Formatting</td>
+                <td>Passed</td>
+              </tr>
+              <tr>
+                <td>Failed verification probe</td>
+                <td>Confirmed false <code>completed</code> phase state</td>
+              </tr>
+              <tr>
+                <td>Failed research probe</td>
+                <td>Confirmed failed claim/path accepted by compiler</td>
+              </tr>
+              <tr>
+                <td>Worktree safety probe</td>
+                <td>Confirmed managed root matches <code>.bridge-runner</code> deny rule</td>
+              </tr>
+              <tr>
+                <td>Credential current tree</td>
+                <td>Clean under central redactor</td>
+              </tr>
+              <tr>
+                <td>Credential history</td>
+                <td>One redacted value remains in a reachable parent revision</td>
+              </tr>
+              <tr>
+                <td>Live paid call</td>
+                <td>Not repeated; August 10 audit records a bounded successful live call</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="small">
+          No credential, history, worktree, branch, session, or source remediation was performed. The unrelated
+          untracked Datadog guide was preserved.
+        </p>
+      </section>
+
+      <section>
+        <h2>Bottom Line</h2>
+        <div class="verdict">
+          Stabilize worktree/resume/retry composition, make coordinator results honest, then assemble the existing
+          pieces into one durable local campaign host with validated JSON/Starlark plans and a typed worker registry.
+        </div>
+        <p>
+          That path preserves the core principle from the original conversation: the user owns the loop at every layer
+          where ownership is technically possible.
+        </p>
+      </section>
+
+      <footer>
+        <strong>Handoff:</strong> repository <code>/Users/alanman/Developer/claude-local-bridge-playground</code>,
+        branch <code>main</code>. This HTML file is the human-facing companion to
+        <code>docs/runner-architecture-progress-review-2026-08-10.md</code>.
+      </footer>
+    </main>
+  </body>
+</html>

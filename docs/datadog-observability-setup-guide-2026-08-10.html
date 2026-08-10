@@ -1,0 +1,1000 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Datadog Setup Manual for the Claude Local Bridge Playground</title>
+  <style>
+    :root {
+      --ink: #1d2433;
+      --muted: #596377;
+      --paper: #f5f6fa;
+      --surface: #ffffff;
+      --surface-2: #f0edff;
+      --line: #d9ddea;
+      --purple: #632ca6;
+      --purple-dark: #35145e;
+      --purple-soft: #eee5fb;
+      --green: #08785c;
+      --green-soft: #e4f4ee;
+      --amber: #925d00;
+      --amber-soft: #fff2d5;
+      --red: #a02e3e;
+      --red-soft: #fde9ec;
+      --blue: #1d5fa7;
+      --blue-soft: #e7f0fb;
+      --shadow: 0 16px 42px rgba(46, 27, 77, 0.09);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.68;
+    }
+    a { color: var(--blue); }
+    a:hover { color: var(--purple); }
+    code, pre, .mono {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+    code { overflow-wrap: anywhere; }
+    header {
+      color: white;
+      background:
+        radial-gradient(circle at 85% 10%, rgba(184, 130, 255, 0.34), transparent 30%),
+        linear-gradient(135deg, #25103f 0%, #4c1d80 54%, #652aa6 100%);
+      border-bottom: 6px solid #9b6bd1;
+    }
+    .header-inner, main, footer {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+    .header-inner { padding: 58px 0 48px; }
+    .eyebrow {
+      color: #dcc7f6;
+      font-size: 0.78rem;
+      font-weight: 850;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    h1 {
+      max-width: 980px;
+      margin: 10px 0 14px;
+      font-size: clamp(2.25rem, 5vw, 4.5rem);
+      line-height: 1.02;
+      letter-spacing: -0.035em;
+    }
+    .subtitle {
+      max-width: 850px;
+      margin: 0;
+      color: #eee4fb;
+      font-size: 1.12rem;
+    }
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      margin-top: 30px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.18);
+    }
+    .meta div { min-height: 90px; padding: 16px 18px; background: rgba(20, 5, 38, 0.48); }
+    .meta span { display: block; color: #cdb8e7; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
+    .meta strong { display: block; margin-top: 5px; color: white; font-size: 1.05rem; }
+    main { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 32px; padding: 34px 0 74px; }
+    nav {
+      position: sticky;
+      top: 18px;
+      align-self: start;
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    nav strong { display: block; margin-bottom: 8px; color: var(--purple-dark); }
+    nav a {
+      display: block;
+      padding: 6px 8px;
+      border-radius: 7px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      text-decoration: none;
+    }
+    nav a:hover { background: var(--purple-soft); color: var(--purple-dark); }
+    .content { min-width: 0; }
+    section {
+      margin-bottom: 24px;
+      padding: 30px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    h2 { margin: 0 0 12px; color: var(--purple-dark); font-size: 1.7rem; line-height: 1.2; }
+    h3 { margin: 26px 0 8px; color: #43206d; font-size: 1.17rem; line-height: 1.3; }
+    h4 { margin: 20px 0 6px; font-size: 1rem; }
+    p { max-width: 900px; }
+    .lead { color: #374154; font-size: 1.06rem; }
+    .callout {
+      margin: 18px 0;
+      padding: 18px 20px;
+      border-left: 5px solid var(--purple);
+      background: var(--purple-soft);
+    }
+    .callout.good { border-color: var(--green); background: var(--green-soft); }
+    .callout.warn { border-color: var(--amber); background: var(--amber-soft); }
+    .callout.danger { border-color: var(--red); background: var(--red-soft); }
+    .callout.info { border-color: var(--blue); background: var(--blue-soft); }
+    .callout p:first-child, .callout p:last-child { margin-top: 0; margin-bottom: 0; }
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+    }
+    .lane { padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
+    .lane strong { display: block; margin-bottom: 4px; }
+    .lane.now { background: var(--green-soft); }
+    .lane.agent { background: var(--amber-soft); }
+    .lane.optional { background: var(--blue-soft); }
+    .steps { counter-reset: steps; list-style: none; padding: 0; }
+    .steps > li {
+      counter-increment: steps;
+      position: relative;
+      margin: 0 0 14px;
+      padding: 16px 18px 16px 58px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfbfd;
+    }
+    .steps > li::before {
+      content: counter(steps);
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      display: grid;
+      width: 30px;
+      height: 30px;
+      place-items: center;
+      border-radius: 50%;
+      color: white;
+      background: var(--purple);
+      font-weight: 850;
+    }
+    .steps p { margin: 6px 0; }
+    .app-label {
+      display: inline-block;
+      margin-right: 5px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      color: #43206d;
+      background: #e5d7f7;
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+    .state {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 850;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .state.now { color: #075a45; background: #cdece0; }
+    .state.agent { color: #704700; background: #ffe2a6; }
+    .state.optional { color: #174d86; background: #cee2fa; }
+    .state.secret { color: #862333; background: #f8cbd2; }
+    .checklist { list-style: none; padding: 0; }
+    .checklist li { margin: 9px 0; }
+    .checklist label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+    .checklist input { width: 18px; height: 18px; margin-top: 4px; accent-color: var(--purple); }
+    .table-wrap { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+    table { width: 100%; min-width: 860px; border-collapse: collapse; background: white; font-size: 0.89rem; }
+    th, td { padding: 12px 13px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: #443652; background: #f2eef7; font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; }
+    tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #fbf9fe; }
+    .metric { color: #43206d; font-weight: 700; }
+    pre {
+      position: relative;
+      margin: 14px 0;
+      padding: 18px 18px 18px;
+      overflow: auto;
+      border: 1px solid #4e3866;
+      border-radius: 12px;
+      color: #f3ebfd;
+      background: #21162d;
+      font-size: 0.83rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    .copy-button {
+      float: right;
+      margin: 0 0 8px 10px;
+      padding: 7px 10px;
+      border: 1px solid #b8a2d1;
+      border-radius: 8px;
+      color: #43206d;
+      background: white;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .copy-button:hover { background: var(--purple-soft); }
+    details { margin: 12px 0; border: 1px solid var(--line); border-radius: 12px; background: #fcfcfe; }
+    summary { padding: 14px 16px; color: #43206d; font-weight: 800; cursor: pointer; }
+    details > div { padding: 0 16px 16px; }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin: 18px 0;
+    }
+    .flow div {
+      position: relative;
+      display: grid;
+      min-height: 82px;
+      place-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #faf8fd;
+      text-align: center;
+      font-size: 0.84rem;
+      font-weight: 800;
+    }
+    .flow div:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -15px;
+      z-index: 2;
+      color: var(--purple);
+      font-size: 1.2rem;
+    }
+    .dashboard-card { margin: 22px 0 28px; padding-top: 4px; border-top: 4px solid var(--purple); }
+    .dashboard-card h3 { margin-top: 16px; }
+    .small { color: var(--muted); font-size: 0.87rem; }
+    .source-list li { margin-bottom: 7px; }
+    .print-note { display: none; }
+    footer { padding: 0 0 55px; color: var(--muted); font-size: 0.86rem; }
+    @media (max-width: 940px) {
+      main { grid-template-columns: 1fr; }
+      nav { position: static; max-height: none; }
+      .meta, .legend { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .flow { grid-template-columns: 1fr; }
+      .flow div:not(:last-child)::after { content: "↓"; right: 50%; bottom: -20px; }
+    }
+    @media (max-width: 620px) {
+      .header-inner, main, footer { width: min(100% - 22px, 1180px); }
+      .header-inner { padding: 40px 0 34px; }
+      .meta, .legend { grid-template-columns: 1fr; }
+      section { padding: 22px 17px; }
+      .steps > li { padding-left: 50px; }
+    }
+    @media print {
+      body { background: white; font-size: 11pt; }
+      header { color: black; background: white; border-bottom: 2px solid #555; }
+      .subtitle, .eyebrow, .meta span, .meta strong { color: black; }
+      .meta { border-color: #999; background: white; }
+      .meta div { min-height: 0; background: white; }
+      main { display: block; width: 100%; padding: 18px 0; }
+      nav, .copy-button { display: none; }
+      section { break-inside: avoid; box-shadow: none; }
+      a { color: black; }
+      .print-note { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="eyebrow">Normie-first setup manual · checked against official Datadog documentation · 2026-08-10</div>
+      <h1>Datadog for the Claude Local Bridge Playground</h1>
+      <p class="subtitle">A click-by-click guide to the five core dashboards, a sixth alerts-and-reliability dashboard, and optional second-wave observability—without ever treating an authentication key as ordinary telemetry.</p>
+      <div class="meta">
+        <div><span>Core dashboards</span><strong>5 planned views</strong></div>
+        <div><span>Additional dashboard</span><strong>Alerts + SLO command center</strong></div>
+        <div><span>Current implementation</span><strong>Metrics adapter not built yet</strong></div>
+        <div><span>Privacy choice</span><strong>Rich behavior allowed; secrets forbidden</strong></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <nav aria-label="Table of contents">
+      <strong>Guide map</strong>
+      <a href="#start">1. Start here</a>
+      <a href="#glossary">2. Plain-English glossary</a>
+      <a href="#entitlements">3. Check what your plan includes</a>
+      <a href="#agent">4. Install the Mac Agent</a>
+      <a href="#smoke">5. Send one harmless test metric</a>
+      <a href="#adapter">6. Get the missing adapter built</a>
+      <a href="#contract">7. Metric contract</a>
+      <a href="#dashboard-basics">8. Dashboard-building recipe</a>
+      <a href="#five-dashboards">9. Five core dashboards</a>
+      <a href="#alerts">10. Alerts and sixth dashboard</a>
+      <a href="#slo">11. Reliability objective</a>
+      <a href="#second-wave">12. Optional second wave</a>
+      <a href="#security">13. Privacy and security boundary</a>
+      <a href="#troubleshooting">14. Troubleshooting</a>
+      <a href="#finish">15. Finish checklist</a>
+      <a href="#sources">Official sources</a>
+    </nav>
+
+    <div class="content">
+      <section id="start">
+        <h2>1. Start here: what you can and cannot do today</h2>
+        <p class="lead"><strong>You can install Datadog and create empty dashboard shells today.</strong> You cannot create useful runner graphs until the playground begins sending the named measurements in this guide. That sending component—called a <em>telemetry adapter</em>—has not been implemented yet.</p>
+
+        <div class="legend" aria-label="Three setup lanes">
+          <div class="lane now"><strong><span class="state now">Do now</span></strong>Browser and Mac steps you can safely perform yourself.</div>
+          <div class="lane agent"><strong><span class="state agent">Needs agent work</span></strong>Repository implementation that should be delegated to a coding agent.</div>
+          <div class="lane optional"><strong><span class="state optional">Optional product</span></strong>Only do this after confirming it is included or intentionally starting a trial.</div>
+        </div>
+
+        <div class="flow" aria-label="Observability data flow">
+          <div>Runner and bridge events</div>
+          <div>Secret-removing telemetry adapter</div>
+          <div>DogStatsD on your Mac</div>
+          <div>Datadog cloud</div>
+          <div>Dashboards, monitors, and SLO</div>
+        </div>
+
+        <div class="callout warn">
+          <strong>Do not begin by uploading the existing trace folders.</strong> Your permission allows rich personal behavioral data to leave the Mac, but OAuth tokens, API keys, authorization headers, cookies, private keys, and other reusable credentials must still be removed before anything is sent. The adapter is where that security boundary belongs.
+        </div>
+
+        <h3>The recommended order</h3>
+        <ol class="steps">
+          <li><span class="state now">Do now</span> Check the Datadog site, plan, and trial/billing state.</li>
+          <li><span class="state now">Do now</span> Install the official Datadog Agent on the Mac.</li>
+          <li><span class="state now">Do now</span> Send one harmless test counter and confirm that it appears.</li>
+          <li><span class="state agent">Needs agent work</span> Ask a coding agent to implement and test the opt-in exporter.</li>
+          <li><span class="state now">Do now</span> Build the five dashboards using the widget recipes below.</li>
+          <li><span class="state now">Do now</span> Add monitors, then create the sixth Alert &amp; SLO Command Center.</li>
+          <li><span class="state optional">Optional product</span> Add APM, Agent Observability, logs, CI, or Synthetics only after checking entitlements.</li>
+        </ol>
+      </section>
+
+      <section id="glossary">
+        <h2>2. Plain-English glossary</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Word</th><th>Meaning in ordinary language</th><th>Example here</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Agent</strong></td><td>A small official Datadog program that runs on your Mac and forwards measurements to your account.</td><td>The Datadog Agent listens locally on UDP port 8125.</td></tr>
+              <tr><td><strong>Metric</strong></td><td>A named number recorded over time.</td><td><code>bridge_runner.run.duration_ms</code> records how long a run took.</td></tr>
+              <tr><td><strong>Tag</strong></td><td>A short label attached to a measurement so Datadog can group or filter it.</td><td><code>outcome:success</code> versus <code>outcome:failure</code>.</td></tr>
+              <tr><td><strong>Cardinality</strong></td><td>The number of distinct tag combinations. Huge cardinality can create surprise usage and cost.</td><td>A bounded <code>model</code> tag is fine; a unique <code>run_id</code> metric tag is not.</td></tr>
+              <tr><td><strong>Dashboard</strong></td><td>A page made from graphs, big numbers, tables, and status panels.</td><td>The Bridge Reliability dashboard.</td></tr>
+              <tr><td><strong>Widget</strong></td><td>One tile on a dashboard.</td><td>A graph showing 429 errors over time.</td></tr>
+              <tr><td><strong>Monitor</strong></td><td>A rule Datadog checks continuously. When its condition becomes true, it can warn you.</td><td>Alert if authentication errors occur.</td></tr>
+              <tr><td><strong>SLO</strong></td><td>A Service Level Objective: a measurable reliability target, not a legal promise.</td><td>At least 95% of bounded evaluation runs succeed over 30 days.</td></tr>
+              <tr><td><strong>DogStatsD</strong></td><td>The Agent's lightweight local mailbox for numeric measurements.</td><td>The runner sends a count to <code>127.0.0.1:8125</code>.</td></tr>
+              <tr><td><strong>APM span</strong></td><td>A timed record for one operation inside a larger request.</td><td>One model call or one tool execution.</td></tr>
+              <tr><td><strong>JSONL</strong></td><td>A text file with one JSON record per line.</td><td>The runner's local trace and ledger files.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="entitlements">
+        <h2>3. Check what your two-year plan actually includes</h2>
+        <p><span class="app-label">Safari or Chrome</span> These steps happen on the Datadog website, not in Terminal or VS Code.</p>
+
+        <ol class="steps">
+          <li><p>Open <strong>Safari</strong> or <strong>Google Chrome</strong> from the Mac Dock. Visit the Datadog sign-in page you normally use and sign in.</p><p class="small"><strong>Success looks like:</strong> you see Datadog's left-hand navigation.</p></li>
+          <li><p>Look at the browser address bar—the long box at the top containing the website address. Record the domain after <code>https://</code>, such as <code>app.datadoghq.com</code>, <code>us5.datadoghq.com</code>, or <code>app.datadoghq.eu</code>.</p><p>This tells the Agent which Datadog region, called a <strong>site</strong>, should receive your data. The site name is safe to share; it is not a password.</p></li>
+          <li><p>At the bottom-left of Datadog, click your account/user menu, then click <strong>Plan &amp; Usage</strong>. If the navigation looks different, press <strong>Command-K</strong>, type <code>Plan &amp; Usage</code>, and open the matching result.</p></li>
+          <li><p>Open the <strong>Plan</strong> or <strong>Bill Overview</strong> area. Datadog is rolling out a newer billing view, so the exact tab name can differ.</p></li>
+          <li><p>Write down whether each product below says included, committed, trial, on-demand, unavailable, or nothing at all. Do not infer that the word “Pro” covers every product.</p></li>
+        </ol>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Product to check</th><th>Why we care</th><th>Your status</th><th>Default instruction</th></tr></thead>
+            <tbody>
+              <tr><td>Infrastructure Monitoring Pro</td><td>Mac host metrics, dashboards, monitors, and custom metric allotment.</td><td>Write it here mentally or on paper.</td><td>Expected core entitlement.</td></tr>
+              <tr><td>Custom Metrics</td><td>The five core dashboards use custom runner metrics.</td><td>Check included quantity and on-demand rules.</td><td>Proceed only after confirming included usage.</td></tr>
+              <tr><td>APM</td><td>Detailed timed spans and service traces.</td><td>Check separately.</td><td>Second wave.</td></tr>
+              <tr><td>Agent Observability / LLM Observability</td><td>LLM and agent span views, evaluations, token and model analysis.</td><td>Check separately.</td><td>Second wave.</td></tr>
+              <tr><td>Log Management</td><td>Search rich prompts, responses, event fields, and behavioral content.</td><td>Check ingestion and retention.</td><td>Second wave; volume can cost money.</td></tr>
+              <tr><td>CI Visibility / Test Optimization</td><td>Test duration, failures, and flaky-test history.</td><td>Check separately.</td><td>Second wave.</td></tr>
+              <tr><td>Synthetic Monitoring</td><td>Scheduled health checks.</td><td>Check API test and private location eligibility.</td><td>Second wave; not required initially.</td></tr>
+              <tr><td>Notebooks / Incident Management / SLOs</td><td>Investigation journals and reliability targets.</td><td>Check availability.</td><td>Useful after monitors exist.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <ol class="steps">
+          <li><p>Open <strong>Usage</strong> and, if available, switch between <strong>All</strong> and <strong>Billable</strong>. “All” can include free trial usage; “Billable” shows usage that can affect an invoice.</p></li>
+          <li><p>Open <strong>Trial Management</strong> if it appears. Do <strong>not</strong> click <strong>Start Trial</strong> merely to explore. Datadog says post-trial usage can be charged after a trial ends.</p></li>
+          <li><p>If <strong>Usage Notifications</strong> is available, enable first-time product usage notifications. This is a useful guardrail against accidentally activating a separately billed product.</p></li>
+        </ol>
+
+        <div class="callout info"><strong>If the plan display is confusing:</strong> use Datadog's support chat and ask, “Please list the exact committed products, included allotments, trial products, on-demand products, and post-trial billing behavior for my organization.” Do not send support your Anthropic credentials or runner traces.</div>
+      </section>
+
+      <section id="agent">
+        <h2>4. Install the official Datadog Agent on your Mac</h2>
+        <p><span class="app-label">Datadog website</span> first, followed by <span class="app-label">Terminal</span>. Terminal is the Mac app where text commands run. Spotlight is only the launcher you use to find Terminal.</p>
+
+        <div class="callout danger"><strong>Security rule:</strong> Datadog's generated installation command may contain a Datadog API key. An API key is a reusable secret. Paste it only into your own Terminal window. Never paste it into Codex, Claude, Cursor chat, a GitHub issue, a source file, or this repository.</div>
+
+        <ol class="steps">
+          <li><p><span class="app-label">Datadog website</span> Press <strong>Command-K</strong>, type <code>Fleet Automation</code>, and open it. Choose the option to install an Agent on a host. Select <strong>macOS</strong>.</p><p class="small">If you cannot find Fleet Automation, use Datadog's “Install Agent” or “Add Host” entry. The official macOS documentation directs users to the in-app Fleet Automation installer.</p></li>
+          <li><p>Follow the in-app questions. If Datadog asks for your Mac architecture, click the Apple menu <strong></strong> at the top-left of the Mac, then <strong>About This Mac</strong>. “Apple M1/M2/M3/M4/M5” means Apple Silicon/ARM64; “Intel” means x86_64.</p></li>
+          <li><p>When Datadog displays a generated installation command, leave that browser tab open. Do not copy it into an agent chat.</p></li>
+          <li><p><span class="app-label">Mac</span> Press <strong>Command-Space</strong>. Spotlight opens in the middle of the screen. Type <code>Terminal</code>, then press <strong>Return</strong>. A Terminal window with a text prompt appears.</p></li>
+          <li><p><span class="app-label">Terminal</span> Type the following one-line command and press <strong>Return</strong>. It prevents this particular Terminal window from saving subsequent commands into the shell-history file.</p>
+            <button class="copy-button" data-copy="unset-hist">Copy command</button>
+            <pre id="unset-hist"># This affects only this Terminal window.
+# It stops sensitive installation commands from being written into command history.
+unset HISTFILE</pre>
+            <p class="small"><strong>Success looks like:</strong> Terminal normally prints nothing and gives you another prompt. No output is expected.</p></li>
+          <li><p>Return to the Datadog browser tab. Copy the exact macOS installation command Datadog generated. Return to Terminal, paste it with <strong>Command-V</strong>, and press <strong>Return</strong>.</p></li>
+          <li><p>If Terminal asks for your Mac password, type the password you use to unlock the Mac and press <strong>Return</strong>. Terminal deliberately shows no dots or letters while you type a password; that is normal.</p></li>
+          <li><p>Wait until the installer finishes. Do not close Terminal while text is still appearing.</p><p class="small"><strong>Success looks like:</strong> the Agent is installed under <code>/opt/datadog-agent</code>, the installer reports completion, and your ordinary Terminal prompt returns.</p></li>
+          <li><p>Check Agent status using this command:</p>
+            <button class="copy-button" data-copy="agent-status">Copy command</button>
+            <pre id="agent-status"># "sudo" means macOS may ask for your Mac password.
+# "status" only inspects the Agent; it does not change repository files.
+sudo datadog-agent status</pre>
+            <p class="small"><strong>Success looks like:</strong> a long status report containing Agent information and checks. A warning for an optional integration is not necessarily installation failure.</p></li>
+          <li><p>Close this Terminal window after installation. Because <code>HISTFILE</code> was unset only in this window, a new Terminal window returns to normal history behavior.</p></li>
+          <li><p><span class="app-label">Datadog website</span> Open <strong>Infrastructure → Hosts</strong>, or search for <code>Host Map</code> using Command-K. Your Mac should appear after a few minutes.</p></li>
+        </ol>
+
+        <details>
+          <summary>If the Agent command says “command not found”</summary>
+          <div><p>The install may not have completed, or Terminal may not know the command's location. Try the full binary path:</p><pre># Use the Agent program directly from its documented macOS install folder.
+sudo /opt/datadog-agent/bin/agent/agent status</pre><p>If that path also does not exist, return to Fleet Automation and repeat the install. Do not paste the secret-bearing installer output into chat.</p></div>
+        </details>
+      </section>
+
+      <section id="smoke">
+        <h2>5. Send one harmless test metric</h2>
+        <p>This verifies the route from your Mac to Datadog without touching the repository. The test contains only a number and ordinary labels.</p>
+        <ol class="steps">
+          <li><p><span class="app-label">Terminal</span> Open a fresh Terminal window using Command-Space → type <code>Terminal</code> → Return.</p></li>
+          <li><p>Paste the command below and press Return:</p>
+            <button class="copy-button" data-copy="smoke-command">Copy command</button>
+            <pre id="smoke-command"># "printf" creates one tiny measurement in memory.
+# "nc" sends it to the Datadog Agent on this same Mac.
+# 127.0.0.1 means "this computer"; UDP 8125 is DogStatsD's local mailbox.
+printf 'bridge_runner.setup.test:1|c|#env:local,project:claude-local-bridge-playground' | nc -w 1 -u 127.0.0.1 8125</pre>
+            <p class="small"><strong>Success looks like:</strong> Terminal usually prints nothing and returns to the prompt. UDP does not provide a success receipt, so the website check below is decisive.</p></li>
+          <li><p><span class="app-label">Datadog website</span> Wait two to five minutes. Press Command-K, search for <strong>Metrics Summary</strong>, and open it.</p></li>
+          <li><p>In the metric search box, type <code>bridge_runner.setup.test</code>.</p><p class="small"><strong>Success looks like:</strong> that exact metric appears. Click it and confirm the tags include <code>env:local</code> and <code>project:claude-local-bridge-playground</code>.</p></li>
+        </ol>
+        <div class="callout good"><strong>If the metric appears, the basic Datadog path works.</strong> You have proved Mac → local Agent → Datadog. You have not yet proved runner → telemetry adapter → Agent.</div>
+      </section>
+
+      <section id="adapter">
+        <h2>6. Ask a coding agent to build the missing telemetry adapter</h2>
+        <p><span class="state agent">Needs agent work</span> Do not try to write this JavaScript yourself unless you want a programming lesson. The safe owner action is to paste a precise implementation request into Codex, Claude Code, or Cursor chat while that agent is opened in this repository.</p>
+
+        <h3>Where to paste the request</h3>
+        <p>Use the same agent chat application you normally use for repository work. Do <strong>not</strong> paste the following into Terminal. It is an instruction for a coding agent, not a shell command.</p>
+
+        <button class="copy-button" data-copy="agent-prompt">Copy agent request</button>
+        <pre id="agent-prompt">Implement the opt-in Datadog DogStatsD telemetry adapter described in:
+docs/datadog-observability-setup-guide-2026-08-10.html
+
+Before editing:
+1. Run the repository startup preflight from AGENTS.md.
+2. Read SECURITY.md and preserve every security invariant.
+3. Inspect the live runner/bridge event contracts rather than assuming the guide is exact.
+
+Scope:
+- Runner/docs lane only unless bridge changes are demonstrably required.
+- Add an explicit opt-in; Datadog export must be off by default.
+- Send to the local Datadog Agent through DogStatsD at 127.0.0.1:8125.
+- Telemetry failure must never fail, delay, or change an agent run.
+- Emit the bounded metric and tag contract from the guide.
+- Rich personal behavioral logs/spans may be supported as a separate opt-in because the owner permits them.
+- Never export OAuth tokens, API keys, application keys, caller/debug tokens, cookies, Authorization or x-api-key values, private keys, credential files, reusable request fingerprints, or equivalent security secrets.
+- Do not put Datadog API or application keys in the repository, .env files, CLI arguments, logs, tests, fixtures, traces, or agent chat.
+- Do not use unique run IDs, trace IDs, file paths, prompts, or prompt hashes as metric tags. Those belong only in separately entitled, security-redacted logs/spans.
+- Include beginner-friendly comments around non-obvious control flow.
+- Add unit tests, integration tests with a local UDP receiver, redaction tests, cardinality tests, disabled-by-default tests, and telemetry-failure-is-nonfatal tests.
+- Update docs/command-builder.html if a user-facing runner flag is added.
+- Do not commit or push unless I separately ask.
+
+Verification:
+- Run targeted runner tests.
+- Run npm test, npm run lint, npm run check:docs, and npm run format:check when practical.
+- Perform one local DogStatsD smoke test without exposing any key.
+- Report real pass/fail output, skipped checks, files changed, and remaining risks.</pre>
+
+        <div class="callout warn"><strong>Stop point:</strong> Do not build the real five dashboards until the implementation agent reports that the metrics exist and the Metrics Summary page shows them. Empty widgets are confusing and make troubleshooting harder.</div>
+      </section>
+
+      <section id="contract">
+        <h2>7. The planned metric and tag contract</h2>
+        <p>This is the shared vocabulary used by the dashboard recipes. The implementation agent must verify it against current code and call out any intentional difference.</p>
+
+        <h3>Required common tags</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Tag</th><th>Example</th><th>Why it is bounded</th></tr></thead>
+            <tbody>
+              <tr><td><code>env</code></td><td><code>env:local</code></td><td>A tiny fixed environment list.</td></tr>
+              <tr><td><code>project</code></td><td><code>project:claude-local-bridge-playground</code></td><td>One known project label.</td></tr>
+              <tr><td><code>service</code></td><td><code>service:bridge-runner</code></td><td>A small service list.</td></tr>
+              <tr><td><code>layer</code></td><td><code>layer:runner</code> or <code>layer:bridge</code></td><td>Two known layers.</td></tr>
+              <tr><td><code>model</code></td><td><code>model:claude-sonnet-5</code></td><td>Must be normalized to the bounded local model catalogue.</td></tr>
+              <tr><td><code>outcome</code></td><td><code>outcome:success</code></td><td>Small fixed enum.</td></tr>
+              <tr><td><code>stop_reason</code></td><td><code>stop_reason:bridge_error</code></td><td>Bounded by the runner's stop-reason contract.</td></tr>
+              <tr><td><code>tool</code> / <code>tool_family</code></td><td><code>tool:read_file</code></td><td>Bounded by the tool catalogue; unknown values become <code>other</code>.</td></tr>
+              <tr><td><code>decision</code></td><td><code>decision:deny</code></td><td>Small permission-decision enum.</td></tr>
+              <tr><td><code>pressure_tier</code></td><td><code>pressure_tier:compact</code></td><td>Small context-policy enum.</td></tr>
+              <tr><td><code>scenario</code></td><td><code>scenario:read-list-answer</code></td><td>Only registered evaluation scenario names.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout danger"><strong>Never use these as metric tags:</strong> <code>run_id</code>, <code>trace_id</code>, session ID, account ID, device ID, full model request ID, file path, command text, prompt, response, source content, prompt hash, exception message, or arbitrary user text. Some are private; more importantly, their uniqueness creates unbounded custom-metric cardinality.</div>
+
+        <h3>Core metrics</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Metric name</th><th>Type</th><th>What it means</th><th>Main dashboard</th></tr></thead>
+            <tbody>
+              <tr><td class="metric">bridge_runner.bridge.heartbeat</td><td>Gauge</td><td>1 while an independent local health probe can reach the bridge.</td><td>Reliability / Alerts</td></tr>
+              <tr><td class="metric">bridge_runner.run.completed</td><td>Count</td><td>One event when a run reaches its single terminal finalizer.</td><td>Reliability / Efficiency / SLO</td></tr>
+              <tr><td class="metric">bridge_runner.run.duration_ms</td><td>Distribution</td><td>Whole-run elapsed time in milliseconds.</td><td>Efficiency</td></tr>
+              <tr><td class="metric">bridge_runner.run.steps</td><td>Distribution</td><td>Number of model/tool loop steps used.</td><td>Efficiency</td></tr>
+              <tr><td class="metric">bridge_runner.model.request</td><td>Count</td><td>Model requests sent through the bridge.</td><td>Reliability / Efficiency</td></tr>
+              <tr><td class="metric">bridge_runner.model.latency_ms</td><td>Distribution</td><td>Time from request dispatch to usable response or error.</td><td>Reliability</td></tr>
+              <tr><td class="metric">bridge_runner.model.error</td><td>Count</td><td>Auth, 429, 5xx, timeout, network, or deterministic request error.</td><td>Reliability / Alerts</td></tr>
+              <tr><td class="metric">bridge_runner.model.retry</td><td>Count</td><td>One retry attempt after a retryable bridge error.</td><td>Reliability</td></tr>
+              <tr><td class="metric">bridge_runner.run.input_tokens</td><td>Distribution</td><td>Total input tokens attributed to one completed run.</td><td>Efficiency</td></tr>
+              <tr><td class="metric">bridge_runner.run.output_tokens</td><td>Distribution</td><td>Total output tokens attributed to one completed run.</td><td>Efficiency</td></tr>
+              <tr><td class="metric">bridge_runner.run.cache_read_tokens</td><td>Distribution</td><td>Tokens reused from prompt cache.</td><td>Efficiency / Context</td></tr>
+              <tr><td class="metric">bridge_runner.run.cache_write_tokens</td><td>Distribution</td><td>Tokens written into prompt cache.</td><td>Efficiency / Context</td></tr>
+              <tr><td class="metric">bridge_runner.run.estimated_cost_usd</td><td>Distribution</td><td>Local API-price-equivalent estimate, not proof of actual subscription billing.</td><td>Efficiency / Evaluation</td></tr>
+              <tr><td class="metric">bridge_runner.tool.requested</td><td>Count</td><td>A model requested a registered tool.</td><td>Safety</td></tr>
+              <tr><td class="metric">bridge_runner.tool.failed</td><td>Count</td><td>Tool completed with an error result.</td><td>Safety / Reliability</td></tr>
+              <tr><td class="metric">bridge_runner.permission.decision</td><td>Count</td><td>Approval required, allow, deny, or hard deny.</td><td>Safety</td></tr>
+              <tr><td class="metric">bridge_runner.repeat_tool.warning</td><td>Count</td><td>Repeat detector identified a possible loop.</td><td>Safety / Alerts</td></tr>
+              <tr><td class="metric">bridge_runner.context.projection</td><td>Count</td><td>A context projection decision occurred.</td><td>Context</td></tr>
+              <tr><td class="metric">bridge_runner.context.before_tokens</td><td>Distribution</td><td>Calibrated token estimate before projection.</td><td>Context</td></tr>
+              <tr><td class="metric">bridge_runner.context.after_tokens</td><td>Distribution</td><td>Calibrated token estimate after projection.</td><td>Context</td></tr>
+              <tr><td class="metric">bridge_runner.context.characters_removed</td><td>Distribution</td><td>Characters removed by the request projection.</td><td>Context</td></tr>
+              <tr><td class="metric">bridge_runner.context.lossy</td><td>Count</td><td>A projection was explicitly marked lossy.</td><td>Context / Alerts</td></tr>
+              <tr><td class="metric">bridge_runner.budget.stop</td><td>Count</td><td>A token, cost, wall-clock, retry, or step ceiling stopped work.</td><td>Safety / Alerts</td></tr>
+              <tr><td class="metric">bridge_runner.child.spawn</td><td>Count</td><td>A bounded child worker was launched.</td><td>Efficiency / Safety</td></tr>
+              <tr><td class="metric">bridge_runner.child.usage_incomplete</td><td>Count</td><td>Parent accounting could not reconcile a child's usage.</td><td>Safety / Alerts</td></tr>
+              <tr><td class="metric">bridge_runner.eval.completed</td><td>Count</td><td>A registered controlled evaluation finished.</td><td>Evaluation</td></tr>
+              <tr><td class="metric">bridge_runner.eval.score</td><td>Distribution</td><td>Deterministic evaluator score, normally 0 to 1.</td><td>Evaluation</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="dashboard-basics">
+        <h2>8. The one dashboard-building recipe you will repeat</h2>
+        <p><span class="app-label">Datadog website</span> Every row in the dashboard tables below uses this same basic process.</p>
+
+        <ol class="steps">
+          <li><p>In Datadog's left navigation, open <strong>Dashboards → Dashboard List</strong>. If you cannot find it, press Command-K, type <code>Dashboard List</code>, and open the result.</p></li>
+          <li><p>Click <strong>New Dashboard</strong> or <strong>+ New Dashboard</strong>.</p></li>
+          <li><p>Enter the exact dashboard name from this guide. Choose the ordinary grid-based <strong>Dashboard</strong> layout if Datadog asks you to choose between Dashboard and Timeboard.</p></li>
+          <li><p>Click <strong>Add Widget</strong>. Pick the widget type from the table row—usually <strong>Query Value</strong>, <strong>Timeseries</strong>, <strong>Top List</strong>, <strong>Table</strong>, <strong>Monitor Summary</strong>, or <strong>Notes &amp; Links</strong>.</p></li>
+          <li><p>Choose <strong>Metrics</strong> as the data source. In the metric search box, paste the exact metric name.</p><p class="small"><strong>If the metric does not appear:</strong> stop. Do not choose a similarly named metric. The adapter may not be emitting it yet.</p></li>
+          <li><p>Set the filter to <code>project:claude-local-bridge-playground</code>. This keeps unrelated Datadog data out of the graph.</p></li>
+          <li><p>Set the aggregation and “group by” value from the table. <strong>Aggregation</strong> means how Datadog combines many numbers; <strong>group by</strong> means which labels get separate lines or rows.</p></li>
+          <li><p>Enter the widget title exactly. At the bottom of the editor, add the supplied description so future-you knows what the graph means.</p></li>
+          <li><p>Click <strong>Save</strong>. Drag the widget to position it. Use the widget's three-dot menu to duplicate a similar widget instead of rebuilding it from zero.</p></li>
+          <li><p>Set the dashboard's global time selector near the top-right to <strong>Past 1 Day</strong> while learning. Later use Past 1 Hour for live debugging or Past 30 Days for trends.</p></li>
+        </ol>
+
+        <h3>How to make a percentage formula widget</h3>
+        <ol class="steps">
+          <li>Create a <strong>Query Value</strong> widget.</li>
+          <li>Add query <strong>A</strong> for the “good” count, such as completed runs filtered by <code>outcome:success</code>.</li>
+          <li>Click <strong>Add Query</strong>. Add query <strong>B</strong> for all completed runs without the outcome filter.</li>
+          <li>Click <strong>Add Formula</strong>. Enter <code>100 * a / b</code>.</li>
+          <li>Hide queries A and B if the editor offers a hide/eye control, leaving only the formula visible.</li>
+          <li>Set the unit to <strong>Percent</strong> and the precision to one decimal place.</li>
+        </ol>
+      </section>
+
+      <section id="five-dashboards">
+        <h2>9. Build the five core dashboards</h2>
+        <p>Use the repeated recipe above for every widget. Each table is intentionally specific enough that you do not need to invent queries or decide what belongs on the page.</p>
+
+        <div class="dashboard-card">
+          <h3>Dashboard 1 — Claude Bridge · Reliability</h3>
+          <p><strong>Question answered:</strong> Is the bridge reachable, fast enough, and returning healthy responses?</p>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Widget title</th><th>Type</th><th>Metric / setup</th><th>Aggregation / group</th><th>How to read it</th></tr></thead>
+            <tbody>
+              <tr><td>Bridge heartbeat</td><td>Query Value</td><td><code>bridge_runner.bridge.heartbeat</code></td><td>Last; no grouping</td><td>1 means the independent probe recently reached the bridge.</td></tr>
+              <tr><td>Run success rate</td><td>Query Value formula</td><td>A: <code>bridge_runner.run.completed</code> + <code>outcome:success</code>; B: all <code>bridge_runner.run.completed</code>; formula <code>100*a/b</code></td><td>Sum counts</td><td>Share of completed runs that ended successfully.</td></tr>
+              <tr><td>Model requests over time</td><td>Timeseries</td><td><code>bridge_runner.model.request</code></td><td>Sum as count; group by <code>model</code></td><td>Traffic volume and model mix.</td></tr>
+              <tr><td>Model latency p50 / p95 / p99</td><td>Timeseries</td><td>Add the same <code>bridge_runner.model.latency_ms</code> three times</td><td>p50, p95, p99; group by <code>model</code></td><td>Typical, slow, and very slow request time.</td></tr>
+              <tr><td>Errors by kind</td><td>Timeseries bars</td><td><code>bridge_runner.model.error</code></td><td>Sum as count; group by <code>error_kind</code></td><td>Separates auth, 429, 5xx, timeout, network, and request errors.</td></tr>
+              <tr><td>429 and 5xx totals</td><td>Two Query Values</td><td><code>bridge_runner.model.error</code> filtered separately by <code>status_class:429</code> and <code>status_class:5xx</code></td><td>Sum as count</td><td>Immediate upstream pressure or availability symptoms.</td></tr>
+              <tr><td>Retry attempts</td><td>Timeseries</td><td><code>bridge_runner.model.retry</code></td><td>Sum as count; group by <code>error_kind</code></td><td>Shows when transient failures are consuming extra time.</td></tr>
+              <tr><td>Terminal outcomes</td><td>Top List</td><td><code>bridge_runner.run.completed</code></td><td>Sum as count; group by <code>stop_reason</code></td><td>Ranks why sessions ended.</td></tr>
+              <tr><td>Mac CPU and memory</td><td>Timeseries</td><td>Use Datadog's existing System/Mac integration metrics</td><td>Group by <code>host</code></td><td>Correlates slow runs with local resource pressure.</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+
+        <div class="dashboard-card">
+          <h3>Dashboard 2 — Claude Runner · Efficiency</h3>
+          <p><strong>Question answered:</strong> Which model or configuration gets useful work done with the least time, tokens, steps, and estimated expense?</p>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Widget title</th><th>Type</th><th>Metric / setup</th><th>Aggregation / group</th><th>How to read it</th></tr></thead>
+            <tbody>
+              <tr><td>Completed runs</td><td>Query Value</td><td><code>bridge_runner.run.completed</code></td><td>Sum as count</td><td>Sample size for every comparison.</td></tr>
+              <tr><td>Run duration p50 / p95</td><td>Timeseries</td><td><code>bridge_runner.run.duration_ms</code></td><td>p50 and p95; group by <code>model</code></td><td>Typical versus slow complete runs.</td></tr>
+              <tr><td>Steps per run</td><td>Timeseries</td><td><code>bridge_runner.run.steps</code></td><td>Average and p95; group by <code>model</code></td><td>High values can mean harder work or inefficiency.</td></tr>
+              <tr><td>Input and output tokens</td><td>Timeseries</td><td>Add <code>bridge_runner.run.input_tokens</code> and <code>bridge_runner.run.output_tokens</code></td><td>Average; group by <code>model</code></td><td>How much context was consumed and generated.</td></tr>
+              <tr><td>Cache reads and writes</td><td>Timeseries</td><td>Add <code>bridge_runner.run.cache_read_tokens</code> and <code>bridge_runner.run.cache_write_tokens</code></td><td>Average; group by <code>model</code></td><td>Whether stable prefixes are being reused.</td></tr>
+              <tr><td>Cache-read share</td><td>Query Value formula</td><td>A: cache read; B: input + cache read + cache write; formula <code>100*a/b</code></td><td>Sum or average consistently</td><td>A comparative efficiency indicator, not an absolute quality score.</td></tr>
+              <tr><td>Estimated API-equivalent cost</td><td>Timeseries</td><td><code>bridge_runner.run.estimated_cost_usd</code></td><td>Sum; group by <code>model</code></td><td>Useful for experiments; not proof of actual subscription billing.</td></tr>
+              <tr><td>Model comparison</td><td>Table</td><td>Columns: success count, p50 duration, avg steps, avg tokens, avg estimated cost</td><td>Group every query by <code>model</code></td><td>One side-by-side operating scorecard.</td></tr>
+              <tr><td>Child worker accounting</td><td>Timeseries</td><td>Add <code>bridge_runner.child.spawn</code> and <code>bridge_runner.child.usage_incomplete</code></td><td>Sum as count</td><td>Shows parallelism and accounting gaps.</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+
+        <div class="dashboard-card">
+          <h3>Dashboard 3 — Claude Runner · Safety &amp; Authority</h3>
+          <p><strong>Question answered:</strong> What powers did the model request, what was permitted, and where did guardrails intervene?</p>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Widget title</th><th>Type</th><th>Metric / setup</th><th>Aggregation / group</th><th>How to read it</th></tr></thead>
+            <tbody>
+              <tr><td>Tool requests by family</td><td>Timeseries bars</td><td><code>bridge_runner.tool.requested</code></td><td>Sum as count; group by <code>tool_family</code></td><td>Read, search, write, shell, Git, orchestration, and other behavior.</td></tr>
+              <tr><td>Most-requested tools</td><td>Top List</td><td><code>bridge_runner.tool.requested</code></td><td>Sum as count; group by <code>tool</code></td><td>Shows the actual bounded tool mix.</td></tr>
+              <tr><td>Tool failures</td><td>Timeseries</td><td><code>bridge_runner.tool.failed</code></td><td>Sum as count; group by <code>tool</code></td><td>Finds fragile tools and failing workflows.</td></tr>
+              <tr><td>Permission decisions</td><td>Timeseries bars</td><td><code>bridge_runner.permission.decision</code></td><td>Sum as count; group by <code>decision</code></td><td>Approval required, allowed, denied, or hard-denied.</td></tr>
+              <tr><td>Shell requests</td><td>Query Value</td><td><code>bridge_runner.tool.requested</code> filtered by <code>tool_family:shell</code></td><td>Sum as count</td><td>Observation only; it must never enable shell.</td></tr>
+              <tr><td>Write requests</td><td>Query Value</td><td><code>bridge_runner.tool.requested</code> filtered by <code>tool_family:write</code></td><td>Sum as count</td><td>How often the model tried to change files.</td></tr>
+              <tr><td>Repeat-tool warnings</td><td>Timeseries</td><td><code>bridge_runner.repeat_tool.warning</code></td><td>Sum as count; group by <code>tool</code></td><td>Possible loops or stuck behavior.</td></tr>
+              <tr><td>Budget stops</td><td>Top List</td><td><code>bridge_runner.budget.stop</code></td><td>Sum as count; group by <code>budget_kind</code></td><td>Where token, time, cost, retry, or step ceilings stopped work.</td></tr>
+              <tr><td>Child spawns</td><td>Timeseries</td><td><code>bridge_runner.child.spawn</code></td><td>Sum as count; group by bounded <code>worker_kind</code></td><td>How much work was delegated.</td></tr>
+            </tbody>
+          </table></div>
+          <div class="callout info"><strong>Important:</strong> this dashboard observes decisions. Datadog must never become the permission authority. The local runner remains responsible for workspace trust, tool visibility, confirmations, and hard denies.</div>
+        </div>
+
+        <div class="dashboard-card">
+          <h3>Dashboard 4 — Claude Runner · Context &amp; Cache</h3>
+          <p><strong>Question answered:</strong> Is long-session context growing safely, being reduced, and benefiting from caching?</p>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Widget title</th><th>Type</th><th>Metric / setup</th><th>Aggregation / group</th><th>How to read it</th></tr></thead>
+            <tbody>
+              <tr><td>Context before and after projection</td><td>Timeseries</td><td>Add <code>bridge_runner.context.before_tokens</code> and <code>bridge_runner.context.after_tokens</code></td><td>Average; group by <code>model</code></td><td>Shows how much request shaping changed estimated size.</td></tr>
+              <tr><td>Projection decisions</td><td>Timeseries bars</td><td><code>bridge_runner.context.projection</code></td><td>Sum as count; group by <code>pressure_tier</code></td><td>Normal, observe, compact, checkpoint, or other bounded stages.</td></tr>
+              <tr><td>Characters removed</td><td>Timeseries</td><td><code>bridge_runner.context.characters_removed</code></td><td>Sum or p95; group by <code>model</code></td><td>Magnitude of context reduction.</td></tr>
+              <tr><td>Lossy projections</td><td>Query Value</td><td><code>bridge_runner.context.lossy</code></td><td>Sum as count</td><td>How often the projector explicitly discarded or compressed evidence.</td></tr>
+              <tr><td>Cache-read tokens</td><td>Timeseries</td><td><code>bridge_runner.run.cache_read_tokens</code></td><td>Average; group by <code>model</code></td><td>Reuse of stable prompt prefixes.</td></tr>
+              <tr><td>Cache-write tokens</td><td>Timeseries</td><td><code>bridge_runner.run.cache_write_tokens</code></td><td>Average; group by <code>model</code></td><td>Cost of creating new cache entries.</td></tr>
+              <tr><td>Pressure versus run success</td><td>Table</td><td>Projection counts plus successful and failed run counts</td><td>Group by <code>pressure_tier</code></td><td>Whether high-pressure sessions fail more often.</td></tr>
+              <tr><td>Context-related stops</td><td>Top List</td><td><code>bridge_runner.run.completed</code> filtered to context stop reasons</td><td>Sum as count; group by <code>stop_reason</code></td><td>Unrecoverable context ceilings and predictive guards.</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+
+        <div class="dashboard-card">
+          <h3>Dashboard 5 — Claude Runner · Evaluation Scorecard</h3>
+          <p><strong>Question answered:</strong> Which model/configuration succeeds under repeatable tests, rather than merely looking impressive in one anecdotal run?</p>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Widget title</th><th>Type</th><th>Metric / setup</th><th>Aggregation / group</th><th>How to read it</th></tr></thead>
+            <tbody>
+              <tr><td>Evaluation sample size</td><td>Query Value</td><td><code>bridge_runner.eval.completed</code></td><td>Sum as count</td><td>Never interpret a score without its sample size.</td></tr>
+              <tr><td>Pass rate</td><td>Query Value formula</td><td>A: <code>bridge_runner.eval.completed</code> + <code>outcome:pass</code>; B: all evaluations; <code>100*a/b</code></td><td>Sum counts</td><td>Deterministic evaluation success percentage.</td></tr>
+              <tr><td>Score distribution</td><td>Timeseries</td><td><code>bridge_runner.eval.score</code></td><td>p50 and p10; group by <code>model</code></td><td>Median and weak-tail quality.</td></tr>
+              <tr><td>Pass rate by scenario</td><td>Table</td><td>Pass and total evaluation counts with formula</td><td>Group by <code>scenario</code></td><td>Prevents one easy test from hiding a weak task family.</td></tr>
+              <tr><td>First-pass versus repaired success</td><td>Timeseries bars</td><td><code>bridge_runner.eval.completed</code></td><td>Sum as count; group by bounded <code>completion_kind</code></td><td>Separates clean success from success after repair.</td></tr>
+              <tr><td>Forbidden authority attempts</td><td>Query Value</td><td><code>bridge_runner.permission.decision</code> filtered to evaluation mode and <code>decision:hard_deny</code></td><td>Sum as count</td><td>Safety behavior during controlled tests.</td></tr>
+              <tr><td>Latency / cost / score comparison</td><td>Table</td><td>Columns from run duration, estimated cost, and eval score</td><td>Group by <code>model</code> and optionally <code>scenario</code></td><td>Quality-performance tradeoff.</td></tr>
+              <tr><td>Trace completeness</td><td>Query Value</td><td>A future <code>bridge_runner.eval.trace_complete</code> count</td><td>Pass percentage</td><td>Whether evaluation evidence was fully recorded.</td></tr>
+            </tbody>
+          </table></div>
+          <div class="callout warn"><strong>This dashboard requires a real evaluation harness.</strong> Do not label ordinary interactive sessions as deterministic evaluations. A registered scenario needs fixed inputs, bounded authority, expected evidence, and an explicit scorer.</div>
+        </div>
+      </section>
+
+      <section id="alerts">
+        <h2>10. Create alert monitors and the sixth dashboard</h2>
+        <p>Alerts are not a different kind of dashboard. A <strong>monitor</strong> is a continuously evaluated rule. The sixth dashboard collects those monitor statuses into one command-center page.</p>
+
+        <h3>How to create one monitor</h3>
+        <ol class="steps">
+          <li><p><span class="app-label">Datadog website</span> Open <strong>Monitors → New Monitor</strong>. Choose <strong>Metric</strong>.</p></li>
+          <li><p>Leave the detection method on <strong>Threshold Alert</strong> for the first monitors.</p></li>
+          <li><p>Select the metric from the table below. Add the filter <code>project:claude-local-bridge-playground</code>.</p></li>
+          <li><p>Set the aggregation, window, and critical threshold shown in the table. These are conservative starting values, not eternal truths.</p></li>
+          <li><p>Under advanced conditions, choose <strong>Do not require a full window</strong> for sparse lab data unless the row says otherwise.</p></li>
+          <li><p>Enter the exact monitor name. Add the tags <code>project:claude-local-bridge-playground</code>, <code>env:local</code>, and <code>owner:alan</code>.</p></li>
+          <li><p>In the message field, explain what happened and what to inspect. Type <code>@your-email@example.com</code> using your real email address if you want email notifications. Datadog will suggest matching recipients.</p></li>
+          <li><p>Click <strong>Test Notifications</strong>, choose an available state, and click <strong>Run Test</strong>. Confirm that the test email arrives.</p></li>
+          <li><p>Click <strong>Create</strong>. Repeat for the remaining monitor rows.</p></li>
+        </ol>
+
+        <div class="table-wrap"><table>
+          <thead><tr><th>Monitor name</th><th>Metric and filter</th><th>Evaluation</th><th>Starter threshold</th><th>Important caveat</th></tr></thead>
+          <tbody>
+            <tr><td>[Bridge Lab] Heartbeat missing</td><td><code>bridge_runner.bridge.heartbeat</code></td><td>Average over 10 minutes</td><td>Critical below 1; notify on no data after 15 minutes</td><td>Your Mac sleeping or intentionally stopping VS Code will also produce no data. Schedule downtime or mute it when not experimenting.</td></tr>
+            <tr><td>[Bridge Lab] Authentication error</td><td><code>bridge_runner.model.error</code> + <code>error_kind:auth</code></td><td>Sum count over 5 minutes</td><td>Critical ≥ 1</td><td>Never put the failed token or Authorization header into the notification.</td></tr>
+            <tr><td>[Bridge Lab] 429 pressure</td><td><code>bridge_runner.model.error</code> + <code>status_class:429</code></td><td>Sum count over 15 minutes</td><td>Warn ≥ 1; critical ≥ 3</td><td>A 429 is a symptom; it does not identify the cause by itself.</td></tr>
+            <tr><td>[Bridge Lab] Upstream 5xx errors</td><td><code>bridge_runner.model.error</code> + <code>status_class:5xx</code></td><td>Sum count over 15 minutes</td><td>Warn ≥ 1; critical ≥ 3</td><td>Check provider status and correlated local evidence.</td></tr>
+            <tr><td>[Bridge Lab] Slow model responses</td><td><code>bridge_runner.model.latency_ms</code></td><td>p95 over 15 minutes</td><td>Warn &gt; 60,000 ms; critical &gt; 120,000 ms</td><td>Tune after two weeks of baseline data.</td></tr>
+            <tr><td>[Runner Lab] Repeated retries</td><td><code>bridge_runner.model.retry</code></td><td>Sum count over 15 minutes</td><td>Warn ≥ 2; critical ≥ 5</td><td>Avoid alerts for one ordinary transient retry.</td></tr>
+            <tr><td>[Runner Lab] Multiple failed runs</td><td><code>bridge_runner.run.completed</code> + <code>outcome:failure</code></td><td>Sum count over 30 minutes</td><td>Warn ≥ 2; critical ≥ 4</td><td>Failure count is more beginner-friendly than a low-sample failure-rate formula.</td></tr>
+            <tr><td>[Runner Lab] Repeat-tool loop warning</td><td><code>bridge_runner.repeat_tool.warning</code></td><td>Sum count over 10 minutes</td><td>Warn ≥ 1; critical ≥ 3</td><td>Inspect the bounded tool and run locally; do not auto-kill yet.</td></tr>
+            <tr><td>[Runner Lab] Safety or budget stop</td><td><code>bridge_runner.budget.stop</code></td><td>Sum count over 15 minutes</td><td>Warn ≥ 1; critical ≥ 3</td><td>A budget stop can be expected; notification means “inspect,” not “disable the guard.”</td></tr>
+            <tr><td>[Runner Lab] Lossy context projection</td><td><code>bridge_runner.context.lossy</code></td><td>Sum count over 30 minutes</td><td>Warn ≥ 1; critical ≥ 5</td><td>Loss can be deliberate; correlate with evaluation quality.</td></tr>
+            <tr><td>[Runner Lab] Child usage incomplete</td><td><code>bridge_runner.child.usage_incomplete</code></td><td>Sum count over 15 minutes</td><td>Critical ≥ 1</td><td>Means parent cost/usage totals may be under-counted.</td></tr>
+            <tr><td>[Mac Lab] Disk nearly full</td><td>Datadog system disk in-use metric for the Mac host</td><td>Maximum over 15 minutes</td><td>Warn &gt; 85%; critical &gt; 90%</td><td>Filter to the real data volume; do not delete runner artifacts automatically.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>Recommended monitor message template</h3>
+        <button class="copy-button" data-copy="monitor-message">Copy message</button>
+        <pre id="monitor-message">The Claude Local Bridge playground crossed this monitor's threshold.
+
+What this means:
+- The metric changed enough to require human inspection.
+- This alert does not authorize automatic restart, deletion, credential changes, or repository edits.
+
+What Alan should do:
+1. Open the "Claude Bridge · Alerts & SLO Command Center" dashboard.
+2. Match the alert time to the Reliability, Safety, and Context dashboards.
+3. Inspect only redacted local evidence for the matching period.
+4. Ask an agent to diagnose before requesting a fix.
+
+Security:
+- Never paste OAuth tokens, API keys, Authorization headers, cookies, or credential files into this monitor.
+
+@YOUR-REAL-EMAIL-ADDRESS</pre>
+
+        <h3>Dashboard 6 — Claude Bridge · Alerts &amp; SLO Command Center</h3>
+        <ol class="steps">
+          <li>Create a new ordinary Dashboard with the exact name above.</li>
+          <li>Add a <strong>Monitor Summary</strong> widget. Choose summary type <strong>Combined</strong>, display <strong>Both counts and list</strong>, and use the query <code>tag:project:claude-local-bridge-playground</code>. Enable “show triggered” and priority if those options appear.</li>
+          <li>Add one <strong>Alert Value</strong> widget for each simple metric monitor. Choose the monitor by its exact name. Place heartbeat, auth, 429, 5xx, latency, repeat loop, budget, and disk monitors first.</li>
+          <li>Add a <strong>Notes &amp; Links</strong> widget containing the inspection order from the message template.</li>
+          <li>After creating the SLO in the next section, return here and add an <strong>SLO</strong> widget for it.</li>
+        </ol>
+      </section>
+
+      <section id="slo">
+        <h2>11. Create a reliability objective after monitors work</h2>
+        <p>An SLO is useful for trends, but only after the underlying metric and monitor have produced enough real data. Do not set 100%; that leaves no error budget and Datadog warns that it can produce unhelpful calculations.</p>
+        <ol class="steps">
+          <li><p><span class="app-label">Datadog website</span> Press Command-K, type <code>SLO</code>, and open <strong>Service Level Objectives</strong>.</p></li>
+          <li><p>Click <strong>+ New SLO</strong>.</p></li>
+          <li><p>For the easiest first version, select <strong>By Monitor Uptime</strong> or <strong>Monitor-based</strong>.</p></li>
+          <li><p>Select the monitor representing successful bounded evaluation operation. If no suitable monitor exists yet, stop and return after the evaluation exporter has real data.</p></li>
+          <li><p>Name it <strong>Claude Bridge Lab · Bounded Evaluation Reliability</strong>.</p></li>
+          <li><p>Set an initial target of <strong>95%</strong> over <strong>30 days</strong>, with a warning target of <strong>97%</strong>. These are learning targets, not promises to customers.</p></li>
+          <li><p>Add the tags <code>project:claude-local-bridge-playground</code>, <code>env:local</code>, and <code>owner:alan</code>.</p></li>
+          <li><p>Click <strong>Create</strong>. Return to Dashboard 6, click <strong>Add Widget → SLO</strong>, select this SLO, and save.</p></li>
+        </ol>
+      </section>
+
+      <section id="second-wave">
+        <h2>12. Valuable second-wave features—only if included</h2>
+        <p>These products do not all require separate dashboards because Datadog already supplies specialized explorers. Start with those built-in views. Add another custom dashboard only after you know which questions the built-in view fails to answer.</p>
+
+        <div class="table-wrap"><table>
+          <thead><tr><th>Feature</th><th>What it adds</th><th>Separate dashboard?</th><th>What must happen first</th></tr></thead>
+          <tbody>
+            <tr><td>APM</td><td>Timed traces across runner, bridge, model call, and tool operations.</td><td>Optional Dashboard 7: Trace &amp; Agent Quality.</td><td>Confirm APM entitlement; agent implements <code>dd-trace</code> opt-in and redaction.</td></tr>
+            <tr><td>Agent Observability</td><td>LLM/agent spans, token data, custom evaluations, and agent-specific exploration.</td><td>Share Dashboard 7 with APM.</td><td>Confirm product and Datadog-site support; manual instrumentation is likely because this bridge is custom.</td></tr>
+            <tr><td>Log Management</td><td>Search rich security-redacted prompts, responses, paths, tool arguments, and events.</td><td>Optional Dashboard 8: Behavioral Event Explorer.</td><td>Confirm ingestion/retention pricing; build a dedicated redacted Datadog log sink.</td></tr>
+            <tr><td>CI Visibility</td><td>Test durations, failures, commits, and flaky-test history.</td><td>Optional Dashboard 9: Test &amp; Delivery Quality.</td><td>Confirm entitlement; instrument Node test commands or GitHub Actions.</td></tr>
+            <tr><td>Synthetics</td><td>Scheduled API checks and monitor results.</td><td>No separate page initially; add its monitor to Dashboard 6.</td><td>Confirm private-location support and pricing. Managed public locations cannot reach <code>127.0.0.1</code>.</td></tr>
+            <tr><td>Notebooks</td><td>Investigation journal combining graphs, logs, traces, and conclusions.</td><td>No; a notebook is already its own artifact.</td><td>Create from an alert only after enough data exists.</td></tr>
+          </tbody>
+        </table></div>
+
+        <details open>
+          <summary>Optional Dashboard 7 — Claude Runner · Trace &amp; Agent Quality</summary>
+          <div>
+            <p><span class="state optional">APM / Agent Observability</span> Begin in Datadog's built-in <strong>APM → Traces</strong> and <strong>Agent Observability</strong> pages. If custom summary is still useful, create this dashboard with:</p>
+            <ul>
+              <li>APM request throughput, error rate, and p50/p95 latency by service.</li>
+              <li>Span duration table by operation: run, model call, tool call, permission wait, and child worker.</li>
+              <li>LLM token/cost/latency table grouped by model and registered scenario.</li>
+              <li>Agent evaluation score and failure-reason widgets.</li>
+              <li>Trace-error Top List grouped by bounded error kind.</li>
+            </ul>
+            <p>Datadog's Node tracer must load before other modules. That is a repository implementation task; do not independently run <code>npm install dd-trace</code> in Terminal without asking an agent to review and test the change.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Optional Dashboard 8 — Claude Runner · Behavioral Event Explorer</summary>
+          <div>
+            <p><span class="state optional">Log Management</span> This is where your “privacy-unsafe but security-safe” preference produces added value. The dedicated log sink may include prompt/response text, source fragments, paths, tool inputs/results, and error context after credential removal.</p>
+            <p>Recommended widgets:</p>
+            <ul>
+              <li>Log stream filtered to <code>project:claude-local-bridge-playground</code>.</li>
+              <li>Events by type and severity over time.</li>
+              <li>Top tools, stop reasons, models, and registered scenarios.</li>
+              <li>Error-message patterns after secret scrubbing.</li>
+              <li>Rich event table with time, layer, turn, tool, decision, and bounded correlation reference.</li>
+            </ul>
+            <div class="callout danger"><strong>Do not point the Agent directly at every file under <code>~/.bridge-runner</code> or <code>~/.claude-local-bridge</code>.</strong> First implement one explicit export stream with security-redaction tests. Cloud-side scanning happens after data has already left the Mac.</div>
+          </div>
+        </details>
+
+        <details>
+          <summary>Optional Dashboard 9 — Claude Runner · Test &amp; Delivery Quality</summary>
+          <div>
+            <p><span class="state optional">CI Visibility</span> Start with the built-in Test Visibility pages. Add a dashboard containing:</p>
+            <ul>
+              <li>Test sessions, pass rate, and total duration.</li>
+              <li>Slowest test suites and tests.</li>
+              <li>Flaky and newly failing tests.</li>
+              <li>Failures by branch and commit.</li>
+              <li>Runner-only versus bridge tests.</li>
+            </ul>
+            <p>Because this repository uses Node's built-in test runner rather than a standard Jest-only setup, the implementation agent must confirm what Datadog's current JavaScript Test Visibility tooling captures before changing the test command.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary>Synthetics and private localhost checks</summary>
+          <div><p>Datadog's managed cloud test locations cannot connect to <code>localhost:11437</code> on your Mac. A Datadog <strong>private location</strong> runs a worker inside your network, but this adds a container/service, its own secrets, and possible product usage. For this one-person lab, an independent local heartbeat sent through DogStatsD is the simpler first design. If you later enable a private location, add its Synthetic monitor to Dashboard 6 instead of creating another dashboard immediately.</p></div>
+        </details>
+
+        <details>
+          <summary>Notebooks for investigations</summary>
+          <div><p>When a monitor fires, open the monitor in Datadog and create a Notebook from the alert or related graph. Use four headings: <strong>Observed facts</strong>, <strong>Hypotheses</strong>, <strong>Tests performed</strong>, and <strong>Conclusion</strong>. Keep model speculation under Hypotheses until evidence confirms it.</p></div>
+        </details>
+      </section>
+
+      <section id="security">
+        <h2>13. Your privacy choice and the non-negotiable security boundary</h2>
+        <p>Your instruction is understood: personal behavioral privacy is not the limiting concern when richer data materially improves observability. The limiting concern is whether a value can be reused to access an account, impersonate a caller, or weaken a security boundary.</p>
+
+        <div class="table-wrap"><table>
+          <thead><tr><th>Data</th><th>May be sent if it improves observability?</th><th>Condition</th></tr></thead>
+          <tbody>
+            <tr><td>Prompts and responses</td><td>Yes</td><td>Security-secret scrub runs first; use Logs or Agent Observability, not metric tags.</td></tr>
+            <tr><td>Source-code fragments and filenames</td><td>Yes</td><td>After secret removal; understand this may expose private repository content to Datadog.</td></tr>
+            <tr><td>Tool names, arguments, results, permission decisions</td><td>Yes</td><td>After secret removal; rich values belong in logs/spans.</td></tr>
+            <tr><td>Model, duration, tokens, cost estimates, stop reason</td><td>Yes</td><td>Suitable for bounded metrics and dashboards.</td></tr>
+            <tr><td>OAuth token, API key, application key</td><td><strong>No</strong></td><td>Reusable secret; always redact and rotate if exposed.</td></tr>
+            <tr><td><code>Authorization</code>, <code>x-api-key</code>, cookies</td><td><strong>No</strong></td><td>Header name may be recorded; raw value may not.</td></tr>
+            <tr><td>Private keys and credential JSON</td><td><strong>No</strong></td><td>Never read or export for observability.</td></tr>
+            <tr><td>Request fingerprint that can help impersonate the official client</td><td><strong>No</strong></td><td>Treat as sensitive account/transport state.</td></tr>
+            <tr><td>Unique run/trace ID</td><td>Logs/spans only</td><td>Useful for correlation, but never a custom-metric tag.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>If a Datadog key is accidentally exposed</h3>
+        <ol class="steps">
+          <li>Do not paste the exposed value into another chat to ask whether it is real.</li>
+          <li>In Datadog, open <strong>Organization Settings → API Keys</strong> or <strong>Application Keys</strong>.</li>
+          <li>Locate the affected key by name and revoke it. Datadog allows revoked API keys to be restored for seven days, but treat a public exposure as final.</li>
+          <li>Create a replacement key only if the Agent or automation still needs one.</li>
+          <li>Update the Agent through Datadog's supported setup; never store the replacement in this repository or an <code>.env</code> file.</li>
+          <li>Review Datadog users, keys, roles, and unusual product usage.</li>
+        </ol>
+      </section>
+
+      <section id="troubleshooting">
+        <h2>14. Troubleshooting without guessing</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>What you see</th><th>Likely meaning</th><th>What to do next</th></tr></thead>
+          <tbody>
+            <tr><td>The Mac does not appear under Hosts.</td><td>Agent install, site, API key, or outbound connection problem.</td><td>Run <code>sudo datadog-agent status</code>. Return to Fleet Automation. Do not paste the API key or full config into chat.</td></tr>
+            <tr><td>The smoke metric never appears.</td><td>DogStatsD packet not received or Agent cannot forward it.</td><td>Confirm Agent status, wait five minutes, resend once, then inspect Agent DogStatsD status.</td></tr>
+            <tr><td>Core metric missing in a widget.</td><td>The adapter is not emitting it, the metric name differs, or no recent run generated it.</td><td>Search Metrics Summary for <code>bridge_runner.</code>. Ask the implementation agent to compare the live contract with this guide.</td></tr>
+            <tr><td>Widget says “No Data.”</td><td>No matching points in the selected time range or filter.</td><td>Set dashboard time to Past 1 Day, remove extra filters except project, and run one instrumented mock session.</td></tr>
+            <tr><td>Too many metric series / usage rises.</td><td>High-cardinality tags.</td><td>Open Plan &amp; Usage → Custom Metrics → Top Custom Metrics. Find the tag causing many combinations; remove unique IDs and arbitrary text.</td></tr>
+            <tr><td>Monitor fires when the Mac sleeps.</td><td>Expected no data from a local lab.</td><td>Mute/schedule downtime outside experiment windows or keep heartbeat monitor informational.</td></tr>
+            <tr><td>APM/Logs/CI/Synthetics suddenly appears in Usage.</td><td>A separately metered product or trial may have started.</td><td>Check All versus Billable, Trial Management, and contract status. Stop new ingestion until entitlement is confirmed.</td></tr>
+            <tr><td>You see a credential-looking string in Datadog.</td><td>Security-redaction failure.</td><td>Stop the exporter, revoke/rotate the credential, preserve only redacted evidence, and request a security-focused diagnosis.</td></tr>
+          </tbody>
+        </table></div>
+
+        <div class="callout info"><strong>A useful support question is specific:</strong> “My macOS Agent is healthy, but custom DogStatsD metric <code>bridge_runner.setup.test</code> sent to 127.0.0.1:8125 does not appear in Metrics Summary for my site.” Never include the key itself.</div>
+      </section>
+
+      <section id="finish">
+        <h2>15. Completion checklist</h2>
+        <p>These checkboxes save their state only in this browser on this Mac. The page sends nothing anywhere.</p>
+        <ul class="checklist" data-checklist="datadog-guide">
+          <li><label><input type="checkbox"> I identified my Datadog site/region.</label></li>
+          <li><label><input type="checkbox"> I recorded which products are included, trial, on-demand, or unavailable.</label></li>
+          <li><label><input type="checkbox"> I enabled first-time usage notifications if my account offers them.</label></li>
+          <li><label><input type="checkbox"> I installed the official macOS Datadog Agent.</label></li>
+          <li><label><input type="checkbox"> <code>sudo datadog-agent status</code> reports a running Agent.</label></li>
+          <li><label><input type="checkbox"> <code>bridge_runner.setup.test</code> appeared in Metrics Summary.</label></li>
+          <li><label><input type="checkbox"> A coding agent implemented the opt-in adapter and its security/cardinality tests.</label></li>
+          <li><label><input type="checkbox"> The real <code>bridge_runner.*</code> metrics appeared after a mock or bounded run.</label></li>
+          <li><label><input type="checkbox"> I built Dashboard 1: Reliability.</label></li>
+          <li><label><input type="checkbox"> I built Dashboard 2: Efficiency.</label></li>
+          <li><label><input type="checkbox"> I built Dashboard 3: Safety &amp; Authority.</label></li>
+          <li><label><input type="checkbox"> I built Dashboard 4: Context &amp; Cache.</label></li>
+          <li><label><input type="checkbox"> I built Dashboard 5: Evaluation Scorecard after real evaluation data existed.</label></li>
+          <li><label><input type="checkbox"> I created and tested the alert monitors.</label></li>
+          <li><label><input type="checkbox"> I built Dashboard 6: Alerts &amp; SLO Command Center.</label></li>
+          <li><label><input type="checkbox"> I created the SLO after enough data existed.</label></li>
+          <li><label><input type="checkbox"> I enabled second-wave products only after confirming entitlement and billing.</label></li>
+        </ul>
+
+        <div class="callout good"><strong>Done means evidence is flowing end to end:</strong> a runner event creates a security-redacted measurement, the local Agent forwards it, the correct widget changes, and a deliberately tested monitor sends a notification. An attractive empty dashboard is not completion.</div>
+      </section>
+
+      <section id="sources">
+        <h2>Official Datadog sources checked for this guide</h2>
+        <ul class="source-list">
+          <li><a href="https://docs.datadoghq.com/account_management/plan_and_usage/">Plan &amp; Usage</a> and <a href="https://docs.datadoghq.com/account_management/plan_and_usage/usage_details/">Usage Details</a></li>
+          <li><a href="https://docs.datadoghq.com/agent/supported_platforms/osx/">macOS Agent</a> and <a href="https://docs.datadoghq.com/getting_started/agent/">Getting Started with the Agent</a></li>
+          <li><a href="https://docs.datadoghq.com/extend/dogstatsd/">DogStatsD</a> and <a href="https://docs.datadoghq.com/extend/dogstatsd/datagram_shell/">Datagram and shell usage</a></li>
+          <li><a href="https://docs.datadoghq.com/metrics/summary/">Metrics Summary</a> and <a href="https://docs.datadoghq.com/metrics/custom_metrics/">Custom Metrics</a></li>
+          <li><a href="https://docs.datadoghq.com/dashboards/">Dashboards</a>, <a href="https://docs.datadoghq.com/dashboards/widgets/">Widgets</a>, <a href="https://docs.datadoghq.com/dashboards/querying/">Querying</a>, and <a href="https://docs.datadoghq.com/dashboards/widgets/monitor_summary/">Monitor Summary</a></li>
+          <li><a href="https://docs.datadoghq.com/monitors/types/metric/">Metric Monitors</a> and <a href="https://docs.datadoghq.com/monitors/notify/">Monitor Notifications</a></li>
+          <li><a href="https://docs.datadoghq.com/service_level_objectives/">Service Level Objectives</a></li>
+          <li><a href="https://docs.datadoghq.com/tracing/trace_collection/dd_libraries/nodejs/">Node.js APM instrumentation</a> and <a href="https://docs.datadoghq.com/llm_observability/instrumentation/sdk/?tab=nodejs">Agent Observability SDK</a></li>
+          <li><a href="https://docs.datadoghq.com/tests/setup/javascript/">JavaScript Test Visibility</a>, <a href="https://docs.datadoghq.com/synthetics/platform/private_locations/">Synthetic Private Locations</a>, and <a href="https://docs.datadoghq.com/agent/logs/">Host Log Collection</a></li>
+          <li><a href="https://docs.datadoghq.com/account_management/api-app-keys/">API and Application Key Security</a></li>
+        </ul>
+        <p class="small">User-interface labels can vary slightly by Datadog site, account permissions, and staged product rollouts. When this guide offers alternate labels, that reflects current official documentation rather than uncertainty about the overall workflow.</p>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <p><strong>Repository:</strong> <code>/Users/alanman/Developer/claude-local-bridge-playground</code> · <strong>Branch:</strong> <code>main</code> · <strong>Guide date:</strong> 2026-08-10.</p>
+    <p>This document is an implementation and operator guide for a personal local research lab. It does not claim that Datadog telemetry changes or resolves any provider's authentication, billing, or policy position.</p>
+    <p class="print-note">Interactive checkbox state and copy buttons are unavailable on paper.</p>
+  </footer>
+
+  <script>
+    // Copy buttons are intentionally local-only. The browser reads visible text
+    // from this page and places it on the Mac clipboard; nothing is transmitted.
+    document.querySelectorAll('[data-copy]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const source = document.getElementById(button.dataset.copy);
+        if (!source) return;
+        try {
+          await navigator.clipboard.writeText(source.innerText);
+          const oldText = button.textContent;
+          button.textContent = 'Copied';
+          window.setTimeout(() => { button.textContent = oldText; }, 1400);
+        } catch (_error) {
+          // file:// pages can be denied clipboard permission by some browsers.
+          // Selecting the text manually remains a safe fallback.
+          window.getSelection().selectAllChildren(source);
+          button.textContent = 'Select text, then Command-C';
+        }
+      });
+    });
+
+    // Checklist state stays in this browser's local storage. It is convenience
+    // state only: no key, prompt, metric, or account information is stored here.
+    document.querySelectorAll('[data-checklist] input[type="checkbox"]').forEach((box, index) => {
+      const key = 'datadog-guide-check-' + index;
+      box.checked = window.localStorage.getItem(key) === 'yes';
+      box.addEventListener('change', () => {
+        window.localStorage.setItem(key, box.checked ? 'yes' : 'no');
+      });
+    });
+  </script>
+</body>
+</html>
