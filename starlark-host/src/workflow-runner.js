@@ -84,6 +84,7 @@ async function runWorkflow({
   maxCostUsd = 0,
   campaignId = null,
   workerProvider = 'local_claude_bridge',
+  planSource = 'starlark',
   runRoot = path.join(ROOT, 'workflow-runs'),
   prototypeRoot = ROOT,
 }) {
@@ -142,6 +143,7 @@ async function runWorkflow({
     documents: collection.documents,
     workerName: workflow.worker,
     workerRegistry,
+    planSource,
   });
 
   atomicWrite(path.join(runDir, 'collection.json'), collection.receipt);

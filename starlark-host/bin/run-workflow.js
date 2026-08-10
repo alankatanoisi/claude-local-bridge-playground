@@ -23,6 +23,9 @@ async function main() {
     // R9: --worker-provider deterministic_analyst routes worker jobs to the
     // zero-cost static profiler instead of the Claude bridge.
     workerProvider: args.workerProvider || 'local_claude_bridge',
+    // R14c: --plan-source host_json builds the fully-determined fan-out plan
+    // on the host (no planner calls, no Starlark; same validator).
+    planSource: args.planSource || 'starlark',
   });
   process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
 }

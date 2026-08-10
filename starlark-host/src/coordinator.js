@@ -6,6 +6,7 @@ const path = require('path');
 
 const { policyDisclosure } = require('./descriptor-policy');
 const { FaultInjector } = require('./failures');
+const { buildHostJsonPlan, buildHostJsonRecovery } = require('./json-plan');
 const { RunLedger, atomicWrite } = require('./ledger');
 const { evaluateStarlark, extractStarlark } = require('./starlark');
 const { lintStarlark } = require('./starlark-lint');
@@ -26,9 +27,17 @@ class PhasedCoordinator {
     documents,
     workerName,
     workerRegistry,
+    planSource = 'starlark',
   }) {
     this.config = config;
     this.bridge = bridge;
+    // R14c: 'starlark' (default) has the planner model write a program;
+    // 'host_json' builds the descriptor list deterministically on the host —
+    // zero planner calls, zero evaluator rounds, SAME validator.
+    if (!['starlark', 'host_json'].includes(planSource)) {
+      throw new Error(`unknown plan source '${planSource}'`);
+    }
+    this.planSource = planSource;
     this.plannerModel = plannerModel;
     // R13: cost-tiered planner routing. The ladder is ordered cheapest-first;
     // planning starts on tier 0 and escalates one tier ONLY when a tier
@@ -54,6 +63,7 @@ class PhasedCoordinator {
       phase: 'created',
       plannerModel,
       plannerLadder: this.plannerLadder,
+      planSource: this.planSource,
       workerModel,
       workerName: this.workerName,
       workerProfiles: workerRegistry ? workerRegistry.publicProfiles() : null,
@@ -88,17 +98,37 @@ class PhasedCoordinator {
     this.state.phase = 'planning';
     this.checkpoint();
     const policy = this.policy(publicDocuments);
-    const initialPlan = await this.generateValidatedPlan({
-      phaseLabel: 'plan',
-      functionName: 'plan',
-      system: PLANNER_SYSTEM,
-      prompt: buildPlanPrompt(this.config, publicDocuments, this.workerName, policy),
-      context: { objective: this.config.objective, documents: publicDocuments },
-      policy,
-      validationPhase: 'plan',
-      maxTokens: 3000,
-      acceptedEvent: 'plan_validated',
-    });
+    let initialPlan;
+    if (this.planSource === 'host_json') {
+      // R14c: fully determined plan — build it, validate it, spend nothing.
+      const jobs = validateJobs(
+        buildHostJsonPlan({ documents: publicDocuments, workerName: this.workerName, policy }),
+        policy,
+        'plan',
+      );
+      const metrics = {
+        attempts: 0,
+        repairs: 0,
+        firstPassValid: true,
+        lintFixes: 0,
+        model: 'host_json',
+        escalations: 0,
+      };
+      this.ledger.append('plan_validated', { jobs, planSource: 'host_json', metrics });
+      initialPlan = { jobs, metrics };
+    } else {
+      initialPlan = await this.generateValidatedPlan({
+        phaseLabel: 'plan',
+        functionName: 'plan',
+        system: PLANNER_SYSTEM,
+        prompt: buildPlanPrompt(this.config, publicDocuments, this.workerName, policy),
+        context: { objective: this.config.objective, documents: publicDocuments },
+        policy,
+        validationPhase: 'plan',
+        maxTokens: 3000,
+        acceptedEvent: 'plan_validated',
+      });
+    }
     const jobs = initialPlan.jobs;
     this.state.planMetrics = initialPlan.metrics;
     this.state.jobs = jobs;
@@ -123,22 +153,40 @@ class PhasedCoordinator {
     if (failures.length) {
       this.state.phase = 'recovery_planning';
       this.checkpoint();
-      const recoveryPlan = await this.generateValidatedPlan({
-        phaseLabel: 'recover',
-        functionName: 'recover',
-        system: RECOVERY_SYSTEM,
-        prompt: buildRecoveryPrompt(this.config, publicDocuments, failures, this.workerName, policy),
-        context: { objective: this.config.objective, documents: publicDocuments, failures },
-        policy: {
-          ...policy,
-          failedJobIds: failures.filter((failure) => failure.retryable).map((failure) => failure.job_id),
-          exactJobs: undefined,
-          requireAllInputs: false,
-        },
-        validationPhase: 'recovery',
-        maxTokens: 2500,
-        acceptedEvent: 'recovery_plan_validated',
-      });
+      const recoveryPolicy = {
+        ...policy,
+        failedJobIds: failures.filter((failure) => failure.retryable).map((failure) => failure.job_id),
+        exactJobs: undefined,
+        requireAllInputs: false,
+      };
+      let recoveryPlan;
+      if (this.planSource === 'host_json') {
+        const retries = failures.some((failure) => failure.retryable)
+          ? validateJobs(buildHostJsonRecovery({ failures, policy: recoveryPolicy }), recoveryPolicy, 'recovery')
+          : [];
+        const metrics = {
+          attempts: 0,
+          repairs: 0,
+          firstPassValid: true,
+          lintFixes: 0,
+          model: 'host_json',
+          escalations: 0,
+        };
+        this.ledger.append('recovery_plan_validated', { jobs: retries, planSource: 'host_json', metrics });
+        recoveryPlan = { jobs: retries, metrics };
+      } else {
+        recoveryPlan = await this.generateValidatedPlan({
+          phaseLabel: 'recover',
+          functionName: 'recover',
+          system: RECOVERY_SYSTEM,
+          prompt: buildRecoveryPrompt(this.config, publicDocuments, failures, this.workerName, policy),
+          context: { objective: this.config.objective, documents: publicDocuments, failures },
+          policy: recoveryPolicy,
+          validationPhase: 'recovery',
+          maxTokens: 2500,
+          acceptedEvent: 'recovery_plan_validated',
+        });
+      }
       recoveryJobs = recoveryPlan.jobs;
       this.state.recoveryMetrics = recoveryPlan.metrics;
       this.state.phase = 'recovery_workers';
