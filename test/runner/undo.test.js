@@ -58,6 +58,25 @@ describe('undo tool (P1-08)', () => {
     assert.equal(fs.readFileSync(filePath, 'utf8'), 'legacy-backup');
   });
 
+  it('keeps mtime as the primary ordering signal for a newer legacy backup', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'undo-legacy-newer-'));
+    const filePath = path.join(tmpDir, 'legacy.js');
+    fs.writeFileSync(filePath, 'current');
+
+    const currentFormat = saveBackup(filePath, Buffer.from('current-format-backup'), tmpDir);
+    const backupsDir = path.join(tmpDir, '.bridge-runner', 'backups');
+    const legacy = path.join(backupsDir, 'legacy.js.bak');
+    fs.writeFileSync(legacy, 'newer-legacy-backup');
+
+    // Fixed times make the intended ordering independent of filesystem speed.
+    fs.utimesSync(currentFormat, new Date(1_700_000_000_000), new Date(1_700_000_000_000));
+    fs.utimesSync(legacy, new Date(1_700_000_001_000), new Date(1_700_000_001_000));
+
+    const result = execute({ path: 'legacy.js' }, { cwd: tmpDir });
+    assert.equal(result.ok, true);
+    assert.equal(fs.readFileSync(filePath, 'utf8'), 'newer-legacy-backup');
+  });
+
   it('errors when no backup exists for path', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'undo-miss-'));
     fs.mkdirSync(path.join(tmpDir, '.bridge-runner', 'backups'), { recursive: true });

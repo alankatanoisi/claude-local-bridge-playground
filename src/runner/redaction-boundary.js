@@ -23,16 +23,39 @@ const safety = require('./safety');
  * @returns {*}
  */
 function scrubDeepSecrets(value) {
-  if (typeof value === 'string') return safety.scrubSecrets(value);
-  if (Array.isArray(value)) return value.map(scrubDeepSecrets);
-  if (value && typeof value === 'object') {
-    const out = {};
-    for (const [key, item] of Object.entries(value)) {
-      out[key] = scrubDeepSecrets(item);
+  // `ancestors` tracks only the objects on the branch we are walking right
+  // now. If one of those objects points back to itself (or to a parent), that
+  // is a real cycle and following it again would recurse forever.
+  //
+  // We remove each object after finishing its branch. That detail means a
+  // harmless shared object used in two different places is scrubbed normally
+  // in both places instead of being mistaken for a circular reference.
+  const ancestors = new WeakSet();
+
+  function scrub(valueToScrub) {
+    if (typeof valueToScrub === 'string') return safety.scrubSecrets(valueToScrub);
+    if (!valueToScrub || typeof valueToScrub !== 'object') return valueToScrub;
+
+    if (ancestors.has(valueToScrub)) return '[Circular]';
+    ancestors.add(valueToScrub);
+
+    try {
+      // Build new arrays and objects rather than changing the caller's data.
+      // Sink-facing copies are redacted; the live runner can keep using its
+      // original, unsanitized values for the operation the user requested.
+      if (Array.isArray(valueToScrub)) return valueToScrub.map((item) => scrub(item));
+
+      const out = {};
+      for (const [key, item] of Object.entries(valueToScrub)) {
+        out[key] = scrub(item);
+      }
+      return out;
+    } finally {
+      ancestors.delete(valueToScrub);
     }
-    return out;
   }
-  return value;
+
+  return scrub(value);
 }
 
 /**

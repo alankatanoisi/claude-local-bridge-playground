@@ -174,6 +174,68 @@ function waitForLedgerEvent(ledgerPath, type, n, timeoutMs = 15000) {
   });
 }
 
+/**
+ * Exercise one catchable process signal through the real runner.
+ *
+ * SIGINT (usually sent by pressing Control-C in Terminal) and SIGTERM (usually
+ * sent by another process asking the runner to stop) must take the same safe
+ * path. Keeping the shared assertions here prevents one signal's test from
+ * becoming weaker than the other's as the finalizer evolves.
+ */
+async function assertGracefulSignalFinalization({ signal, expectedExitCode, tempPrefix, port }) {
+  const t = makeTrialDirs(tempPrefix);
+  const run1 = spawnRunner({ prompt: 'Write the effect files.', cwd: t.cwd, port, sessionPath: t.sessionPath });
+
+  // Send the signal the moment the runner commits to the SECOND side effect.
+  // Node handles catchable signals on its event loop, after the current
+  // synchronous tool operation has had a chance to finish and journal itself.
+  await waitForLedgerEvent(t.ledgerPath, 'tool_effect_intent', 2);
+  run1.child.kill(signal);
+  const exit1 = await run1.exit;
+
+  assert.equal(exit1.code, expectedExitCode, `graceful ${signal} exit code`);
+  const events = readLedger(t.ledgerPath);
+  const stoppedEvents = events.filter((event) => event.type === 'run_stopped');
+  assert.equal(stoppedEvents.length, 1, `${signal} records exactly one run_stopped event`);
+  assert.equal(events[events.length - 1].type, 'run_stopped', `${signal} ledger closes with run_stopped`);
+  assert.equal(stoppedEvents[0].stopReason, 'cancelled', `${signal} preserves the existing cancelled event shape`);
+
+  // Every intent got its paired result before the process died, so replay is
+  // clean rather than reporting an ambiguous in-flight effect.
+  const replay = replayFromLedger(t.sessionPath);
+  assert.equal(replay.ok, true, `no pending effects after graceful ${signal}: ${JSON.stringify(replay.issues)}`);
+
+  // The checkpoint must contain the completed exchange, not only the opening
+  // prompt that was present before the debounce timer fired.
+  const state = JSON.parse(fs.readFileSync(t.sessionPath, 'utf8'));
+  assert.ok(state.messages.length >= 3, `checkpoint has completed exchanges after ${signal}`);
+  assert.ok(state.runner.health, `health record written on ${signal}`);
+
+  // Resume must complete without executing any already-finished side effect a
+  // second time. Distinct filenames make accidental repeats visible on disk.
+  const filesBefore = effectFiles(t.cwd);
+  const run2 = spawnRunner({
+    prompt: 'Continue and finish.',
+    cwd: t.cwd,
+    port,
+    sessionPath: t.sessionPath,
+    resume: true,
+  });
+  const exit2 = await run2.exit;
+  assert.equal(exit2.code, 0, `resume after ${signal} completes cleanly`);
+
+  const filesAfter = effectFiles(t.cwd);
+  const perEffect = {};
+  for (const fileName of filesAfter) {
+    const effectNumber = fileName.match(/^effect-(\d+)-/)[1];
+    perEffect[effectNumber] = (perEffect[effectNumber] || 0) + 1;
+  }
+  for (const [effectNumber, count] of Object.entries(perEffect)) {
+    assert.equal(count, 1, `effect ${effectNumber} executed exactly once after ${signal}`);
+  }
+  assert.ok(filesAfter.length >= filesBefore.length, `resume after ${signal} never loses effects`);
+}
+
 describe('ledger crash recovery (process-kill integration)', () => {
   let server;
   let port;
@@ -188,53 +250,26 @@ describe('ledger crash recovery (process-kill integration)', () => {
     server.close();
   });
 
-  it('SIGTERM mid-run finalizes: flushed checkpoint, run_stopped ledger tail, exit 143, clean resume with no double-execution', async () => {
-    const t = makeTrialDirs('crash-sigterm-');
-    const run1 = spawnRunner({ prompt: 'Write the effect files.', cwd: t.cwd, port, sessionPath: t.sessionPath });
+  it('SIGTERM mid-run finalizes, flushes, and resumes without double-execution', async () => {
+    await assert.doesNotReject(() =>
+      assertGracefulSignalFinalization({
+        signal: 'SIGTERM',
+        expectedExitCode: 143,
+        tempPrefix: 'crash-sigterm-',
+        port,
+      }),
+    );
+  });
 
-    // Kill the moment the runner commits to the SECOND side effect.
-    await waitForLedgerEvent(t.ledgerPath, 'tool_effect_intent', 2);
-    run1.child.kill('SIGTERM');
-    const exit1 = await run1.exit;
-
-    // F8 fix contract: SIGTERM now funnels through the finalizer.
-    assert.equal(exit1.code, 143, 'graceful SIGTERM exit code (128+15)');
-    const events = readLedger(t.ledgerPath);
-    assert.equal(events[events.length - 1].type, 'run_stopped', 'ledger closes with run_stopped');
-
-    // Every intent got its paired result before the process died (the handler
-    // runs after the current synchronous tool batch), so replay is clean.
-    const replay = replayFromLedger(t.sessionPath);
-    assert.equal(replay.ok, true, 'no pending effects after graceful SIGTERM: ' + JSON.stringify(replay.issues));
-
-    // Checkpoint was flushed synchronously on the way out: it must contain the
-    // completed tool exchange, not just the opening user prompt.
-    const state = JSON.parse(fs.readFileSync(t.sessionPath, 'utf8'));
-    assert.ok(state.messages.length >= 3, 'checkpoint has the completed exchanges, got ' + state.messages.length);
-    assert.ok(state.runner.health, 'health record written on SIGTERM');
-
-    // Resume completes the task without re-running finished side effects.
-    const filesBefore = effectFiles(t.cwd);
-    const run2 = spawnRunner({
-      prompt: 'Continue and finish.',
-      cwd: t.cwd,
-      port,
-      sessionPath: t.sessionPath,
-      resume: true,
-    });
-    const exit2 = await run2.exit;
-    assert.equal(exit2.code, 0, 'resume completes cleanly');
-
-    const filesAfter = effectFiles(t.cwd);
-    const perEffect = {};
-    for (const f of filesAfter) {
-      const n = f.match(/^effect-(\d+)-/)[1];
-      perEffect[n] = (perEffect[n] || 0) + 1;
-    }
-    for (const [n, count] of Object.entries(perEffect)) {
-      assert.equal(count, 1, 'effect ' + n + ' executed exactly once (no double-execution)');
-    }
-    assert.ok(filesAfter.length >= filesBefore.length, 'resume never loses effects');
+  it('SIGINT mid-run gets the same checkpoint and finalizer semantics as SIGTERM', async () => {
+    await assert.doesNotReject(() =>
+      assertGracefulSignalFinalization({
+        signal: 'SIGINT',
+        expectedExitCode: 130,
+        tempPrefix: 'crash-sigint-',
+        port,
+      }),
+    );
   });
 
   it('SIGKILL mid-run: ledger survives with parseable pairing invariants and planRepair mirrors replay issues', async () => {

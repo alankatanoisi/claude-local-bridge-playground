@@ -226,4 +226,44 @@ describe('WorkerRuntime argv inherit (P1-10)', () => {
     assert.equal(result.usage.input_tokens, 1);
     assert.equal(result.inherited.model, 'claude-sonnet-4-6');
   });
+
+  it('withholds OTEL_* credentials from a spawned agent while preserving runner metadata', async () => {
+    const captured = [];
+    const runtime = new WorkerRuntime({
+      spawn(execPath, args, opts) {
+        captured.push({ execPath, args, opts });
+        const { EventEmitter } = require('events');
+        const child = new EventEmitter();
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        child.kill = () => {};
+        setImmediate(() => child.emit('close', 0));
+        return child;
+      },
+    });
+
+    await runtime.spawnWorker(
+      {
+        prompt: 'inspect safely',
+        cwd: process.cwd(),
+        allowedTools: ['read_file'],
+      },
+      {
+        // Supplying the value as an override proves the filter runs after the
+        // merge; an override must not be able to reintroduce a blocked secret.
+        env: {
+          OTEL_EXPORTER_OTLP_HEADERS: 'Authorization=Bearer should-not-escape',
+          OTEL_FUTURE_AGENT_TOKEN: 'should-not-escape-either',
+          ORDINARY_AGENT_SETTING: 'keep-me',
+        },
+      },
+    );
+
+    const childEnv = captured[0].opts.env;
+    assert.equal(childEnv.OTEL_EXPORTER_OTLP_HEADERS, undefined);
+    assert.equal(childEnv.OTEL_FUTURE_AGENT_TOKEN, undefined);
+    assert.equal(childEnv.ORDINARY_AGENT_SETTING, 'keep-me');
+    assert.equal(childEnv.BRIDGE_RUNNER_SPAWN_DEPTH, '1');
+    assert.ok(childEnv.BRIDGE_RUNNER_WORKER_ID, 'runner-owned worker metadata must still be inherited');
+  });
 });

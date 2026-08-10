@@ -5,9 +5,9 @@
  *
  * P1-08: writers create timestamped backups
  *   <basename>-<Date.now()>-<seq>-<hex>.bak
- * so this tool looks for that family (newest by mtime), not the obsolete
- * exact <basename>.bak shape. Legacy exact-name backups are still accepted
- * for older fixtures.
+ * so this tool looks for that family (newest by mtime, then sequence when the
+ * mtimes tie), not only the obsolete exact <basename>.bak shape. Legacy
+ * exact-name backups are still accepted for older runs and fixtures.
  *
  * Auto-approved (no confirmation needed) because it recovers from mistakes.
  * Prefer undo_edit for same-run restores (hash-aware undo log) and
@@ -25,7 +25,8 @@ function definition() {
       'List available backups or restore a file from .bridge-runner/backups/. ' +
       'Without a path argument, lists all available backups. ' +
       'With a path argument, restores from the newest matching timestamped backup ' +
-      '(writers save <basename>-<timestamp>.bak). Prefer undo_edit for same-run undos.',
+      '(writers save <basename>-<timestamp>-<sequence>-<random>.bak). ' +
+      'Prefer undo_edit for same-run undos.',
     input_schema: {
       type: 'object',
       properties: {
@@ -44,6 +45,26 @@ function getBackupsDir(cwd) {
 }
 
 /**
+ * Read the monotonic sequence from the exact filename shape saveBackup() writes:
+ *
+ *   <basename>-<Date.now()>-<base36 sequence>-<six hex characters>.bak
+ *
+ * Older backups do not contain this sequence. Returning null for those names is
+ * important: undo must keep accepting legacy backups without pretending that an
+ * unrelated dash-separated number is a trustworthy creation order.
+ */
+function currentBackupSequence(name, prefix) {
+  if (!name.startsWith(prefix) || !name.endsWith('.bak')) return null;
+
+  const writerSuffix = name.slice(prefix.length, -'.bak'.length);
+  const match = writerSuffix.match(/^\d+-([0-9a-z]+)-[0-9a-f]{6}$/);
+  if (!match) return null;
+
+  const sequence = Number.parseInt(match[1], 36);
+  return Number.isSafeInteger(sequence) ? sequence : null;
+}
+
+/**
  * Match writer backups for a relative path. Accepts:
  *   - exact legacy: basename.bak
  *   - timestamped:  basename-<anything>.bak  (saveBackup shape)
@@ -59,13 +80,37 @@ function matchingBackups(backupsDir, relPath) {
       const full = path.join(backupsDir, name);
       try {
         const stat = fs.statSync(full);
-        matches.push({ name, full, mtimeMs: stat.mtimeMs, size: stat.size });
+        matches.push({
+          name,
+          full,
+          mtimeMs: stat.mtimeMs,
+          size: stat.size,
+          sequence: currentBackupSequence(name, prefix),
+        });
       } catch {
         // skip unreadable
       }
     }
   }
-  matches.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  matches.sort((a, b) => {
+    // Filesystem modification time remains the primary "newest" signal so old
+    // exact-name and older timestamped backups keep their historical behavior.
+    const byMtime = b.mtimeMs - a.mtimeMs;
+    if (byMtime !== 0) return byMtime;
+
+    // A coarse filesystem can give two successive writes the same mtime. When
+    // both files came from the current writer, its monotonic counter tells us
+    // which backup was actually created later.
+    if (a.sequence !== null && b.sequence !== null && a.sequence !== b.sequence) {
+      return a.sequence > b.sequence ? -1 : 1;
+    }
+
+    // Legacy names have no trustworthy sequence. A bytewise name comparison
+    // gives tied legacy/mixed entries a stable result on every filesystem while
+    // leaving the single exact `<basename>.bak` recovery path fully supported.
+    if (a.name === b.name) return 0;
+    return a.name < b.name ? -1 : 1;
+  });
   return matches;
 }
 

@@ -234,6 +234,14 @@
         tests. Where I kept something that looks similar, §7 explains exactly what it adds.
       </div>
 
+      <div class="ok">
+        <strong>Closure update — 2026-08-10.</strong> HS-03 is closed in the runner: <code>undo</code>
+        now keeps <code>mtimeMs</code> as its primary ordering signal and uses the monotonic sequence in
+        current-format backup filenames when modification times tie. The registered HS-03 case forces
+        that tie and is now a hard regression test rather than a masked <code>todo</code>. The original
+        August 8 observations and test counts below remain unchanged as historical evidence.
+      </div>
+
       <nav class="toc">
         <strong>Contents</strong>
         <ol>

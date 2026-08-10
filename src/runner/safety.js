@@ -631,19 +631,30 @@ function makeStreamingScrubber() {
 
 /**
  * Return a copy of process.env with sensitive variables removed.
- * Used by the bash tool to prevent credential leakage through child processes.
+ * Used by shell tools and agent workers to prevent credential leakage through
+ * child processes.
  *
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [sourceEnv=process.env]
  * @returns {Record<string, string>}
  */
-function buildSafeEnv() {
+function buildSafeEnv(sourceEnv = process.env) {
   const env = {};
-  for (const [k, v] of Object.entries(process.env)) {
+  for (const [k, v] of Object.entries(sourceEnv)) {
     if (SCRUBBED_ENV_VARS.includes(k)) continue;
     // Also scrub any var starting with these prefixes
-    if (k.startsWith('AWS_') || k.startsWith('ANTHROPIC_') || k.startsWith('CLAUDE_') || k.startsWith('OPENAI_')) {
+    if (
+      k.startsWith('AWS_') ||
+      k.startsWith('ANTHROPIC_') ||
+      k.startsWith('CLAUDE_') ||
+      k.startsWith('OPENAI_') ||
+      // OpenTelemetry uses the whole OTEL_* family for exporter settings.
+      // Some values, especially OTLP header variables, can contain reusable
+      // Authorization credentials and must never reach a shell or child agent.
+      k.startsWith('OTEL_')
+    ) {
       continue;
     }
-    env[k] = v;
+    if (v !== undefined) env[k] = v;
   }
   return env;
 }

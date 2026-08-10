@@ -35,6 +35,10 @@ class SessionLedger {
     this._fd = null;
     this._offset = 0;
     this._cursorSource = null; // 'cursor' | 'scan' | null
+    // A crash can leave the final JSONL record without its terminating "\n".
+    // We keep that raw fragment for forensic inspection, but the next valid
+    // event must start on a fresh line so replay can still read it.
+    this._needsTailDelimiter = false;
 
     if (this.filePath && fs.existsSync(this.filePath)) {
       const restored = this._restoreFromCursor();
@@ -51,15 +55,24 @@ class SessionLedger {
       return false;
     }
     if (cursor.v !== LEDGER_VERSION) return false;
-    if (typeof cursor.seq !== 'number' || typeof cursor.offset !== 'number') return false;
+    if (!Number.isSafeInteger(cursor.seq) || cursor.seq < 0) return false;
+    if (!Number.isSafeInteger(cursor.offset) || cursor.offset < 0) return false;
     let fileSize;
     try {
       fileSize = fs.statSync(this.filePath).size;
     } catch {
       return false;
     }
-    if (cursor.offset > fileSize) {
-      // cursor ahead of file → corruption; fall back to full scan
+    if (cursor.offset !== fileSize) {
+      // Any size mismatch means the cursor is not a complete description of
+      // the ledger. Most importantly, a cursor behind the file can miss a
+      // fully written event whose sequence and pending intent must be restored.
+      return false;
+    }
+    if (fileSize > 0 && !this._fileEndsWithNewline(fileSize)) {
+      // A cursor written by this class always points just after a newline.
+      // An unterminated file therefore needs a scan, even if a damaged or
+      // hand-edited cursor happens to claim the same byte length.
       return false;
     }
     this.lastSeq = cursor.seq;
@@ -67,6 +80,28 @@ class SessionLedger {
     this._offset = cursor.offset;
     this._cursorSource = 'cursor';
     return true;
+  }
+
+  _fileEndsWithNewline(fileSize) {
+    let fd;
+    try {
+      fd = fs.openSync(this.filePath, 'r');
+      const lastByte = Buffer.alloc(1);
+      fs.readSync(fd, lastByte, 0, 1, fileSize - 1);
+      return lastByte[0] === 0x0a;
+    } catch {
+      // If we cannot prove that the cursor is on a complete JSONL boundary,
+      // make the caller take the safer full-scan path.
+      return false;
+    } finally {
+      if (fd !== undefined) {
+        try {
+          fs.closeSync(fd);
+        } catch {
+          // best-effort descriptor cleanup
+        }
+      }
+    }
   }
 
   _writeCursor() {
@@ -86,7 +121,12 @@ class SessionLedger {
   }
 
   _loadLastSeq() {
-    const lines = fs.readFileSync(this.filePath, 'utf8').trim().split('\n').filter(Boolean);
+    const contents = fs.readFileSync(this.filePath, 'utf8');
+    // Both a partial JSON fragment and a complete record missing only its
+    // newline need a delimiter before the first recovered append. The scan
+    // below still counts the complete record, but naturally skips the partial.
+    this._needsTailDelimiter = contents.length > 0 && !contents.endsWith('\n');
+    const lines = contents.split('\n').filter(Boolean);
     for (const line of lines) {
       try {
         const ev = JSON.parse(line);
@@ -135,8 +175,13 @@ class SessionLedger {
     };
     const line = JSON.stringify(event) + '\n';
     this._ensureFd();
-    fs.writeSync(this._fd, line);
-    this._offset += Buffer.byteLength(line, 'utf8');
+    // Put the recovery delimiter and the new event in ONE append operation.
+    // That keeps the old bytes for forensics while avoiding a new crash window
+    // in which only a standalone repair newline reached disk.
+    const appendBytes = (this._needsTailDelimiter ? '\n' : '') + line;
+    fs.writeSync(this._fd, appendBytes);
+    this._offset += Buffer.byteLength(appendBytes, 'utf8');
+    this._needsTailDelimiter = false;
 
     if (type.endsWith('_intent') && payload.effectId) {
       this.pendingIntents.push({ seq, type, id: payload.effectId });

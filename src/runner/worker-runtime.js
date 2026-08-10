@@ -6,6 +6,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { narrowChildAuthority } = require('./authority');
 const { applyInheritToArgs, applyInheritToEnv } = require('./child-inherit');
+const safety = require('./safety');
 
 const DEFAULT_CHILD_TOOLS = Object.freeze([
   'list_files',
@@ -125,11 +126,14 @@ class WorkerRuntime {
     // P1-05: also pass remaining via env so child createBudgetTracker parentRemaining
     // stays consistent even if a future path omits the CLI flags.
     // P1-10: correlation IDs + caller token (env only — never argv).
-    let childEnv = {
+    // Start from the same credential-filtered environment used by bash. Merge
+    // caller-supplied additions *before* filtering so an override cannot put an
+    // OTEL_* authorization header (or another blocked credential) back in.
+    let childEnv = safety.buildSafeEnv({
       ...process.env,
       BRIDGE_RUNNER_SPAWN_DEPTH: String(this.spawnDepth + 1),
       ...options.env,
-    };
+    });
     if (typeof spec.budgetRemaining?.input_tokens === 'number') {
       childEnv.BRIDGE_RUNNER_BUDGET_INPUT_REMAINING = String(spec.budgetRemaining.input_tokens);
     }

@@ -26,14 +26,13 @@
  *      nothing. `scrubDeepSecrets` is the object-aware one. The names give no
  *      hint which is which — FG-J2/J3 pin the difference.
  *
- *   3. `scrubDeepSecrets` recurses without a seen-set, so a span attribute
- *      holding a parent/child backreference (the normal shape of a span tree)
- *      overflows the stack and takes the run down. FG-J4 records it.
+ *   3. `scrubDeepSecrets` must safely mark parent/child backreferences (the
+ *      normal shape of a span tree) without mutating the original payload.
+ *      HS-05 prevents a regression to unbounded recursion.
  *
  *   4. OTLP credentials arrive in environment variables. `buildSafeEnv` is a
- *      DENYLIST; OTEL_* is on neither the static list nor the prefix list, so
- *      OTEL_EXPORTER_OTLP_HEADERS ("Authorization=Bearer ...") is handed to
- *      every child process the runner spawns. FG-J6 records it.
+ *      DENYLIST, so HS-06 pins the complete OTEL_* prefix family and prevents
+ *      Authorization-bearing exporter headers from reaching child processes.
  */
 
 const { describe, it } = require('node:test');
@@ -175,21 +174,34 @@ describe('FG-J structured-payload scrubbing contracts', () => {
     assert.ok(Array.isArray(out.attributes['tool.args']), 'arrays must stay arrays');
   });
 
-  // FG-J4: KNOWN GAP (HS-05). Span trees are cyclic by nature (a child holds a
-  // reference to its parent). scrubDeepSecrets has no seen-set, so the first
-  // cyclic attribute object thrown at it overflows the stack — inside the
-  // redaction boundary, i.e. it takes the whole run down while trying to make
-  // output safe. Recorded as todo: the fix is a WeakSet cycle guard.
-  it(
-    'HS-05: scrubDeepSecrets survives a circular payload',
-    { todo: 'known gap — no cycle guard; a self-referencing span attribute overflows the stack' },
-    () => {
-      const span = { name: 'turn', secret: SECRET };
-      span.parent = span; // the ordinary shape of a span tree
-      const out = boundary.scrubDeepSecrets(span);
-      assert.ok(!JSON.stringify(out, () => undefined).includes(SECRET));
-    },
-  );
+  // HS-05: Span trees are cyclic by nature (a child often holds a reference
+  // to its parent). The sink copy must stay serializable and secret-free, while
+  // the live object remains untouched for the rest of the runner operation.
+  it('HS-05: scrubDeepSecrets survives a circular payload without mutating its input', () => {
+    const span = { name: 'turn', secret: SECRET };
+    span.parent = span; // the ordinary shape of a span tree
+
+    const out = boundary.scrubDeepSecrets(span);
+
+    assert.notEqual(out, span, 'the sink-facing payload must be a detached copy');
+    assert.equal(out.parent, '[Circular]', 'the backreference must become a serializable marker');
+    assert.ok(!JSON.stringify(out).includes(SECRET), 'the detached circular payload must still be redacted');
+    assert.equal(span.secret, SECRET, 'scrubbing must not change the live input value');
+    assert.equal(span.parent, span, 'scrubbing must not replace the live input backreference');
+  });
+
+  it('HS-05: shared non-circular objects are scrubbed normally on every branch', () => {
+    const shared = { label: 'shared', secret: SECRET };
+    const payload = { first: shared, second: shared };
+
+    const out = boundary.scrubDeepSecrets(payload);
+
+    assert.deepEqual(out.first, out.second);
+    assert.notEqual(out.first, shared, 'each sink-facing branch must be detached from the live object');
+    assert.equal(out.first.label, 'shared');
+    assert.ok(!JSON.stringify(out).includes(SECRET));
+    assert.equal(shared.secret, SECRET, 'the shared live object must remain unchanged');
+  });
 
   // FG-J5: documented data-loss shapes. Errors and Maps are extremely common in
   // telemetry payloads and both come out EMPTY — no leak, but the exporter would
@@ -210,31 +222,34 @@ describe('FG-J structured-payload scrubbing contracts', () => {
     assert.ok(asText.exception.includes('[REDACTED'), 'and must show the redaction marker');
   });
 
-  // FG-J6: KNOWN GAP (HS-06). OTLP exporters are configured through OTEL_*
-  // environment variables, and OTEL_EXPORTER_OTLP_HEADERS conventionally holds
-  // "Authorization=Bearer <token>". buildSafeEnv is a denylist: OTEL_ is on
-  // neither the static list nor the prefix list, so that header is handed to
-  // every child process — every bash command, every spawned agent.
-  it(
-    'HS-06: telemetry credential env vars are withheld from child processes',
-    { todo: 'known gap — OTEL_* is absent from SCRUBBED_ENV_VARS and from the scrubbed prefix list' },
-    () => {
-      const saved = process.env.OTEL_EXPORTER_OTLP_HEADERS;
-      process.env.OTEL_EXPORTER_OTLP_HEADERS = 'Authorization=Bearer ' + SECRET;
-      try {
-        assert.ok(!('OTEL_EXPORTER_OTLP_HEADERS' in safety.buildSafeEnv()));
-      } finally {
-        if (saved === undefined) delete process.env.OTEL_EXPORTER_OTLP_HEADERS;
-        else process.env.OTEL_EXPORTER_OTLP_HEADERS = saved;
-      }
-    },
-  );
+  // HS-06: OTLP exporters are configured through OTEL_* environment variables,
+  // and header variables conventionally hold "Authorization=Bearer <token>".
+  // Test both today's header names and an invented future name so the entire
+  // family remains filtered rather than only one known credential variable.
+  it('HS-06: the full OTEL_* environment family is withheld from child processes', () => {
+    const sourceEnv = {
+      PATH: '/usr/bin',
+      ORDINARY_CHILD_SETTING: 'keep-me',
+      OTEL_EXPORTER_OTLP_HEADERS: 'Authorization=Bearer ' + SECRET,
+      OTEL_EXPORTER_OTLP_TRACES_HEADERS: 'Authorization=Bearer trace-' + SECRET,
+      OTEL_SERVICE_NAME: 'local-runner',
+      OTEL_INVENTED_FUTURE_CREDENTIAL: SECRET,
+    };
+
+    const env = safety.buildSafeEnv(sourceEnv);
+
+    for (const name of Object.keys(sourceEnv).filter((key) => key.startsWith('OTEL_'))) {
+      assert.equal(env[name], undefined, `${name} reached a child process`);
+    }
+    assert.equal(env.PATH, '/usr/bin', 'ordinary process settings must survive filtering');
+    assert.equal(env.ORDINARY_CHILD_SETTING, 'keep-me', 'unrelated child settings must survive filtering');
+  });
 
   // FG-J7: the prefix-scrub families are the only forward-looking part of the
   // env denylist — they catch variable names that do not exist yet. Pin them,
   // because deleting one is a one-character edit with no other symptom.
   it('FG-J7: the forward-looking env prefix families are still enforced', () => {
-    const PREFIX_FAMILIES = ['AWS_', 'ANTHROPIC_', 'CLAUDE_', 'OPENAI_'];
+    const PREFIX_FAMILIES = ['AWS_', 'ANTHROPIC_', 'CLAUDE_', 'OPENAI_', 'OTEL_'];
     for (const prefix of PREFIX_FAMILIES) {
       const invented = prefix + 'INVENTED_FUTURE_VAR';
       const saved = process.env[invented];

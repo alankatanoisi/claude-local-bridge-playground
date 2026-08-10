@@ -150,30 +150,107 @@ describe('FG-F session-ledger durability edges', () => {
     );
   });
 
-  // HS-02 (KNOWN GAP, todo): after recovering past a torn tail, the next
-  // append starts at the raw end of file — concatenating onto the torn
-  // fragment, which makes BOTH records unparseable to readAll(). Sequence
-  // numbering stays correct, but one recovered event is invisible to replay.
-  // Fix shape: newline-terminate the file (or truncate the torn tail) before
-  // the first post-recovery append. Flip to a hard assertion when fixed.
-  it(
-    'HS-02: the first append after a torn tail is readable by readAll()',
-    { todo: 'known gap — post-recovery append concatenates onto the torn fragment' },
-    () => {
-      const sessionPath = makeSession();
-      const ledger = new SessionLedger(sessionPath);
-      ledger.append('turn_start', { n: 1 });
-      ledger.close();
-      fs.appendFileSync(ledgerPathForSession(sessionPath), '{"torn":tr');
-      fs.rmSync(cursorPathForLedger(ledgerPathForSession(sessionPath)), { force: true });
+  // HS-02: keep the cursor sidecar on purpose. A real crash can write bytes to
+  // the ledger and die before updating that sidecar, so recovery must notice
+  // that the cursor is stale before deciding the next sequence number.
+  it('HS-02: the first append after a partial JSON tail is readable and monotonic', () => {
+    const sessionPath = makeSession();
+    const ledgerPath = ledgerPathForSession(sessionPath);
+    const ledger = new SessionLedger(sessionPath);
+    ledger.append('turn_start', { n: 1 });
+    ledger.close();
 
-      const reopened = new SessionLedger(sessionPath);
-      reopened.append('turn_start', { n: 2 });
-      reopened.close();
-      const readable = reopened.readAll().map((e) => e.seq);
-      assert.ok(readable.includes(2), 'post-recovery event must be replayable; got seqs ' + readable.join(','));
-    },
-  );
+    // This fragment represents a process dying partway through one write. It
+    // has no newline, so appending directly would glue the next event to it.
+    fs.appendFileSync(ledgerPath, '{"v":1,"seq":2,"type":"torn_wri');
+
+    const reopened = new SessionLedger(sessionPath);
+    assert.equal(reopened.getCursor().source, 'scan', 'bytes after a stale cursor must be scanned');
+    const recoveredEvent = reopened.append('turn_start', { n: 2 });
+    reopened.close();
+
+    const readable = reopened.readAll();
+    assert.equal(recoveredEvent.seq, 2, 'an unreadable partial event does not consume a sequence number');
+    assert.deepEqual(
+      readable.map((event) => event.seq),
+      [1, 2],
+      'the recovered append must be readable without a gap or duplicate sequence',
+    );
+    assert.deepEqual(reopened.detectGaps(), [], 'parseable events remain strictly monotonic');
+  });
+
+  it('HS-02: a complete record missing only its newline survives stale-cursor recovery', () => {
+    const sessionPath = makeSession();
+    const ledgerPath = ledgerPathForSession(sessionPath);
+    const ledger = new SessionLedger(sessionPath);
+    ledger.append('turn_start', { n: 1 });
+    ledger.close();
+
+    // JSONL normally ends every record with "\n". This record is valid JSON,
+    // but the process died before its newline and cursor update were durable.
+    const completeButUnterminated = {
+      v: 1,
+      seq: 2,
+      ts: new Date().toISOString(),
+      type: 'turn_end',
+      n: 1,
+    };
+    fs.appendFileSync(ledgerPath, JSON.stringify(completeButUnterminated));
+
+    const reopened = new SessionLedger(sessionPath);
+    assert.equal(reopened.lastSeq, 2, 'the complete record after the stale cursor must count');
+    const recoveredEvent = reopened.append('turn_start', { n: 2 });
+    reopened.close();
+
+    assert.equal(recoveredEvent.seq, 3, 'the next event must not duplicate the complete record sequence');
+    assert.deepEqual(
+      reopened.readAll().map((event) => event.seq),
+      [1, 2, 3],
+      'all complete records remain readable after the delimiter is added',
+    );
+    assert.deepEqual(reopened.detectGaps(), [], 'valid unterminated recovery remains strictly monotonic');
+  });
+
+  it('HS-02: stale-cursor scanning reconstructs pending intents before a torn-tail result append', () => {
+    const sessionPath = makeSession();
+    const ledgerPath = ledgerPathForSession(sessionPath);
+    const ledger = new SessionLedger(sessionPath);
+    ledger.append('turn_start', { n: 1 });
+    ledger.close();
+
+    // The cursor still points to seq 1. A complete intent reached the ledger
+    // afterward, followed by an incomplete third record. Recovery must scan
+    // both pieces, retain the intent, and safely reuse seq 3 for its result.
+    const intent = {
+      v: 1,
+      seq: 2,
+      ts: new Date().toISOString(),
+      type: 'write_intent',
+      effectId: 'fx_after_stale_cursor',
+    };
+    fs.appendFileSync(ledgerPath, JSON.stringify(intent) + '\n{"v":1,"seq":3,"type":"torn');
+
+    const reopened = new SessionLedger(sessionPath);
+    assert.deepEqual(
+      reopened.getPendingIntents().map((pending) => pending.id),
+      ['fx_after_stale_cursor'],
+      'full-scan fallback must reconstruct the intent written after the cursor',
+    );
+    const result = reopened.append('write_result', {
+      effectId: 'fx_after_stale_cursor',
+      ok: true,
+    });
+    reopened.close();
+
+    assert.equal(result.seq, 3, 'the unreadable partial record does not consume seq 3');
+    assert.deepEqual(reopened.getPendingIntents(), [], 'the recovered result closes the recovered intent');
+    assert.deepEqual(
+      reopened.readAll().map((event) => event.seq),
+      [1, 2, 3],
+      'the intent and its post-recovery result both remain replayable',
+    );
+    assert.deepEqual(reopened.detectGaps(), [], 'intent/result recovery remains strictly monotonic');
+  });
 
   it('FG-F7: a cursor sidecar pointing past end-of-file falls back to a full scan', () => {
     const sessionPath = makeSession();

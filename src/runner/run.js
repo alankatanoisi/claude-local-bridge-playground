@@ -980,37 +980,34 @@ async function run(options) {
   // lines, human-log messages) and pass the terminal facts in `partial`.
   let runFinalized = false;
 
-  function onSigint() {
-    const result = finalizeRun({
-      stopReason: STOP_REASONS.CANCELLED,
-      finalText: 'Cancelled by user (SIGINT).',
-      steps: currentStep,
-      usage: totalUsage,
-    });
-    process.exitCode = result && result.stopReason === STOP_REASONS.SUCCESS ? 0 : 130;
-    process.exit();
-  }
-  process.once('SIGINT', onSigint);
-
   // F8 fix (A1 crash bakeoff, 2026-07-31): SIGTERM previously had NO handler,
   // so a polite `kill` behaved exactly like `kill -9` — the debounced session
   // checkpoint died inside its 75 ms window and every resume double-executed
   // the last side effect (measured: 18/18 pre-fix SIGTERM trials lost the
-  // checkpoint; docs/durability-crash-bakeoff-2026-07-31.md). Funnelling
-  // SIGTERM through the same finalizer gives it what SIGINT already had:
-  // synchronous checkpoint flush (via the store's process-exit hook),
-  // `run_stopped` ledger event, health record, and autopsy. SIGKILL remains
-  // unfixable by definition. 143 = 128 + SIGTERM(15), the conventional code.
-  function onSigterm() {
-    const result = finalizeRun({
-      stopReason: STOP_REASONS.CANCELLED,
-      finalText: 'Terminated (SIGTERM).',
-      steps: currentStep,
-      usage: totalUsage,
-    });
-    process.exitCode = result && result.stopReason === STOP_REASONS.SUCCESS ? 0 : 143;
-    process.exit();
+  // checkpoint; docs/durability-crash-bakeoff-2026-07-31.md).
+  //
+  // SIGINT and SIGTERM now share this factory, so pressing Control-C gets the
+  // same checkpoint flush, `run_stopped` ledger event, health record, and
+  // autopsy semantics as a polite SIGTERM. Only their user-facing text and
+  // conventional exit codes differ: 130 for SIGINT and 143 for SIGTERM.
+  // SIGKILL cannot run a finalizer because the operating system ends the
+  // process immediately.
+  function makeSignalFinalizer(finalText, failureExitCode) {
+    return () => {
+      const result = finalizeRun({
+        stopReason: STOP_REASONS.CANCELLED,
+        finalText,
+        steps: currentStep,
+        usage: totalUsage,
+      });
+      process.exitCode = result && result.stopReason === STOP_REASONS.SUCCESS ? 0 : failureExitCode;
+      process.exit();
+    };
   }
+
+  const onSigint = makeSignalFinalizer('Cancelled by user (SIGINT).', 130);
+  const onSigterm = makeSignalFinalizer('Terminated (SIGTERM).', 143);
+  process.once('SIGINT', onSigint);
   process.once('SIGTERM', onSigterm);
 
   function finalizeRun(partial) {

@@ -14,7 +14,7 @@ Owner decisions recorded on August 10, 2026:
 - Explicit `--allow-shell` use accepts unsandboxed local-account authority, and `--no-network` is accepted as a
   best-effort guard rather than hard network isolation. Bypasses of the opt-in boundary and false isolation claims remain
   reportable.
-- HS-01, HS-02, HS-03, HS-05, and HS-06 remain unresolved limitations. They are documented context, not accepted-safe
+- HS-01 remains an unresolved limitation. It is documented context, not an accepted-safe
   findings and not suppression authority; see the root policy and their registered `false-green` tests.
 
 ## Scope

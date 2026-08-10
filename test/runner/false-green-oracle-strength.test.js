@@ -27,7 +27,8 @@
  * (verified 2026-08-08), so these lock in a good state rather than grandfather
  * a bad one.
  *
- * FG-M6/HS-03 record two concrete instances found while writing this file.
+ * FG-M5/HS-03 and FG-M6 record two concrete instances found while writing this
+ * file. HS-03 is now a hard regression assertion rather than a masked todo.
  */
 
 const { describe, it } = require('node:test');
@@ -344,7 +345,7 @@ describe('FG-M assertion oracles can still fail', () => {
 });
 
 describe('FG-M environment-coupled outcomes', () => {
-  // FG-M5: HS-03 — a REAL nondeterminism bug found while auditing.
+  // FG-M5: HS-03 — deterministic recovery ordering when filesystem times tie.
   //
   // `undo` picks the newest backup by sorting on mtimeMs. saveBackup() writes
   // two backups fast enough that the filesystem stamps them with an IDENTICAL
@@ -352,43 +353,34 @@ describe('FG-M environment-coupled outcomes', () => {
   // readdir() happened to return — which puts the OLDER backup first. `undo`
   // then restores stale content, silently discarding the newer backup.
   //
-  // This is why the existing `undo.test.js` "restores from the newest matching
-  // timestamped backup" case fails on this machine: nothing to do with the
-  // test, everything to do with a missing tie-break.
-  //
-  // It is recorded as a todo rather than fixed because the tempting "fix" is to
-  // sleep between the two saveBackup() calls in the test — which makes the test
-  // green and leaves the data-loss bug in place. The real fix is a deterministic
-  // tie-break: saveBackup() already embeds a monotonic sequence number in the
-  // filename, so sort on (mtimeMs, seq) instead of mtimeMs alone.
-  it(
-    'HS-03: undo resolves the newest backup deterministically when mtimes collide',
-    { todo: 'known bug — mtime-only sort is nondeterministic on same-millisecond backups; needs a seq tie-break' },
-    () => {
-      const { saveBackup } = require('../../src/runner/tools/file-write-utils');
-      const undo = require('../../src/runner/tools/undo');
+  // The regression test deliberately gives both backups the same mtime. Sleeping
+  // between writes would only hide the bug on one filesystem. saveBackup()
+  // already puts a monotonic sequence number in each current-format filename,
+  // so undo can use that durable ordering signal when mtimeMs cannot decide.
+  it('HS-03: undo resolves the newest backup deterministically when mtimes collide', () => {
+    const { saveBackup } = require('../../src/runner/tools/file-write-utils');
+    const undo = require('../../src/runner/tools/undo');
 
-      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fg-undo-tie-'));
-      const target = path.join(tmp, 'target.js');
-      fs.writeFileSync(target, 'current');
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'fg-undo-tie-'));
+    const target = path.join(tmp, 'target.js');
+    fs.writeFileSync(target, 'current');
 
-      saveBackup(target, Buffer.from('older'), tmp);
-      const newer = saveBackup(target, Buffer.from('newer'), tmp);
+    saveBackup(target, Buffer.from('older'), tmp);
+    const newer = saveBackup(target, Buffer.from('newer'), tmp);
 
-      // Force the collision the fast path produces naturally, so this test is
-      // deterministic on every filesystem rather than only on coarse ones.
-      const backupsDir = path.join(tmp, '.bridge-runner', 'backups');
-      const stamp = new Date(1_700_000_000_000);
-      for (const name of fs.readdirSync(backupsDir)) fs.utimesSync(path.join(backupsDir, name), stamp, stamp);
+    // Force the collision the fast path produces naturally, so this test is
+    // deterministic on every filesystem rather than only on coarse ones.
+    const backupsDir = path.join(tmp, '.bridge-runner', 'backups');
+    const stamp = new Date(1_700_000_000_000);
+    for (const name of fs.readdirSync(backupsDir)) fs.utimesSync(path.join(backupsDir, name), stamp, stamp);
 
-      undo.execute({ path: 'target.js' }, { cwd: tmp });
-      assert.equal(
-        fs.readFileSync(target, 'utf8'),
-        'newer',
-        'undo restored a stale backup — the newest write (' + path.basename(newer) + ') was discarded',
-      );
-    },
-  );
+    undo.execute({ path: 'target.js' }, { cwd: tmp });
+    assert.equal(
+      fs.readFileSync(target, 'utf8'),
+      'newer',
+      'undo restored a stale backup — the newest write (' + path.basename(newer) + ') was discarded',
+    );
+  });
 
   // FG-M6: structural guard for the bash signal branch.
   //

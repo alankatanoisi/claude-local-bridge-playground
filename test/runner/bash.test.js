@@ -42,6 +42,30 @@ describe('bash tool', () => {
     assert.ok(result.text.includes('subcontent'));
   });
 
+  it('does not pass OTEL_* credentials into the real bash child process', async () => {
+    const previous = process.env.OTEL_EXPORTER_OTLP_HEADERS;
+    process.env.OTEL_EXPORTER_OTLP_HEADERS = 'Authorization=Bearer bash-must-not-inherit-this';
+
+    try {
+      // This executes through the real bash tool boundary. The child prints a
+      // plain marker instead of the value, so redaction cannot create a false
+      // green by merely hiding a credential that was actually inherited.
+      const result = await execute(
+        {
+          command:
+            "node -e \"console.log(Object.hasOwn(process.env, 'OTEL_EXPORTER_OTLP_HEADERS') ? 'leaked' : 'missing')\"",
+        },
+        { cwd: tmpDir },
+      );
+
+      assert.equal(result.ok, true);
+      assert.equal(result.text, 'missing');
+    } finally {
+      if (previous === undefined) delete process.env.OTEL_EXPORTER_OTLP_HEADERS;
+      else process.env.OTEL_EXPORTER_OTLP_HEADERS = previous;
+    }
+  });
+
   it('truncates long output', async () => {
     // Generate enough output to exceed MAX_OUTPUT_CHARS (10000)
     const result = await execute({ command: 'yes head | head -10000' }, { cwd: tmpDir, shellTimeout: 10000 });

@@ -18,6 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const safety = require('./safety');
 
 const DEFAULT_BUDGET_MS = 30_000;
 
@@ -82,7 +83,10 @@ function runIfEnabled(ctx) {
     shell: true,
     timeout: budget,
     encoding: 'utf8',
-    env: { ...process.env, CI: '1' },
+    // Project test commands are child processes too. Give them the same safe
+    // environment as bash and child agents so opt-in automatic verification
+    // cannot expose an OTLP Authorization header to repository-controlled code.
+    env: safety.buildSafeEnv({ ...process.env, CI: '1' }),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   const durationMs = Date.now() - startedAt;

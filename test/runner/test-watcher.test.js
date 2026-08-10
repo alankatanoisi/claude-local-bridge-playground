@@ -96,6 +96,33 @@ describe('Ext-13 test-watcher', () => {
     }
   });
 
+  it('withholds OTEL_* credentials from the project test child process', () => {
+    const cwd = tmp('otel-env');
+    const previousCmd = process.env.BRIDGE_RUNNER_TEST_CMD;
+    const previousHeader = process.env.OTEL_EXPORTER_OTLP_HEADERS;
+    process.env.BRIDGE_RUNNER_TEST_CMD =
+      "node -e \"console.log(Object.hasOwn(process.env, 'OTEL_EXPORTER_OTLP_HEADERS') ? 'leaked' : 'missing')\"";
+    process.env.OTEL_EXPORTER_OTLP_HEADERS = 'Authorization=Bearer watcher-must-not-inherit-this';
+
+    try {
+      const result = watcher.runIfEnabled({
+        cwd,
+        cwdRealpath: fs.realpathSync(cwd),
+        allowShell: true,
+        testWatch: true,
+      });
+
+      assert.equal(result.ran, true);
+      assert.equal(result.ok, true);
+      assert.equal(result.stdout.trim(), 'missing');
+    } finally {
+      if (previousCmd === undefined) delete process.env.BRIDGE_RUNNER_TEST_CMD;
+      else process.env.BRIDGE_RUNNER_TEST_CMD = previousCmd;
+      if (previousHeader === undefined) delete process.env.OTEL_EXPORTER_OTLP_HEADERS;
+      else process.env.OTEL_EXPORTER_OTLP_HEADERS = previousHeader;
+    }
+  });
+
   it('formatVerificationAppendix summarizes failures', () => {
     const text = watcher.formatVerificationAppendix({
       ran: true,

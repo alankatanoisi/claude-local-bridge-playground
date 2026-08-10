@@ -179,14 +179,6 @@ These are unresolved limitations, not accepted-safe findings and not instruction
 - **HS-01 — case-variant sensitive filenames:** a case-variant key filename can bypass a basename rule on a
   case-insensitive filesystem. Canonical sensitive names, directory rules, realpath confinement, and sink redaction are
   compensating controls, not a complete fix.
-- **HS-02 — torn-ledger append:** the first event appended after a partially written ledger tail can become unreadable.
-  Sequence checks and repair tooling provide evidence, but do not make the lost event safe.
-- **HS-03 — nondeterministic undo selection:** backups with identical modification times can cause `undo` to restore an
-  older version. Divergence checks and run-level manifests reduce some recovery risk but do not resolve the tie.
-- **HS-05 — circular structured redaction:** circular objects can overflow the recursive structured-data scrubber. The
-  present sinks normally use acyclic payloads, but future telemetry or richer objects can make this reachable.
-- **HS-06 — telemetry environment credentials:** `OTEL_*` variables are not currently removed from child-process
-  environments. Other credential families are filtered, but that denylist does not protect OTLP headers.
 - The generic permission gate depends on reviewed tool argument contracts, including path-bearing argument names.
   Execution-time path rechecks and catalog tests are compensating controls; a new or renamed argument can create a gap.
 - Transcripts, traces, ledgers, checkpoints, backups, and archives can contain source code and local paths even after
