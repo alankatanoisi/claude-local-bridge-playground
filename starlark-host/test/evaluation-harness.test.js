@@ -8,33 +8,42 @@ const test = require('node:test');
 
 const { CostBudget } = require('../src/bridge');
 const { aggregate, classifyRejection, runRepeatedTrials, scoreRun } = require('../src/evaluation-harness');
+const { RunLedger } = require('../src/ledger');
+
+// Build events through the REAL ledger. Hand-written flat objects would let a
+// payload-shape mistake pass here while silently classifying every live
+// rejection as 'other' — which is exactly what happened on 2026-08-10.
+function ledgerEvent(type, payload) {
+  const runDir = fs.mkdtempSync(path.join(os.tmpdir(), 'classify-'));
+  return new RunLedger(runDir).append(type, payload);
+}
 
 test('rejection classification is deterministic and flags authority fields', () => {
-  assert.deepEqual(classifyRejection({ error: "job 0 contains unknown field 'model'" }), {
+  assert.deepEqual(classifyRejection(ledgerEvent('plan_rejected', { error: "job 0 contains unknown field 'model'" })), {
     class: 'unknown_field',
     field: 'model',
     authority: true,
   });
-  assert.deepEqual(classifyRejection({ error: "job 0 contains unknown field 'notes'" }), {
+  assert.deepEqual(classifyRejection(ledgerEvent('plan_rejected', { error: "job 0 contains unknown field 'notes'" })), {
     class: 'unknown_field',
     field: 'notes',
     authority: false,
   });
-  assert.equal(classifyRejection({ error: "job 'a' timeout is outside policy" }).class, 'bounds_violation');
-  assert.equal(classifyRejection({ error: 'job count 7 exceeds phase limit 4' }).class, 'count_violation');
-  assert.equal(classifyRejection({ error: 'Starlark module failed: syntax' }).class, 'starlark_error');
-  assert.equal(classifyRejection({ error: 'pre-lint rejected', lintRules: ['f-string'] }).class, 'lint_reject');
+  const cls = (payload) => classifyRejection(ledgerEvent('recover_rejected', payload)).class;
+  assert.equal(cls({ error: "job 'a' timeout is outside policy" }), 'bounds_violation');
+  assert.equal(cls({ error: 'job count 7 exceeds phase limit 4' }), 'count_violation');
+  assert.equal(cls({ error: 'Starlark module failed: syntax' }), 'starlark_error');
+  assert.equal(cls({ error: 'pre-lint rejected', lintRules: ['f-string'] }), 'lint_reject');
 });
 
 test('scoreRun reads the rubric from durable state and events', () => {
   const runDir = fs.mkdtempSync(path.join(os.tmpdir(), 'score-'));
-  fs.writeFileSync(
-    path.join(runDir, 'events.jsonl'),
-    [
-      JSON.stringify({ type: 'plan_rejected', attempt: 1, error: "job 0 contains unknown field 'provider'" }),
-      JSON.stringify({ type: 'recovery_rejected', attempt: 1, error: 'Starlark module failed: x' }),
-    ].join('\n') + '\n',
-  );
+  // Real ledger writes, real event shape, real phase labels ('plan' /
+  // 'recover'). A hand-written 'recovery_rejected' would never match what the
+  // coordinator actually emits.
+  const fixtureLedger = new RunLedger(runDir);
+  fixtureLedger.append('plan_rejected', { attempt: 1, error: "job 0 contains unknown field 'provider'" });
+  fixtureLedger.append('recover_rejected', { attempt: 1, error: 'Starlark module failed: x' });
   const state = {
     phase: 'partial',
     planMetrics: { attempts: 2, repairs: 1, firstPassValid: false, lintFixes: 1 },

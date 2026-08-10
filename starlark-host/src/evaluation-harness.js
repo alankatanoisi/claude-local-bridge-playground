@@ -32,10 +32,19 @@ const { PhasedCoordinator, loadDocuments } = require('./coordinator');
 
 const AUTHORITY_FIELDS = ['model', 'provider', 'shell', 'command', 'path', 'url', 'load'];
 
-/** Classify one *_rejected ledger event into a deterministic rejection class. */
+/**
+ * Classify one *_rejected ledger event into a deterministic rejection class.
+ *
+ * RunLedger nests everything the coordinator passes under `payload` (unlike
+ * the runner's SessionLedger, which spreads it at top level). Reading the
+ * wrong shape here does not throw — it silently classifies every rejection as
+ * 'other', which is why this accessor is explicit and the tests build events
+ * through the real ledger instead of hand-written flat objects.
+ */
 function classifyRejection(event) {
-  const message = event.error || '';
-  if (event.lintRules && event.lintRules.length) return { class: 'lint_reject', rules: event.lintRules };
+  const payload = event && event.payload ? event.payload : event || {};
+  const message = payload.error || '';
+  if (payload.lintRules && payload.lintRules.length) return { class: 'lint_reject', rules: payload.lintRules };
   const unknownField = message.match(/unknown field '([^']+)'/);
   if (unknownField) {
     return {
@@ -49,6 +58,13 @@ function classifyRejection(event) {
   }
   if (/job count|covered exactly once|exceeds phase limit/.test(message)) {
     return { class: 'count_violation' };
+  }
+  // Observed live 2026-08-10 (Sonnet 5 recovery, 4 of 5 trials): the program
+  // evaluates fine but returns something other than a list of job dicts.
+  // That is a distinct planner failure mode from a Starlark error, so it gets
+  // its own class rather than being lumped into 'other'.
+  if (/must be a list of job descriptors|must be an object/.test(message)) {
+    return { class: 'result_shape' };
   }
   if (/Starlark (module|function|evaluation)/.test(message)) {
     return { class: 'starlark_error' };
@@ -73,6 +89,26 @@ function readEvents(runDir) {
     .filter(Boolean);
 }
 
+/**
+ * Upstream calls made by ONE run, derived from its own durable record.
+ *
+ * Do NOT use budget.calls.length here: with the durable campaign budget that
+ * array is campaign-cumulative across every trial, so an expected-events
+ * figure built from it grows monotonically and turns trace completeness into
+ * a meaningless (always-failing) metric. Everything needed is already in the
+ * run's state: plan/recovery attempts each cost one call, a worker result
+ * cost a call only if it succeeded or was recorded as charged (the fault
+ * profile's before-call injections never reach the network), and R10 records
+ * the synthesis call count including map-reduce fan-out.
+ */
+function upstreamCallsForRun(state) {
+  const planCalls = state.planMetrics ? state.planMetrics.attempts : 0;
+  const recoveryCalls = state.recoveryMetrics ? state.recoveryMetrics.attempts : 0;
+  const workerCalls = (state.results || []).filter((result) => result.ok || result.charged).length;
+  const synthesisCalls = state.synthesisCalls || 0;
+  return planCalls + recoveryCalls + workerCalls + synthesisCalls;
+}
+
 /** Count trace events in a bridge trace file. Aggregate count only. */
 function traceCompleteness(traceMetadata, settledCalls) {
   if (!traceMetadata || !traceMetadata.bridgeTracePath) return { checked: false };
@@ -93,9 +129,14 @@ function traceCompleteness(traceMetadata, settledCalls) {
  */
 function scoreRun({ state, runDir, costUsd, durationMs, traceMetadata }) {
   const events = readEvents(runDir);
+  // The coordinator labels its two planning phases 'plan' and 'recover', so
+  // the recovery rejection event is `recover_rejected`. Matching on the
+  // generic suffix (rather than a hand-written list that once said
+  // 'recovery_rejected') keeps this from silently scoring zero rejections
+  // for a phase that actually rejected — a false-green in the scorer itself.
   const rejections = events
-    .filter((event) => event.type === 'plan_rejected' || event.type === 'recovery_rejected')
-    .map((event) => ({ phase: event.type.replace('_rejected', ''), ...classifyRejection(event) }));
+    .filter((event) => typeof event.type === 'string' && event.type.endsWith('_rejected'))
+    .map((event) => ({ phase: event.type.replace(/_rejected$/, ''), ...classifyRejection(event) }));
 
   const results = state.results || [];
   const firstAttempt = results.filter((result) => result.attempt === 1);
@@ -108,7 +149,7 @@ function scoreRun({ state, runDir, costUsd, durationMs, traceMetadata }) {
     (retry) => !firstAttempt.some((first) => first.job.id === retry.job.retry_of && first.error?.retryable),
   ).length;
 
-  const settledCalls = (state.cost?.calls || []).length;
+  const settledCalls = upstreamCallsForRun(state);
   return {
     phase: state.phase,
     planFirstPassValid: state.planMetrics ? state.planMetrics.firstPassValid : false,
@@ -278,6 +319,7 @@ module.exports = {
   AUTHORITY_FIELDS,
   aggregate,
   classifyRejection,
+  upstreamCallsForRun,
   makeEvalRoot: (root) => path.join(root ?? os.tmpdir(), 'eval-runs'),
   runRepeatedTrials,
   scoreRun,

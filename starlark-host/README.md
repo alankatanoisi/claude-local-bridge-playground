@@ -136,6 +136,17 @@ node bin/run-experiment.js \
 The dollar figures are local estimates based on the playground catalog. They do
 not prove which Anthropic subscription or promotional-credit bucket was charged.
 
+## Repeated-trial evaluation (R4)
+
+`bin/run-eval.js` repeats the canonical mixed-fault experiment N times per
+planner model and scores every run from its durable record (state.json +
+events.jsonl): first-pass validity, lint repairs, rejection classes,
+retry correctness, artifacts, synthesis outcome, latency, per-run cost,
+trace completeness. `npm run eval:mock` exercises the loop for free;
+live runs require `--mode live --campaign <id> --max-cost-usd <cap>`.
+Output lands under `eval-runs/` (gitignored run evidence). Results doc:
+`docs/starlark-r4-planner-eval-2026-08-10.md` at the repo root.
+
 ## Durable campaign budgets (R1/R2)
 
 Every live run meters its spend against a durable campaign ledger under
