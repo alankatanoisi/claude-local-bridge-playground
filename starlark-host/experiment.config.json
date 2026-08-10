@@ -20,7 +20,7 @@
   ],
   "effort": "medium",
   "traceLevel": "full",
-  "maxExperimentCostUsd": 10,
+  "maxExperimentCostUsd": 20,
   "maxJobsPerPhase": 4,
   "maxConcurrency": 2,
   "maxAttemptsPerInput": 2,

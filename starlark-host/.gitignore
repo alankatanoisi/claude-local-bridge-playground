@@ -4,6 +4,7 @@
 runs/
 workflow-runs/
 matrix-runs/
+eval-runs/
 
 # Compiled Go evaluator — rebuild locally with `npm run build:evaluator`.
 bin/starlark-eval
