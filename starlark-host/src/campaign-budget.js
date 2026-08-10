@@ -274,54 +274,98 @@ class DurableCampaignBudget {
 
   async _withLock(fn) {
     const started = Date.now();
-    let fd = null;
-    for (;;) {
-      try {
-        fd = fs.openSync(this.lockPath, 'wx', 0o600);
-        break;
-      } catch (error) {
-        if (error.code !== 'EEXIST') throw error;
-        if (this._breakStaleLock()) continue;
-        if (Date.now() - started > LOCK_WAIT_MS) {
-          throw new Error(
-            `could not acquire campaign budget lock ${this.lockPath} within ${LOCK_WAIT_MS}ms`,
-          );
-        }
-        await sleep(LOCK_RETRY_DELAY_MS);
-      }
-    }
+    // The lock is created WITH its holder content in one atomic step: write a
+    // private temp file, then hard-link it to the lock path. link() fails with
+    // EEXIST exactly like open('wx'), but a competitor can never observe an
+    // empty, unparseable lock — that gap caused a real double-reserve (caught
+    // by the two-process race test, 2026-08-10).
+    const tmpPath = `${this.lockPath}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify({ pid: process.pid, ts: new Date().toISOString() }), {
+      mode: 0o600,
+    });
+    let acquired = false;
     try {
-      fs.writeSync(fd, JSON.stringify({ pid: process.pid, ts: new Date().toISOString() }));
+      for (;;) {
+        try {
+          fs.linkSync(tmpPath, this.lockPath);
+          acquired = true;
+          break;
+        } catch (error) {
+          if (error.code !== 'EEXIST') throw error;
+          if (this._breakStaleLock()) continue;
+          if (Date.now() - started > LOCK_WAIT_MS) {
+            throw new Error(
+              `could not acquire campaign budget lock ${this.lockPath} within ${LOCK_WAIT_MS}ms`,
+            );
+          }
+          await sleep(LOCK_RETRY_DELAY_MS);
+        }
+      }
       return fn();
     } finally {
-      fs.closeSync(fd);
+      if (acquired) this._releaseLock();
       try {
-        fs.unlinkSync(this.lockPath);
+        fs.unlinkSync(tmpPath);
       } catch {
-        // already removed — nothing to do
+        // best-effort tmp cleanup
       }
     }
   }
 
-  _breakStaleLock() {
-    let holder = null;
+  _releaseLock() {
+    // Only remove the lock if it is still OURS. If a locked section ever
+    // overran the stale window and another process legitimately reclaimed the
+    // lock, unlinking blindly here would free THEIR lock too.
     try {
-      holder = JSON.parse(fs.readFileSync(this.lockPath, 'utf8'));
+      const holder = JSON.parse(fs.readFileSync(this.lockPath, 'utf8'));
+      if (holder.pid !== process.pid) return;
     } catch {
-      // unreadable or vanished lock: fall through to the age check below
+      return; // gone or unreadable — nothing that is safely ours to remove
     }
-    if (holder && pidIsAlive(holder.pid)) {
-      const age = Date.now() - Date.parse(holder.ts || 0);
-      if (!(age > LOCK_STALE_MS)) return false;
-    }
-    // Holder is dead, unreadable, or has sat on the lock far longer than any
-    // legitimate locked section (which does no network work). Reclaim it.
     try {
       fs.unlinkSync(this.lockPath);
-      return true;
     } catch {
-      return false; // someone else reclaimed it first — retry the open
+      // already removed — nothing to do
     }
+  }
+
+  _breakStaleLock() {
+    // Decide whether the current lock is reclaimable.
+    let stale = false;
+    try {
+      const holder = JSON.parse(fs.readFileSync(this.lockPath, 'utf8'));
+      if (!pidIsAlive(holder.pid)) {
+        stale = true;
+      } else {
+        const age = Date.now() - Date.parse(holder.ts || 0);
+        stale = age > LOCK_STALE_MS;
+      }
+    } catch {
+      // Unreadable content should be impossible now (locks are born with
+      // content), so fall back to file age; a fresh unreadable lock is
+      // treated as HELD, never as breakable.
+      try {
+        stale = Date.now() - fs.statSync(this.lockPath).mtimeMs > LOCK_STALE_MS;
+      } catch {
+        return false; // vanished — the holder released it; just retry
+      }
+    }
+    if (!stale) return false;
+    // Reclaim by atomic rename: exactly one breaker wins the rename; losers
+    // get ENOENT and retry. This prevents two waiters from both "breaking"
+    // and one of them deleting the other's freshly created lock.
+    const reclaimPath = `${this.lockPath}.reclaim.${process.pid}.${crypto.randomBytes(4).toString('hex')}`;
+    try {
+      fs.renameSync(this.lockPath, reclaimPath);
+    } catch {
+      return false; // someone else reclaimed (or the holder released) first
+    }
+    try {
+      fs.unlinkSync(reclaimPath);
+    } catch {
+      // best-effort cleanup of the renamed stale lock
+    }
+    return true;
   }
 }
 

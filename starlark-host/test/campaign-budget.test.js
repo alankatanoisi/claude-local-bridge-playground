@@ -61,13 +61,22 @@ test('two separate processes reserving concurrently: exactly one wins', async ()
 
   // Each child joins the existing campaign and attempts to reserve more than
   // half the cap. Whatever the interleaving, the durable ledger must admit at
-  // most one of them.
+  // most one of them. The winner stays alive for a moment after reserving:
+  // a reservation is only protected while its process lives (the stale-PID
+  // sweep deliberately frees reservations of dead processes), and that
+  // mirrors real usage, where a process holds its reservation across a
+  // model call rather than exiting immediately.
   const childScript = `
     const { openCampaignBudget } = require(process.argv[1]);
     openCampaignBudget({ campaignId: 'race', dir: process.argv[2] })
       .then((budget) => budget.reserve(0.6, 'child-' + process.pid))
-      .then(() => process.stdout.write('RESERVED'))
-      .catch(() => process.stdout.write('BLOCKED'));
+      .then(
+        () => {
+          process.stdout.write('RESERVED');
+          return new Promise((resolve) => setTimeout(resolve, 1500));
+        },
+        () => process.stdout.write('BLOCKED'),
+      );
   `;
   const modulePath = path.join(__dirname, '..', 'src', 'campaign-budget.js');
   const run = () =>
