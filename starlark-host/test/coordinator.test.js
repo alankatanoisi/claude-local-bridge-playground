@@ -165,7 +165,8 @@ test('planner gets one measured repair turn after a rejected Starlark plan', asy
   });
 
   const result = await coordinator.run();
-  assert.deepEqual(result.planMetrics, { attempts: 2, repairs: 1, firstPassValid: false });
+  // lintFixes counts R6 auto-repairs on the ACCEPTED attempt (none here).
+  assert.deepEqual(result.planMetrics, { attempts: 2, repairs: 1, firstPassValid: false, lintFixes: 0 });
   const events = fs.readFileSync(path.join(runDir, 'events.jsonl'), 'utf8');
   assert.match(events, /plan_rejected/);
 });

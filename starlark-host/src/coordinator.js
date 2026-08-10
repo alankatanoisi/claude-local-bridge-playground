@@ -8,6 +8,7 @@ const { policyDisclosure } = require('./descriptor-policy');
 const { FaultInjector } = require('./failures');
 const { RunLedger, atomicWrite } = require('./ledger');
 const { evaluateStarlark, extractStarlark } = require('./starlark');
+const { lintStarlark } = require('./starlark-lint');
 const { validateJobs } = require('./validator');
 
 const PLANNER_SYSTEM = `You are the planning model inside a user-owned orchestration system. Return only Starlark source code. The code must define def plan(ctx) and return a list of job dictionaries. Starlark has no imports, while loops, exceptions, async functions, filesystem, network, shell, or model access. Unlike Python, adjacent string literals are not implicitly joined; use + when combining strings. The host validates every descriptor and chooses all model IDs.`;
@@ -209,21 +210,46 @@ class PhasedCoordinator {
       });
       const source = extractStarlark(response.text);
       this.ledger.writeArtifact(`${phaseLabel}-source-attempt-${attempt}`, { source });
+
+      // R6: deterministic pre-lint. Mechanical Python-isms are auto-repaired
+      // (and recorded); everything else becomes a precise rejection that
+      // guides the model's repair attempt WITHOUT spending an evaluator round.
+      const lint = lintStarlark(source);
+      if (lint.applied.length) {
+        this.ledger.append(`${phaseLabel}_lint_repaired`, { applied: lint.applied });
+      }
       try {
+        if (lint.diagnostics.length) {
+          const message =
+            'Starlark pre-lint rejected the program:\n' +
+            lint.diagnostics.map((diagnostic) => `- ${diagnostic.message}`).join('\n');
+          const error = new Error(message);
+          error.lintRules = lint.diagnostics.map((diagnostic) => diagnostic.rule);
+          throw error;
+        }
         const evaluated = await evaluateStarlark({
-          source,
+          source: lint.source,
           functionName,
           context,
           maxSteps: this.config.maxStarlarkSteps,
           timeoutMs: this.config.starlarkTimeoutMs,
         });
         const jobs = validateJobs(evaluated.result, policy, validationPhase);
-        const metrics = { attempts: attempt, repairs: attempt - 1, firstPassValid: attempt === 1 };
+        const metrics = {
+          attempts: attempt,
+          repairs: attempt - 1,
+          firstPassValid: attempt === 1,
+          lintFixes: lint.applied.length,
+        };
         this.ledger.append(acceptedEvent, { jobs, starlarkSteps: evaluated.steps, metrics });
         return { jobs, metrics };
       } catch (error) {
         rejection = { source, error: error.message };
-        this.ledger.append(`${phaseLabel}_rejected`, { attempt, error: error.message });
+        this.ledger.append(`${phaseLabel}_rejected`, {
+          attempt,
+          error: error.message,
+          ...(error.lintRules ? { lintRules: error.lintRules } : {}),
+        });
         if (attempt === 2) throw error;
       }
     }
