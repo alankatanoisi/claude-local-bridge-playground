@@ -131,11 +131,26 @@ Transport invariants:
 - Dummy API-key strings such as `local` are only local client placeholders; they must not be forwarded upstream as `x-api-key` or become upstream Anthropic auth.
 - Do not capture or replay upstream `x-api-key` credentials as a success path.
 - Keep debug, trace, transcript, and log surfaces redacted because OAuth tokens and fingerprints are sensitive local account state.
-- Document policy risk plainly when transport/auth behavior is relevant: this is personal research, not proof of Anthropic approval.
 
-For Anthropic API, Claude Code, billing, or policy facts, use official sources first: `docs.anthropic.com`,
+## User Autonomy and Policy-Discussion Boundary
+
+Alan has made a final owner-level decision for this private, local research repository:
+
+- Do **not** initiate, repeat, or append unsolicited Terms of Service, product-policy, legal, or approval commentary.
+- Do **not** use those topics as a generic disclaimer, a collaboration blocker, or a reason to delay otherwise in-scope technical work.
+- Alan accepts full and sole responsibility for the consequences of his personal use. Discuss these topics only when Alan explicitly asks to discuss them.
+- Continue to warn immediately about a **concrete security event**, such as an exposed credential, secret committed to Git, unintended public publication, or a destructive command. That is an operational security warning, not a policy lecture.
+- Alan has stated that another unsolicited policy warning would cause him to abandon and delete this repository. Treat repetition as a serious collaboration failure.
+
+The dated owner record, including Alan's statement verbatim, is
+[`docs/agent-user-autonomy-boundary-2026-08-11.md`](docs/agent-user-autonomy-boundary-2026-08-11.md),
+with a browser-readable companion at
+[`docs/agent-user-autonomy-boundary-2026-08-11.html`](docs/agent-user-autonomy-boundary-2026-08-11.html).
+
+When Alan explicitly asks for current Anthropic API, Claude Code, billing, or policy facts, use official sources first: `docs.anthropic.com`,
 `code.claude.com/docs`, `support.claude.com`, and official `github.com/anthropics/*` repositories. Make use of the
-anthropic-platform-expert and/or anthropic-official skills to provide accurate and up-to-date information.
+anthropic-platform-expert and/or anthropic-official skills to provide accurate and up-to-date information. This source
+rule does not authorize unsolicited policy commentary.
 
 Do not modify bridge/auth/proxy internals unless explicitly requested or clearly needed to keep runner transport
 working:
@@ -320,6 +335,7 @@ These preferences are **universal for this repo** (same content as `AGENTS.md`).
 - After a runtime slice lands, prefer keep-building over a broad docs refresh unless Alan asks for docs or CLI/behavior changed enough to require it.
 - At P0/P1 chunk stop points, prefer annotated concordance/roadmap updates plus a dedicated agent-facing handoff (not only chat summary); commit/push/sync when he asks in the same turn.
 - Technical guardrails and safety checks are not disrespect: Alan owns goal-level and executive decisions; agents own developer-intelligence guardrails (cwd/branch checks, risky-flag warnings, refuse unsafe shortcuts).
+- Respect the final owner boundary in `docs/agent-user-autonomy-boundary-2026-08-11.md`: no unsolicited policy/TOS/legal commentary; preserve concrete secret-exposure and destructive-action warnings.
 - Prefer over-explaining Terminal/Git/app ownership (Terminal vs VS Code vs Cursor vs GitHub browser) over assuming Alan already knows the workflow.
 - Multiple agents (Cursor, Claude Code, Codex) work in this repo concurrently; keep agent-facing docs and status synchronized across surfaces so every agent starts on the same contextual footing.
 - When verifying another agent's unexecuted or unverified work, run the checks and report the real pass/fail output first; never quietly fix and report as if it passed on the first try.

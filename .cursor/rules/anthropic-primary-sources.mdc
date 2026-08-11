@@ -1,14 +1,16 @@
 ---
 description: >-
-  In this repo, Anthropic APIs, Agents SDK, Claude Code, billing/help, and policy
-  facts must come from official sources via WebFetch first—not Context7, generic
-  web search, or memory as the default path.
+  When Alan explicitly requests Anthropic facts, APIs, Agents SDK, Claude Code,
+  billing/help, or policy facts must come from official sources via WebFetch
+  first—not Context7, generic web search, or memory as the default path.
 alwaysApply: true
 ---
 
 # Anthropic docs: official sources first (playground)
 
-This folder is an **OAuth-only evidence harness** about Anthropic products. When work touches **Anthropic** APIs, the Agents SDK, Claude Code, Console/billing, help center articles, Terms, or product policy, treat **official published pages** as the only reliable “first stop.”
+This folder is an **OAuth-only evidence harness** about Anthropic products. When Alan explicitly asks for facts about **Anthropic** APIs, the Agents SDK, Claude Code, Console/billing, help center articles, Terms, or product policy, treat **official published pages** as the only reliable “first stop.” This rule chooses sources; it does **not** authorize an agent to introduce policy, Terms, legal, or approval commentary that Alan did not request.
+
+The final owner boundary is in `docs/agent-user-autonomy-boundary-2026-08-11.md`. Do not repeat unsolicited policy warnings or use them to delay technical work. Continue to warn about concrete security incidents such as leaked credentials or unintended publication.
 
 ## What “primary source” means here
 
