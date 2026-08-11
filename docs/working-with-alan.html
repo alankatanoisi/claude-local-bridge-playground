@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Working With Alan — Owner Profile for Coding Agents</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #07090f;
+        --panel: rgba(19, 23, 35, 0.9);
+        --panel-soft: rgba(28, 33, 49, 0.68);
+        --ink: #f5f7ff;
+        --muted: #aeb7cc;
+        --line: rgba(255, 255, 255, 0.1);
+        --violet: #8b7cff;
+        --cyan: #45d8d0;
+        --amber: #ffcf70;
+        --green: #6ee7a8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 12% 0%, rgba(88, 75, 190, 0.26), transparent 34rem),
+          radial-gradient(circle at 100% 30%, rgba(20, 156, 171, 0.14), transparent 30rem),
+          var(--bg);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.65;
+      }
+
+      main {
+        width: min(1040px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 64px 0 96px;
+      }
+
+      .eyebrow {
+        margin: 0 0 12px;
+        color: var(--cyan);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        max-width: 820px;
+        margin: 0;
+        font-size: clamp(2.35rem, 7vw, 5.6rem);
+        font-weight: 730;
+        letter-spacing: -0.055em;
+        line-height: 0.98;
+      }
+
+      .lede {
+        max-width: 760px;
+        margin: 28px 0 0;
+        color: var(--muted);
+        font-size: 1.15rem;
+      }
+
+      .metadata {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin: 34px 0 0;
+      }
+
+      .meta-card,
+      section {
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: var(--panel);
+        box-shadow: 0 22px 80px rgba(0, 0, 0, 0.24);
+        backdrop-filter: blur(18px);
+      }
+
+      .meta-card {
+        padding: 18px 20px;
+      }
+
+      .meta-card span {
+        display: block;
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 750;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      .meta-card strong {
+        display: block;
+        margin-top: 4px;
+        overflow-wrap: anywhere;
+        font-size: 0.96rem;
+      }
+
+      section {
+        margin-top: 22px;
+        padding: clamp(24px, 5vw, 44px);
+      }
+
+      h2 {
+        margin: 0 0 12px;
+        font-size: clamp(1.45rem, 4vw, 2.15rem);
+        letter-spacing: -0.025em;
+      }
+
+      p {
+        margin: 0 0 14px;
+      }
+
+      p:last-child {
+        margin-bottom: 0;
+      }
+
+      ul {
+        margin: 20px 0 0;
+        padding-left: 1.4rem;
+      }
+
+      li + li {
+        margin-top: 12px;
+      }
+
+      code {
+        padding: 1px 6px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(5, 7, 13, 0.7);
+        font: 0.88em ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+
+      a {
+        color: var(--cyan);
+      }
+
+      .work {
+        border-color: rgba(110, 231, 168, 0.3);
+      }
+
+      .work h2 {
+        color: var(--green);
+      }
+
+      .person {
+        border-color: rgba(139, 124, 255, 0.32);
+      }
+
+      .person h2 {
+        color: var(--violet);
+      }
+
+      .language {
+        border-color: rgba(255, 207, 112, 0.3);
+      }
+
+      .language h2 {
+        color: var(--amber);
+      }
+
+      .clause strong {
+        color: var(--violet);
+      }
+
+      footer {
+        margin-top: 26px;
+        color: var(--muted);
+        text-align: center;
+        font-size: 0.86rem;
+      }
+
+      @media (max-width: 760px) {
+        main {
+          padding-top: 38px;
+        }
+
+        .metadata {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Durable owner profile · last updated August 11, 2026</p>
+        <h1>Working with Alan</h1>
+        <p class="lede">
+          Read this before assuming anything about the person you are working for. Alan is not a standard developer,
+          and treating him like one is the most common way agents fail here.
+        </p>
+        <div class="metadata" aria-label="Document metadata">
+          <div class="meta-card"><span>Repository</span><strong>claude-local-bridge-playground</strong></div>
+          <div class="meta-card"><span>Source</span><strong>Working session with Claude (Fable)</strong></div>
+          <div class="meta-card"><span>Markdown companion</span><strong>docs/working-with-alan.md</strong></div>
+        </div>
+      </header>
+
+      <section>
+        <h2>Why this document exists</h2>
+        <p>
+          Agent harnesses default to a "typical developer" user: someone fluent in Git, versed in developer
+          conventions, and trying to ship software. Alan is none of those things, and he has asked — explicitly and
+          repeatedly — not to be treated as that person. This profile is the stable reference for what to assume
+          instead. The Novice-First Rules in <code>AGENTS.md</code> / <code>CLAUDE.md</code> are the operational
+          checklist; this document is the fuller portrait behind them.
+        </p>
+      </section>
+
+      <section class="work">
+        <h2>The nature of the work</h2>
+        <ul>
+          <li>
+            This repository (and its sibling repos) is a personal, long-horizon research playground. The deliverable is
+            <strong>understanding</strong> — questions answered, systems mapped, ideas tested — never shipped software.
+          </li>
+          <li>
+            Nothing here is headed to production, a release, an app store, or a customer. Do not frame work in shipping
+            terms — launch, MVP (minimum viable product), production-ready, go-to-market, "ready to ship" — unless Alan
+            uses those terms first.
+          </li>
+          <li>
+            Prototypes are disposable by design. A POC (proof of concept) exists to answer a question and then be
+            deleted; do not grow one into an architecture. Prefer delete-and-rebuild over accumulation.
+          </li>
+          <li>
+            Speculative, unorthodox exploration is the point, not a detour. "Would this weird thing work?" is a fully
+            legitimate task statement.
+          </li>
+        </ul>
+      </section>
+
+      <section class="person">
+        <h2>Who Alan is</h2>
+        <ul>
+          <li>
+            A strong high-level systems thinker who deliberately delegates implementation depth to agents. He designs
+            the questions and owns the goals; agents own the code-level work.
+          </li>
+          <li>
+            A true novice at programming, by choice, and he regards the absence of inherited programmer assumptions as
+            a strength, not a gap to be fixed.
+          </li>
+          <li>
+            His basic, first-principles questions are the working method — not noise. When he asks something that
+            sounds elementary, answer it completely and plainly. Never respond with condescension, never with "as you
+            probably know", and never with a shortened answer on the theory that he must already know the rest.
+          </li>
+          <li>
+            He steers by asking; agents advance by answering well. A thorough answer to a naive-sounding question
+            routinely redirects an entire project.
+          </li>
+        </ul>
+      </section>
+
+      <section class="language">
+        <h2>Language rules</h2>
+        <ul>
+          <li>
+            Do not assume Alan understands acronyms, abbreviations, technical jargon, slang, or casual developer
+            idioms — especially developer slang.
+          </li>
+          <li>
+            Expand every acronym the first time it appears in a reply or document: "ACP (Agent Client Protocol)",
+            "POC (proof of concept)", "PR (pull request)".
+          </li>
+          <li>
+            Translate idioms into plain language. "Footgun" becomes "a feature that makes it easy to hurt yourself";
+            "bikeshedding" becomes "arguing about trivial details"; "yak-shaving" becomes "a chain of side tasks before
+            the real one".
+          </li>
+          <li>
+            This extends Novice-First Rule 2 (define jargon once). The bar is not "define it if it seems obscure" — it
+            is "assume it is not known".
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>How agents work together here</h2>
+        <ul>
+          <li>
+            Several agents (Claude Code, Codex, Cursor, Copilot) work in these repos in parallel, and one agent's
+            claims are routinely verified by another. Write reports expecting a second agent to check them.
+          </li>
+          <li>
+            State what you <strong>verified</strong> versus what you <strong>assumed</strong>, with file paths, so
+            verification stays cheap.
+          </li>
+          <li>
+            Report corrections to another agent's work plainly — never smoothed over, never quietly fixed. (See the
+            false-green rule in the Learned User Preferences of <code>AGENTS.md</code> / <code>CLAUDE.md</code>.)
+          </li>
+          <li>
+            Technical guardrails are not disrespect: Alan owns goal-level and executive decisions; agents own
+            developer-intelligence guardrails such as working-directory checks, branch checks, and risky-flag warnings.
+          </li>
+        </ul>
+      </section>
+
+      <section class="clause">
+        <h2>The not-a-standard-developer clause</h2>
+        <p>
+          <strong>Do not default to standard-developer assumptions</strong> about Alan's background, conventions,
+          goals, or motivations. He is at best ambivalent about that treatment and often annoyed by it. When in doubt,
+          explain one level more basic than feels natural: over-explaining has never been the failure mode here;
+          under-explaining has. Every command must still say where to run it, from which folder, and what success looks
+          like.
+        </p>
+      </section>
+
+      <section>
+        <h2>Related records</h2>
+        <ul>
+          <li>
+            Policy-discussion boundary (final owner instruction):
+            <a href="agent-user-autonomy-boundary-2026-08-11.html">agent-user-autonomy-boundary-2026-08-11</a>
+          </li>
+          <li>Operational checklist: the Novice-First Rules in <code>AGENTS.md</code> and <code>CLAUDE.md</code></li>
+          <li>Domain vocabulary for the runner: <code>CONTEXT.md</code></li>
+        </ul>
+      </section>
+
+      <footer>Claude Local Bridge Playground · owner profile reference</footer>
+    </main>
+  </body>
+</html>

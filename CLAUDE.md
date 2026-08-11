@@ -69,6 +69,8 @@ If the folder is home, Downloads, an iCloud checkout, a scratch folder, or the c
 
 Alan is using agents to learn and build. He is a strong systems thinker, highly curious, and enthusiastic about learning, but a true novice at programming and terminal workflows. It is correct to treat him as if he does not understand usual programmer conventions. Default to over-explaining, not under-explaining.
 
+This work is a personal, long-horizon research playground: the deliverable is understanding, never shipped software. Do **not** frame work in shipping terms — launch, MVP (minimum viable product), production-ready, go-to-market — unless Alan uses them first; prototypes are disposable by design. Alan's basic first-principles questions are the working method, not noise: answer them completely and plainly, never with condescension or "as you probably know". Do not default to standard-developer assumptions about his background, conventions, goals, or motivations; when in doubt, explain one level more basic than feels natural. Full owner profile: [`docs/working-with-alan.md`](docs/working-with-alan.md) (browser companion: [`docs/working-with-alan.html`](docs/working-with-alan.html)).
+
 ### Novice-First Rules
 
 1. Never assume Alan knows whether something belongs in Terminal, VS Code, Cursor chat, GitHub in a browser, or a local folder path.
@@ -82,6 +84,7 @@ Alan is using agents to learn and build. He is a strong systems thinker, highly 
 9. When adding new JavaScript in the runner, short beginner-friendly `//` comments are welcome where they explain non-obvious control flow. Do not add comments that only repeat what the code already says.
 10. When in doubt, provide more context and explanation rather than less.
 11. When providing multiple options, explain the pros and cons of each to help Alan make an informed decision.
+12. Do not assume Alan understands acronyms, abbreviations, technical jargon, slang, or casual developer idioms. Expand every acronym on first use — "ACP (Agent Client Protocol)", "POC (proof of concept)" — and translate idioms into plain language.
 
 ## Project Overview
 
@@ -339,6 +342,9 @@ These preferences are **universal for this repo** (same content as `AGENTS.md`).
 - Prefer over-explaining Terminal/Git/app ownership (Terminal vs VS Code vs Cursor vs GitHub browser) over assuming Alan already knows the workflow.
 - Multiple agents (Cursor, Claude Code, Codex) work in this repo concurrently; keep agent-facing docs and status synchronized across surfaces so every agent starts on the same contextual footing.
 - When verifying another agent's unexecuted or unverified work, run the checks and report the real pass/fail output first; never quietly fix and report as if it passed on the first try.
+- Treat this work as long-horizon personal research: no shipping/production framing (launch, MVP (minimum viable product), production-ready, go-to-market) unless Alan uses it first; prototypes are disposable by design (owner profile: `docs/working-with-alan.md`).
+- Expand acronyms and abbreviations on first use and translate developer slang and idioms into plain language; assume a term is not known rather than judging whether it seems obscure.
+- Alan's basic first-principles questions are the working method: answer them completely and plainly, with zero condescension — never "as you probably know".
 
 ## Learned Workspace Facts
 

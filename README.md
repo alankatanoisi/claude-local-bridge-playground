@@ -9,6 +9,15 @@ The bridge still matters. It exposes a local Anthropic Messages API on `http://l
 OAuth credentials so the runner can call models without an Anthropic Console API key. But for new work in this repo,
 treat bridge/OAuth/interceptor code as plumbing and treat the runner as the product surface.
 
+## Who this repo serves
+
+This is Alan's personal, long-horizon research playground. The deliverable is understanding — questions answered,
+systems mapped, ideas tested — never shipped software: nothing here is headed to production, a release, or a customer,
+and prototypes are disposable by design. Alan is a strong systems thinker and a deliberate novice at programming, so
+agents and docs here must not assume standard-developer background, conventions, or goals. The full agent-facing owner
+profile is [`docs/working-with-alan.md`](./docs/working-with-alan.md) (browser version:
+[`docs/working-with-alan.html`](./docs/working-with-alan.html)).
+
 ## Current Direction: Minimal Runner Lab
 
 The goal is to build, optimize, and customize a compact local runner inspired by minimalist-but-extensible agent design
