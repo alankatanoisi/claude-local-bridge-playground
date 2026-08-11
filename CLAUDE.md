@@ -303,8 +303,14 @@ items rather than starting a parallel tracker.
   (R4) executed same day: 25 live trials, 5 planners × 5 reps, $6.29 of a $20 cap — results in
   `docs/starlark-r4-planner-eval-2026-08-10.md`, handoff `HANDOFF-bundle-c-starlark-2026-08-10.md`.
   Headline: Opus 4.8 best finisher, Haiku best compliance-per-dollar, planner verbosity degrades
-  worker contract compliance (100%→33% retry success, truncation ruled out). Remaining: R8/R9/R12/
-  R13/R14 + worker-axis eval.
+  worker contract compliance (100%→33% retry success, truncation ruled out). Bundle D (R13 planner
+  ladder, R9 deterministic second worker adapter, R14c JSON cheap path) + the worker-axis eval
+  followed: `HANDOFF-bundle-d-starlark-2026-08-10.md`,
+  `docs/starlark-r4-worker-eval-2026-08-10.md`. Two-axis conclusion: plan with Haiku, work with
+  Sonnet 5 (only model at 15/15 on the compact output contract; Opus 5 0/15, all from the
+  700-char summary ceiling). Remaining: R8/R12 (decision-shaped), R14 (a)/(b), and D-F1 (feed
+  the host validation error into worker retries — a rejected worker currently retries blind).
+  Campaign `campaign-2026-08-10-r4-planner`: $16.26 of $20 settled.
 
 **Three ID namespaces exist in `docs/`.** The runtime-concordance series `P0-01…P0-12` is closed; the
 future-directions band `FD-01…FD-05` is _also_ labelled P0 by the 07-22 handoff; the 2026-07-28 harness
