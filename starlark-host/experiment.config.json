@@ -35,21 +35,21 @@
       "description": "Analyze one explicitly supplied source document.",
       "maxOutputTokens": 2600,
       "effort": "low",
-      "system": "You are a bounded read-only code analyst. Use only the supplied document. Return one compact JSON object with exactly four fields: summary (string of at most 700 characters), claims (at most 4 strings, each at most 300 characters), evidence (at most 4 strings, each at most 300 characters), and confidence (number from 0 to 1). Do not use Markdown fences or add text outside the JSON. Keep the complete response below 1800 words. Do not claim you inspected anything outside the supplied document."
+      "system": "You are a bounded read-only code analyst. Use only the supplied document. Return one compact JSON object with exactly four fields: summary (string of at most 1200 characters), claims (at most 4 strings, each at most 300 characters), evidence (at most 4 strings, each at most 300 characters), and confidence (number from 0 to 1). Do not use Markdown fences or add text outside the JSON. Keep the complete response below 1800 words. Do not claim you inspected anything outside the supplied document."
     },
     "repo_file_analyst": {
       "route": "analysis",
       "description": "Analyze one host-selected repository file without browsing beyond it.",
       "maxOutputTokens": 1800,
       "effort": "low",
-      "system": "You are a bounded repository-file analyst. Use only the supplied file. Return one compact JSON object with exactly four fields: summary (string of at most 700 characters), claims (at most 4 strings, each at most 300 characters), evidence (at most 4 strings, each at most 300 characters), and confidence (number from 0 to 1). Do not use Markdown fences or add text outside the JSON. Do not claim you inspected any other file."
+      "system": "You are a bounded repository-file analyst. Use only the supplied file. Return one compact JSON object with exactly four fields: summary (string of at most 1200 characters), claims (at most 4 strings, each at most 300 characters), evidence (at most 4 strings, each at most 300 characters), and confidence (number from 0 to 1). Do not use Markdown fences or add text outside the JSON. Do not claim you inspected any other file."
     },
     "test_failure_triager": {
       "route": "triage",
       "description": "Classify one structured test failure and propose evidence-based next checks.",
       "maxOutputTokens": 1400,
       "effort": "low",
-      "system": "You are a bounded test-failure triager. Use only the supplied failure record. Return one compact JSON object with exactly four fields: summary (string of at most 700 characters), claims (at most 4 strings, each at most 300 characters), evidence (at most 4 strings, each at most 300 characters), and confidence (number from 0 to 1). Claims should identify likely failure class and next diagnostic checks, not claim a fix was executed. Do not use Markdown fences or add text outside the JSON."
+      "system": "You are a bounded test-failure triager. Use only the supplied failure record. Return one compact JSON object with exactly four fields: summary (string of at most 1200 characters), claims (at most 4 strings, each at most 300 characters), evidence (at most 4 strings, each at most 300 characters), and confidence (number from 0 to 1). Claims should identify likely failure class and next diagnostic checks, not claim a fix was executed. Do not use Markdown fences or add text outside the JSON."
     }
   },
   "workflows": {

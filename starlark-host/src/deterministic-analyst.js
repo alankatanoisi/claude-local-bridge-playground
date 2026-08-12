@@ -20,6 +20,8 @@
 
 const crypto = require('crypto');
 
+const { WORKER_OUTPUT_LIMITS } = require('./worker-contract');
+
 /** Extract the DOCUMENT sections buildWorkerPrompt() embeds in the prompt. */
 function extractDocuments(prompt) {
   const documents = [];
@@ -54,7 +56,7 @@ function analyzeDocument(document) {
         `${Buffer.byteLength(document.text)} bytes, longest line ${longest} chars, ` +
         `${requires} require() calls, ${functions} function-ish tokens, ${markers} TODO/FIXME markers. ` +
         'Computed textual facts only; no semantic judgment.',
-      700,
+      WORKER_OUTPUT_LIMITS.summaryMaxChars,
     ),
     claims: [
       clamp(`Document ${document.id} spans ${lines.length} lines (${Buffer.byteLength(document.text)} bytes).`, 300),

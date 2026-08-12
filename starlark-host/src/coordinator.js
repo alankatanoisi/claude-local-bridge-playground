@@ -12,6 +12,7 @@ const { evaluateStarlark, extractStarlark } = require('./starlark');
 const { lintStarlark } = require('./starlark-lint');
 const { buildSynthesisPrompt, runSynthesis, validateSynthesisResponse } = require('./synthesis');
 const { validateJobs } = require('./validator');
+const { WORKER_OUTPUT_LIMITS } = require('./worker-contract');
 
 const PLANNER_SYSTEM = `You are the planning model inside a user-owned orchestration system. Return only Starlark source code. The code must define def plan(ctx) and return a list of job dictionaries. Starlark has no imports, while loops, exceptions, async functions, filesystem, network, shell, or model access. Unlike Python, adjacent string literals are not implicitly joined; use + when combining strings. The host validates every descriptor and chooses all model IDs.`;
 const RECOVERY_SYSTEM = `You are the recovery-planning model inside a user-owned orchestration system. Return only Starlark source code defining def recover(ctx). Return retry job descriptors only for failures where retryable is true. Every retry must include retry_of. Do not retry permanent failures.`;
@@ -530,28 +531,37 @@ function buildWorkerPrompt(objective, job, documents) {
 }
 
 function parseWorkerOutput(text) {
+  const limits = WORKER_OUTPUT_LIMITS;
   const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
   const output = JSON.parse(cleaned);
   const keys = Object.keys(output).sort();
   if (JSON.stringify(keys) !== JSON.stringify(['claims', 'confidence', 'evidence', 'summary'])) {
     throw new Error('worker JSON must contain exactly summary, claims, evidence, confidence');
   }
-  if (typeof output.summary !== 'string' || !output.summary.trim() || output.summary.length > 700) {
-    throw new Error('summary must be 1..700 characters');
+  if (
+    typeof output.summary !== 'string' ||
+    !output.summary.trim() ||
+    output.summary.length > limits.summaryMaxChars
+  ) {
+    throw new Error(`summary must be 1..${limits.summaryMaxChars} characters`);
   }
   if (
     !Array.isArray(output.claims) ||
-    output.claims.length > 4 ||
-    output.claims.some((value) => typeof value !== 'string' || value.length > 300)
+    output.claims.length > limits.claimsMax ||
+    output.claims.some((value) => typeof value !== 'string' || value.length > limits.claimMaxChars)
   ) {
-    throw new Error('claims must contain at most 4 strings of at most 300 characters');
+    throw new Error(
+      `claims must contain at most ${limits.claimsMax} strings of at most ${limits.claimMaxChars} characters`,
+    );
   }
   if (
     !Array.isArray(output.evidence) ||
-    output.evidence.length > 4 ||
-    output.evidence.some((value) => typeof value !== 'string' || value.length > 300)
+    output.evidence.length > limits.evidenceMax ||
+    output.evidence.some((value) => typeof value !== 'string' || value.length > limits.evidenceMaxChars)
   ) {
-    throw new Error('evidence must contain at most 4 strings of at most 300 characters');
+    throw new Error(
+      `evidence must contain at most ${limits.evidenceMax} strings of at most ${limits.evidenceMaxChars} characters`,
+    );
   }
   if (typeof output.confidence !== 'number' || output.confidence < 0 || output.confidence > 1) {
     throw new Error('confidence must be between 0 and 1');

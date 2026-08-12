@@ -53,13 +53,14 @@ test('worker response limits are enforced by the host parser', () => {
   });
   assert.equal(parseWorkerOutput(valid).confidence, 0.8);
 
+  const { WORKER_OUTPUT_LIMITS } = require('../src/worker-contract');
   const oversized = JSON.stringify({
-    summary: 'x'.repeat(701),
+    summary: 'x'.repeat(WORKER_OUTPUT_LIMITS.summaryMaxChars + 1),
     claims: [],
     evidence: [],
     confidence: 0.8,
   });
-  assert.throws(() => parseWorkerOutput(oversized), /1\.\.700 characters/);
+  assert.throws(() => parseWorkerOutput(oversized), /1\.\.1200 characters/);
 });
 
 test('a refusal or empty final response cannot be recorded as successful synthesis', () => {
