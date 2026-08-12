@@ -192,7 +192,18 @@ class PhasedCoordinator {
       this.state.recoveryMetrics = recoveryPlan.metrics;
       this.state.phase = 'recovery_workers';
       this.checkpoint();
-      const recoveryResults = await this.runJobs(recoveryJobs, documents, 2);
+      // D-F1: retries carry the host's rejection reason. The feedback flows
+      // host -> worker directly (appended to the retry prompt), never through
+      // the recovery planner's task text — the planner would pay the measured
+      // verbosity tax and burn task-character budget relaying it. This
+      // mirrors the planner repair loop, where the host's rejection message
+      // is what makes second attempts succeed.
+      const priorFailures = new Map(
+        initialResults
+          .filter((result) => !result.ok)
+          .map((result) => [result.job.id, { code: result.error.code, message: result.error.message }]),
+      );
+      const recoveryResults = await this.runJobs(recoveryJobs, documents, 2, priorFailures);
       this.state.results.push(...recoveryResults);
     }
 
@@ -385,10 +396,17 @@ class PhasedCoordinator {
     throw new Error(`${phaseLabel} did not produce a valid plan`);
   }
 
-  async runJobs(jobs, documents, attempt) {
+  async runJobs(jobs, documents, attempt, priorFailures = null) {
     const byId = new Map(documents.map((document) => [document.id, document]));
     return mapConcurrent(jobs, this.config.maxConcurrency, async (job, index) => {
-      this.ledger.append('job_started', { jobId: job.id, attempt, worker: job.worker });
+      // D-F1: a retry learns why its predecessor was rejected.
+      const feedback = job.retry_of && priorFailures ? priorFailures.get(job.retry_of) || null : null;
+      this.ledger.append('job_started', {
+        jobId: job.id,
+        attempt,
+        worker: job.worker,
+        ...(feedback ? { retryFeedback: feedback } : {}),
+      });
       const before = this.faults.beforeCall(index, attempt);
       if (before) return this.recordFailure(job, attempt, before);
 
@@ -396,7 +414,7 @@ class PhasedCoordinator {
       let response;
       try {
         const request = {
-          prompt: buildWorkerPrompt(this.config.objective, job, supplied),
+          prompt: buildWorkerPrompt(this.config.objective, job, supplied, feedback),
           maxTokens: job.max_output_tokens,
           timeoutMs: job.timeout_ms,
           label: `worker:${job.id}:attempt:${attempt}`,
@@ -523,11 +541,19 @@ function policyFromConfig(config, workerName, documents) {
   };
 }
 
-function buildWorkerPrompt(objective, job, documents) {
+function buildWorkerPrompt(objective, job, documents, feedback = null) {
   const sections = documents.map(
     (document) => `DOCUMENT ${document.id} (${document.relativePath}, sha256 ${document.sha256}):\n${document.text}`,
   );
-  return `OBJECTIVE:\n${objective}\n\nASSIGNED TASK:\n${job.task}\n\n${sections.join('\n\n')}`;
+  // D-F1: on a retry, the host states exactly why the previous attempt was
+  // rejected. Host-authored and deterministic — worker-axis data showed that
+  // without this, a model can fail the same constraint fifteen times in a
+  // row because "return strict JSON" never tells it WHAT was wrong.
+  const feedbackSection = feedback
+    ? `\n\nPREVIOUS ATTEMPT REJECTED BY THE HOST (${feedback.code}):\n${feedback.message}\n` +
+      'Correct exactly this problem in your response. All other contract rules still apply.'
+    : '';
+  return `OBJECTIVE:\n${objective}\n\nASSIGNED TASK:\n${job.task}${feedbackSection}\n\n${sections.join('\n\n')}`;
 }
 
 function parseWorkerOutput(text) {
