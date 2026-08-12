@@ -129,13 +129,27 @@ function addUsage(totalUsage, usage) {
   };
 }
 
-function makeOutput(outputFormat) {
+// onEvent lets a hosted caller (a library consumer, or a protocol front end
+// such as ACP) subscribe to the same event stream stdout would receive, without
+// parsing stdout. Subscribers see the already-scrubbed event, so they inherit
+// the P0-11 redaction boundary for free rather than needing their own sink.
+function makeOutput(outputFormat, onEvent) {
   const events = [];
+  const notify = typeof onEvent === 'function' ? onEvent : null;
   function emit(type, fields) {
     // P0-11: scrub before any stdout / event-buffer fan-out.
     const event = scrubDeepSecrets({ type, ...(fields || {}) });
     events.push(event);
     if (outputFormat === 'stream-json') process.stdout.write(JSON.stringify(event) + '\n');
+    // A faulty subscriber must never take the run down with it: the run owns
+    // side effects on disk, so it has to finish and finalize regardless.
+    if (notify) {
+      try {
+        notify(event);
+      } catch {
+        /* subscriber faults are not the run's problem */
+      }
+    }
     return event;
   }
   function finish(result) {
@@ -516,6 +530,9 @@ async function run(options) {
     spawnCount: 0,
     workspaceTrusted: false,
     autoMemory: isAutoMemoryEnabled({ autoMemory }),
+    // Third terminal-welded prompt: ask_user_question. A hosted caller supplies
+    // its own asker here; null keeps the /dev/tty implementation.
+    askUserQuestion: typeof options.askUserQuestion === 'function' ? options.askUserQuestion : null,
   };
 
   // The dispatcher adds a per-call toolUseId by giving each tool a shallow
@@ -716,7 +733,7 @@ async function run(options) {
 
   const transcript = transcriptPath ? new Transcript(transcriptPath) : null;
   const humanLog = humanLogPath ? new HumanLog(humanLogPath, { verbose, quiet }) : null;
-  const output = makeOutput(outputFormat);
+  const output = makeOutput(outputFormat, options.onEvent);
   const startedAt = Date.now();
   // Declared before the finalizer closure so every terminal path (including
   // resume failures and SIGINT) can report usage and tool history safely.
@@ -837,10 +854,16 @@ async function run(options) {
   // blocks" and "completed, recorded tool results exist" — see CONTEXT.md
   // and src/runner/tool-pipeline.js. Constructed once per run; sinks and the
   // confirm port are fixed for the run's lifetime.
+  // A hosted caller (no terminal) must be able to answer approvals, otherwise
+  // confirmation.js fails closed on the missing /dev/tty and every write or
+  // shell ask silently becomes a deny. Anything the caller omits falls back to
+  // the terminal implementation, so the command-line path is unchanged.
+  const confirmPort = options.confirm ? { ...confirm, ...options.confirm } : confirm;
+
   const pipeline = createToolPipeline({
     ctx,
     runId,
-    confirm,
+    confirm: confirmPort,
     sinks: { ledger, hooks, output, trace, transcript, humanLog, archive: archiveCollector },
     verbosity: { verbose, quiet },
     failureLimit: MAX_CONSECUTIVE_TOOL_FAILURE_BATCHES,
@@ -1703,7 +1726,7 @@ async function run(options) {
     );
 
     if (turn.needsRecoveryDecision) {
-      const decision = await confirm.askToolFailureRecovery(
+      const decision = await confirmPort.askToolFailureRecovery(
         { failures: turn.failureStreak, failureSummary: turn.failureSummary },
         ctx.confirmTimeout,
       );

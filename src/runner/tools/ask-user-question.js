@@ -50,6 +50,11 @@ function definition() {
 }
 
 function execute(args, ctx) {
+  // A hosted caller (no terminal) injects its own asker on the context; without
+  // one we use the /dev/tty prompt, which fails closed when there is no terminal.
+  if (ctx && typeof ctx.askUserQuestion === 'function') {
+    return ctx.askUserQuestion(args || {}, ctx);
+  }
   return askUserQuestion(args || {}, ctx || {});
 }
 

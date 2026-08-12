@@ -80,6 +80,13 @@ async function runKernel(input) {
     skipTrustGate: input.skipTrustGate,
     sessionExtract: input.sessionExtract,
     noArchive: input.noArchive,
+    // Hosted-caller ports. A caller with no terminal (a protocol front end, a
+    // test, an embedding process) subscribes to events and answers approvals
+    // itself. Dropping them here would reproduce the exact "value disappears
+    // inside the adapter" bug described above.
+    onEvent: input.onEvent,
+    confirm: input.confirm,
+    askUserQuestion: input.askUserQuestion,
   };
 
   const exitCodeBefore = process.exitCode;

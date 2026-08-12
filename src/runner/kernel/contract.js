@@ -120,6 +120,13 @@ const KERNEL_EVENT_TYPES = Object.freeze([
  * @property {string} [systemPromptOverride]
  * @property {string} [effort] — low | medium | high | xhigh | max
  * @property {string} [thinking] — auto | adaptive | off
+ * @property {(event: object) => void} [onEvent] — subscribe to the scrubbed event
+ *   stream instead of parsing stdout. Called for every KERNEL_EVENT_TYPES event.
+ * @property {{ask?: Function, askToolFailureRecovery?: Function}} [confirm] —
+ *   approval port for callers with no terminal. Omitted methods fall back to the
+ *   /dev/tty implementation, which fails closed when no terminal exists.
+ * @property {Function} [askUserQuestion] — asker for the ask_user_question tool,
+ *   same reason as confirm.
  */
 
 function emptyUsage() {
