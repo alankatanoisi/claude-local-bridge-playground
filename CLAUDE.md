@@ -311,6 +311,12 @@ items rather than starting a parallel tracker.
   700-char summary ceiling). Remaining: R8/R12 (decision-shaped), R14 (a)/(b), and D-F1 (feed
   the host validation error into worker retries — a rejected worker currently retries blind).
   Campaign `campaign-2026-08-10-r4-planner`: $16.26 of $20 settled.
+  **Post-Bundle-D (same day):** worker summary ceiling raised 700→1200 and single-sourced in
+  `starlark-host/src/worker-contract.js` (owner decision: communication integrity over rigidity;
+  pinned by a decision test), and **D-F1 closed** — worker retries now carry the host's exact
+  rejection reason (`4c6904a`). Both change worker-contract semantics, so the 2026-08-10 two-axis
+  results describe the OLD contract; a ~$5 worker-axis re-run under a fresh campaign would measure
+  the combined effect. Remaining: R8/R12 (decision-shaped), R14 (a)/(b).
 
 **Three ID namespaces exist in `docs/`.** The runtime-concordance series `P0-01…P0-12` is closed; the
 future-directions band `FD-01…FD-05` is _also_ labelled P0 by the 07-22 handoff; the 2026-07-28 harness
