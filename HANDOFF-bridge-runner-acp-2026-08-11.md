@@ -3,6 +3,13 @@
 **Written:** 2026-08-11, end of a long working session with Alan.
 **Audience:** the next coding agent. Alan should not need to explain any of this again.
 
+> **SUPERSEDED 2026-08-22 — do not follow the START HERE below.**
+> Slices A, B, and C (playground side) are built and committed; the state this document
+> describes (uncommitted Slice A, unstarted Slice B, uncommitted worktrees) is stale.
+> Current instructions: **`HANDOFF-acp-slices-b-c-2026-08-22.md`**.
+> Everything below is preserved unchanged as the historical record; §3's Slice D notes
+> and §4's verified facts are still accurate.
+
 ---
 
 ## START HERE

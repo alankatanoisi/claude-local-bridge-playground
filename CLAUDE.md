@@ -311,6 +311,12 @@ items rather than starting a parallel tracker.
   700-char summary ceiling). Remaining: R8/R12 (decision-shaped), R14 (a)/(b), and D-F1 (feed
   the host validation error into worker retries — a rejected worker currently retries blind).
   Campaign `campaign-2026-08-10-r4-planner`: $16.26 of $20 settled.
+
+- **ACP thread (Bridge Runner → T3 Code) — Slices A+B+C(playground) done 2026-08-22.**
+  Authoritative handoff: `HANDOFF-acp-slices-b-c-2026-08-22.md` (the 08-11 handoff is
+  superseded and banner-marked). New runner surface: `bin/local-bridge-acp.js` +
+  `src/runner/acp/**`. Remaining: Slice C live acceptance in T3 (shim repoint + first
+  real turn — spends model calls, confirm with Alan), then Slice D (cancel + streaming).
   **Post-Bundle-D (same day):** worker summary ceiling raised 700→1200 and single-sourced in
   `starlark-host/src/worker-contract.js` (owner decision: communication integrity over rigidity;
   pinned by a decision test), and **D-F1 closed** — worker retries now carry the host's exact
