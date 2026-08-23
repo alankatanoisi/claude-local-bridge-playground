@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent Docs Recalibration Proposal — 2026-08-22</title>
+    <style>
+      :root {
+        --ink: #192129;
+        --muted: #62707b;
+        --paper: #f2eee5;
+        --card: #fffdf8;
+        --navy: #17324d;
+        --blue: #245c7a;
+        --teal: #0f766e;
+        --gold: #b66a16;
+        --line: #d9d1c3;
+        --shadow: 0 18px 45px rgba(31, 42, 52, 0.11);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 90% 0%, rgba(91, 181, 166, 0.2), transparent 30rem),
+          linear-gradient(180deg, #f8f5ee, var(--paper));
+        font:
+          16px/1.6 ui-sans-serif,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+
+      a {
+        color: #155d79;
+      }
+
+      code {
+        padding: 0.12em 0.38em;
+        border-radius: 5px;
+        background: #eaf0f2;
+        font:
+          0.88em ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        overflow-wrap: anywhere;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: 260px minmax(0, 1fr);
+        max-width: 1500px;
+        margin: 0 auto;
+        padding: 28px;
+        gap: 24px;
+      }
+
+      nav {
+        position: sticky;
+        top: 22px;
+        align-self: start;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 253, 248, 0.92);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(8px);
+      }
+
+      nav strong {
+        display: block;
+        margin-bottom: 10px;
+        color: var(--navy);
+        font-family: ui-serif, Georgia, serif;
+        font-size: 1.1rem;
+      }
+
+      nav a {
+        display: block;
+        padding: 7px 0;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 0.9rem;
+      }
+
+      nav a:hover {
+        color: var(--teal);
+      }
+
+      main {
+        min-width: 0;
+      }
+
+      header {
+        position: relative;
+        overflow: hidden;
+        padding: 46px;
+        border-radius: 24px;
+        color: white;
+        background: linear-gradient(135deg, var(--navy), #1d5c68);
+        box-shadow: var(--shadow);
+      }
+
+      header::after {
+        content: '';
+        position: absolute;
+        right: -80px;
+        bottom: -120px;
+        width: 330px;
+        height: 330px;
+        border: 42px solid rgba(255, 255, 255, 0.08);
+        border-radius: 50%;
+      }
+
+      .eyebrow {
+        color: #a9e2d7;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        font-size: 0.78rem;
+        font-weight: 800;
+      }
+
+      h1 {
+        max-width: 850px;
+        margin: 8px 0 12px;
+        font:
+          750 clamp(2.3rem, 5vw, 4.6rem)/1 ui-serif,
+          Georgia,
+          serif;
+      }
+
+      header p {
+        max-width: 850px;
+        color: #e7f2f1;
+      }
+
+      .status {
+        display: inline-block;
+        margin-top: 12px;
+        padding: 7px 11px;
+        border: 1px solid rgba(255, 255, 255, 0.34);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+        font-size: 0.85rem;
+        font-weight: 800;
+      }
+
+      section {
+        margin-top: 24px;
+        padding: 30px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: var(--card);
+        box-shadow: var(--shadow);
+      }
+
+      h2 {
+        margin: 0 0 12px;
+        color: var(--navy);
+        font:
+          720 1.8rem/1.2 ui-serif,
+          Georgia,
+          serif;
+      }
+
+      h3 {
+        margin-top: 26px;
+        color: var(--blue);
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin-top: 18px;
+      }
+
+      .card {
+        padding: 18px;
+        border: 1px solid #ddd7ca;
+        border-radius: 14px;
+        background: #fbf8f1;
+      }
+
+      .card strong {
+        display: block;
+        color: var(--teal);
+        font-size: 1.08rem;
+      }
+
+      .callout {
+        margin: 18px 0;
+        padding: 16px 18px;
+        border-left: 5px solid var(--teal);
+        border-radius: 8px;
+        background: #ecf7f4;
+      }
+
+      .caution {
+        border-left-color: var(--gold);
+        background: #fff3df;
+      }
+
+      pre {
+        overflow: auto;
+        padding: 20px;
+        border-radius: 12px;
+        color: #e9f2f4;
+        background: #142936;
+        font:
+          0.86rem/1.55 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+      }
+
+      .table-wrap {
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+      }
+
+      table {
+        width: 100%;
+        min-width: 920px;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+
+      th {
+        padding: 12px;
+        color: white;
+        background: var(--navy);
+        text-align: left;
+      }
+
+      td {
+        padding: 12px;
+        border-top: 1px solid #e5ded2;
+        vertical-align: top;
+      }
+
+      tr:nth-child(even) td {
+        background: #faf7f0;
+      }
+
+      .sequence {
+        counter-reset: step;
+        display: grid;
+        gap: 12px;
+        padding: 0;
+        list-style: none;
+      }
+
+      .sequence li {
+        position: relative;
+        padding: 14px 16px 14px 58px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fbf8f1;
+      }
+
+      .sequence li::before {
+        counter-increment: step;
+        content: counter(step);
+        position: absolute;
+        left: 15px;
+        top: 12px;
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        color: white;
+        background: var(--teal);
+        font-weight: 800;
+      }
+
+      footer {
+        padding: 24px 4px 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 900px) {
+        .shell {
+          grid-template-columns: 1fr;
+          padding: 14px;
+        }
+        nav {
+          position: static;
+        }
+        header {
+          padding: 30px;
+        }
+        section {
+          padding: 22px;
+        }
+      }
+
+      @media print {
+        body {
+          background: white;
+        }
+        .shell {
+          display: block;
+          max-width: none;
+          padding: 0;
+        }
+        nav {
+          display: none;
+        }
+        header,
+        section {
+          box-shadow: none;
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <nav aria-label="Proposal sections">
+        <strong>Proposal map</strong>
+        <a href="#decision">Decision requested</a>
+        <a href="#why">Why recalibrate</a>
+        <a href="#architecture">Target structure</a>
+        <a href="#thread">Pointer-only thread</a>
+        <a href="#invariants">Invariant crosswalk</a>
+        <a href="#drift">Drift guard</a>
+        <a href="#sequence">Approval sequence</a>
+        <a href="#non-goals">Non-goals</a>
+      </nav>
+
+      <main>
+        <header>
+          <div class="eyebrow">Proposal · 22 August 2026</div>
+          <h1>Make the agent docs smaller without making the contract weaker</h1>
+          <p>
+            A proposed structural recalibration of <code>AGENTS.md</code> and <code>CLAUDE.md</code>: durable rules stay
+            live, current work becomes pointers, and dated history stays in the documents that own it.
+          </p>
+          <span class="status">Proposal only — no live agent file changed</span>
+        </header>
+
+        <section id="decision">
+          <h2>Decision requested</h2>
+          <p>
+            Approve a later, separate implementation pass that shortens both live instruction files while preserving
+            every authority, safety, user-context, validation, and handoff invariant.
+          </p>
+          <div class="cards">
+            <div class="card">
+              <strong>Shared contract</strong
+              ><span
+                ><code>AGENTS.md</code> remains the common entry point for Codex, Cursor, and compatible surfaces.</span
+              >
+            </div>
+            <div class="card">
+              <strong>Claude stays self-contained</strong
+              ><span
+                ><code>CLAUDE.md</code> repeats required safety rules because Claude Code does not auto-load
+                <code>AGENTS.md</code>.</span
+              >
+            </div>
+            <div class="card">
+              <strong>Status moves outward</strong
+              ><span>Handoffs and trackers own progress; agent files carry links, not a duplicate chronology.</span>
+            </div>
+            <div class="card">
+              <strong>Mirrors stay exact</strong
+              ><span>The two Learned blocks remain identical across both live files.</span>
+            </div>
+          </div>
+        </section>
+
+        <section id="why">
+          <h2>Why recalibration is needed</h2>
+          <p>
+            The current files mix durable collaboration rules, safety invariants, environment notes, and a dated history
+            of completed work. The first three jobs belong in live instructions. The fourth belongs in handoffs,
+            trackers, notebooks, and archives.
+          </p>
+          <div class="callout">
+            <strong>The clearest contradiction:</strong> <code>CLAUDE.md</code> says Current Work Thread must contain
+            pointers only, then carries roughly eighty lines of P0/P1, permission-safari, orchestration, Starlark, and
+            Agent Client Protocol status.
+          </div>
+          <div class="callout caution">
+            <strong>Verify before rewriting Cloud notes:</strong> the local Mac checks on 2026-08-22 do not prove that
+            older Cursor Cloud Linux observations are wrong. Refresh those claims from that environment, or label them
+            with platform and verification date.
+          </div>
+          <p>
+            Current local evidence: formatting passed; the full suite reported 1,032 tests, 1,031 passing, 0 failing,
+            and 1 registered TODO. The proposal does not substitute that evidence for a fresh Cloud run.
+          </p>
+        </section>
+
+        <section id="architecture">
+          <h2>Proposed information architecture</h2>
+          <div class="cards">
+            <div class="card">
+              <strong><code>AGENTS.md</code></strong
+              ><span
+                >Purpose/load scope → human context → repository/preflight → direction/boundaries → safety → current
+                pointers → checks/handoff → environment appendix → mirrored Learned blocks.</span
+              >
+            </div>
+            <div class="card">
+              <strong><code>CLAUDE.md</code></strong
+              ><span
+                >Load map → self-contained shared contract → Claude-specific notes → current pointers → checks/handoff →
+                the same mirrored Learned blocks.</span
+              >
+            </div>
+          </div>
+          <h3>Safe compression</h3>
+          <ul>
+            <li>Merge Project Overview, Current Direction, and explanatory boundaries into one concise section.</li>
+            <li>
+              Reduce Key Files to actual decision points; link to the README or architecture guide for the wider map.
+            </li>
+            <li>State corrected invariants plainly; keep dated correction narratives in their evidence records.</li>
+            <li>Move detailed path-safety history behind the threat-model and claim-validation pointers.</li>
+            <li>Keep the four standard gates and final handoff contract once in each independently loaded surface.</li>
+          </ul>
+        </section>
+
+        <section id="thread">
+          <h2>Exact proposed Current Work Thread</h2>
+          <pre>
+## Current Work Thread
+
+This section contains pointers only. The linked handoffs and trackers own status,
+completion claims, evidence, and next steps.
+
+- Active ACP (Agent Client Protocol) thread:
+  `HANDOFF-acp-slices-b-c-2026-08-22.md`
+- Runtime concordance tracker:
+  `docs/runner-runtime-concordance-assessment-2026-07-17.html`
+- Durable owner profile:
+  `docs/working-with-alan.md`
+- Final collaboration boundary:
+  `docs/agent-user-autonomy-boundary-2026-08-11.md`
+
+Do not add status prose here. Update or supersede the owning handoff/tracker instead.</pre
+          >
+          <p>
+            If Alan designates another simultaneous live thread, add one pointer to its authoritative handoff. Do not
+            copy its progress narrative into the agent file.
+          </p>
+        </section>
+
+        <section id="invariants">
+          <h2>Invariant-retention crosswalk</h2>
+          <p>
+            Every row must survive the later rewrite. “Restate” means Claude Code must receive the rule directly in
+            <code>CLAUDE.md</code>, not through a file it does not automatically load.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Invariant family</th>
+                  <th>Rules retained</th>
+                  <th>Proposed home</th>
+                  <th>Claude requirement</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Repository identity</td>
+                  <td>
+                    Correct playground path, <code>main</code>, playground <code>origin</code>; canonical repository
+                    stays reference-only.
+                  </td>
+                  <td>Repository identity</td>
+                  <td>Restate</td>
+                </tr>
+                <tr>
+                  <td>Startup safety</td>
+                  <td>
+                    Check working directory, root, branch, remote, and status; stop on unexpected dirt;
+                    fast-forward-only pull when safe.
+                  </td>
+                  <td>Startup preflight</td>
+                  <td>Restate</td>
+                </tr>
+                <tr>
+                  <td>Collaboration</td>
+                  <td>
+                    Ask on ambiguity; preserve concurrent work; report verified facts separately from assumptions.
+                  </td>
+                  <td>Collaboration contract</td>
+                  <td>Restate</td>
+                </tr>
+                <tr>
+                  <td>Novice-first</td>
+                  <td>
+                    Define jargon, say which app/folder receives a command, describe success/failure, explain
+                    non-obvious code with useful comments.
+                  </td>
+                  <td>Human context</td>
+                  <td>Restate</td>
+                </tr>
+                <tr>
+                  <td>Research framing</td>
+                  <td>
+                    Understanding is the deliverable; prototypes are disposable; avoid release framing unless Alan
+                    introduces it.
+                  </td>
+                  <td>Human context</td>
+                  <td>Restate</td>
+                </tr>
+                <tr>
+                  <td>Documentation</td>
+                  <td>
+                    Pair Markdown reports with polished standalone HTML; command builder remains primary day-to-day
+                    interface.
+                  </td>
+                  <td>Docs rule + Learned block</td>
+                  <td>Restate/mirror</td>
+                </tr>
+                <tr>
+                  <td>Architecture boundary</td>
+                  <td>
+                    Runner/docs are the normal lane; bridge/auth/proxy internals need explicit scope or transport
+                    necessity.
+                  </td>
+                  <td>Direction and boundaries</td>
+                  <td>Restate</td>
+                </tr>
+                <tr>
+                  <td>Transport</td>
+                  <td>
+                    Native Anthropic <code>POST /v1/messages</code>; no OpenAI compatibility route, API-key fallback,
+                    captured <code>x-api-key</code> path, or promoted dummy key.
+                  </td>
+                  <td>Transport invariants</td>
+                  <td>Restate</td>
+                </tr>
+                <tr>
+                  <td>Tool authority</td>
+                  <td>
+                    Shell requires <code>--allow-shell</code>; <code>--dont-ask</code> cannot grant shell; writes ask
+                    unless <code>--accept-edits</code>.
+                  </td>
+                  <td>Safety invariants</td>
+                  <td>Restate</td>
+                </tr>
+                <tr>
+                  <td>Data safety</td>
+                  <td>
+                    Block sensitive files and path escapes; redact every output/log/transcript/trace surface; inspect
+                    session ledgers only in aggregate.
+                  </td>
+                  <td>Safety/evidence handling</td>
+                  <td>Restate</td>
+                </tr>
+                <tr>
+                  <td>Runtime shape</td>
+                  <td><code>--cwd</code> is the target project; agent and capability profiles stay retired.</td>
+                  <td>Runtime invariants</td>
+                  <td>Restate</td>
+                </tr>
+                <tr>
+                  <td>Owner boundary</td>
+                  <td>
+                    No unsolicited Terms/policy/legal/approval commentary; do warn on concrete secret exposure,
+                    unintended publication, or destructive commands.
+                  </td>
+                  <td>Owner boundary + durable pointer</td>
+                  <td>Restate</td>
+                </tr>
+                <tr>
+                  <td>Validation</td>
+                  <td>
+                    Targeted checks first; broad test, lint, docs, and format gates when practical; never hide a
+                    false-green result.
+                  </td>
+                  <td>Checks</td>
+                  <td>Restate</td>
+                </tr>
+                <tr>
+                  <td>Handoff</td>
+                  <td>
+                    Folder, branch, files, checks, skipped checks, risks, commit/push state; never claim an unverified
+                    push.
+                  </td>
+                  <td>Handoff contract</td>
+                  <td>Restate</td>
+                </tr>
+                <tr>
+                  <td>Mirror contract</td>
+                  <td>All 16 Learned User Preferences and 5 Learned Workspace Facts remain identical.</td>
+                  <td>Mirrored blocks</td>
+                  <td>Copy exactly</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="drift">
+          <h2>Proposed guard against future drift</h2>
+          <p>
+            After approval of the text rewrite, add one narrow documentation check that compares only the two blocks
+            already declared mirrored. It should:
+          </p>
+          <ul>
+            <li>extract Learned User Preferences and Learned Workspace Facts from both files;</li>
+            <li>fail with the first differing bullet in plain language;</li>
+            <li>avoid requiring unrelated sections to match;</li>
+            <li>have focused tests; and</li>
+            <li>join <code>npm run check:docs</code>.</li>
+          </ul>
+          <div class="callout">
+            This task proposes the check but does not add code or tests. Runner code, tests, <code>bin/</code>,
+            <code>src/</code>, and <code>starlark-host/</code> remain untouched.
+          </div>
+        </section>
+
+        <section id="sequence">
+          <h2>Approval and implementation sequence</h2>
+          <ol class="sequence">
+            <li>Alan reviews this architecture and chooses whether the target structure is correct.</li>
+            <li>
+              A later agent drafts complete replacement candidates beside the live files and produces an invariant
+              comparison.
+            </li>
+            <li>The candidate Learned blocks and documentation checks are validated before replacement.</li>
+            <li>Alan approves the exact replacement text.</li>
+            <li>
+              Replace <code>AGENTS.md</code> and <code>CLAUDE.md</code> together in one commit so no surface sees a
+              half-migrated contract.
+            </li>
+            <li>Run all four gates and verify that Current Work Thread contains pointers only.</li>
+            <li>Retain this proposal and the documentation audit as the decision and evidence record.</li>
+          </ol>
+        </section>
+
+        <section id="non-goals">
+          <h2>Explicit non-goals</h2>
+          <ul>
+            <li>No live replacement of <code>AGENTS.md</code> or <code>CLAUDE.md</code> in this task.</li>
+            <li>
+              No runner, bridge, test, <code>bin/</code>, <code>src/</code>, or <code>starlark-host/</code> source
+              change.
+            </li>
+            <li>No authority, permission, credential, safety-default, or provider-routing change.</li>
+            <li>No deletion of historical evidence or handoffs.</li>
+            <li>No assumption that Claude Code will auto-load <code>AGENTS.md</code>.</li>
+            <li>No claim about Cursor Cloud without a fresh run in that environment.</li>
+          </ul>
+          <div class="callout">
+            <strong>Recommendation:</strong> approve the structure, then request one separate replacement-text pass. The
+            first high-value change is to make Current Work Thread genuinely pointer-only while keeping the complete
+            safety contract and exact Learned mirrors.
+          </div>
+        </section>
+
+        <footer>
+          Standalone browser companion to
+          <a href="agent-docs-recalibration-2026-08-22.md">agent-docs-recalibration-2026-08-22.md</a>. Prepared from the
+          2026-08-22 documentation audit; proposal only.
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>
