@@ -315,8 +315,9 @@ items rather than starting a parallel tracker.
 - **ACP thread (Bridge Runner → T3 Code) — Slices A+B+C(playground) done 2026-08-22.**
   Authoritative handoff: `HANDOFF-acp-slices-b-c-2026-08-22.md` (the 08-11 handoff is
   superseded and banner-marked). New runner surface: `bin/local-bridge-acp.js` +
-  `src/runner/acp/**`. Remaining: Slice C live acceptance in T3 (shim repoint + first
-  real turn — spends model calls, confirm with Alan), then Slice D (cancel + streaming).
+  `src/runner/acp/**`. **Slice C live acceptance PASSED 2026-08-24**: real turn +
+  working approval card in T3 (record: completion note in the 08-22 handoff §3).
+  Remaining: Slice D (cooperative cancel + streaming).
   **Post-Bundle-D (same day):** worker summary ceiling raised 700→1200 and single-sourced in
   `starlark-host/src/worker-contract.js` (owner decision: communication integrity over rigidity;
   pinned by a decision test), and **D-F1 closed** — worker retries now carry the host's exact

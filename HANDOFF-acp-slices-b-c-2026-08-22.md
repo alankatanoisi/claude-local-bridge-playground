@@ -92,9 +92,19 @@ read the driver source; findings below) and the agent implements it:
 - **Permission options** `allow-once` / `allow-always` / `reject-once`.
 - The binary tolerates the `acp` positional token T3 appends to the launch command.
 
-### NOT done — the remaining Slice C acceptance
+### ~~NOT done~~ — **COMPLETED 2026-08-24: Slice C live acceptance passed.**
 
-**No real model turn has gone through the T3 interface yet.** Specifically:
+The steps below were executed on 2026-08-24 (Fable session, Alan authorized the spend):
+shim repointed to the real binary (`--trust-workspace`, later `--capabilities edits`);
+read-only turn streamed a real Claude Sonnet 5 answer into T3 (thread "Explain
+Repository Purpose", ~58 s incl. per-turn bootstrap); then a write turn produced a
+live **File-change approval card** (all four buttons), "Approve once" executed the
+write, T3's git panel showed the diff, and the artifact was verified on disk then
+removed. The model dropdown showed the real agent's four models; the token-budget
+knob tracked the agent's live value; `effort=auto` rendered as an empty Reasoning
+slot as predicted (§4 question still open). Slice D is now the only remaining slice.
+
+Original instructions, kept for the record:
 
 1. The shim at
    `/Users/alanman/Developer/t3code-bridge-ui/apps/server/scripts/bridge-runner-agent-shim.sh`
