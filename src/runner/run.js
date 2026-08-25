@@ -456,6 +456,8 @@ async function run(options) {
     shellTimeout,
     resume,
     stream,
+    shouldCancel,
+    onStreamText,
     noNetwork,
     systemPromptOverride,
     plan,
@@ -859,6 +861,31 @@ async function run(options) {
   // shell ask silently becomes a deny. Anything the caller omits falls back to
   // the terminal implementation, so the command-line path is unchanged.
   const confirmPort = options.confirm ? { ...confirm, ...options.confirm } : confirm;
+
+  // Slice D: cooperative cancel. A hosted caller (the ACP front end) supplies
+  // shouldCancel(); the run polls it at safe boundaries — top of each step,
+  // after a model response before it enters the session, and between the read
+  // batch and any write — and finalizes with CANCELLED instead of exiting the
+  // process. A throwing token must never take the run down, so it reads false.
+  const shouldCancelNow =
+    typeof shouldCancel === 'function'
+      ? () => {
+          try {
+            return !!shouldCancel();
+          } catch {
+            return false;
+          }
+        }
+      : () => false;
+  const CANCELLED_TEXT = 'Cancelled by the caller.';
+
+  // Slice D: live text streaming for hosted callers. streamStdout is the
+  // historical terminal behavior (text mode writes deltas to stdout inside
+  // model-client); streamCaller delivers scrubbed deltas to onStreamText so a
+  // protocol front end gets live text AND structured events in the same run.
+  const streamStdout = stream && outputFormat === 'text';
+  const streamCaller = !!stream && typeof onStreamText === 'function';
+  const streamingActive = streamStdout || streamCaller;
 
   const pipeline = createToolPipeline({
     ctx,
@@ -1304,6 +1331,11 @@ async function run(options) {
   let bridgeRetryCount = 0;
 
   for (let step = 1; step <= steps; step++) {
+    // Cooperative cancel checkpoint: cheapest possible exit, before any
+    // request is built or sent for this step.
+    if (shouldCancelNow()) {
+      return finalizeRun({ stopReason: STOP_REASONS.CANCELLED, finalText: CANCELLED_TEXT, steps: step - 1 });
+    }
     currentStep = step;
     hooks.dispatch('pre_model_request', { step, runId });
 
@@ -1432,7 +1464,7 @@ async function run(options) {
       system: cachedSystem,
       messages: cachedMessages,
       tools: cachedTools,
-      ...(stream && outputFormat === 'text' ? { stream: true } : {}),
+      ...(streamingActive ? { stream: true } : {}),
       ...(typeof temperature === 'number' && !isNaN(temperature) ? { temperature } : {}),
       ...(modelControls.effort ? { output_config: { effort: modelControls.effort } } : {}),
       ...(modelControls.thinkingConfig ? { thinking: modelControls.thinkingConfig } : {}),
@@ -1461,12 +1493,47 @@ async function run(options) {
 
     let response;
     try {
-      if (stream && outputFormat === 'text') {
-        response = await modelClient.postStream(requestBody, null, bridgeUrl, {
-          streamOutput: true,
+      if (streamingActive) {
+        // A fresh scrubber per model request: its split-invariance guarantee is
+        // per-stream, and a secret can split across any two SSE chunks. The
+        // callback receives every parsed SSE event; only text deltas go to the
+        // caller, already scrubbed, and a faulty subscriber cannot kill the run.
+        const callerScrubber = streamCaller ? safety.makeStreamingScrubber() : null;
+        const onFrame = callerScrubber
+          ? (event) => {
+              if (
+                event &&
+                event.type === 'content_block_delta' &&
+                event.delta &&
+                event.delta.type === 'text_delta' &&
+                typeof event.delta.text === 'string'
+              ) {
+                const safe = callerScrubber.push(event.delta.text);
+                if (safe) {
+                  try {
+                    onStreamText(safe);
+                  } catch {
+                    /* subscriber faults are not the run's problem */
+                  }
+                }
+              }
+            }
+          : null;
+        response = await modelClient.postStream(requestBody, onFrame, bridgeUrl, {
+          streamOutput: streamStdout,
           headers: bridgeTraceHeaders(trace, runId, step),
           callerToken,
         });
+        if (callerScrubber) {
+          const tail = callerScrubber.end();
+          if (tail) {
+            try {
+              onStreamText(tail);
+            } catch {
+              /* subscriber faults are not the run's problem */
+            }
+          }
+        }
       } else {
         response = await modelClient.post(requestBody, bridgeUrl, {
           headers: bridgeTraceHeaders(trace, runId, step),
@@ -1608,6 +1675,14 @@ async function run(options) {
       }
     }
 
+    // Cooperative cancel checkpoint: a response that arrived after the caller
+    // cancelled is discarded BEFORE it enters the message list or the session
+    // checkpoint — persisting an assistant tool-use batch with no tool results
+    // would corrupt the resume contract.
+    if (shouldCancelNow()) {
+      return finalizeRun({ stopReason: STOP_REASONS.CANCELLED, finalText: CANCELLED_TEXT, steps: step });
+    }
+
     messages.push({ role: 'assistant', content: response.content });
     persistSession(
       sessionStore,
@@ -1672,7 +1747,9 @@ async function run(options) {
         stopReason: STOP_REASONS.SUCCESS,
         finalText: text,
         steps: step,
-        streamed: stream && outputFormat === 'text',
+        // streamed gates finish()'s reprint-suppression: only stdout streaming
+        // already showed the text; caller streaming has its own display.
+        streamed: streamStdout,
         upstreamStopReason,
       });
     }
@@ -1681,6 +1758,11 @@ async function run(options) {
       // Loop-level stops (semantic cycles, wall-clock, cost) fire once per
       // turn — after the read batch is recorded, before any write executes.
       midTurnCheck: (readOutcomes) => {
+        // Cooperative cancel checkpoint: fires between the read batch and any
+        // write, so a cancelled turn never starts a side effect.
+        if (shouldCancelNow()) {
+          return { stop: STOP_REASONS.CANCELLED, message: CANCELLED_TEXT };
+        }
         for (const o of readOutcomes) {
           toolHistory.push({ name: o.toolUse.name, args: o.toolUse.input || {}, ok: o.result.ok });
         }

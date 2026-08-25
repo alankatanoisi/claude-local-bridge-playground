@@ -28,6 +28,30 @@ const { STOP_REASONS } = require('../../src/runner/kernel/contract');
 let tmpDir; // the session cwd the runner works in
 let sessionDir; // where checkpoints land (never the real ~/.bridge-runner)
 let originalPost;
+let originalPostStream;
+
+/**
+ * Slice D: the agent always runs with stream: true, so run() calls
+ * modelClient.postStream. Mirror whatever modelClient.post is stubbed to do,
+ * additionally emitting each text block as TWO text deltas split mid-string —
+ * the cruelest boundary for the streaming scrubber — before resolving the same
+ * response shape post() returns.
+ */
+function installPostStreamMirror() {
+  modelClient.postStream = async (body, cb) => {
+    const response = await modelClient.post(body);
+    if (typeof cb === 'function') {
+      for (const block of response.content || []) {
+        if (block && block.type === 'text' && block.text) {
+          const mid = Math.ceil(block.text.length / 2);
+          cb({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: block.text.slice(0, mid) } });
+          cb({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: block.text.slice(mid) } });
+        }
+      }
+    }
+    return response;
+  };
+}
 
 /**
  * A minimal in-memory ACP client. It talks to the agent through PassThrough
@@ -149,12 +173,19 @@ describe('acp agent over the real runner', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'acp-agent-cwd-'));
     sessionDir = fs.mkdtempSync(path.join(os.tmpdir(), 'acp-agent-sessions-'));
     originalPost = modelClient.post;
+    originalPostStream = modelClient.postStream;
+    installPostStreamMirror();
   });
 
   afterEach(() => {
     modelClient.post = originalPost;
+    modelClient.postStream = originalPostStream;
     fs.rmSync(tmpDir, { recursive: true, force: true });
     fs.rmSync(sessionDir, { recursive: true, force: true });
+    // Cancelled runs set process.exitCode = 1; reset so the test file's own
+    // exit status reflects assertions, not deliberate cancels (same precedent
+    // as agent-loop.test.js).
+    process.exitCode = 0;
   });
 
   it('initialize reports the protocol version, identity, and capabilities', async () => {
@@ -195,7 +226,10 @@ describe('acp agent over the real runner', () => {
   });
 
   it('a text-only turn streams agent_message_chunk and ends with end_turn', async () => {
-    modelClient.post = async () => ({ content: [{ type: 'text', text: 'hello from the bridge' }] });
+    // Two lines: the streaming scrubber is line-aligned (it holds a partial
+    // line until its newline arrives), so multi-line text is what proves the
+    // client received LIVE deltas rather than one end-of-turn blob.
+    modelClient.post = async () => ({ content: [{ type: 'text', text: 'hello from the bridge\nsecond line' }] });
     const client = createTestClient();
     const sessionId = await client.startSession();
 
@@ -203,10 +237,9 @@ describe('acp agent over the real runner', () => {
 
     assert.equal(response.stopReason, 'end_turn');
     const chunks = client.updates.filter((u) => u.update.sessionUpdate === 'agent_message_chunk');
-    assert.ok(
-      chunks.some((u) => u.update.content.text === 'hello from the bridge'),
-      'the model text reached the client as a message chunk',
-    );
+    const joined = chunks.map((u) => u.update.content.text).join('');
+    assert.equal(joined, 'hello from the bridge\nsecond line', 'streamed deltas reassemble the text exactly once');
+    assert.ok(chunks.length >= 2, 'text arrived as live streamed deltas, not one buffered blob');
     assert.ok(
       client.updates.every((u) => u.sessionId === sessionId),
       'every update names the session',
@@ -348,6 +381,44 @@ describe('acp agent over the real runner', () => {
     assert.ok(fs.existsSync(path.join(tmpDir, 'first.txt')), 'the explicitly allowed write still happened');
     assert.ok(!fs.existsSync(path.join(tmpDir, 'second.txt')), 'the post-cancel write was denied');
     assert.equal(response.stopReason, 'cancelled');
+  });
+
+  it('a cancelled session stays alive: the next prompt on the same session succeeds', async () => {
+    // Slice D acceptance at the protocol level. Turn 1 is cancelled mid-flight
+    // (the cancel arrives while the model call is in the air); the response is
+    // discarded before it can pollute the checkpoint, and turn 2 runs cleanly
+    // on the SAME session with resume.
+    let call = 0;
+    const client = createTestClient();
+    const sessionId = await client.startSession();
+
+    modelClient.post = async () => {
+      call += 1;
+      if (call === 1) {
+        // The user hits Stop while this response is being generated.
+        client.notify('session/cancel', { sessionId });
+        // Give the notification a tick to be dispatched before we "arrive".
+        await new Promise((resolve) => setImmediate(resolve));
+        return {
+          content: [{ type: 'tool_use', id: 'tu-1', name: 'write_file', input: { path: 'never.txt', content: 'no' } }],
+          stop_reason: 'tool_use',
+        };
+      }
+      return { content: [{ type: 'text', text: 'second turn answer' }] };
+    };
+
+    const first = await client.prompt(sessionId, 'long doomed turn');
+    assert.equal(first.stopReason, 'cancelled');
+    assert.ok(!fs.existsSync(path.join(tmpDir, 'never.txt')), 'the cancelled turn started no side effect');
+    assert.equal(client.permissionRequests.length, 0, 'no approval card for a discarded response');
+
+    const second = await client.prompt(sessionId, 'are you still there?');
+    assert.equal(second.stopReason, 'end_turn', 'the session survived the cancel');
+    const texts = client.updates
+      .filter((u) => u.update.sessionUpdate === 'agent_message_chunk')
+      .map((u) => u.update.content.text)
+      .join('');
+    assert.ok(texts.includes('second turn answer'));
   });
 
   it('subscribing over ACP inherits redaction — no raw secret crosses the wire', async () => {

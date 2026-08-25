@@ -87,6 +87,8 @@ async function runKernel(input) {
     onEvent: input.onEvent,
     confirm: input.confirm,
     askUserQuestion: input.askUserQuestion,
+    shouldCancel: input.shouldCancel,
+    onStreamText: input.onStreamText,
   };
 
   const exitCodeBefore = process.exitCode;

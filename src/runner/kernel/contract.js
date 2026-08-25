@@ -122,6 +122,12 @@ const KERNEL_EVENT_TYPES = Object.freeze([
  * @property {string} [thinking] — auto | adaptive | off
  * @property {(event: object) => void} [onEvent] — subscribe to the scrubbed event
  *   stream instead of parsing stdout. Called for every KERNEL_EVENT_TYPES event.
+ * @property {() => boolean} [shouldCancel] — cooperative cancel token, polled at
+ *   step boundaries, after each model response, and before any write executes.
+ *   Truthy → the run finalizes with stopReason "cancelled" (no process.exit).
+ * @property {(text: string) => void} [onStreamText] — with stream: true, receives
+ *   live scrubbed text deltas (split-invariant scrubbing), independent of
+ *   outputFormat, so a hosted caller gets streaming text AND structured events.
  * @property {{ask?: Function, askToolFailureRecovery?: Function}} [confirm] —
  *   approval port for callers with no terminal. Omitted methods fall back to the
  *   /dev/tty implementation, which fails closed when no terminal exists.

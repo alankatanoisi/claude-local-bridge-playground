@@ -473,10 +473,23 @@ function createAcpAgent(deps) {
     // plain-string signature does not carry.
     let lastApproval = null;
 
+    // Slice D: when the runner streams text deltas to us live, the same text
+    // arrives AGAIN inside the buffered `assistant` event at end of step. The
+    // flag suppresses the buffered copy so the client never sees it twice —
+    // and if the bridge did not stream (no deltas came), the buffered copy is
+    // the fallback display path, so nothing is lost either way.
+    let streamedThisTurn = false;
+
+    function onStreamText(text) {
+      streamedThisTurn = true;
+      sendUpdate({ sessionUpdate: 'agent_message_chunk', content: { type: 'text', text } });
+    }
+
     function onEvent(event) {
       // Every event here is already scrubbed by the redaction boundary.
       switch (event.type) {
         case 'assistant': {
+          if (streamedThisTurn) break; // live deltas already delivered this text
           const content = (event.message && event.message.content) || [];
           for (const block of Array.isArray(content) ? content : []) {
             if (block && block.type === 'text' && block.text) {
@@ -590,6 +603,13 @@ function createAcpAgent(deps) {
         sessionPath: sessionPathFor(resolvedSessionDir, sessionId),
         resume: session.turnCount > 0,
         quiet: true,
+        // Slice D: live streaming + cooperative cancel. session/cancel flips
+        // cancelRequested; the runner polls it at its safe boundaries and
+        // finalizes with "cancelled" while the session (and this process)
+        // stay alive for the next prompt.
+        stream: true,
+        onStreamText,
+        shouldCancel: () => session.cancelRequested,
         // Mode semantics — each is the runner's real flag, not an imitation:
         // plan records proposals instead of executing; code (acceptEdits)
         // skips the per-write approval card the user opted out of.
