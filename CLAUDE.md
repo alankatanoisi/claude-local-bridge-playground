@@ -317,7 +317,11 @@ items rather than starting a parallel tracker.
   superseded and banner-marked). New runner surface: `bin/local-bridge-acp.js` +
   `src/runner/acp/**`. **Slice C live acceptance PASSED 2026-08-24**: real turn +
   working approval card in T3 (record: completion note in the 08-22 handoff §3).
-  Remaining: Slice D (cooperative cancel + streaming).
+  **Slice D built + live-verified same day** (cooperative cancel ~200 ms, live
+  streaming, Sonnet+Opus matrix): `HANDOFF-acp-slice-d-2026-08-24.md`. That work
+  exposed and fixed a pre-existing bridge crash on client mid-stream disconnects
+  (`cbdb59e`, boundary exception used) — live re-verification pends a bridge
+  extension reload (handoff §4).
   **Post-Bundle-D (same day):** worker summary ceiling raised 700→1200 and single-sourced in
   `starlark-host/src/worker-contract.js` (owner decision: communication integrity over rigidity;
   pinned by a decision test), and **D-F1 closed** — worker retries now carry the host's exact
