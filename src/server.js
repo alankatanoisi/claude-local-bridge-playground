@@ -26,6 +26,11 @@ async function startServer(ctx) {
   ctx.server = http.createServer((req, res) => {
     handleRequest(ctx, req, res).catch((err) => {
       log(ctx, `Request error: ${err.message}`, true);
+      // res.destroyed guard (2026-08-24): a client that hung up mid-stream
+      // leaves writableEnded false but the socket dead — writing the SSE error
+      // frame to it would raise the same unhandled stream error this catch is
+      // trying to report.
+      if (res.destroyed) return;
       if (!res.headersSent) {
         sendJson(res, 500, { error: { message: err.message, type: 'internal_error' } });
       } else if (!res.writableEnded) {

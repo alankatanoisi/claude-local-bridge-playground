@@ -52,12 +52,23 @@ function makeRes() {
       this.ended = true;
       this.writableEnded = true;
     },
+    // A real ServerResponse is an EventEmitter; the proxy's client-abort
+    // hardening (2026-08-24) attaches 'error'/'close' listeners, so the fake
+    // must accept them. Handlers are recorded so a test can simulate a client
+    // disconnect by invoking them.
+    destroyed: false,
+    _handlers: {},
+    on(eventName, handler) {
+      (this._handlers[eventName] = this._handlers[eventName] || []).push(handler);
+      return this;
+    },
   };
 }
 
 function installHttpsScript(steps, options = {}) {
   let callIndex = 0;
   const capturedBodies = options.captureBodies ? [] : null;
+  const destroyCalls = [];
   const original = https.request;
 
   https.request = (_options, callback) => {
@@ -87,7 +98,9 @@ function installHttpsScript(steps, options = {}) {
         upRes.emit('end');
       });
     };
-    req.destroy = () => {};
+    req.destroy = () => {
+      destroyCalls.push(callIndex);
+    };
     return req;
   };
 
@@ -97,6 +110,7 @@ function installHttpsScript(steps, options = {}) {
     },
     getCallCount: () => callIndex,
     getCapturedBodies: () => capturedBodies,
+    getDestroyCalls: () => destroyCalls,
   };
 }
 
@@ -201,6 +215,40 @@ describe('anthropic pass-through integration', () => {
     } finally {
       fs.rmSync(tracePath, { force: true });
     }
+  });
+
+  it('survives a client that disconnects mid-stream and aborts the upstream request', async () => {
+    // Regression for the 2026-08-24 bridge crash: a runner-side cancel
+    // destroys the client socket mid-SSE; the bridge used to hit an unhandled
+    // stream 'error' on its next write. It must instead stop writing, abort
+    // the upstream request (stopping Anthropic-side generation), and resolve.
+    const { handleAnthropicMessages } = loadAnthropicHandler(() => {});
+    const script = installHttpsScript([
+      {
+        statusCode: 200,
+        headers: { 'content-type': 'text/event-stream' },
+        chunks: ['data: {"type":"message_start"}\n\n', 'data: {"type":"content_block_delta"}\n\n', 'data: [DONE]\n\n'],
+      },
+    ]);
+    restoreHttps = script.restore;
+
+    const req = makeReq({ model: 'claude-sonnet-4-5', stream: true, messages: [{ role: 'user', content: 'hi' }] });
+    const res = makeRes();
+    // After the first chunk lands, the client vanishes: Node marks the
+    // response destroyed and emits 'close' while writableEnded is still false.
+    const originalWrite = res.write.bind(res);
+    res.write = function (chunk) {
+      originalWrite(chunk);
+      if (this.writes.length === 1) {
+        this.destroyed = true;
+        for (const handler of this._handlers['close'] || []) handler();
+      }
+    };
+
+    await handleAnthropicMessages(makeCtx(), req, res); // must not throw
+
+    assert.ok(script.getDestroyCalls().length >= 1, 'the upstream request was aborted');
+    assert.equal(res.writes.length, 1, 'no further writes went to the dead socket');
   });
 
   it('forwards output_config.effort unchanged to upstream', async () => {

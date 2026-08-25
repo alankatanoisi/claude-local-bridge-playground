@@ -78,6 +78,26 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false, trace
   };
 
   return new Promise((resolve, reject) => {
+    // Client-abort hardening (2026-08-24). A caller that hangs up mid-stream —
+    // a cancelled runner turn, a killed process — used to be fatal: the next
+    // res.write() emitted an unhandled 'error' event on the response stream,
+    // which is an uncaught exception in the extension host (this is what took
+    // the bridge down during the first live cancel tests). A vanished client
+    // is a normal event for a proxy, so: swallow the write error, stop piping,
+    // and destroy the upstream request so Anthropic-side generation stops too.
+    let clientGone = false;
+    res.on('error', (err) => {
+      clientGone = true;
+      verboseLog(ctx, `Client response error (client disconnected?): ${err.message}`);
+    });
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        clientGone = true;
+        verboseLog(ctx, 'Client disconnected mid-response; aborting upstream request');
+        upReq.destroy();
+      }
+    });
+
     const upReq = https.request(reqOptions, (upRes) => {
       verboseLog(ctx, `← ${upRes.statusCode} ${url.pathname}`);
       if (trace) {
@@ -151,7 +171,7 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false, trace
         if (trace && preview.length < PREVIEW_BYTES) {
           preview = Buffer.concat([preview, data.subarray(0, PREVIEW_BYTES - preview.length)]);
         }
-        if (!res.writableEnded) res.write(chunk);
+        if (!clientGone && !res.destroyed && !res.writableEnded) res.write(chunk);
       });
       upRes.on('end', () => {
         if (trace) {
@@ -193,6 +213,14 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false, trace
           message: err.message,
           retry,
         });
+      }
+      // A teardown we caused ourselves (client went away, upstream destroyed)
+      // is a clean outcome, not a failure — rejecting would send the server's
+      // error path back to a socket that no longer exists.
+      if (clientGone) {
+        verboseLog(ctx, `Upstream aborted after client disconnect: ${err.message}`);
+        resolve();
+        return;
       }
       log(ctx, `Upstream request error: ${err.message}`, true);
       reject(err);
