@@ -202,6 +202,36 @@ describe('run() cooperative cancel and caller streaming', () => {
     assert.ok(!fs.existsSync(path.join(tmpDir, 'late.txt')), 'the write never happened');
   });
 
+  it('an in-flight stream abort (BridgeCancelledError) maps to cancelled, not bridge error', async () => {
+    // model-client destroys the request the moment the cancel token flips and
+    // rejects with isCancelled — run() must treat that as a clean cancel, not
+    // enter the bridge-error retry path.
+    let calls = 0;
+    modelClient.postStream = async () => {
+      calls += 1;
+      const err = new Error('Streamed request cancelled by the caller');
+      err.isCancelled = true;
+      throw err;
+    };
+
+    const result = await run(baseOptions({ stream: true, onStreamText: () => {}, shouldCancel: () => true }));
+
+    // shouldCancel true is caught at the top-of-step checkpoint first, so
+    // force the postStream path with a token that flips only mid-flight:
+    assert.equal(result.stopReason, STOP_REASONS.CANCELLED);
+    assert.equal(calls, 0, 'pre-step checkpoint fired before any request');
+
+    let flipped = false;
+    modelClient.postStream = async () => {
+      flipped = true; // cancel "arrives" while the request is in flight
+      const err = new Error('Streamed request cancelled by the caller');
+      err.isCancelled = true;
+      throw err;
+    };
+    const midFlight = await run(baseOptions({ stream: true, onStreamText: () => {}, shouldCancel: () => flipped }));
+    assert.equal(midFlight.stopReason, STOP_REASONS.CANCELLED, 'in-flight abort is a cancel, not a bridge error');
+  });
+
   it('a cancelled turn leaves the session checkpoint resumable', async () => {
     const sessionPath = path.join(tmpDir, 'cancel-resume.state.json');
     let call = 0;

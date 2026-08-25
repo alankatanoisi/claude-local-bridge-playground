@@ -66,6 +66,19 @@ class BridgeHttpError extends Error {
   }
 }
 
+/**
+ * Slice D: thrown when the caller cancelled while a streamed response was in
+ * flight and the request was destroyed on purpose. run() maps this to the
+ * CANCELLED stop reason instead of the bridge-error retry path.
+ */
+class BridgeCancelledError extends Error {
+  constructor() {
+    super('Streamed request cancelled by the caller');
+    this.name = 'BridgeCancelledError';
+    this.isCancelled = true;
+  }
+}
+
 class BridgeNetworkError extends Error {
   constructor(message) {
     super(message);
@@ -198,6 +211,7 @@ function postStream(body, cb, bridgeUrl, opts) {
         res.on('data', (c) => chunks.push(c));
         res.on('end', () => {
           const raw = Buffer.concat(chunks).toString('utf8');
+          clearCancelPoll();
           reject(new BridgeHttpError(res.statusCode, raw, res.headers));
         });
         return;
@@ -328,6 +342,7 @@ function postStream(body, cb, bridgeUrl, opts) {
           if (tail) process.stdout.write(tail);
           if (lastText) process.stdout.write('\n');
         }
+        clearCancelPoll();
         resolve({
           streamed: true,
           ...messageMeta,
@@ -338,12 +353,46 @@ function postStream(body, cb, bridgeUrl, opts) {
       });
 
       res.on('error', (err) => {
+        clearCancelPoll();
         reject(new BridgeNetworkError('Stream error: ' + err.message));
       });
     });
 
-    req.on('error', (err) => reject(new BridgeNetworkError('Request error: ' + err.message)));
+    // Slice D: while the stream is in flight, poll the caller's cancel token
+    // and destroy the request the moment it flips — this is what turns a
+    // 20-second "the model is still talking" wait after Stop into an
+    // immediate cancel. Destroying the socket after the promise settled is
+    // harmless (later error events land on an already-settled promise).
+    let cancelPoll = null;
+    function clearCancelPoll() {
+      if (cancelPoll) {
+        clearInterval(cancelPoll);
+        cancelPoll = null;
+      }
+    }
+    if (typeof options.shouldCancel === 'function') {
+      cancelPoll = setInterval(() => {
+        let cancelled = false;
+        try {
+          cancelled = !!options.shouldCancel();
+        } catch {
+          cancelled = false; // a throwing token must never kill the stream
+        }
+        if (cancelled) {
+          clearCancelPoll();
+          reject(new BridgeCancelledError());
+          req.destroy();
+        }
+      }, 200);
+      if (cancelPoll.unref) cancelPoll.unref();
+    }
+
+    req.on('error', (err) => {
+      clearCancelPoll();
+      reject(new BridgeNetworkError('Request error: ' + err.message));
+    });
     req.on('timeout', () => {
+      clearCancelPoll();
       req.destroy();
       reject(new BridgeNetworkError('Request timed out after 120s'));
     });
@@ -360,6 +409,7 @@ module.exports = {
   transportFor,
   BridgeHttpError,
   BridgeNetworkError,
+  BridgeCancelledError,
   BridgeUrlError,
   parseRetryAfterSeconds,
 };

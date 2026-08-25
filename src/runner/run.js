@@ -1523,6 +1523,9 @@ async function run(options) {
           streamOutput: streamStdout,
           headers: bridgeTraceHeaders(trace, runId, step),
           callerToken,
+          // Slice D: lets the client abort the in-flight stream the moment the
+          // caller cancels, instead of waiting for the model to finish talking.
+          shouldCancel: shouldCancelNow,
         });
         if (callerScrubber) {
           const tail = callerScrubber.end();
@@ -1541,6 +1544,11 @@ async function run(options) {
         });
       }
     } catch (err) {
+      // Slice D: a deliberately-cancelled stream is not a bridge failure — it
+      // must not enter the retry path or masquerade as an error to the caller.
+      if (err && err.isCancelled) {
+        return finalizeRun({ stopReason: STOP_REASONS.CANCELLED, finalText: CANCELLED_TEXT, steps: step });
+      }
       const msg = 'Bridge error on step ' + step + ': ' + err.message;
       if (archiveCollector) archiveCollector.recordError(step, msg);
       const hint = emitHint(msg, { quiet, verbose });
