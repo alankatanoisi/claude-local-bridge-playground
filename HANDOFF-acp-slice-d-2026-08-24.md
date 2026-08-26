@@ -5,6 +5,15 @@
 **Status: Slice D built, unit-tested (1042 pass / 0 fail / 1 todo), and live-verified
 on Sonnet 5 and Opus 5 — with one verification step pending a bridge reload (§4).**
 
+> **Current thread entry (status + next steps):** `HANDOFF-acp-status-and-recommendations-2026-08-25.md`.
+> This file stays the Slice D implementation record.
+
+**Audit (2026-08-25):** thermo-nuclear review of this landed range is
+`HANDOFF-acp-slice-d-thermo-nuclear-2026-08-25.md` — two High findings on Stop
+(mid-turn unpaired `tool_use`; in-flight abort can `session/update` after
+`cancelled`). Do not treat §1 “checkpoint stays resumable” as fully true until
+that handoff’s High #1 is closed.
+
 ## 1. What landed (commits `d3b09b1`, `1dc17de`, `cbdb59e`)
 
 - **Cooperative cancel** — `run()` option `shouldCancel()` polled at three safe

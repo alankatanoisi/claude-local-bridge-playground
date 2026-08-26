@@ -312,16 +312,17 @@ items rather than starting a parallel tracker.
   the host validation error into worker retries — a rejected worker currently retries blind).
   Campaign `campaign-2026-08-10-r4-planner`: $16.26 of $20 settled.
 
-- **ACP thread (Bridge Runner → T3 Code) — Slices A+B+C(playground) done 2026-08-22.**
-  Authoritative handoff: `HANDOFF-acp-slices-b-c-2026-08-22.md` (the 08-11 handoff is
-  superseded and banner-marked). New runner surface: `bin/local-bridge-acp.js` +
-  `src/runner/acp/**`. **Slice C live acceptance PASSED 2026-08-24**: real turn +
-  working approval card in T3 (record: completion note in the 08-22 handoff §3).
-  **Slice D built + live-verified same day** (cooperative cancel ~200 ms, live
-  streaming, Sonnet+Opus matrix): `HANDOFF-acp-slice-d-2026-08-24.md`. That work
-  exposed and fixed a pre-existing bridge crash on client mid-stream disconnects
-  (`cbdb59e`, boundary exception used) — live re-verification pends a bridge
-  extension reload (handoff §4).
+- **ACP thread (Bridge Runner → T3 Code) — Slices A–D built; current entry
+  `HANDOFF-acp-status-and-recommendations-2026-08-25.md`.** Design record for A–C:
+  `HANDOFF-acp-slices-b-c-2026-08-22.md` (the 08-11 handoff is superseded). Slice D:
+  `HANDOFF-acp-slice-d-2026-08-24.md`. Surface: `bin/local-bridge-acp.js` +
+  `src/runner/acp/**`. Live: Slice C acceptance (turn + approval card) and Slice D
+  cancel/streaming on Sonnet+Opus, 2026-08-24. Residual: bridge reload to pick up
+  `cbdb59e` (client disconnect mid-SSE). Next-code recommendation in the 08-25
+  handoff is `ask_user_question` over ACP, not a first-class T3 driver.
+  **Thermo-nuclear review 2026-08-25:** `HANDOFF-acp-slice-d-thermo-nuclear-2026-08-25.md`
+  (two High on Stop: mid-turn unpaired `tool_use`; in-flight abort can `session/update`
+  after `cancelled`). Not yet fixed.
   **Post-Bundle-D (same day):** worker summary ceiling raised 700→1200 and single-sourced in
   `starlark-host/src/worker-contract.js` (owner decision: communication integrity over rigidity;
   pinned by a decision test), and **D-F1 closed** — worker retries now carry the host's exact

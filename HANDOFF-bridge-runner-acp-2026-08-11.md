@@ -6,9 +6,11 @@
 > **SUPERSEDED 2026-08-22 — do not follow the START HERE below.**
 > Slices A, B, and C (playground side) are built and committed; the state this document
 > describes (uncommitted Slice A, unstarted Slice B, uncommitted worktrees) is stale.
-> Current instructions: **`HANDOFF-acp-slices-b-c-2026-08-22.md`**.
-> Everything below is preserved unchanged as the historical record; §3's Slice D notes
-> and §4's verified facts are still accurate.
+> A–C design: **`HANDOFF-acp-slices-b-c-2026-08-22.md`**. Slice D:
+> `HANDOFF-acp-slice-d-2026-08-24.md`. Current status + next:
+> **`HANDOFF-acp-status-and-recommendations-2026-08-25.md`**.
+> Everything below is preserved unchanged as the historical record; §4's verified facts
+> are still accurate. §3's Slice D notes describe the gap that `HANDOFF-acp-slice-d-2026-08-24.md` closed.
 
 ---
 

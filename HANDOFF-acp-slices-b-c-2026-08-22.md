@@ -6,6 +6,11 @@ record; its START HERE now carries a banner pointing here).
 **Audience:** the next coding agent on the ACP (Agent Client Protocol) thread. Alan should
 not need to re-explain any of this.
 
+> **Current thread entry (status + next steps):** `HANDOFF-acp-status-and-recommendations-2026-08-25.md`.
+> Slice D implementation: `HANDOFF-acp-slice-d-2026-08-24.md`.
+> This file stays the A–C design record. §1’s slice table is stale (D shipped; C live
+> acceptance passed — see §3 completion note).
+
 ---
 
 ## START HERE
@@ -157,6 +162,9 @@ the authority ceiling is fixed at spawn, before any model output exists. Capabil
 differences in the demo are cosmetic (all six run the same mock).
 
 ## 4. Suggested next steps, in order
+
+> **Stale as of 2026-08-25.** Items 1 and 3 below are done (C live acceptance; D shipped).
+> Current ordered recs: `HANDOFF-acp-status-and-recommendations-2026-08-25.md`.
 
 1. Finish Slice C acceptance (§3): repoint the shim, read-only live turn, then the
    approval-card turn. Confirm with Alan before spending model calls.
