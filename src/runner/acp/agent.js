@@ -610,6 +610,9 @@ function createAcpAgent(deps) {
         stream: true,
         onStreamText,
         shouldCancel: () => session.cancelRequested,
+        // This process serves many turns; one cancelled/failed turn must not
+        // leave process.exitCode=1 stuck on the whole agent (M3, 2026-08-25).
+        setProcessExitCode: false,
         // Mode semantics — each is the runner's real flag, not an imitation:
         // plan records proposals instead of executing; code (acceptEdits)
         // skips the per-write approval card the user opted out of.

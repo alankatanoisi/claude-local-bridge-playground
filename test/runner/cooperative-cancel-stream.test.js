@@ -15,6 +15,7 @@ const assert = require('node:assert/strict');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const http = require('http');
 
 const modelClient = require('../../src/runner/model-client');
 const { run } = require('../../src/runner/run');
@@ -230,6 +231,131 @@ describe('run() cooperative cancel and caller streaming', () => {
     };
     const midFlight = await run(baseOptions({ stream: true, onStreamText: () => {}, shouldCancel: () => flipped }));
     assert.equal(midFlight.stopReason, STOP_REASONS.CANCELLED, 'in-flight abort is a cancel, not a bridge error');
+  });
+
+  it('real postStream fires no callback after a cancel abort (High #2, 2026-08-25)', async () => {
+    // A REAL local SSE server that keeps dripping frames until its socket
+    // dies — so any callback leak after the abort would be caught red-handed.
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      const iv = setInterval(() => {
+        res.write('data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"drip\\n"}}\n\n');
+      }, 20);
+      res.on('close', () => clearInterval(iv));
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const bridgeUrl = 'http://127.0.0.1:' + server.address().port;
+
+    let cancelled = false;
+    let cbCount = 0;
+    try {
+      const pending = originalPostStream(
+        { model: 'test', stream: true, messages: [] },
+        () => {
+          cbCount += 1;
+          if (cbCount >= 2) cancelled = true; // the user hits Stop mid-stream
+        },
+        bridgeUrl,
+        { shouldCancel: () => cancelled },
+      );
+      await assert.rejects(pending, (err) => err.isCancelled === true);
+      const countAtReject = cbCount;
+      // The server keeps emitting until the destroyed socket closes; give any
+      // leaked events ample time to surface.
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      assert.equal(cbCount, countAtReject, 'no callback fired after the rejection');
+    } finally {
+      server.close();
+    }
+  });
+
+  it('a mid-batch cancel persists a complete tool batch — resume needs no crash repair (High #1)', async () => {
+    const sessionPath = path.join(tmpDir, 'midturn-cancel.state.json');
+    let call = 0;
+    let cancelled = false;
+    const bodies = [];
+    modelClient.post = async (body) => {
+      bodies.push(body);
+      call += 1;
+      if (call === 1) {
+        // One batch: a read-phase question plus a write. Cancel lands during
+        // the read, so the write never runs — but the READ's real result must
+        // survive into the checkpoint instead of an F6 crash placeholder.
+        return {
+          content: [
+            {
+              type: 'tool_use',
+              id: 'tu-q',
+              name: 'ask_user_question',
+              input: { question: 'go?', options: [{ label: 'yes' }, { label: 'no' }] },
+            },
+            { type: 'tool_use', id: 'tu-w', name: 'write_file', input: { path: 'skipped.txt', content: 'no' } },
+          ],
+          stop_reason: 'tool_use',
+        };
+      }
+      return { content: [{ type: 'text', text: 'resumed cleanly' }] };
+    };
+
+    const shared = { sessionPath, noSessionPersistence: false, capabilities: ['edits'] };
+    const turn1 = await run(
+      baseOptions({
+        ...shared,
+        prompt: 'first',
+        shouldCancel: () => cancelled,
+        askUserQuestion: async () => {
+          cancelled = true; // Stop clicked while the question card was up
+          return { ok: true, text: 'PROCEED_CONFIRMED' };
+        },
+        confirm: { ask: async () => 'allow' },
+      }),
+    );
+    assert.equal(turn1.stopReason, STOP_REASONS.CANCELLED);
+    assert.ok(!fs.existsSync(path.join(tmpDir, 'skipped.txt')), 'the write never ran');
+
+    cancelled = false;
+    const turn2 = await run(baseOptions({ ...shared, prompt: 'second', resume: true }));
+    assert.equal(turn2.stopReason, STOP_REASONS.SUCCESS, 'resume works after a mid-batch cancel');
+
+    const serialized = JSON.stringify(bodies[bodies.length - 1].messages);
+    assert.ok(serialized.includes('PROCEED_CONFIRMED'), 'the real read result survived into the resumed history');
+    assert.ok(
+      serialized.includes('Turn stopped before this tool ran'),
+      'the skipped write got an honest synthetic result',
+    );
+    assert.ok(!serialized.includes('Recovered after crash'), 'no F6 crash-repair language for a deliberate Stop');
+  });
+
+  it('caller streaming disables stdout token streaming and marks the result streamed (M4)', async () => {
+    let capturedOpts = null;
+    modelClient.postStream = async (body, cb, bridgeUrl, opts) => {
+      capturedOpts = opts;
+      cb({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'line one\n' } });
+      return { content: [{ type: 'text', text: 'line one\n' }] };
+    };
+
+    const result = await run(baseOptions({ stream: true, onStreamText: () => {} }));
+
+    assert.equal(capturedOpts.streamOutput, false, 'no live tokens go to process.stdout for a hosted caller');
+    assert.equal(result.streamed, true, 'finish() must not reprint the answer either');
+    assert.equal(result.stopReason, STOP_REASONS.SUCCESS);
+  });
+
+  it('a transient bridge error after delivered deltas is NOT retried (M5)', async () => {
+    let calls = 0;
+    const received = [];
+    modelClient.postStream = async (body, cb) => {
+      calls += 1;
+      cb({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'partial line\n' } });
+      const err = new Error('Stream error: ECONNRESET'); // matches the transient classifier
+      throw err;
+    };
+
+    const result = await run(baseOptions({ stream: true, onStreamText: (t) => received.push(t) }));
+
+    assert.equal(calls, 1, 'no retry once the client has already seen text');
+    assert.equal(result.stopReason, STOP_REASONS.BRIDGE_ERROR);
+    assert.equal(received.join(''), 'partial line\n', 'the prefix was delivered exactly once');
   });
 
   it('a cancelled turn leaves the session checkpoint resumable', async () => {

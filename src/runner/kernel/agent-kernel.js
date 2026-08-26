@@ -89,6 +89,7 @@ async function runKernel(input) {
     askUserQuestion: input.askUserQuestion,
     shouldCancel: input.shouldCancel,
     onStreamText: input.onStreamText,
+    setProcessExitCode: input.setProcessExitCode,
   };
 
   const exitCodeBefore = process.exitCode;

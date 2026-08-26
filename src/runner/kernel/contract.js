@@ -128,6 +128,10 @@ const KERNEL_EVENT_TYPES = Object.freeze([
  * @property {(text: string) => void} [onStreamText] — with stream: true, receives
  *   live scrubbed text deltas (split-invariant scrubbing), independent of
  *   outputFormat, so a hosted caller gets streaming text AND structured events.
+ *   While active, stdout token streaming is disabled (mutually exclusive).
+ * @property {boolean} [setProcessExitCode] — default true (CLI semantics). Hosted
+ *   long-lived callers pass false so one failed/cancelled turn cannot leave
+ *   process.exitCode=1 stuck on the whole process.
  * @property {{ask?: Function, askToolFailureRecovery?: Function}} [confirm] —
  *   approval port for callers with no terminal. Omitted methods fall back to the
  *   /dev/tty implementation, which fails closed when no terminal exists.

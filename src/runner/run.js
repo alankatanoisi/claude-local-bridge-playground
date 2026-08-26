@@ -504,6 +504,16 @@ async function run(options) {
   } = options;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
+  // Thermo-nuclear M3 (2026-08-25): process.exitCode is CLI vocabulary. A
+  // long-lived hosted process (the ACP agent) calls run() many times; a single
+  // cancelled turn used to leave exitCode=1 stuck on the whole process, so a
+  // later clean shutdown reported failure. Hosted callers opt out with
+  // setProcessExitCode: false; the terminal CLI path is unchanged.
+  const manageProcessExit = options.setProcessExitCode !== false;
+  const setExitCode = (code) => {
+    if (manageProcessExit) process.exitCode = code;
+  };
+
   const exposedToolsList = normalizeExposedToolsList(options.exposedTools) || normalizeExposedToolsList(allowedTools);
 
   // P2-01: optional capability groups (edits, recovery, agents, worktrees,
@@ -586,7 +596,7 @@ async function run(options) {
     if (boot.blocked) {
       const stopReason = boot.stopReason || STOP_REASONS.CWD_INVALID;
       emitHint(boot.blockReason, { quiet, verbose, stopReason });
-      process.exitCode = 1;
+      setExitCode(1);
       return {
         stopReason,
         finalText: boot.blockReason,
@@ -606,7 +616,7 @@ async function run(options) {
     const cwdCheck = safety.validateCwd(ctx.cwd);
     if (!cwdCheck.valid) {
       emitHint(cwdCheck.reason, { quiet, verbose, stopReason: STOP_REASONS.CWD_INVALID });
-      process.exitCode = 1;
+      setExitCode(1);
       return;
     }
     ctx.cwdRealpath = cwdCheck.realpath;
@@ -619,7 +629,7 @@ async function run(options) {
   const cwdCheck = safety.validateCwd(ctx.cwd);
   if (!cwdCheck.valid) {
     emitHint(cwdCheck.reason, { quiet, verbose, stopReason: STOP_REASONS.CWD_INVALID });
-    process.exitCode = 1;
+    setExitCode(1);
     return;
   }
   ctx.cwdRealpath = cwdCheck.realpath;
@@ -642,7 +652,7 @@ async function run(options) {
     if (!wtRes || !wtRes.ok) {
       const reason = '--worktree could not create an isolated worktree: ' + (wtRes ? wtRes.text : 'unknown error');
       emitHint(reason, { quiet, verbose, stopReason: STOP_REASONS.CWD_INVALID });
-      process.exitCode = 1;
+      setExitCode(1);
       return;
     }
     // Marker line the CLI-contract test greps for to prove entry happened before
@@ -883,8 +893,11 @@ async function run(options) {
   // historical terminal behavior (text mode writes deltas to stdout inside
   // model-client); streamCaller delivers scrubbed deltas to onStreamText so a
   // protocol front end gets live text AND structured events in the same run.
-  const streamStdout = stream && outputFormat === 'text';
+  // Thermo-nuclear M4 (2026-08-25): the two are mutually exclusive — a hosted
+  // caller's stdout is not a display (under ACP it is the redirected protocol
+  // channel), so live tokens must never ALSO be written there.
   const streamCaller = !!stream && typeof onStreamText === 'function';
+  const streamStdout = stream && outputFormat === 'text' && !streamCaller;
   const streamingActive = streamStdout || streamCaller;
 
   const pipeline = createToolPipeline({
@@ -1154,7 +1167,7 @@ async function run(options) {
       else if (!partial.archiveErrorRecorded) archiveCollector.recordError(stepCount, result.finalText || '');
     }
 
-    if (!success) process.exitCode = 1;
+    if (!success) setExitCode(1);
     return completeRun(result);
   }
 
@@ -1491,6 +1504,11 @@ async function run(options) {
     output.emit('model_request', { step, model });
     if (verbose) console.error('[runner] step ' + step + ': sending request to bridge');
 
+    // Thermo-nuclear M5 (2026-08-25): once any live delta reached the caller
+    // this step, a transparent retry would stream the same prefix again — the
+    // client has no way to un-see it. Track deliveries so the retry gate below
+    // can refuse.
+    let callerDeltasThisStep = 0;
     let response;
     try {
       if (streamingActive) {
@@ -1510,6 +1528,7 @@ async function run(options) {
               ) {
                 const safe = callerScrubber.push(event.delta.text);
                 if (safe) {
+                  callerDeltasThisStep += 1;
                   try {
                     onStreamText(safe);
                   } catch {
@@ -1567,7 +1586,14 @@ async function run(options) {
       output.emit('error', { message: msg, hint: hint ? { whatHappened: hint.whatHappened, tip: hint.tip } : null });
       // Only 429 / 5xx / network failures retry. Deterministic 4xx (401, 400, …)
       // fail once so expired credentials do not burn the retry budget.
-      if (step < steps && bridgeRetryCount < MAX_BRIDGE_RETRIES && isTransientBridgeError(err)) {
+      // M5: and never after live deltas were delivered — a retry would replay
+      // text the client already displayed.
+      if (
+        step < steps &&
+        bridgeRetryCount < MAX_BRIDGE_RETRIES &&
+        isTransientBridgeError(err) &&
+        callerDeltasThisStep === 0
+      ) {
         bridgeRetryCount++;
         const delayMs = bridgeRetryDelayMs(err, bridgeRetryCount);
         if (!quiet) {
@@ -1755,9 +1781,12 @@ async function run(options) {
         stopReason: STOP_REASONS.SUCCESS,
         finalText: text,
         steps: step,
-        // streamed gates finish()'s reprint-suppression: only stdout streaming
-        // already showed the text; caller streaming has its own display.
-        streamed: streamStdout,
+        // streamed gates finish()'s reprint-suppression. Deliberate deviation
+        // from the 2026-08-25 review's letter (it suggested streamStdout):
+        // caller streaming ALSO already delivered the text live, so finish()
+        // printing finalText would dump the whole answer onto the hosted
+        // process's redirected stdout once per turn — the same leak M4 closes.
+        streamed: streamingActive,
         upstreamStopReason,
       });
     }
@@ -1803,6 +1832,35 @@ async function run(options) {
 
     if (turn.aborted) {
       const { reason, message } = turn.aborted;
+      // Thermo-nuclear High #1 (2026-08-25): the assistant tool_use batch was
+      // already checkpointed BEFORE the pipeline ran, so finalizing here
+      // without its paired tool_result batch left the session looking crashed
+      // — the next resume then ran F6 crash-repair and replaced real read
+      // output with synthetic placeholders. Persist a COMPLETE batch instead:
+      // real results for tools that executed, honest "stopped before it ran"
+      // results for the rest. A Stop (or a cycle/wall-clock/cost stop, which
+      // shares this seam) now resumes as a clean, contract-valid exchange.
+      const answered = new Set((turn.toolResults || []).map((tr) => tr.tool_use_id));
+      const completeResults = [
+        ...(turn.toolResults || []),
+        ...toolUses
+          .filter((tu) => !answered.has(tu.id))
+          .map((tu) => ({
+            type: 'tool_result',
+            tool_use_id: tu.id,
+            content: 'Turn stopped before this tool ran: ' + message,
+            is_error: true,
+          })),
+      ];
+      if (completeResults.length > 0) {
+        messages.push({ role: 'user', content: completeResults });
+        persistSession(
+          sessionStore,
+          messages,
+          { ...ctx, _consecutiveToolFailures: pipeline.failureStreak },
+          !!noSessionPersistence,
+        );
+      }
       emitHint(message, { quiet, verbose, stopReason: reason });
       return finalizeRun({ stopReason: reason, finalText: message, steps: step });
     }

@@ -47,12 +47,12 @@ T3 Code
                           └─ local bridge :11437
 ```
 
-| Slice | What | Status |
-| ----- | ---- | ------ |
-| **A** | Headless caller ports | Done (`b898ee9`) |
-| **B** | ACP front end over the real runner | Done, unit-tested |
+| Slice | What                                      | Status                                                                   |
+| ----- | ----------------------------------------- | ------------------------------------------------------------------------ |
+| **A** | Headless caller ports                     | Done (`b898ee9`)                                                         |
+| **B** | ACP front end over the real runner        | Done, unit-tested                                                        |
 | **C** | T3 Cursor-host contract + live acceptance | Playground done; **live turn + working approval card passed 2026-08-24** |
-| **D** | Cooperative cancel + live streaming | **Built, unit-tested, live-verified on Sonnet 5 and Opus 5** |
+| **D** | Cooperative cancel + live streaming       | **Built, unit-tested, live-verified on Sonnet 5 and Opus 5**             |
 
 Working facts the next agent should not re-derive:
 
@@ -106,7 +106,7 @@ next composer change.
 
 Do not “fix” this by inventing a fifth T3 thought_level. The mapper will drop it.
 
-### R4 — Next *code* slice, if Alan wants keep-building: `ask_user_question` over ACP
+### R4 — Next _code_ slice, if Alan wants keep-building: `ask_user_question` over ACP
 
 Slice A already injects `askUserQuestion`. The ACP agent currently fails that path
 closed. Wiring it is playground-only, small, and finishes the headless-caller surface

@@ -187,6 +187,13 @@ function postStream(body, cb, bridgeUrl, opts) {
   const options = { streamOutput: false, ...opts };
 
   return new Promise((resolve, reject) => {
+    // Thermo-nuclear High #2 (2026-08-25): once a cancel rejects this promise,
+    // SSE data already queued on the event loop could still invoke cb() —
+    // letting a session emit updates AFTER its prompt reported "cancelled",
+    // and even interleave into the next turn. The flag makes the abort final:
+    // no callback, no parsing, no stdout writes after rejection.
+    let aborted = false;
+
     // Same protocol-aware selection as post(): reject typed before any socket.
     const reqUrl = new URL(url);
     const transport = transportFor(reqUrl);
@@ -227,6 +234,7 @@ function postStream(body, cb, bridgeUrl, opts) {
       const streamScrubber = options.streamOutput ? safety.makeStreamingScrubber() : null;
 
       res.on('data', (chunk) => {
+        if (aborted) return;
         buffer += chunk.toString('utf8');
 
         // Split on double newline (SSE frame boundary)
@@ -312,7 +320,7 @@ function postStream(body, cb, bridgeUrl, opts) {
               }
             }
 
-            if (cb) cb(event);
+            if (cb && !aborted) cb(event);
           } catch {
             // ignore parse errors on partial frames
           }
@@ -320,6 +328,7 @@ function postStream(body, cb, bridgeUrl, opts) {
       });
 
       res.on('end', () => {
+        if (aborted) return;
         // Process any remaining data in buffer
         if (buffer.trim()) {
           const dataLines = buffer
@@ -379,6 +388,7 @@ function postStream(body, cb, bridgeUrl, opts) {
           cancelled = false; // a throwing token must never kill the stream
         }
         if (cancelled) {
+          aborted = true; // silence cb/data BEFORE reject — see High #2 note above
           clearCancelPoll();
           reject(new BridgeCancelledError());
           req.destroy();

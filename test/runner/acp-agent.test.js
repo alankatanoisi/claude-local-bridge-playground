@@ -409,6 +409,9 @@ describe('acp agent over the real runner', () => {
 
     const first = await client.prompt(sessionId, 'long doomed turn');
     assert.equal(first.stopReason, 'cancelled');
+    // M3 (2026-08-25): the hosted agent opts out of CLI exit-code semantics,
+    // so a cancelled turn must not leave exitCode=1 stuck on the process.
+    assert.ok(!process.exitCode, 'a cancelled ACP turn does not poison process.exitCode');
     assert.ok(!fs.existsSync(path.join(tmpDir, 'never.txt')), 'the cancelled turn started no side effect');
     assert.equal(client.permissionRequests.length, 0, 'no approval card for a discarded response');
 
