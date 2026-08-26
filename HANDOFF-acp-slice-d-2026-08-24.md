@@ -11,8 +11,8 @@ on Sonnet 5 and Opus 5 — with one verification step pending a bridge reload (�
 **Audit (2026-08-25):** thermo-nuclear review of this landed range is
 `HANDOFF-acp-slice-d-thermo-nuclear-2026-08-25.md` — two High findings on Stop
 (mid-turn unpaired `tool_use`; in-flight abort can `session/update` after
-`cancelled`). Do not treat §1 “checkpoint stays resumable” as fully true until
-that handoff’s High #1 is closed.
+`cancelled`). **All five findings closed the same day in `12f0842`** — §1's
+"checkpoint stays resumable" claim is now fully true for every cancel seam.
 
 ## 1. What landed (commits `d3b09b1`, `1dc17de`, `cbdb59e`)
 

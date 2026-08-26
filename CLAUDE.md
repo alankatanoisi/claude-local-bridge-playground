@@ -322,7 +322,9 @@ items rather than starting a parallel tracker.
   handoff is `ask_user_question` over ACP, not a first-class T3 driver.
   **Thermo-nuclear review 2026-08-25:** `HANDOFF-acp-slice-d-thermo-nuclear-2026-08-25.md`
   (two High on Stop: mid-turn unpaired `tool_use`; in-flight abort can `session/update`
-  after `cancelled`). Not yet fixed.
+  after `cancelled`). **All five findings fixed + live-verified same day (`12f0842`).**
+  T3 UI note: the batched paint pattern was T3's default renderer — its
+  "Stream token by token (legacy)" setting restores per-token painting.
   **Post-Bundle-D (same day):** worker summary ceiling raised 700→1200 and single-sourced in
   `starlark-host/src/worker-contract.js` (owner decision: communication integrity over rigidity;
   pinned by a decision test), and **D-F1 closed** — worker retries now carry the host's exact

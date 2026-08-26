@@ -1,5 +1,13 @@
 # Handoff — Thermo-nuclear review of ACP Slice D (2026-08-25)
 
+> **CLOSED 2026-08-25 — all five findings fixed in commit `12f0842`** (Fable), in this
+> file's recommended order, with the recommended tests (High #2 verified against a real
+> local SSE server; High #1 with session persistence on). One documented deviation from
+> the letter of the M4 fix: `result.streamed` is set for caller streaming too, so
+> `finish()` cannot reprint the full answer onto a hosted process's redirected stdout —
+> same intent, one step further. Live re-verified: cancel 225 ms (Sonnet) / 166 ms
+> (Opus), bridge PID stable. Findings text below preserved unchanged.
+
 **Written:** 2026-08-25. Review only; no code changed.
 **Scope:** already-landed `main` commits `d3b09b1^..HEAD` (`d3b09b1`, `1dc17de`, `cbdb59e`). No feature branch, no PR.
 **Prior:** `HANDOFF-acp-slice-d-2026-08-24.md` remains the build/live-verify record. This file is the audit of that work.
