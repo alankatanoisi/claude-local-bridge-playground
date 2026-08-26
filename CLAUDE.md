@@ -371,6 +371,7 @@ These preferences are **universal for this repo** (same content as `AGENTS.md`).
 - Treat this work as long-horizon personal research: no shipping/production framing (launch, MVP (minimum viable product), production-ready, go-to-market) unless Alan uses it first; prototypes are disposable by design (owner profile: `docs/working-with-alan.md`).
 - Expand acronyms and abbreviations on first use and translate developer slang and idioms into plain language; assume a term is not known rather than judging whether it seems obscure.
 - Alan's basic first-principles questions are the working method: answer them completely and plainly, with zero condescension — never "as you probably know".
+- Four-seat team charter (2026-08-25, `docs/agent-team-charter-2026-08-25.md`): Alan owns intent and decisions; Fable (Claude Code) explores, builds first slices, and writes execution briefs; Codex executes written briefs and exhaustive tests; Cursor reviews landed work for invariants (with a "not bugs" list). Full relay only for landed or safety-boundary work — freeform Alan+Fable sessions stay the default mode; the tree is the baton (start only on a clean, pulled `main`).
 
 ## Learned Workspace Facts
 
