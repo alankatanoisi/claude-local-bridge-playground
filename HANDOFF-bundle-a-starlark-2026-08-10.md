@@ -5,6 +5,9 @@
 **Folder/branch:** `/Users/alanman/Developer/claude-local-bridge-playground`, `main`.
 **Recommendation source:** `docs/2026-08-06-starlark-architecture-review.md` (items R1, R2, R3 of R1–R14).
 
+> **Current thread entry (status + next steps):** `HANDOFF-starlark-status-and-recommendations-2026-08-25.md`.
+> This file stays the R3 + R1/R2 implementation record.
+
 ## Outcome in one paragraph
 
 The Starlark phased-hybrid prototype graduated from `~/Developer/orchestration-prototypes/` into this

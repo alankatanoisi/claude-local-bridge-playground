@@ -6,6 +6,11 @@
 existing `campaign-2026-08-10-r4-planner` allowance (no new money authorized).
 **Results document:** `docs/starlark-r4-worker-eval-2026-08-10.md`.
 
+> **Current thread entry (status + next steps):** `HANDOFF-starlark-status-and-recommendations-2026-08-25.md`.
+> This file stays the Bundle D implementation record. D-F1 later closed in `4c6904a`;
+> the 700-char ceiling was raised to 1200 the same day. § Suggested next steps below
+> is stale on D-F1.
+
 ## Outcome in one paragraph
 
 Three review items landed as tested code and the two-axis model picture is now complete. R13 gives
@@ -82,6 +87,10 @@ slice, followed by a re-run of this evaluation to measure the delta.
 
 ## Skipped / residual
 
+> **Stale as of 2026-08-25 on D-F1/D-F2.** D-F1 closed in `4c6904a`; D-F2 partially closed
+> (ceiling 700→1200). Current remaining list: `HANDOFF-starlark-status-and-recommendations-2026-08-25.md`.
+> The 401 residual and R8/R12/R14a/b notes below are still accurate as of that file.
+
 - **Open operational residual:** the bridge HTTP 401 (`authentication_error`) window that killed 11
   trials mid-evaluation. It cleared after a bridge restart and was not root-caused. If it recurs,
   the shape (sudden onset, every subsequent call, $0 cost) suggests a credential refresh gap worth
@@ -94,6 +103,9 @@ slice, followed by a re-run of this evaluation to measure the delta.
   substantial further live work should start a fresh campaign with a fresh ceiling decision.
 
 ## Suggested next steps
+
+> **Stale as of 2026-08-25.** Item 1 (D-F1) is done. Current ordered recs:
+> `HANDOFF-starlark-status-and-recommendations-2026-08-25.md`.
 
 1. **D-F1** (free): give worker retries the host's validation reason, then re-run the worker axis
    under a fresh campaign to measure the improvement — the cleanest available before/after.

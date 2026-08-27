@@ -5,6 +5,9 @@
 **Recommendation source:** `docs/2026-08-06-starlark-architecture-review.md` (R5, R6, R7; R10 pulled forward
 on Alan's instruction after Bundle A reproduced its failure mode live).
 
+> **Current thread entry (status + next steps):** `HANDOFF-starlark-status-and-recommendations-2026-08-25.md`.
+> This file stays the R5/R6/R7/R10 implementation record.
+
 ## Outcome in one paragraph
 
 The four quality items landed as reviewed, tested code in `starlark-host/`: descriptor policy is now

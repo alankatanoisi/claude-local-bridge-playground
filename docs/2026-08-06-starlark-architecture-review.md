@@ -5,6 +5,10 @@
 **Inputs read:** `docs/2026-08-06-starlark-phased-hybrid-live-results.md`, `docs/2026-08-06-starlark-workflow-expansion.md`, `docs/roadmap-direction-review-and-five-next-steps-2026-08-06.md`, `docs/ARCHITECTURE.md`, `docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html`, `docs/diagrams/starlark-runtime-architecture.png`, plus `src/runner/**` module layout.
 **Status:** Assessment memo. No source changes made. Every recommendation is scoped for a separately authorized chunk.
 
+> **Implementation status as of 2026-08-25:** `HANDOFF-starlark-status-and-recommendations-2026-08-25.md`.
+> R1–R7, R9, R10, R13, and R14c are built. R8 and R12 remain decisions. R11, R14a, and
+> R14b are unbuilt. Do not treat §5’s sequence as the current work queue.
+
 ---
 
 ## 1. Executive verdict

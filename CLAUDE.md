@@ -294,23 +294,13 @@ items rather than starting a parallel tracker.
   ledger-aware resume) closed same evening** — `HANDOFF-f6-ledger-aware-resume-2026-07-31.md`.
   Residual: A1-F4/A1-F5, A3-F4, DBOS arm, HE-05 OTel half.
 
-- **Starlark thread — Bundles A and B executed 2026-08-10:** A (R3+R1/R2) graduated the prototype into
-  `starlark-host/` with durable cross-process dollar-metered campaign budgets, live-proven; B
-  (R5/R6/R7/R10) added policy single-sourcing + concordance tests, Starlark pre-lint with auto-repair,
-  an adversarial evaluator corpus (+ stdout ceiling), and map-reduce/resumable synthesis — live-proven by
-  healing A's truncated canary for ~$0.015 without re-running workers. Handoffs:
-  `HANDOFF-bundle-a-starlark-2026-08-10.md`, `HANDOFF-bundle-b-starlark-2026-08-10.md`. Bundle C
-  (R4) executed same day: 25 live trials, 5 planners × 5 reps, $6.29 of a $20 cap — results in
-  `docs/starlark-r4-planner-eval-2026-08-10.md`, handoff `HANDOFF-bundle-c-starlark-2026-08-10.md`.
-  Headline: Opus 4.8 best finisher, Haiku best compliance-per-dollar, planner verbosity degrades
-  worker contract compliance (100%→33% retry success, truncation ruled out). Bundle D (R13 planner
-  ladder, R9 deterministic second worker adapter, R14c JSON cheap path) + the worker-axis eval
-  followed: `HANDOFF-bundle-d-starlark-2026-08-10.md`,
-  `docs/starlark-r4-worker-eval-2026-08-10.md`. Two-axis conclusion: plan with Haiku, work with
-  Sonnet 5 (only model at 15/15 on the compact output contract; Opus 5 0/15, all from the
-  700-char summary ceiling). Remaining: R8/R12 (decision-shaped), R14 (a)/(b), and D-F1 (feed
-  the host validation error into worker retries — a rejected worker currently retries blind).
-  Campaign `campaign-2026-08-10-r4-planner`: $16.26 of $20 settled.
+- **Starlark thread — current entry
+  `HANDOFF-starlark-status-and-recommendations-2026-08-25.md`.** Bundles A–D built 2026-08-10
+  (`starlark-host/`). D-F1 closed `4c6904a` (worker retries get the host rejection reason);
+  summary ceiling 700→1200 (owner decision, decision-tested). 08-10 two-axis tables describe
+  the **old** contract. Open: R8/R12 (decisions), R11 (kill/resume tests), R14a/b. Last
+  Starlark code 2026-08-11; lab idle during ACP. This machine: no Go toolchain, no local
+  campaign ledger, no `starlark-host/{runs,eval-runs}` evidence dirs.
 
 - **ACP thread (Bridge Runner → T3 Code) — Slices A–D built; current entry
   `HANDOFF-acp-status-and-recommendations-2026-08-25.md`.** Design record for A–C:
@@ -325,12 +315,6 @@ items rather than starting a parallel tracker.
   after `cancelled`). **All five findings fixed + live-verified same day (`12f0842`).**
   T3 UI note: the batched paint pattern was T3's default renderer — its
   "Stream token by token (legacy)" setting restores per-token painting.
-  **Post-Bundle-D (same day):** worker summary ceiling raised 700→1200 and single-sourced in
-  `starlark-host/src/worker-contract.js` (owner decision: communication integrity over rigidity;
-  pinned by a decision test), and **D-F1 closed** — worker retries now carry the host's exact
-  rejection reason (`4c6904a`). Both change worker-contract semantics, so the 2026-08-10 two-axis
-  results describe the OLD contract; a ~$5 worker-axis re-run under a fresh campaign would measure
-  the combined effect. Remaining: R8/R12 (decision-shaped), R14 (a)/(b).
 
 **Three ID namespaces exist in `docs/`.** The runtime-concordance series `P0-01…P0-12` is closed; the
 future-directions band `FD-01…FD-05` is _also_ labelled P0 by the 07-22 handoff; the 2026-07-28 harness

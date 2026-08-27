@@ -6,6 +6,10 @@
 the Teams-Premium upgrade).
 **Results document (authoritative):** `docs/starlark-r4-planner-eval-2026-08-10.md`.
 
+> **Current thread entry (status + next steps):** `HANDOFF-starlark-status-and-recommendations-2026-08-25.md`.
+> This file stays the R4 planner-axis record. Remaining-items lists below are stale
+> (R9/R13/R14c and D-F1 shipped after this handoff).
+
 ## Outcome in one paragraph
 
 R4 is closed: a thin repeated-trial harness (`starlark-host/bin/run-eval.js` +
