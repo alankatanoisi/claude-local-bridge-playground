@@ -4,15 +4,15 @@
 **Audience:** the next coding agent on the Starlark (phased-hybrid control plane) thread.
 **Does not supersede** the bundle write-ups. Those remain the implementation record:
 
-| Record | What it still owns |
-| ------ | ------------------ |
-| `docs/2026-08-06-starlark-architecture-review.md` | Original R1–R14 recommendations and the language verdict |
-| `HANDOFF-bundle-a-starlark-2026-08-10.md` | R3 subtree + R1/R2 campaign budget |
-| `HANDOFF-bundle-b-starlark-2026-08-10.md` | R5/R6/R7/R10 |
-| `HANDOFF-bundle-c-starlark-2026-08-10.md` + `docs/starlark-r4-planner-eval-2026-08-10.md` | R4 planner-axis live eval |
-| `HANDOFF-bundle-d-starlark-2026-08-10.md` + `docs/starlark-r4-worker-eval-2026-08-10.md` | R13/R9/R14c + worker-axis live eval |
+| Record                                                                                    | What it still owns                                       |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `docs/2026-08-06-starlark-architecture-review.md`                                         | Original R1–R14 recommendations and the language verdict |
+| `HANDOFF-bundle-a-starlark-2026-08-10.md`                                                 | R3 subtree + R1/R2 campaign budget                       |
+| `HANDOFF-bundle-b-starlark-2026-08-10.md`                                                 | R5/R6/R7/R10                                             |
+| `HANDOFF-bundle-c-starlark-2026-08-10.md` + `docs/starlark-r4-planner-eval-2026-08-10.md` | R4 planner-axis live eval                                |
+| `HANDOFF-bundle-d-starlark-2026-08-10.md` + `docs/starlark-r4-worker-eval-2026-08-10.md`  | R13/R9/R14c + worker-axis live eval                      |
 
-This file is the current **shape + what to do next**. Last Starlark *code* commit is
+This file is the current **shape + what to do next**. Last Starlark _code_ commit is
 `4c6904a` (2026-08-11, D-F1). The thread has been idle while ACP shipped.
 
 ---
@@ -69,32 +69,32 @@ under `~/.claude-local-bridge/traces/`, not conventional runner transcripts.
 
 ## 2. R1–R14 scorecard (as of 2026-08-25)
 
-| # | P | Item | Status |
-| - | - | ---- | ------ |
-| R1 | P0 | Durable cross-process campaign budget | **Done** (`campaign-budget.js`, live-proven 08-10) |
-| R2 | P0 | Meter dollars, cache-aware | **Done** in code + regression test. Live 08-10 canaries carried **zero** cache tokens (host does not send `cache_control`) |
-| R3 | P1 | Prototype under git | **Done** (`starlark-host/`) |
-| R4 | P1 | Repeated-trial scoring harness | **Done** — planner axis 25 live trials; worker axis 20 scored trials (11 401 casualties re-run) |
-| R5 | P1 | Single-source descriptor policy + concordance | **Done** |
-| R6 | P1 | Starlark pre-lint + auto-repair | **Done** (adjacent-string `+` only) |
-| R7 | P1 | Adversarial evaluator corpus + stdout ceiling | **Done** (tests skip if evaluator binary missing) |
-| R8 | P2 | Runner integration edge | **Open decision.** See §5 R1 |
-| R9 | P2 | Second worker adapter + contract test | **Done** (`deterministic-analyst.js`, $0, byte-reproducible) |
-| R10 | P2 | Map-reduce synthesis + synthesis-only resume | **Done**, live-healed Bundle A’s truncated fan-out for ~$0.015 |
-| R11 | P2 | Campaign kill / mid-flight resume / cancel-under-concurrency tests | **Unbuilt.** Resume today is synthesis-only. No campaign-level abort token |
-| R12 | P2 | Unify evidence layout + end-to-end trace joins | **Open.** Campaigns *intended* under `~/.bridge-runner/campaigns/`; run artifacts still under gitignored `starlark-host/{runs,workflow-runs,matrix-runs,eval-runs}/`. This machine has neither campaigns dir nor those run dirs |
-| R13 | P3 | Cost-tiered planner ladder | **Done** (`--planner-ladder` on `run-workflow` only — deliberately not on `run-eval`, so comparisons stay clean) |
-| R14a | P3 | Golden-plan snapshots | **Unbuilt** |
-| R14b | P3 | Program + input hashing | **Unbuilt** |
-| R14c | P3 | JSON cheap path | **Done** (`json-plan.js`, `--plan-source host_json`, same `validateJobs` gate) |
+| #    | P   | Item                                                               | Status                                                                                                                                                                                                                          |
+| ---- | --- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1   | P0  | Durable cross-process campaign budget                              | **Done** (`campaign-budget.js`, live-proven 08-10)                                                                                                                                                                              |
+| R2   | P0  | Meter dollars, cache-aware                                         | **Done** in code + regression test. Live 08-10 canaries carried **zero** cache tokens (host does not send `cache_control`)                                                                                                      |
+| R3   | P1  | Prototype under git                                                | **Done** (`starlark-host/`)                                                                                                                                                                                                     |
+| R4   | P1  | Repeated-trial scoring harness                                     | **Done** — planner axis 25 live trials; worker axis 20 scored trials (11 401 casualties re-run)                                                                                                                                 |
+| R5   | P1  | Single-source descriptor policy + concordance                      | **Done**                                                                                                                                                                                                                        |
+| R6   | P1  | Starlark pre-lint + auto-repair                                    | **Done** (adjacent-string `+` only)                                                                                                                                                                                             |
+| R7   | P1  | Adversarial evaluator corpus + stdout ceiling                      | **Done** (tests skip if evaluator binary missing)                                                                                                                                                                               |
+| R8   | P2  | Runner integration edge                                            | **Open decision.** See §5 R1                                                                                                                                                                                                    |
+| R9   | P2  | Second worker adapter + contract test                              | **Done** (`deterministic-analyst.js`, $0, byte-reproducible)                                                                                                                                                                    |
+| R10  | P2  | Map-reduce synthesis + synthesis-only resume                       | **Done**, live-healed Bundle A’s truncated fan-out for ~$0.015                                                                                                                                                                  |
+| R11  | P2  | Campaign kill / mid-flight resume / cancel-under-concurrency tests | **Unbuilt.** Resume today is synthesis-only. No campaign-level abort token                                                                                                                                                      |
+| R12  | P2  | Unify evidence layout + end-to-end trace joins                     | **Open.** Campaigns _intended_ under `~/.bridge-runner/campaigns/`; run artifacts still under gitignored `starlark-host/{runs,workflow-runs,matrix-runs,eval-runs}/`. This machine has neither campaigns dir nor those run dirs |
+| R13  | P3  | Cost-tiered planner ladder                                         | **Done** (`--planner-ladder` on `run-workflow` only — deliberately not on `run-eval`, so comparisons stay clean)                                                                                                                |
+| R14a | P3  | Golden-plan snapshots                                              | **Unbuilt**                                                                                                                                                                                                                     |
+| R14b | P3  | Program + input hashing                                            | **Unbuilt**                                                                                                                                                                                                                     |
+| R14c | P3  | JSON cheap path                                                    | **Done** (`json-plan.js`, `--plan-source host_json`, same `validateJobs` gate)                                                                                                                                                  |
 
 Post-eval follow-ups from the worker-axis doc:
 
-| ID | Item | Status |
-| -- | ---- | ------ |
-| D-F1 | Feed host validation error into worker retries | **Closed** `4c6904a` (2026-08-11). Feedback is host-authored on the retry prompt, not relayed through the recovery planner |
-| D-F2 | Revisit the 700-char summary cliff | **Partially closed.** Owner decision: ceiling **700 → 1200**, single-sourced in `worker-contract.js`, pinned by a decision test. The contract is still a character cliff, not a token budget |
-| D-F3 | Worker-side pre-check (truncate/split before reject) | **Unbuilt.** Do not silently truncate unless Alan chooses that over “reject and explain” |
+| ID   | Item                                                 | Status                                                                                                                                                                                       |
+| ---- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D-F1 | Feed host validation error into worker retries       | **Closed** `4c6904a` (2026-08-11). Feedback is host-authored on the retry prompt, not relayed through the recovery planner                                                                   |
+| D-F2 | Revisit the 700-char summary cliff                   | **Partially closed.** Owner decision: ceiling **700 → 1200**, single-sourced in `worker-contract.js`, pinned by a decision test. The contract is still a character cliff, not a token budget |
+| D-F3 | Worker-side pre-check (truncate/split before reject) | **Unbuilt.** Do not silently truncate unless Alan chooses that over “reject and explain”                                                                                                     |
 
 **Comparability caveat (do not bury):** the 08-10 two-axis tables describe the **old**
 contract (700-char ceiling, blind worker retries). D-F1 + 1200 change retry semantics.
@@ -129,7 +129,7 @@ Local evidence dirs `starlark-host/{runs,workflow-runs,matrix-runs,eval-runs}`: 
 `~/.bridge-runner/campaigns/`: **absent**. `~/.bridge-runner` itself exists (sessions,
 traces, logs from earlier runner work).
 
-Honest implication: this pass confirms the *tree* and the *Node-side* tests. It does
+Honest implication: this pass confirms the _tree_ and the _Node-side_ tests. It does
 **not** re-prove the Go evaluator, live workflows, or campaign accounting on this
 machine.
 
@@ -138,13 +138,13 @@ machine.
 ## 4. Drift worth not re-deriving
 
 - **Two control planes still exist.** The 08-06 review warned that drift, not decision,
-  would grow a second host. Bundles A–D then *did* give `starlark-host` its own budgets,
+  would grow a second host. Bundles A–D then _did_ give `starlark-host` its own budgets,
   run ledgers, eval harness, and synthesis resume. The runner still has
   `coordinator.js` / `budget-broker.js` / `session-ledger.js`. There is still **no**
   `run_workflow` tool in `src/runner/**`.
 - The 08-10 runner-architecture review recommended the opposite growth direction:
   native coordinator as campaign host, Starlark as a capability-free plan compiler,
-  *do not* port budgets into the Starlark host. That ship has sailed for the lab.
+  _do not_ port budgets into the Starlark host. That ship has sailed for the lab.
   R8 is now “freeze vs wire one edge,” not “where should budgets live.”
 - README canary and `experiment.config.json` `fixedPlannerModel` still default the
   **planner** to Fable 5. The two-axis conclusion was **plan with Haiku 4.5, work with
@@ -182,7 +182,7 @@ Gemini adapter, a third workflow, or a live 8-case matrix until this fork is exp
 
 ### R2 — If the lab stays separate: close R11 next (Codex-shaped, free)
 
-R10 resume is synthesis-only. A killed *worker phase* cannot be resumed without
+R10 resume is synthesis-only. A killed _worker phase_ cannot be resumed without
 re-running completed jobs — the exact A1/F6 gap the review copied here as R11.
 
 Scope: abort token on in-flight bridge worker calls; resume from the run ledger;
@@ -195,7 +195,7 @@ Skip R11 only if Alan chooses freeze-and-archive (no further unattended live run
 
 ### R3 — Cheap honesty: R14a golden plans (free)
 
-Host JSON (R14c) plus the deterministic worker (R9) already give a $0 path *if*
+Host JSON (R14c) plus the deterministic worker (R9) already give a $0 path _if_
 planning skips Starlark. Snapshot expected descriptor lists per fixture so planner
 prompt edits show up as reviewable diffs. Natural companion: make the “full pipeline
 at $0” adapter test use `--plan-source host_json` so it does not require Go.
@@ -217,7 +217,7 @@ Do not widen to new workflows or an 8-case live matrix on the same campaign.
 - Install Go on this machine (or document the required version) so `npm run verify`
   is real; make coordinator/workflow tests **skip** like the R7 corpus when the
   binary is missing, instead of failing ENOENT.
-- Align README / `fixedPlannerModel` with “plan Haiku, work Sonnet” *or* leave them
+- Align README / `fixedPlannerModel` with “plan Haiku, work Sonnet” _or_ leave them
   as historical canary defaults and say so in one sentence.
 - Per-run spend delta in live summaries (Bundle A noted campaign-cumulative
   `estimatedCostUsd` is easy to misread).

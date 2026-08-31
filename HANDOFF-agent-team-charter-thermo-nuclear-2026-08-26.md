@@ -3,7 +3,7 @@
 **Written:** 2026-08-26. Review only; no source changed except this file.
 **Scope:** already-landed playground `main` commit `e8f9297` (`e8f9297^..e8f9297`). No feature branch, no pull request.
 **Diff:** `AGENTS.md` (+1 Learned bullet), `CLAUDE.md` (+1 matching Learned bullet), new `docs/agent-team-charter-2026-08-25.md` (105 lines), new `docs/templates/CODEX-TASK-template.md` (76 lines). Docs-only; no `src/`, `test/`, `bin/`, or package scripts.
-**Verified against:** the current tree at `e8f9297` (`origin/main`), not against prior handoffs. Cited historical files were opened only to check whether *this* commit's pointers resolve.
+**Verified against:** the current tree at `e8f9297` (`origin/main`), not against prior handoffs. Cited historical files were opened only to check whether _this_ commit's pointers resolve.
 
 There are **no High** findings. This commit does not change runtime, credentials, ports, feature flags, or developer build steps. The issues below are auto-loaded instruction collisions that will make later agents stop, double-write, or refuse legitimate edits.
 
@@ -18,7 +18,7 @@ None.
 1. **Auto-loaded Learned block now contradicts itself on concurrent work.**
    `AGENTS.md` line 243 (unchanged by this commit, still in the same list the new bullet joined) says agents "work in this repo concurrently" and that docs must stay synchronized across surfaces. The new bullet at `AGENTS.md` line 248 / `CLAUDE.md` (same bullet, mirrored) says "the tree is the baton (start only on a clean, pulled `main`)." Charter ground rule 2 (`docs/agent-team-charter-2026-08-25.md` lines 54–57) is stricter still: "One agent in the checkout at a time" and "Nobody starts until the previous agent's work is committed, pushed, and pointed to by a handoff."
    Those two instructions now sit in the **same auto-loaded list** with no reconciling sentence. Cursor and Codex load `AGENTS.md`; Claude Code loads `CLAUDE.md`. An agent can honestly pick either rule. The charter's own scar-tissue note (line 57) is that concurrent agents have already committed mixed-author work here — leaving the old concurrent bullet unmodified is how that happens again.
-   These *can* be true together (sessions exist on three surfaces; only one writer holds the working tree). The commit never says that.
+   These _can_ be true together (sessions exist on three surfaces; only one writer holds the working tree). The commit never says that.
 
 2. **Ground rule 2 requires a push; the Codex paste block and template forbid pushing.**
    Charter ground rule 2 (`docs/agent-team-charter-2026-08-25.md` lines 54–56): next agent must not start until the previous work is "committed, **pushed**, and pointed to by a handoff."
@@ -66,10 +66,10 @@ None.
 
 Stay in the four files this commit touched. Do not touch `src/`, tests, or bridge internals.
 
-1. **Medium #1** — In both Learned blocks, qualify the old concurrent bullet (or the new one, or both) so they cannot be read as opposite orders. Suggested shape: concurrent *sessions/surfaces* are expected; exclusive *write lock* on the playground checkout (`git status` clean, `main` pulled) before an agent starts edits. Keep the two Learned blocks byte-for-bullet identical.
+1. **Medium #1** — In both Learned blocks, qualify the old concurrent bullet (or the new one, or both) so they cannot be read as opposite orders. Suggested shape: concurrent _sessions/surfaces_ are expected; exclusive _write lock_ on the playground checkout (`git status` clean, `main` pulled) before an agent starts edits. Keep the two Learned blocks byte-for-bullet identical.
 2. **Medium #2** — Split "landed for the next agent" from "pushed to GitHub." Local `main` commit + handoff pointer is enough for Cursor to start a review on this machine. Push remains Alan-gated (`AGENTS.md` line 200). Update charter ground rule 2, and make the Codex paste block / template agree with that sentence.
 3. **Medium #3** — In the template Hard constraints, replace the bare "original record" bullet with the charter's definition: dated handoffs / notebooks / original records are banner-annotated, never rewritten. Source, tests, and living files (`AGENTS.md`, `CLAUDE.md`, runner code) are editable when the brief's scope fence says so. Keep the HOWTO's "keep Hard constraints" instruction only if this bullet is safe to copy into a code brief.
-4. **Low #4** — One clause in the Learned charter bullet: landed *runner* code needs a Cursor invariant review after it lands; full Explore→Brief→Build→Review is for safety-boundary / bridge-transport only. Mirror into `CLAUDE.md`.
+4. **Low #4** — One clause in the Learned charter bullet: landed _runner_ code needs a Cursor invariant review after it lands; full Explore→Brief→Build→Review is for safety-boundary / bridge-transport only. Mirror into `CLAUDE.md`.
 5. **Low #5** — Charter ground rule 6: add that Cursor also auto-loads `.cursor/rules/**`, and that those files are not visible to Claude Code or Codex (already in `CLAUDE.md` lines 14–28). Point at the Learned blocks as the only shared source of truth.
 6. **Low #6** — Template standing fence: copy `AGENTS.md` Boundaries names (`src/proxy.js`, `src/server.js`, `src/interceptors/**`, VS Code extension auth settings) and retired flags (`--list-agents`, `--list-profiles`). Leave the per-task SCOPE FENCE as the fill-in.
 
