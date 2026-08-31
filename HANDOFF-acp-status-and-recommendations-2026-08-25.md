@@ -1,5 +1,13 @@
 # Handoff — ACP thread status and recommendations (2026-08-25)
 
+> **Updated 2026-08-31 — current thread entry is now
+> `HANDOFF-acp-ask-user-question-2026-08-31.md`.** R4 (`ask_user_question` over ACP)
+> is **built and live-verified** on Sonnet 5 + Opus 5, including the root-cause of why
+> the tool never fired anywhere (model-facing description discouraged it). R3 decided
+> by Alan: Auto joins T3's reasoning dropdown — T3 fork normalizer patched
+> (`100b3890a`, experiment branch). R5's "no first-class driver" stands. Findings
+> text below preserved unchanged.
+
 **Written:** 2026-08-25, after a status pass (no code changes).
 **Audience:** the next coding agent on the ACP (Agent Client Protocol) thread.
 **Does not supersede** the slice write-ups. Those remain the implementation record:

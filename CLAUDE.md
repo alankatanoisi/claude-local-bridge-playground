@@ -305,18 +305,20 @@ items rather than starting a parallel tracker.
   campaign ledger, no `starlark-host/{runs,eval-runs}` evidence dirs.
 
 - **ACP thread (Bridge Runner → T3 Code) — Slices A–D built; current entry
-  `HANDOFF-acp-status-and-recommendations-2026-08-25.md`.** Design record for A–C:
+  `HANDOFF-acp-ask-user-question-2026-08-31.md`.** Design record for A–C:
   `HANDOFF-acp-slices-b-c-2026-08-22.md` (the 08-11 handoff is superseded). Slice D:
-  `HANDOFF-acp-slice-d-2026-08-24.md`. Surface: `bin/local-bridge-acp.js` +
-  `src/runner/acp/**`. Live: Slice C acceptance (turn + approval card) and Slice D
-  cancel/streaming on Sonnet+Opus, 2026-08-24. Residual: bridge reload to pick up
-  `cbdb59e` (client disconnect mid-SSE). Next-code recommendation in the 08-25
-  handoff is `ask_user_question` over ACP, not a first-class T3 driver.
-  **Thermo-nuclear review 2026-08-25:** `HANDOFF-acp-slice-d-thermo-nuclear-2026-08-25.md`
-  (two High on Stop: mid-turn unpaired `tool_use`; in-flight abort can `session/update`
-  after `cancelled`). **All five findings fixed + live-verified same day (`12f0842`).**
-  T3 UI note: the batched paint pattern was T3's default renderer — its
-  "Stream token by token (legacy)" setting restores per-token painting.
+  `HANDOFF-acp-slice-d-2026-08-24.md`; status pass: `HANDOFF-acp-status-and-recommendations-2026-08-25.md`.
+  Surface: `bin/local-bridge-acp.js` + `src/runner/acp/**`. Live: Slice C acceptance,
+  Slice D cancel/streaming, and (2026-08-31) `ask_user_question` riding T3's native
+  `cursor/ask_question` card — all on Sonnet+Opus. Root cause of the tool never firing
+  anywhere: the model-facing description discouraged it (fixed). `effort=auto` now
+  survives T3's reasoning normalizer (fork commit `100b3890a`, needs a T3 app rebuild
+  to render). **Thermo-nuclear review 2026-08-25:**
+  `HANDOFF-acp-slice-d-thermo-nuclear-2026-08-25.md` — all five findings fixed +
+  live-verified same day (`12f0842`). T3 UI note: the batched paint pattern was T3's
+  default renderer — its "Stream token by token (legacy)" setting restores per-token
+  painting. Residuals: first-class driver / `session/load` replay / real fleet all
+  deliberately deferred.
 
 **Three ID namespaces exist in `docs/`.** The runtime-concordance series `P0-01…P0-12` is closed; the
 future-directions band `FD-01…FD-05` is _also_ labelled P0 by the 07-22 handoff; the 2026-07-28 harness
