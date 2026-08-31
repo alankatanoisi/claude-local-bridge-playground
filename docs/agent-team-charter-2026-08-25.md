@@ -52,8 +52,11 @@ triangulate.
    a different agent than the one who wrote the code. Reviews must include a
    "not bugs — do not fix" section so correct decisions survive the pass.
 2. **One agent in the checkout at a time; the tree is the baton.** Nobody starts
-   until the previous agent's work is committed, pushed, and pointed to by a
-   handoff. An agent finding a dirty tree on arrival stops and asks Alan.
+   until the previous agent's work is committed on local `main` and pointed to by
+   a handoff. A push to GitHub is **not** part of the baton — on this machine a
+   local commit is a valid handoff target, and pushing stays Alan-gated (agents
+   push only when Alan asks). An agent finding a dirty tree on arrival stops and
+   asks Alan.
    (Scar tissue: concurrent agents have committed mixed-author work here before.)
 3. **One current-entry document per thread.** Every work thread has exactly one
    authoritative "start here" handoff; superseded ones get a dated banner pointing
@@ -65,9 +68,12 @@ triangulate.
    implementer deviates from the letter of a spec (even for good reason), the
    commit message and handoff say so explicitly (example: the M4 `streamed` flag
    deviation in `12f0842`).
-6. **Surface awareness.** Claude Code auto-loads `CLAUDE.md`; Cursor and Codex
-   auto-load `AGENTS.md`. Anything every agent must know lives in the mirrored
-   Learned blocks of BOTH files, or it does not reliably exist.
+6. **Surface awareness.** Claude Code auto-loads `CLAUDE.md`; Cursor auto-loads
+   `AGENTS.md` **plus** `.cursor/rules/**` (files Claude Code and Codex never see,
+   and which have drifted from current invariants before — see the "Which File
+   Loads Where" table in `CLAUDE.md`); Codex auto-loads `AGENTS.md` only.
+   Anything every agent must know lives in the mirrored Learned blocks of BOTH
+   files, or it does not reliably exist.
 
 ## 4. Entry rituals (paste blocks for Alan)
 
