@@ -1,5 +1,14 @@
 # Handoff — Thermo-nuclear review of the four-seat charter (`e8f9297`, 2026-08-26)
 
+> **CLOSED 2026-08-31 — all six findings fixed** (Fable), in this file's recommended
+> order: Medium #1 in `98bf4e6` (concurrent-sessions bullet reconciled with
+> tree-is-the-baton), Medium #2 + Low #4 + Low #5 in `7ae0cdd` (baton = local
+> commit, push stays Alan-gated; relay tiers spelled out in the mirrored bullet;
+> ground rule 6 names `.cursor/rules/**`), Medium #3 + Low #6 in `dd166b6`
+> (template defines immutable records; full bridge fence). Learned blocks
+> re-verified bullet-identical after each edit. Findings text below preserved
+> unchanged.
+
 **Written:** 2026-08-26. Review only; no source changed except this file.
 **Scope:** already-landed playground `main` commit `e8f9297` (`e8f9297^..e8f9297`). No feature branch, no pull request.
 **Diff:** `AGENTS.md` (+1 Learned bullet), `CLAUDE.md` (+1 matching Learned bullet), new `docs/agent-team-charter-2026-08-25.md` (105 lines), new `docs/templates/CODEX-TASK-template.md` (76 lines). Docs-only; no `src/`, `test/`, `bin/`, or package scripts.
