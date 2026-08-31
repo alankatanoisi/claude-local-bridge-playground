@@ -1,5 +1,12 @@
 # Handoff — Starlark thread status and recommendations (2026-08-25)
 
+> **R8 DECIDED 2026-08-31 (Alan): freeze as a lab.** `starlark-host/` stays a separate
+> experiment with its own CLI; no `run_workflow` runner edge, no Starlark code in
+> `src/runner/**`. §5 R1's "recommended default" is now the owner decision. Consequences
+> per this handoff: R11 (kill/resume tests) becomes the natural next in-lab build if the
+> lab resumes; R6-deferred items stay deferred; do not port the runner coordinator into
+> the host. Findings text below preserved unchanged.
+
 **Written:** 2026-08-25. Status pass + test run; no Starlark source changed.
 **Audience:** the next coding agent on the Starlark (phased-hybrid control plane) thread.
 **Does not supersede** the bundle write-ups. Those remain the implementation record:

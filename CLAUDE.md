@@ -298,7 +298,9 @@ items rather than starting a parallel tracker.
   `HANDOFF-starlark-status-and-recommendations-2026-08-25.md`.** Bundles A–D built 2026-08-10
   (`starlark-host/`). D-F1 closed `4c6904a` (worker retries get the host rejection reason);
   summary ceiling 700→1200 (owner decision, decision-tested). 08-10 two-axis tables describe
-  the **old** contract. Open: R8/R12 (decisions), R11 (kill/resume tests), R14a/b. Last
+  the **old** contract. **R8 decided 2026-08-31: frozen as a separate lab** (no
+  `run_workflow` runner edge — banner on the 08-25 handoff). Open: R12 (deferred),
+  R11 (kill/resume tests — natural next in-lab build), R14a/b. Last
   Starlark code 2026-08-11; lab idle during ACP. This machine: no Go toolchain, no local
   campaign ledger, no `starlark-host/{runs,eval-runs}` evidence dirs.
 
