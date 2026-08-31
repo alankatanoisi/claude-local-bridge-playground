@@ -36,12 +36,16 @@ say on what. If ordering matters, say so — Codex executes in the order written
 
 - <SCOPE FENCE: directories/files that are OUT of scope — e.g. "src/ and test/ are
   out of scope; docs only" or "stay in src/runner/\*\* + tests">
-- Never edit an original record's content; annotate with dated banners only.
+- Dated records are immutable: superseded handoffs, dated `docs/` result notes, and
+  review records get dated banners pointing forward — never content rewrites. Living
+  files (`AGENTS.md`, `CLAUDE.md`, `README.md`, source, tests) are editable whenever
+  this brief's scope fence includes them; this bullet is not a freeze on all files.
 - No unsolicited policy/Terms-of-Service commentary (final owner boundary — see the
   autonomy record above).
-- Do not restore retired concepts (`--agent`, `--profile`); do not edit
-  `src/credentials.js`; bridge internals (`src/proxy.js`, `src/server.js`,
-  interceptors) only if the brief explicitly says so.
+- Do not restore retired concepts (`--agent`, `--profile`, `--list-agents`,
+  `--list-profiles`). Never edit `src/credentials.js`. The rest of the bridge fence —
+  `src/proxy.js`, `src/server.js`, `src/interceptors/**`, and VS Code extension auth
+  settings — may be touched only if this brief explicitly says so.
 - Never quote `~/.bridge-runner` ledger/transcript payload text; aggregates only.
 - Alan's live T3 app is port 3773 — never touch it; never kill processes by
   pattern match.
