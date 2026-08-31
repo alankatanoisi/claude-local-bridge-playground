@@ -3,8 +3,9 @@
 /**
  * ask_user_question — structured clarification prompt for the human operator.
  *
- * Read-only category; interactive TTY required. Fail closed in workers,
- * --dont-ask, plan mode, and non-interactive environments.
+ * Read-only category. A hosted caller (ACP, kernel) injects its own asker via
+ * ctx.askUserQuestion; the terminal path prompts on /dev/tty. Fails closed in
+ * workers, --dont-ask, plan mode, and non-interactive environments.
  */
 
 const { askUserQuestion } = require('../user-question');
@@ -13,9 +14,12 @@ function definition() {
   return {
     name: 'ask_user_question',
     description:
-      'Ask the human operator a structured multiple-choice question before proceeding. ' +
-      'Use it only when unresolved ambiguity would materially change the result and no safe assumption is available. ' +
-      'Requires an interactive terminal; unavailable in child workers, plan mode, or --dont-ask runs.',
+      'Ask the human operator a multiple-choice question and wait for their answer. ' +
+      'The operator expects to be consulted: prefer asking over guessing whenever a real ' +
+      'decision point has two or more defensible options (scope, naming, which of several ' +
+      'matches was meant, destructive vs conservative variants). Provide 2-5 concrete ' +
+      'options; the result reports the selected label(s). If no operator channel exists ' +
+      'the call fails with an explanation - then proceed on your best safe assumption.',
     input_schema: {
       type: 'object',
       properties: {

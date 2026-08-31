@@ -53,7 +53,7 @@ const FULL_TOOL_DESCRIPTIONS = [
   ['glob', 'Find files by glob pattern (e.g. **/*.js).'],
   ['git_status', 'Show the current git status (short format).'],
   ['manage_tasks', 'Update the in-session task checklist.'],
-  ['ask_user_question', 'Ask the operator a structured multiple-choice question.'],
+  ['ask_user_question', 'Ask the operator a multiple-choice question when a decision genuinely needs their input.'],
   ['edit_file', 'Replace old_string with new_string in a file. The old_string must match exactly once.'],
   ['write_file', 'Create or overwrite a file with full content. A backup is saved.'],
   ['apply_patch', 'Apply a unified diff patch to a file. A backup is saved.'],

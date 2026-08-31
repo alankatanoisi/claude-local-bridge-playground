@@ -232,6 +232,38 @@ function promptTextFrom(blocks) {
   return parts.join('\n\n').trim();
 }
 
+/**
+ * Interpret a cursor/ask_question response. `answers` is a loosely-typed
+ * record keyed by question id; hosts have answered with option ids, option
+ * labels, single strings, or arrays. Normalize everything to the label list
+ * the model can read back. An empty list means dismissed/unanswered.
+ */
+function parseAskQuestionAnswer(response, questionId, wireOptions) {
+  const answers = response && typeof response === 'object' ? response.answers : null;
+  if (!answers || typeof answers !== 'object') return [];
+  let raw = answers[questionId];
+  if (raw === undefined) {
+    // Some hosts key by prompt text instead of id; with a single question the
+    // sole value is unambiguous either way.
+    const values = Object.values(answers);
+    if (values.length === 1) raw = values[0];
+  }
+  if (raw === undefined || raw === null || raw === '') return [];
+  const list = Array.isArray(raw) ? raw : [raw];
+  const labelById = new Map(wireOptions.map((opt) => [opt.id, opt.label]));
+  const selected = [];
+  for (const entry of list) {
+    let text;
+    if (typeof entry === 'string') text = entry;
+    else if (entry && typeof entry === 'object' && typeof entry.label === 'string') text = entry.label;
+    else if (entry && typeof entry === 'object' && typeof entry.id === 'string') text = entry.id;
+    else continue;
+    const label = labelById.get(text) || text;
+    if (label && !selected.includes(label)) selected.push(label);
+  }
+  return selected;
+}
+
 // ── The agent ───────────────────────────────────────────────────────────────
 
 /**
@@ -579,13 +611,62 @@ function createAcpAgent(deps) {
       askToolFailureRecovery: async () => ({ action: 'stop', reason: 'acp_no_recovery_ui' }),
     };
 
-    // ask_user_question has no clean ACP mapping until the (unstable)
-    // session/elicitation method settles; failing closed with an explanation
-    // beats hanging or abusing the permission card for non-permission choices.
-    const askUserQuestion = async () => ({
-      ok: false,
-      text: 'ask_user_question is not available over ACP yet; continue with your best safe assumption.',
-    });
+    // R4 (2026-08-31): ask_user_question rides T3's native question card.
+    // T3's Cursor host implements the Cursor CLI extension request
+    // cursor/ask_question (agent → client):
+    //   { toolCallId, title?, questions: [{ id, prompt,
+    //     options: [{ id, label }], allowMultiple? }] }
+    //   → { answers: { [questionId]: <selection> } }
+    // A dismissed/cancelled card settles with empty answers. Any transport or
+    // method-not-found error falls back to a fail-closed explanation so a
+    // non-T3 ACP client still gets a safe, explained no instead of a hang.
+    const askUserQuestion = async (args, toolCtx) => {
+      const payload = args || {};
+      const question = String(payload.question || '').trim();
+      const options = Array.isArray(payload.options)
+        ? payload.options.filter((opt) => opt && (opt.label || opt.value))
+        : [];
+      if (!question || options.length < 2) {
+        return { ok: false, text: 'ask_user_question needs a question and at least two options.' };
+      }
+      if (session.cancelRequested) {
+        return { ok: false, text: 'Turn was cancelled before the question could be asked.' };
+      }
+      // T3's card renders option labels only (descriptions are dropped by its
+      // extractor), so fold the description into the label the user sees.
+      const wireOptions = options.map((opt, i) => ({
+        id: 'opt-' + (i + 1),
+        label:
+          String(opt.label || opt.value || '').trim() + (opt.description ? ' — ' + String(opt.description).trim() : ''),
+      }));
+      const toolCallId = (toolCtx && toolCtx.toolUseId) || 'ask-user-question';
+      const questionId = 'q-' + toolCallId;
+      let response;
+      try {
+        response = await connection.request('cursor/ask_question', {
+          toolCallId,
+          ...(payload.header ? { title: String(payload.header) } : {}),
+          questions: [
+            {
+              id: questionId,
+              prompt: question,
+              options: wireOptions,
+              ...(payload.allow_multiple ? { allowMultiple: true } : {}),
+            },
+          ],
+        });
+      } catch {
+        return {
+          ok: false,
+          text: 'ask_user_question is not supported by this ACP client; continue with your best safe assumption.',
+        };
+      }
+      const selected = parseAskQuestionAnswer(response, questionId, wireOptions);
+      if (selected.length === 0) {
+        return { ok: false, text: 'The user dismissed the question without answering.' };
+      }
+      return { ok: true, text: 'User selected: ' + selected.join(', '), selected };
+    };
 
     const capabilities = CAPABILITY_TOGGLES.filter((group) => session.config.capabilities[group]);
 

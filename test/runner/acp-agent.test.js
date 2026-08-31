@@ -63,8 +63,10 @@ function createTestClient(options = {}) {
   const toAgent = new PassThrough();
   const updates = []; // every session/update params we received
   const permissionRequests = []; // every session/request_permission params
+  const askQuestionRequests = []; // every cursor/ask_question params
   const pending = new Map(); // our request id → {resolve, reject}
   let permissionHandler = options.onPermission || null;
+  let askQuestionHandler = options.onAskQuestion || null;
   let nextId = 1;
 
   const agent = createAcpAgent({
@@ -86,6 +88,16 @@ function createTestClient(options = {}) {
         permissionRequests.push(message.params);
         Promise.resolve()
           .then(() => (permissionHandler ? permissionHandler(message.params) : { outcome: { outcome: 'cancelled' } }))
+          .then((result) => toAgent.write(encodeLine({ jsonrpc: '2.0', id: message.id, result })));
+        return;
+      }
+      // cursor/ask_question (T3's question card). With no handler installed we
+      // fall through to the -32601 rejection below — exactly what a non-T3
+      // client would answer, which is the fallback path under test.
+      if (message.method === 'cursor/ask_question' && askQuestionHandler) {
+        askQuestionRequests.push(message.params);
+        Promise.resolve()
+          .then(() => askQuestionHandler(message.params))
           .then((result) => toAgent.write(encodeLine({ jsonrpc: '2.0', id: message.id, result })));
         return;
       }
@@ -119,8 +131,12 @@ function createTestClient(options = {}) {
     agent,
     updates,
     permissionRequests,
+    askQuestionRequests,
     setPermissionHandler(fn) {
       permissionHandler = fn;
+    },
+    setAskQuestionHandler(fn) {
+      askQuestionHandler = fn;
     },
     request(method, params) {
       return new Promise((resolve, reject) => {
@@ -608,6 +624,123 @@ describe('acp agent over the real runner', () => {
       assert.equal(err.data.stopReason, STOP_REASONS.BRIDGE_ERROR);
       return true;
     });
+  });
+
+  // ── ask_user_question over ACP (R4, 2026-08-31) ──────────────────────────
+
+  /**
+   * A model that asks one multiple-choice question, then answers with whatever
+   * tool_result text it got back — so assertions read the exact string the
+   * model would see. Captures each request body for deeper inspection.
+   */
+  function stubAskThenEcho(bodies) {
+    modelClient.post = async (body) => {
+      bodies.push(body);
+      if (bodies.length === 1) {
+        return {
+          content: [
+            {
+              type: 'tool_use',
+              id: 'tu-ask-1',
+              name: 'ask_user_question',
+              input: {
+                question: 'Which color should the widget be?',
+                header: 'Widget color',
+                options: [{ label: 'Red' }, { label: 'Blue', description: 'the calm choice' }, { label: 'Green' }],
+              },
+            },
+          ],
+          stop_reason: 'tool_use',
+        };
+      }
+      const lastMessage = body.messages[body.messages.length - 1];
+      const toolResult = Array.isArray(lastMessage.content)
+        ? lastMessage.content.find((b) => b && b.type === 'tool_result')
+        : null;
+      const echoed = toolResult ? String(toolResult.content) : '(no tool_result)';
+      return { content: [{ type: 'text', text: 'model saw: ' + echoed }] };
+    };
+    installPostStreamMirror();
+  }
+
+  it('ask_user_question rides the cursor/ask_question card and returns the selection', async () => {
+    const bodies = [];
+    stubAskThenEcho(bodies);
+    const client = createTestClient({
+      onAskQuestion: (params) => {
+        // Answer with the option ID to prove id→label mapping on the way back.
+        const q = params.questions[0];
+        return { answers: { [q.id]: [q.options[1].id] } };
+      },
+    });
+    const sessionId = await client.startSession();
+
+    const response = await client.prompt(sessionId, 'make me a widget');
+
+    assert.equal(response.stopReason, 'end_turn');
+    // The wire request matched T3's CursorAskQuestionRequest shape.
+    assert.equal(client.askQuestionRequests.length, 1);
+    const wire = client.askQuestionRequests[0];
+    assert.equal(wire.toolCallId, 'tu-ask-1', 'card correlates to the real tool_use id');
+    assert.equal(wire.title, 'Widget color');
+    assert.equal(wire.questions.length, 1);
+    assert.equal(wire.questions[0].prompt, 'Which color should the widget be?');
+    assert.deepEqual(
+      wire.questions[0].options.map((o) => o.id),
+      ['opt-1', 'opt-2', 'opt-3'],
+    );
+    assert.match(wire.questions[0].options[1].label, /Blue — the calm choice/);
+    // The model got the human-readable selection back as its tool_result.
+    assert.match(bodies[1].messages[bodies[1].messages.length - 1].content[0].content, /User selected: Blue/);
+  });
+
+  it('a dismissed question card fails closed with an explanation, not a hang', async () => {
+    const bodies = [];
+    stubAskThenEcho(bodies);
+    const client = createTestClient({
+      onAskQuestion: () => ({ answers: {} }), // T3 settles empty answers on dismiss/cancel
+    });
+    const sessionId = await client.startSession();
+
+    const response = await client.prompt(sessionId, 'make me a widget');
+
+    assert.equal(response.stopReason, 'end_turn');
+    const toolResult = bodies[1].messages[bodies[1].messages.length - 1].content[0];
+    assert.equal(toolResult.is_error, true);
+    assert.match(String(toolResult.content), /dismissed the question/);
+  });
+
+  it('a client without the question method gets the safe fallback text', async () => {
+    const bodies = [];
+    stubAskThenEcho(bodies);
+    // No onAskQuestion handler: the test client answers -32601 method-not-found,
+    // exactly like a non-T3 ACP client.
+    const client = createTestClient();
+    const sessionId = await client.startSession();
+
+    const response = await client.prompt(sessionId, 'make me a widget');
+
+    assert.equal(response.stopReason, 'end_turn');
+    assert.equal(client.askQuestionRequests.length, 0);
+    const toolResult = bodies[1].messages[bodies[1].messages.length - 1].content[0];
+    assert.equal(toolResult.is_error, true);
+    assert.match(String(toolResult.content), /not supported by this ACP client/);
+    assert.match(String(toolResult.content), /best safe assumption/);
+  });
+
+  it('answers keyed by prompt text (not id) and given as labels still resolve', async () => {
+    const bodies = [];
+    stubAskThenEcho(bodies);
+    const client = createTestClient({
+      onAskQuestion: (params) => ({
+        answers: { [params.questions[0].prompt]: 'Green' },
+      }),
+    });
+    const sessionId = await client.startSession();
+
+    await client.prompt(sessionId, 'make me a widget');
+
+    assert.match(bodies[1].messages[bodies[1].messages.length - 1].content[0].content, /User selected: Green/);
   });
 });
 
