@@ -176,9 +176,6 @@ The repository owner consciously accepted the following conditions on August 10,
 
 These are unresolved limitations, not accepted-safe findings and not instructions to suppress related reports:
 
-- **HS-01 — case-variant sensitive filenames:** a case-variant key filename can bypass a basename rule on a
-  case-insensitive filesystem. Canonical sensitive names, directory rules, realpath confinement, and sink redaction are
-  compensating controls, not a complete fix.
 - The generic permission gate depends on reviewed tool argument contracts, including path-bearing argument names.
   Execution-time path rechecks and catalog tests are compensating controls; a new or renamed argument can create a gap.
 - Transcripts, traces, ledgers, checkpoints, backups, and archives can contain source code and local paths even after

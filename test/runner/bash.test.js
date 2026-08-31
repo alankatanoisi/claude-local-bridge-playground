@@ -100,6 +100,15 @@ const { execute: registryExecute, executeForce: registryExecuteForce } = require
 describe('bash policy', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bash-policy-'));
   fs.writeFileSync(path.join(tmpDir, 'readme.txt'), 'normal file');
+  // Every blocked-path command below points only at disposable fake data.
+  // That way, even a future permission regression cannot make this test read
+  // Alan's real home-directory credentials while trying to prove a deny.
+  fs.writeFileSync(path.join(tmpDir, 'ID_RSA'), 'FAKE TEST KEY\n');
+  fs.writeFileSync(path.join(tmpDir, '.NETRC'), 'FAKE TEST NETRC\n');
+  fs.mkdirSync(path.join(tmpDir, '.SSH'));
+  fs.writeFileSync(path.join(tmpDir, '.SSH', 'config'), 'FAKE TEST SSH CONFIG\n');
+  fs.mkdirSync(path.join(tmpDir, '.GNUPG'));
+  fs.writeFileSync(path.join(tmpDir, '.GNUPG', 'gpg.conf'), 'FAKE TEST GPG CONFIG\n');
 
   // safe ctx for testing — allowShell=true, dontAsk=false by default
   function ctx(opts) {
@@ -122,6 +131,40 @@ describe('bash policy', () => {
     const result = await registryExecute('bash', { command: 'cat ~/.ssh/id_rsa' }, ctx());
     assert.equal(result.ok, false);
     assert.ok(result.text.includes('.ssh/'));
+  });
+
+  it('denies case-variant sensitive filenames and directory segments', async () => {
+    // Use commands outside the scanner's original small allowlist (`sed`,
+    // `awk`, and `ls`). A hard deny must depend on the path, not on whether the
+    // executable happened to be named in a hand-written parser.
+    const blockedCommands = [
+      `sed -n '1p' ${path.join(tmpDir, 'ID_RSA')}`,
+      `awk '{print}' ${path.join(tmpDir, '.NETRC')}`,
+      // This ends at the directory name, with no trailing slash. It proves an
+      // exact final `.SSH` segment is treated the same as `.SSH/config`.
+      `ls ${path.join(tmpDir, '.SSH')}`,
+      `sed -n '1p' ${path.join(tmpDir, '.GNUPG', 'gpg.conf')}`,
+    ];
+
+    for (const command of blockedCommands) {
+      const result = await registryExecute('bash', { command }, ctx({ dontAsk: true }));
+      assert.equal(result.ok, false, 'must hard-deny without executing: ' + command);
+      assert.match(result.text, /blocked/i);
+    }
+  });
+
+  it('allows similar-looking ordinary shell path tokens', async () => {
+    // These are exact-segment controls for the broader token scan. A quick
+    // lowercase substring fix would incorrectly deny all four.
+    for (const command of [
+      'printf README.md',
+      'printf .github',
+      'printf node_modules-old',
+      'printf actions-runner-notes',
+    ]) {
+      const result = await registryExecute('bash', { command }, ctx({ dontAsk: true }));
+      assert.equal(result.ok, true, 'ordinary shell token must stay allowed: ' + command);
+    }
   });
 
   it('denies referencing a blocked env var', async () => {
