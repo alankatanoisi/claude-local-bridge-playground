@@ -42,7 +42,15 @@ const NETWORK_PATTERNS = [
   /\bgit\s+pull\b/i,
 ];
 
-const HARD_DENY_PATH_SEGMENTS = ['.git/', '.ssh/', '.aws/', '.claude/', '.bridge-runner/', 'actions-runner/'];
+const HARD_DENY_PATH_SEGMENTS = [
+  '.git/',
+  '.ssh/',
+  '.aws/',
+  '.claude/',
+  '.gnupg/',
+  '.bridge-runner/',
+  'actions-runner/',
+];
 
 // D2 (2026-08-07 incident): git verbs that mutate repository history or move
 // HEAD. These always require a fresh confirmation — automation flags
@@ -125,21 +133,74 @@ function extractPathTokens(command) {
       }
     }
   }
-  return tokens;
+
+  // Also inspect every shell-shaped word, independently of the executable.
+  // The earlier parser only knew a short command list, so an ordinary command
+  // such as `sed ... ID_RSA` could carry the same path past the scanner. This
+  // is still a best-effort shell tokenizer rather than a complete shell parser:
+  // quoted words stay together, while whitespace and control operators divide
+  // tokens. The actual command is never rewritten or executed here.
+  const shellWords = String(command || '').match(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|[^\s|;&<>]+/g) || [];
+  for (const word of shellWords) {
+    const unquoted = word.replace(/^['"]|['"]$/g, '');
+    if (unquoted) tokens.push(unquoted);
+  }
+
+  // Specialized extraction and generic extraction can find the same path.
+  // De-duplicating keeps the returned issue list readable and deterministic.
+  return [...new Set(tokens)];
+}
+
+/**
+ * Return the canonical protected-directory label found in one shell token.
+ *
+ * A label such as `.ssh/` is stored with its slash because that is the useful
+ * text shown in an error. For comparison, the slash is removed and the token
+ * is split into exact path segments. This catches both `~/.SSH/config` and a
+ * token ending exactly at `~/.SSH`, without misreading `.ssh-notes` as `.ssh`.
+ *
+ * @param {string} token
+ * @returns {string|null}
+ */
+function findHardDenyPathSegment(token) {
+  const segments = String(token || '')
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .map((segment) => segment.toLowerCase());
+
+  for (const label of HARD_DENY_PATH_SEGMENTS) {
+    const protectedName = label.replace(/\/$/, '').toLowerCase();
+    if (segments.includes(protectedName)) return label;
+  }
+  return null;
 }
 
 function isBlockedPathToken(token) {
   const t = String(token || '').replace(/^['"]|['"]$/g, '');
   if (!t) return false;
-  const base = path.basename(t);
+  // Normalize Windows separators before asking for the final filename. That
+  // keeps a transcript containing `C:\\work\\ID_RSA` protected on a Mac too.
+  const portableToken = t.replace(/\\/g, '/');
+  const base = path.posix.basename(portableToken);
+  // Keep the shell's duplicate raw-string checks case-insensitive too. The
+  // shared basename helper below already has that contract, but directory
+  // fragments can be found here before the shell resolves a real filesystem
+  // path, so they must not depend on the host filesystem's case behavior.
+  const normalizedToken = t.toLowerCase();
   // One basename check, not two: the loop that used to follow this line
   // re-tested the exact same pattern array isBlockedBasename already walks.
   if (isBlockedBasename(base)) return true;
-  for (const seg of HARD_DENY_PATH_SEGMENTS) {
-    if (t.includes(seg)) return true;
-  }
+  if (findHardDenyPathSegment(t)) return true;
   for (const blocked of BLOCKED_PATH_TOKENS) {
-    if (t === blocked || t.endsWith('/' + blocked) || t.includes(blocked)) return true;
+    const normalizedBlocked = blocked.toLowerCase();
+    if (
+      normalizedToken === normalizedBlocked ||
+      normalizedToken.endsWith('/' + normalizedBlocked) ||
+      normalizedToken.includes(normalizedBlocked)
+    ) {
+      return true;
+    }
   }
   if (/\.env/i.test(t)) return true;
   if (/\.ssh/i.test(t)) return true;
@@ -148,22 +209,28 @@ function isBlockedPathToken(token) {
 
 function scanShellCommand(command, ctx = {}) {
   const cmd = String(command || '');
+  // Commands are still executed with their original spelling. This lowercase
+  // copy exists only for conservative safety comparisons such as `.SSH/`.
+  const normalizedCommand = cmd.toLowerCase();
   const issues = [];
 
   for (const seg of HARD_DENY_PATH_SEGMENTS) {
-    if (cmd.includes(seg)) {
+    if (normalizedCommand.includes(seg.toLowerCase())) {
       issues.push({ kind: 'hard_deny_path', segment: seg });
     }
   }
 
   for (const blocked of BLOCKED_PATH_TOKENS) {
-    if (cmd.includes(blocked)) {
+    if (normalizedCommand.includes(blocked.toLowerCase())) {
       issues.push({ kind: 'blocked_path_pattern', token: blocked });
     }
   }
 
   for (const token of extractPathTokens(cmd)) {
-    if (isBlockedPathToken(token)) {
+    const hardSegment = findHardDenyPathSegment(token);
+    if (hardSegment) {
+      issues.push({ kind: 'hard_deny_path', segment: hardSegment });
+    } else if (isBlockedPathToken(token)) {
       issues.push({ kind: 'blocked_path_pattern', token });
     }
   }

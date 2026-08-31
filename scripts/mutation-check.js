@@ -59,13 +59,12 @@ const MUTATIONS = [
     id: 'M1-denydir-gnupg',
     // NOTE: the anchor below must match safety.js byte-for-byte, and no comment
     // may sit between `file:` and `find:` (FG-G9 parses that adjacency). The
-    // original anchor assumed a plain "'.gnupg'," list entry, but the real deny
-    // list uses predicate functions — so it matched 0x and M1 silently tested
-    // nothing (exactly the STALE rot FG-G9 exists to catch; that is how this
-    // was found).
+    // This anchor follows the shared exact-segment helper call. Removing that
+    // one line simulates a future cleanup accidentally dropping `.gnupg` while
+    // leaving every other protected directory intact.
     why: 'Drops .gnupg from the blocked-directory list — a plausible "tidy up the list" edit.',
     file: 'src/runner/safety.js',
-    find: "(p) => p.includes('/.gnupg/') || p.endsWith('/.gnupg'),",
+    find: "(p) => hasProtectedDirectorySegment(p, '.gnupg'),",
     replace: '',
     expectRedIn: 'test/runner/false-green-deny-matrix.test.js',
   },

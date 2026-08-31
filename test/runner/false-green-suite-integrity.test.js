@@ -115,9 +115,9 @@ describe('FG-G suite-execution integrity', () => {
   // it is also a way to make a real regression permanently invisible. So we pin
   // the register: adding a new todo is allowed, but it must be declared here in
   // the same commit, which forces the decision to be reviewed.
-  const KNOWN_TODOS = {
-    'test/runner/false-green-deny-matrix.test.js': 1, // HS-01 case-variant key bypass
-  };
+  // HS-01 was the final registered TODO. Keep the explicit empty object so a
+  // future masked test still makes this guard fail until a reviewer records it.
+  const KNOWN_TODOS = {};
 
   it('FG-G3: todo-masked tests match the reviewed register exactly', () => {
     const actual = {};

@@ -108,11 +108,11 @@ const BLOCKED_DIRS = ['.git', 'node_modules', 'dist', 'build', 'coverage', 'acti
 const BLOCKED_BASENAME_PATTERNS = [
   // Block env files conservatively: .env, .env.local, .env.test, .envrc, .env.example.
   /^\.env/i,
-  /^\.netrc$/,
-  /^\.npmrc$/,
+  /^\.netrc$/i,
+  /^\.npmrc$/i,
   // Private-key and credential filenames
-  /^id_rsa/,
-  /^id_ed25519/,
+  /^id_rsa/i,
+  /^id_ed25519/i,
   /\.pem$/i,
   /\.key$/i,
   /\.p8$/i,
@@ -141,6 +141,34 @@ function isBlockedBasename(basename) {
 }
 
 /**
+ * Check for one exact protected directory name anywhere in a path.
+ *
+ * The comparison is intentionally case-insensitive. Most Macs treat `.ssh`
+ * and `.SSH` as the same on-disk directory, while Linux commonly treats them
+ * as different names. Applying the same conservative rule before any file
+ * access makes the safety boundary portable and also protects write targets
+ * that do not exist yet (where `realpath` cannot repair the spelling).
+ *
+ * Splitting into path segments is important: it blocks the exact directory
+ * `node_modules` without accidentally blocking an ordinary directory such as
+ * `node_modules-old`.
+ *
+ * @param {string} candidatePath
+ * @param {string} protectedSegment
+ * @returns {boolean}
+ */
+function hasProtectedDirectorySegment(candidatePath, protectedSegment) {
+  // Accept either slash style so the same predicate behaves predictably when
+  // a transcript or test contains a Windows-style path on another platform.
+  const segments = String(candidatePath || '')
+    .replace(/\\/g, '/')
+    .split('/');
+  const protectedName = String(protectedSegment || '').toLowerCase();
+  if (!protectedName) return false;
+  return segments.some((segment) => segment.toLowerCase() === protectedName);
+}
+
+/**
  * Two tiers, intentionally kept apart:
  *
  *   1. Directory-segment rules — match anywhere in the *resolved path*, so a
@@ -154,14 +182,14 @@ function isBlockedBasename(basename) {
  */
 const DENY_MATRIX_PATTERNS = [
   // Tier 1: blocked directory segments (checked against the full resolved path)
-  (p) => p.includes('/.git/') || p.endsWith('/.git'),
-  (p) => p.includes('/.ssh/') || p.endsWith('/.ssh'),
-  (p) => p.includes('/.aws/') || p.endsWith('/.aws'),
-  (p) => p.includes('/.claude/') || p.endsWith('/.claude'),
-  (p) => p.includes('/.gnupg/') || p.endsWith('/.gnupg'),
-  (p) => p.includes('/node_modules/') || p.endsWith('/node_modules'),
-  (p) => p.includes('/actions-runner/') || p.endsWith('/actions-runner'),
-  (p) => p.includes('/.bridge-runner/') || p.endsWith('/.bridge-runner'),
+  (p) => hasProtectedDirectorySegment(p, '.git'),
+  (p) => hasProtectedDirectorySegment(p, '.ssh'),
+  (p) => hasProtectedDirectorySegment(p, '.aws'),
+  (p) => hasProtectedDirectorySegment(p, '.claude'),
+  (p) => hasProtectedDirectorySegment(p, '.gnupg'),
+  (p) => hasProtectedDirectorySegment(p, 'node_modules'),
+  (p) => hasProtectedDirectorySegment(p, 'actions-runner'),
+  (p) => hasProtectedDirectorySegment(p, '.bridge-runner'),
   // Tier 2: sensitive filenames, from the one shared list
   (p) => isBlockedBasename(path.basename(p)),
 ];

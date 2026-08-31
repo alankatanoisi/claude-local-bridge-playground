@@ -51,23 +51,29 @@ triangulate.
 1. **Author never reviews their own work for landing-grade changes.** Reviews go to
    a different agent than the one who wrote the code. Reviews must include a
    "not bugs — do not fix" section so correct decisions survive the pass.
-2. **One agent in the checkout at a time; the tree is the baton.** Nobody starts
-   until the previous agent's work is committed, pushed, and pointed to by a
-   handoff. An agent finding a dirty tree on arrival stops and asks Alan.
-   (Scar tissue: concurrent agents have committed mixed-author work here before.)
+2. **One writer in the checkout at a time; the tree is the baton.** Multiple
+   agent sessions may stay open, and read-only review may overlap, but only one
+   agent owns edits in the shared checkout. The next writer starts from a local
+   commit plus a handoff pointer; that local commit is enough for Cursor to review
+   on this Mac. A GitHub push is separate and remains Alan-gated. An agent finding
+   unexplained dirty files on arrival stops and asks Alan rather than mixing work.
+   (Scar tissue: concurrent writers have committed mixed-author work here before.)
 3. **One current-entry document per thread.** Every work thread has exactly one
-   authoritative "start here" handoff; superseded ones get a dated banner pointing
-   forward, with their historical content preserved unchanged (originals are
-   immutable records — annotate with banners, never rewrite).
+   authoritative "start here" handoff. Superseded dated handoffs, lab notebooks,
+   and other historical records get a dated banner pointing forward, with their
+   original content preserved unchanged. Living source, tests, and maintained
+   instructions remain editable whenever the active task's scope fence allows it.
 4. **Verification is reported raw.** Real pass/fail output first, always — never
    quietly fix and report as if it passed on the first try.
 5. **Deviations from a brief or review are documented, not silent.** If the
    implementer deviates from the letter of a spec (even for good reason), the
    commit message and handoff say so explicitly (example: the M4 `streamed` flag
    deviation in `12f0842`).
-6. **Surface awareness.** Claude Code auto-loads `CLAUDE.md`; Cursor and Codex
-   auto-load `AGENTS.md`. Anything every agent must know lives in the mirrored
-   Learned blocks of BOTH files, or it does not reliably exist.
+6. **Surface awareness.** Claude Code auto-loads `CLAUDE.md`; Codex auto-loads
+   `AGENTS.md`; Cursor auto-loads `AGENTS.md` plus `.cursor/rules/**`. Claude Code
+   and Codex do not see those Cursor-only rules. Anything every agent must know
+   therefore lives in the mirrored Learned blocks of BOTH files, or it does not
+   reliably exist across all three surfaces.
 
 ## 4. Entry rituals (paste blocks for Alan)
 

@@ -32,6 +32,16 @@ describe('FG-A deny-matrix pattern sweeps', () => {
   // A rename/removal of any one entry (e.g. dropping `.gnupg`) fails here even
   // though no point test elsewhere mentions it.
   const TIER1_DIRS = ['.git', '.ssh', '.aws', '.claude', '.gnupg', 'node_modules', 'actions-runner', '.bridge-runner'];
+  const TIER1_CASE_VARIANTS = [
+    '.GIT',
+    '.SSH',
+    '.AWS',
+    '.CLAUDE',
+    '.GNUPG',
+    'NODE_MODULES',
+    'ACTIONS-RUNNER',
+    '.BRIDGE-RUNNER',
+  ];
 
   it('FG-A1: all tier-1 directory segments are denied mid-path and as final segment', () => {
     for (const dir of TIER1_DIRS) {
@@ -53,6 +63,25 @@ describe('FG-A deny-matrix pattern sweeps', () => {
     }
   });
 
+  it('HS-01: case variants of every tier-1 directory stay denied', () => {
+    // macOS normally treats `.ssh` and `.SSH` as the same directory. Linux
+    // may treat them as two directories, but the runner's portable safety
+    // rule is intentionally conservative: either spelling means the same
+    // sensitive class and must be denied before the filesystem is touched.
+    for (const dir of TIER1_CASE_VARIANTS) {
+      assert.equal(
+        safety.isPathBlockedByDenyMatrix('/proj/' + dir + '/inner.txt'),
+        true,
+        'mixed-case directory segment must be blocked: ' + dir,
+      );
+      assert.equal(
+        safety.isPathBlockedByDenyMatrix('/proj/' + dir),
+        true,
+        'mixed-case final directory must be blocked: ' + dir,
+      );
+    }
+  });
+
   // FG-A2: canonical sensitive basenames. One fixture per protection family.
   // If a pattern is deleted or edited so it no longer matches its family,
   // this sweep fails; the point tests in permissions.test.js only cover a few.
@@ -62,10 +91,14 @@ describe('FG-A deny-matrix pattern sweeps', () => {
     '.envrc',
     '.ENV', // /^\.env/i is case-insensitive by design
     '.netrc',
+    '.NETRC',
     '.npmrc',
+    '.NPMRC',
     'id_rsa',
+    'ID_RSA',
     'id_rsa.pub', // prefix rule: anything starting with id_rsa
     'id_ed25519',
+    'ID_ED25519',
     'server.pem',
     'private.key',
     'apple.p8',
@@ -105,6 +138,22 @@ describe('FG-A deny-matrix pattern sweeps', () => {
     const INNOCENT = ['README.md', 'index.js', 'main.py', 'env.config.js', 'package.json', 'notes.txt'];
     for (const name of INNOCENT) {
       assert.equal(safety.isBlockedBasename(name), false, 'must stay allowed: ' + name);
+    }
+  });
+
+  it('HS-01: similar-looking ordinary paths stay allowed', () => {
+    // These names contain fragments of protected names, but none is the exact
+    // protected directory segment or sensitive final filename. This guards
+    // against "fixing" case handling with an over-broad substring rule.
+    const innocentPaths = [
+      '/proj/secrets/notes.txt',
+      '/proj/tokenizer/index.js',
+      '/proj/.github/workflows/check.yml',
+      '/proj/node_modules-old/notes.txt',
+      '/proj/actions-runner-notes/README.md',
+    ];
+    for (const candidate of innocentPaths) {
+      assert.equal(safety.isPathBlockedByDenyMatrix(candidate), false, 'must stay allowed: ' + candidate);
     }
   });
 
@@ -156,30 +205,30 @@ describe('FG-A symlink and filesystem-shape hardening', () => {
     fs.rmSync(linkDir, { force: true });
   });
 
-  // HS-01 (KNOWN GAP, marked todo so it reports without failing the suite):
-  // on a case-insensitive filesystem (macOS APFS default), requesting
-  // "ID_RSA" opens the same on-disk file as "id_rsa", but the basename
-  // patterns without the /i flag (/^id_rsa/, /^id_ed25519/, /^token/ pairs
-  // are /i; the key-file ones are not) do not match the uppercase spelling,
-  // and fs.realpathSync (JS implementation) does not canonicalize character
-  // case — so neither the lexical nor the realpath tier fires. When safety.js
-  // gains case-insensitive matching (or realpathSync.native), flip this todo
-  // into a hard assertion.
-  it(
-    'HS-01: case-variant spelling of a key file is denied on case-insensitive filesystems',
-    { todo: 'known gap — id_rsa case-variant bypass on case-insensitive FS; see false-green audit notes' },
-    (t) => {
-      const { tmp, ctx } = makeCtx();
-      fs.writeFileSync(path.join(tmp, 'id_rsa'), 'FAKE KEY MATERIAL\n');
-      const caseInsensitive = fs.existsSync(path.join(tmp, 'ID_RSA'));
-      if (!caseInsensitive) {
-        t.skip('filesystem is case-sensitive; bypass shape not reachable here');
-        return;
-      }
-      const resolved = safety.resolveFileTarget(ctx, 'ID_RSA');
-      assert.equal(resolved.allowed, false, 'ID_RSA must be denied when it aliases id_rsa on disk');
-    },
-  );
+  // HS-01 (CLOSED): the deny policy now treats sensitive name classes as
+  // case-insensitive independently of the host filesystem. That is stronger
+  // than relying on realpath to repair spelling after the file already exists:
+  // it also blocks a not-yet-created write target and a genuinely uppercase
+  // sensitive name on a case-sensitive Linux filesystem.
+  it('HS-01: case-variant key files and protected directories are denied', () => {
+    const { tmp, ctx } = makeCtx();
+    fs.writeFileSync(path.join(tmp, 'id_rsa'), 'FAKE KEY MATERIAL\n');
+    fs.mkdirSync(path.join(tmp, '.ssh'));
+    fs.writeFileSync(path.join(tmp, '.ssh', 'config'), 'FAKE TEST CONFIG\n');
+
+    for (const requested of ['ID_RSA', '.SSH/CONFIG']) {
+      const resolved = safety.resolveFileTarget(ctx, requested);
+      assert.equal(resolved.allowed, false, requested + ' must be denied before any read or write');
+
+      const readDecision = permissions.check('read_file', { path: requested }, ctx);
+      assert.equal(readDecision.decision, 'deny', requested + ' must be a hard-denied read');
+      assert.equal(readDecision.severity, 'hard_deny');
+
+      const plannedWrite = permissions.check('write_file', { path: requested }, { ...ctx, plan: true });
+      assert.equal(plannedWrite.decision, 'deny', requested + ' must not become a plan-mode diff/read channel');
+      assert.equal(plannedWrite.severity, 'hard_deny');
+    }
+  });
 });
 
 describe('FG-A environment scrubbing floor', () => {

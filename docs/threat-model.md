@@ -14,8 +14,11 @@ Owner decisions recorded on August 10, 2026:
 - Explicit `--allow-shell` use accepts unsandboxed local-account authority, and `--no-network` is accepted as a
   best-effort guard rather than hard network isolation. Bypasses of the opt-in boundary and false isolation claims remain
   reportable.
-- HS-01 remains an unresolved limitation. It is documented context, not an accepted-safe
-  findings and not suppression authority; see the root policy and their registered `false-green` tests.
+
+HS-01 was closed on August 30, 2026. Sensitive final filenames and protected directory segments are now compared
+case-insensitively at the shared path boundary, before a read, write, or plan-mode proposal can proceed. The registered
+`false-green` TODO is now a hard assertion, and separate canaries verify that similar-looking ordinary names remain
+available. This closure does not change the other unresolved limitations in the root policy.
 
 ## Scope
 
