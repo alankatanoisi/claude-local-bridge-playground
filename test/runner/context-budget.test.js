@@ -28,6 +28,12 @@ describe('context budget', () => {
     assert.match(section, /without waiting for the user to name them/i);
     assert.match(section, /manage_tasks/);
     assert.match(section, /ask_user_question/);
+    // Thermo-nuclear 08-31 Medium #3: the judgment line must stay aligned with
+    // the affirmative API description and never revive the discouraging
+    // wording that was the original root cause of the tool going unused.
+    assert.match(section, /real decision points/);
+    assert.doesNotMatch(section, /only when unresolved ambiguity/);
+    assert.doesNotMatch(section, /safe assumption is not available/);
     assert.doesNotMatch(section, /spawn_agent/);
   });
 

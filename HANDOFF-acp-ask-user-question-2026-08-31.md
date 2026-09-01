@@ -1,5 +1,14 @@
 # Handoff — ask_user_question live over ACP + effort=auto in T3 (2026-08-31)
 
+> **Thermo-nuclear review 2026-08-31 — CLOSED same day:**
+> `HANDOFF-acp-ask-user-question-thermo-nuclear-2026-08-31.md`. Live-verify
+> claims in this file are not contradicted. All four findings (catch-all
+> "guess" text, cancel hang, leftover judgment prompt, liberal answer parsing)
+> fixed in the review's recommended order with its recommended tests; see the
+> CLOSED banner there for the fix summary. "Any transport error → safe
+> fallback" in §-below is superseded: only `-32601` gets the guess fallback
+> now; cancel/disconnect/other errors fail closed.
+
 **Written:** 2026-08-31 by Claude (Fable). Closes the 08-25 ACP handoff's R4 (question
 tool) and R3 (`effort=auto` composer decision — Alan chose "add Auto to T3's dropdown").
 **Prior thread entry:** `HANDOFF-acp-status-and-recommendations-2026-08-25.md` (bannered;

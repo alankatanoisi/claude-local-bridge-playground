@@ -162,8 +162,11 @@ function buildToolJudgmentSection(ctx) {
     );
   }
   if (isToolVisible('ask_user_question', ctx)) {
+    // Keep this aligned with the affirmative API description in
+    // tools/ask-user-question.js — a discouraging line here talks the model
+    // out of a tool the description invites (the 08-31 root cause).
     lines.push(
-      '- Use ask_user_question only when unresolved ambiguity would materially change the result and a safe assumption is not available.',
+      '- Use ask_user_question at real decision points: when two or more defensible options exist, the operator expects to be consulted — prefer asking over guessing. Only if the question cannot be delivered should you proceed on your best safe assumption.',
     );
   }
   if (isToolVisible('spawn_agent', ctx)) {

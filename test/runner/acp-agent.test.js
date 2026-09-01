@@ -22,7 +22,13 @@ const fs = require('fs');
 const modelClient = require('../../src/runner/model-client');
 const { run } = require('../../src/runner/run');
 const { encodeLine } = require('../../src/runner/acp/ndjson');
-const { createAcpAgent, toolKindFor, acpStopReasonFor, promptTextFrom } = require('../../src/runner/acp/agent');
+const {
+  createAcpAgent,
+  toolKindFor,
+  acpStopReasonFor,
+  promptTextFrom,
+  parseAskQuestionAnswer,
+} = require('../../src/runner/acp/agent');
 const { STOP_REASONS } = require('../../src/runner/kernel/contract');
 
 let tmpDir; // the session cwd the runner works in
@@ -98,7 +104,21 @@ function createTestClient(options = {}) {
         askQuestionRequests.push(message.params);
         Promise.resolve()
           .then(() => askQuestionHandler(message.params))
-          .then((result) => toAgent.write(encodeLine({ jsonrpc: '2.0', id: message.id, result })));
+          .then((result) => toAgent.write(encodeLine({ jsonrpc: '2.0', id: message.id, result })))
+          // A throwing handler becomes a JSON-RPC error response, the way a
+          // real host rejects a card it cannot show.
+          .catch((err) =>
+            toAgent.write(
+              encodeLine({
+                jsonrpc: '2.0',
+                id: message.id,
+                error: {
+                  code: typeof err?.code === 'number' ? err.code : -32603,
+                  message: String(err?.message || err),
+                },
+              }),
+            ),
+          );
         return;
       }
       toAgent.write(
@@ -147,6 +167,10 @@ function createTestClient(options = {}) {
     },
     notify(method, params) {
       toAgent.write(encodeLine({ jsonrpc: '2.0', method, params }));
+    },
+    /** Simulate the client process dying: no more frames will ever arrive. */
+    endInput() {
+      toAgent.end();
     },
     async startSession() {
       await this.request('initialize', { protocolVersion: 1 });
@@ -742,6 +766,122 @@ describe('acp agent over the real runner', () => {
 
     assert.match(bodies[1].messages[bodies[1].messages.length - 1].content[0].content, /User selected: Green/);
   });
+
+  // ── thermo-nuclear 08-31 findings: error / disconnect / cancel seams ──────
+
+  it('a client error other than method-not-found fails closed without inviting a guess', async () => {
+    const bodies = [];
+    stubAskThenEcho(bodies);
+    const client = createTestClient({
+      onAskQuestion: () => {
+        // A host that rejects the card with a real error (not -32601).
+        const err = new Error('host rejected the card');
+        err.code = -32603;
+        throw err;
+      },
+    });
+    const sessionId = await client.startSession();
+
+    const response = await client.prompt(sessionId, 'make me a widget');
+
+    assert.equal(response.stopReason, 'end_turn');
+    const toolResult = bodies[1].messages[bodies[1].messages.length - 1].content[0];
+    assert.equal(toolResult.is_error, true);
+    assert.match(String(toolResult.content), /could not be asked/);
+    assert.doesNotMatch(String(toolResult.content), /best safe assumption/);
+  });
+
+  it('a client disconnect during a question ends the turn before any further tool work', async () => {
+    // Model plan: ask a question, then (if allowed to continue) write a file.
+    // After the disconnect that second step must never happen — the whole
+    // point of the fix is that a dead client stops the run, not just the card.
+    const bodies = [];
+    modelClient.post = async (body) => {
+      bodies.push(body);
+      if (bodies.length === 1) {
+        return {
+          content: [
+            {
+              type: 'tool_use',
+              id: 'tu-ask-1',
+              name: 'ask_user_question',
+              input: { question: 'Continue?', options: [{ label: 'Yes' }, { label: 'No' }] },
+            },
+          ],
+          stop_reason: 'tool_use',
+        };
+      }
+      return {
+        content: [
+          {
+            type: 'tool_use',
+            id: 'tu-write-1',
+            name: 'write_file',
+            input: { path: 'after-disconnect.txt', content: 'must never exist' },
+          },
+        ],
+        stop_reason: 'tool_use',
+      };
+    };
+    installPostStreamMirror();
+
+    let runResult = null;
+    const client = createTestClient({
+      runFn: async (opts) => {
+        const result = await run(opts);
+        runResult = result;
+        return result;
+      },
+      onAskQuestion: () => {
+        // The client process dies while the card is up: the input stream ends
+        // and the pending request rejects with "Connection closed".
+        client.endInput();
+        return new Promise(() => {});
+      },
+    });
+    const sessionId = await client.startSession();
+
+    // The prompt response can never be delivered over a closed connection, so
+    // observe the run result directly instead of awaiting the RPC.
+    client.prompt(sessionId, 'make me a widget').catch(() => {});
+    const deadline = Date.now() + 5000;
+    while (!runResult && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 25));
+
+    assert.ok(runResult, 'run() finished after the disconnect');
+    assert.equal(runResult.stopReason, STOP_REASONS.CANCELLED);
+    assert.equal(bodies.length, 1, 'no further model call after the client vanished');
+    assert.equal(fs.existsSync(path.join(tmpDir, 'after-disconnect.txt')), false);
+  });
+
+  it('session/cancel during a pending question card cancels the turn instead of hanging', async () => {
+    const bodies = [];
+    stubAskThenEcho(bodies);
+    let cardShown;
+    const cardShownPromise = new Promise((resolve) => {
+      cardShown = resolve;
+    });
+    const client = createTestClient({
+      onAskQuestion: () => {
+        cardShown();
+        return new Promise(() => {}); // the user stares at the card forever
+      },
+    });
+    const sessionId = await client.startSession();
+
+    const promptPromise = client.prompt(sessionId, 'make me a widget');
+    await cardShownPromise;
+    client.notify('session/cancel', { sessionId });
+
+    const response = await Promise.race([
+      promptPromise,
+      new Promise((_, reject) => {
+        const timer = setTimeout(() => reject(new Error('session/prompt hung after session/cancel')), 5000);
+        timer.unref();
+      }),
+    ]);
+    assert.equal(response.stopReason, 'cancelled');
+    assert.equal(bodies.length, 1, 'the turn stopped before another model call');
+  });
 });
 
 describe('acp translation helpers', () => {
@@ -754,6 +894,47 @@ describe('acp translation helpers', () => {
     assert.equal(toolKindFor('bash'), 'execute');
     assert.equal(toolKindFor('ask_user_question'), 'other');
     assert.equal(toolKindFor('something_unknown'), 'other');
+  });
+
+  it('parseAskQuestionAnswer prefers label matches over synthetic ids and drops unknown strings', () => {
+    const colliding = [
+      { id: 'opt-1', label: 'Red' },
+      { id: 'opt-2', label: 'opt-1' }, // user-authored label colliding with option 1's synthetic id
+    ];
+    // The collision resolves to the option CARRYING that label, not option 1.
+    assert.deepEqual(parseAskQuestionAnswer({ answers: { q: 'opt-1' } }, 'q', colliding, false), {
+      selected: ['opt-1'],
+      invalid: false,
+    });
+    const clean = [
+      { id: 'opt-1', label: 'Red' },
+      { id: 'opt-2', label: 'Blue' },
+    ];
+    // Ids still resolve when nothing collides.
+    assert.deepEqual(parseAskQuestionAnswer({ answers: { q: 'opt-2' } }, 'q', clean, false), {
+      selected: ['Blue'],
+      invalid: false,
+    });
+    // A string matching neither a label nor an id is not a selection.
+    assert.deepEqual(parseAskQuestionAnswer({ answers: { q: 'Mauve' } }, 'q', clean, false), {
+      selected: [],
+      invalid: false,
+    });
+  });
+
+  it('parseAskQuestionAnswer rejects multiple picks when allow_multiple is off', () => {
+    const wireOptions = [
+      { id: 'opt-1', label: 'Red' },
+      { id: 'opt-2', label: 'Blue' },
+    ];
+    assert.deepEqual(parseAskQuestionAnswer({ answers: { q: ['Red', 'Blue'] } }, 'q', wireOptions, false), {
+      selected: [],
+      invalid: true,
+    });
+    assert.deepEqual(parseAskQuestionAnswer({ answers: { q: ['Red', 'Blue'] } }, 'q', wireOptions, true), {
+      selected: ['Red', 'Blue'],
+      invalid: false,
+    });
   });
 
   it('maps runner stop reasons onto the five ACP prompt stop reasons', () => {

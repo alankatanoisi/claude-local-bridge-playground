@@ -236,11 +236,13 @@ function promptTextFrom(blocks) {
  * Interpret a cursor/ask_question response. `answers` is a loosely-typed
  * record keyed by question id; hosts have answered with option ids, option
  * labels, single strings, or arrays. Normalize everything to the label list
- * the model can read back. An empty list means dismissed/unanswered.
+ * the model can read back. An empty `selected` means dismissed/unanswered;
+ * `invalid` means the host's answer could not honestly be reported (more
+ * picks than the question allowed), which must not pass as a selection.
  */
-function parseAskQuestionAnswer(response, questionId, wireOptions) {
+function parseAskQuestionAnswer(response, questionId, wireOptions, allowMultiple) {
   const answers = response && typeof response === 'object' ? response.answers : null;
-  if (!answers || typeof answers !== 'object') return [];
+  if (!answers || typeof answers !== 'object') return { selected: [], invalid: false };
   let raw = answers[questionId];
   if (raw === undefined) {
     // Some hosts key by prompt text instead of id; with a single question the
@@ -248,9 +250,10 @@ function parseAskQuestionAnswer(response, questionId, wireOptions) {
     const values = Object.values(answers);
     if (values.length === 1) raw = values[0];
   }
-  if (raw === undefined || raw === null || raw === '') return [];
+  if (raw === undefined || raw === null || raw === '') return { selected: [], invalid: false };
   const list = Array.isArray(raw) ? raw : [raw];
   const labelById = new Map(wireOptions.map((opt) => [opt.id, opt.label]));
+  const knownLabels = new Set(wireOptions.map((opt) => opt.label));
   const selected = [];
   for (const entry of list) {
     let text;
@@ -258,10 +261,20 @@ function parseAskQuestionAnswer(response, questionId, wireOptions) {
     else if (entry && typeof entry === 'object' && typeof entry.label === 'string') text = entry.label;
     else if (entry && typeof entry === 'object' && typeof entry.id === 'string') text = entry.id;
     else continue;
-    const label = labelById.get(text) || text;
-    if (label && !selected.includes(label)) selected.push(label);
+    // Labels win over ids: our ids are synthetic ('opt-N'), so a user-authored
+    // option label spelled 'opt-1' must resolve to the option carrying that
+    // label, never to option 1. Strings matching neither are not selections —
+    // reporting them as 'User selected:' would put words in the user's mouth.
+    let label;
+    if (knownLabels.has(text)) label = text;
+    else if (labelById.has(text)) label = labelById.get(text);
+    else continue;
+    if (!selected.includes(label)) selected.push(label);
   }
-  return selected;
+  // More picks than the question allows is an invalid answer, not a choice
+  // (the TTY parser rejects extra picks the same way).
+  if (!allowMultiple && selected.length > 1) return { selected: [], invalid: true };
+  return { selected, invalid: false };
 }
 
 // ── The agent ───────────────────────────────────────────────────────────────
@@ -617,9 +630,39 @@ function createAcpAgent(deps) {
     //   { toolCallId, title?, questions: [{ id, prompt,
     //     options: [{ id, label }], allowMultiple? }] }
     //   → { answers: { [questionId]: <selection> } }
-    // A dismissed/cancelled card settles with empty answers. Any transport or
-    // method-not-found error falls back to a fail-closed explanation so a
-    // non-T3 ACP client still gets a safe, explained no instead of a hang.
+    // A dismissed/cancelled card settles with empty answers.
+
+    // (Thermo-nuclear 08-31, Medium #1) Failure branching: only -32601
+    // ("no such method") means the client cannot show a question card — that
+    // is the ONE failure where guess-and-continue is the right instruction to
+    // send back. Everything else fails closed: a cancelled turn reports the
+    // cancel, a dead connection ends the turn (nobody is reading updates and
+    // nobody can approve writes, so the run must not keep going against the
+    // bridge alone), and any other client error leaves the question
+    // explicitly unanswered with no invitation to guess.
+    const askQuestionFailure = (err) => {
+      if (session.cancelRequested) {
+        return { ok: false, text: 'Turn was cancelled before the question could be asked.' };
+      }
+      if (err && err.code === ERROR_CODES.METHOD_NOT_FOUND) {
+        return {
+          ok: false,
+          text: 'ask_user_question is not supported by this ACP client; continue with your best safe assumption.',
+        };
+      }
+      if (connection.closed || (err && err.message === 'Connection closed')) {
+        session.cancelRequested = true;
+        return {
+          ok: false,
+          text: 'The ACP client disconnected before the question could be answered; stopping this turn.',
+        };
+      }
+      return {
+        ok: false,
+        text: 'The question could not be asked (client error); it remains unanswered.',
+      };
+    };
+
     const askUserQuestion = async (args, toolCtx) => {
       const payload = args || {};
       const question = String(payload.question || '').trim();
@@ -641,27 +684,62 @@ function createAcpAgent(deps) {
       }));
       const toolCallId = (toolCtx && toolCtx.toolUseId) || 'ask-user-question';
       const questionId = 'q-' + toolCallId;
+      // (Thermo-nuclear 08-31, Medium #2) The card can sit unanswered for as
+      // long as the user stares at it, so this await must stay cooperative
+      // with session/cancel: race the JSON-RPC request against a cancel
+      // poller instead of letting the pending request become the only way the
+      // turn can finish.
+      const requestPromise = connection.request('cursor/ask_question', {
+        toolCallId,
+        ...(payload.header ? { title: String(payload.header) } : {}),
+        questions: [
+          {
+            id: questionId,
+            prompt: question,
+            options: wireOptions,
+            ...(payload.allow_multiple ? { allowMultiple: true } : {}),
+          },
+        ],
+      });
+      // If cancel wins the race, the request may still settle or reject later
+      // with no listener; swallow that late outcome so it cannot surface as an
+      // unhandled rejection.
+      requestPromise.catch(() => {});
+      const ASK_CANCELLED = Symbol('ask-cancelled');
+      let cancelPoll;
+      const cancelWaiter = new Promise((resolve) => {
+        // The poller intentionally holds the event loop open: while a card is
+        // pending the turn is genuinely in progress. It is cleared in finally.
+        cancelPoll = setInterval(() => {
+          if (session.cancelRequested) resolve(ASK_CANCELLED);
+        }, 100);
+      });
       let response;
       try {
-        response = await connection.request('cursor/ask_question', {
-          toolCallId,
-          ...(payload.header ? { title: String(payload.header) } : {}),
-          questions: [
-            {
-              id: questionId,
-              prompt: question,
-              options: wireOptions,
-              ...(payload.allow_multiple ? { allowMultiple: true } : {}),
-            },
-          ],
-        });
-      } catch {
+        response = await Promise.race([requestPromise, cancelWaiter]);
+      } catch (err) {
+        return askQuestionFailure(err);
+      } finally {
+        clearInterval(cancelPoll);
+      }
+      if (response === ASK_CANCELLED || session.cancelRequested) {
+        // A real tool_result is still recorded for this ask (so a resumed
+        // checkpoint sees a settled call); run() then finalizes the turn as
+        // cancelled at its next safe boundary.
+        return { ok: false, text: 'Turn was cancelled before the question could be asked.' };
+      }
+      const { selected, invalid } = parseAskQuestionAnswer(
+        response,
+        questionId,
+        wireOptions,
+        Boolean(payload.allow_multiple),
+      );
+      if (invalid) {
         return {
           ok: false,
-          text: 'ask_user_question is not supported by this ACP client; continue with your best safe assumption.',
+          text: 'The client returned multiple selections to a single-choice question; the answer was discarded as invalid.',
         };
       }
-      const selected = parseAskQuestionAnswer(response, questionId, wireOptions);
       if (selected.length === 0) {
         return { ok: false, text: 'The user dismissed the question without answering.' };
       }
@@ -742,6 +820,7 @@ module.exports = {
   toolTitleFor,
   acpStopReasonFor,
   promptTextFrom,
+  parseAskQuestionAnswer,
   PROTOCOL_VERSION,
   MODEL_CHOICES,
   MAX_TOKENS_PRESETS,
