@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Programmatic Tooling Research Review — 2026-08-31</title>
+<style>
+  :root {
+    --ink: #1a1f2b; --muted: #5a6472; --accent: #0f5c8c; --rule: #d8dde4;
+    --card: #f6f8fa; --good: #1a7f37; --warn: #9a6700; --bad: #b35900;
+  }
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+         color: var(--ink); max-width: 60rem; margin: 2rem auto; padding: 0 1.25rem;
+         line-height: 1.55; }
+  h1 { font-size: 1.6rem; border-bottom: 3px solid var(--accent); padding-bottom: .4rem; }
+  h2 { font-size: 1.25rem; margin-top: 2.2rem; border-bottom: 1px solid var(--rule); padding-bottom: .25rem; }
+  h3 { font-size: 1.05rem; margin-top: 1.6rem; }
+  code, .path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .92em;
+         background: var(--card); padding: .08em .35em; border-radius: 4px; }
+  .meta { background: var(--card); border: 1px solid var(--rule); border-radius: 8px;
+          padding: .9rem 1.1rem; font-size: .95rem; }
+  .meta dt { font-weight: 600; margin-top: .4rem; }
+  .meta dd { margin: 0 0 0 0; color: var(--muted); }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; margin: 1rem 0; }
+  th, td { border: 1px solid var(--rule); padding: .45rem .6rem; text-align: left; vertical-align: top; }
+  th { background: var(--card); }
+  .idea { border: 1px solid var(--rule); border-left: 4px solid var(--accent);
+          border-radius: 6px; padding: .8rem 1rem; margin: 1rem 0; }
+  .idea h4 { margin: 0 0 .4rem; font-size: 1rem; }
+  .tag { display: inline-block; font-size: .78rem; border-radius: 999px; padding: .1em .7em;
+         margin-right: .4em; border: 1px solid var(--rule); background: #fff; color: var(--muted); }
+  .tag.effort-trivial { color: var(--good); border-color: var(--good); }
+  .tag.effort-small { color: var(--good); border-color: var(--good); }
+  .tag.effort-medium { color: var(--warn); border-color: var(--warn); }
+  .tag.effort-large { color: var(--bad); border-color: var(--bad); }
+  .callout { background: #eef6fb; border: 1px solid #bcd9ec; border-radius: 8px; padding: .8rem 1rem; }
+  .parked { background: #fdf3e7; border: 1px solid #ecd3b0; border-radius: 8px; padding: .8rem 1rem; }
+  .small { font-size: .88rem; color: var(--muted); }
+  ul { padding-left: 1.3rem; }
+  dfn { font-style: normal; border-bottom: 1px dotted var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>Programmatic Tooling Research Review — 2026-08-31</h1>
+
+<dl class="meta">
+  <dt>Doc type</dt>
+  <dd>Durable research review (immutable record of a one-time analysis). Facts about the
+      runner verified as of 2026-08-31. If a referenced backlog item closes later, annotate
+      the tracker, not this file.</dd>
+  <dt>Sources</dt>
+  <dd>Nine PDFs in <span class="path">docs/Programmatic&nbsp;Tooling&nbsp;Research/</span>
+      (collected by Alan, 2026-08-31). Full text of every paper was read; PDFs were
+      extracted with <code>pypdf</code>, so figures were read through their captions only.</dd>
+  <dt>Method</dt>
+  <dd>Three parallel reader passes (grouped by theme) plus one repo-state pass mapping the
+      runner's current functionality and every open future-directions item, then a single
+      synthesis (Fable). The chat-session synthesis is preserved here so it survives the
+      session.</dd>
+  <dt>Companion decisions (Alan, 2026-08-31)</dt>
+  <dd>Cursor's thermo-nuclear review of <code>c39ca6d</code> was closed first
+      (commit <code>d0a80d8</code>); the Starlark lab stays frozen and idle (R8, R11 not
+      briefed); this doc is Step&nbsp;1 of the folded direction described in §6.</dd>
+</dl>
+
+<h2 id="glance">1. The nine papers at a glance</h2>
+
+<p class="small">Transferability is judged for <em>this</em> runner: a local Node.js
+agent loop over the bridge's <code>/v1/messages</code>, with a 20-tool registry,
+an allow/ask/deny permission gate, durable ledgers/checkpoints, a projection-only
+context layer, and a coordinator that fans out leased-budget workers.</p>
+
+<table>
+  <tr><th>Paper</th><th>One-line idea</th><th>Transferability</th></tr>
+  <tr><td>HyperTool (SJTU, arXiv:2606.13663)</td>
+      <td>The model's action unit should be a small code block calling many tools, returning only the final result.</td>
+      <td>Interface yes; its headline numbers needed fine-tuning small models. Parked here (§5, R8 collision).</td></tr>
+  <tr><td>Speculative Interaction Agents (Berkeley, arXiv:2605.13360)</td>
+      <td>Run read-only tools speculatively/in parallel; buffer side-effecting tools until an explicit commit point.</td>
+      <td>Core split already implemented in <code>tool-pipeline.js</code>; scheduler ideas remain.</td></tr>
+  <tr><td>Speculative Programmatic Tool Calling (Alex L. Zhang, blog, 2026-08-24)</td>
+      <td>Parse code actions and pre-launch/parallelize the tool calls inside them.</td>
+      <td>Only the &ldquo;parallelize independent calls&rdquo; half; measured streaming gains (1–1.2×) too small to chase.</td></tr>
+  <tr><td>Scroll / &ldquo;Context as an Environment&rdquo; (Alibaba, arXiv:2608.21690)</td>
+      <td>Keep full history losslessly addressable outside the prompt; the model queries it at need.</td>
+      <td>High — the runner already keeps lossless canonical history; only the recall tools are missing.</td></tr>
+  <tr><td>LongHorizon-Harness (Alibaba, arXiv:2608.01964)</td>
+      <td>Manager / Executor / read-only Auditor roles; execution claims never update task state — only audit evidence does.</td>
+      <td>High — maps onto the coordinator's phases and the permission gate almost one-to-one.</td></tr>
+  <tr><td>Atlas (Tsinghua, arXiv:2601.03872)</td>
+      <td>Route each task to the best (model × tool-set) pair by historical success and cost.</td>
+      <td>Training-free path yes (from existing ledgers); the RL path no.</td></tr>
+  <tr><td>OctoTools (Stanford, ICML 2025, arXiv:2502.11271)</td>
+      <td>Training-free framework: rich tool cards (limitations/best practices) + an explicit completion verifier.</td>
+      <td>High for the two named pieces; skip its per-step two-model split.</td></tr>
+  <tr><td>EnvScaler (Renmin, arXiv:2601.05808)</td>
+      <td>Synthesize tool environments; score tasks by checklists of <code>check(final_state)</code> predicates.</td>
+      <td>The predicate-checklist and tester/checker QA patterns transfer; the synthesis-at-scale and RL do not.</td></tr>
+  <tr><td>Real-Time Action Chunking (Physical Intelligence, NeurIPS 2025, arXiv:2506.07339)</td>
+      <td>Robotics: generate the next action chunk while the current one executes, inpainting around the frozen prefix.</td>
+      <td>Two scheduling analogies only; the mathematics stays in robotics.</td></tr>
+</table>
+
+<h2 id="validated">2. What the papers validate about the existing runner</h2>
+
+<p>Three of the papers' headline mechanisms already exist in this runner, sometimes in
+stronger form. This is external evidence for design choices this repo derived
+empirically (safaris, bake-offs, projection rework):</p>
+
+<ul>
+  <li><strong>Read/write speculation split.</strong> Berkeley's central safety rule —
+      parallelize read-only tools, serialize and gate writes, commit only on explicit
+      confirmation — is what <span class="path">src/runner/tool-pipeline.js</span> already
+      does (read batch via <code>Promise.allSettled</code>; writes serial in model order;
+      disjoint-path write groups parallel only under <code>--accept-edits</code>).</li>
+  <li><strong>Lossless canonical history + lossy views.</strong> Scroll's foundation —
+      never mutate history, make trimming a query-time view — is
+      <span class="path">src/runner/context-projection.js</span>'s stated contract
+      (projection is the sole owner of lossy request shaping and never writes back).
+      Scroll's ablation (lossy summarization at ingestion collapses 73.1&nbsp;→&nbsp;19.9 on
+      their 10M-token benchmark) is the quantified case for that contract.</li>
+  <li><strong>Fresh-context, budget-bounded workers.</strong> LongHorizon-Harness's
+      executor contract (goal + acceptance criteria + referenced evidence only, never
+      prior raw transcripts; bounded budget; report-only memory) is the coordinator's
+      leased-budget worker model (<span class="path">budget-broker.js</span>,
+      worker bakeoff W1, A3 fan-out: 4.13× wall-clock at byte-identical input tokens).</li>
+</ul>
+
+<h2 id="papers">3. Paper-by-paper notes (condensed reader reports)</h2>
+
+<h3>3.1 HyperTool</h3>
+<p><strong>Mechanism.</strong> One tool whose input is a bounded Python code block; inside
+it the model calls real tools via <code>call_tool(server, tool, params)</code>, holds
+intermediates in variables, and must assign the final output to <code>result</code> —
+only that returns to the model's context. A prompt rubric says when to use a block
+(predictable A→B→C chains with simple dataflow) vs step-wise calls (next step depends on
+interpreting outputs). Failed blocks get bounded &ldquo;local repair&rdquo; retries guarded
+by a static intent checker (the repaired code must target the same resource/operation).</p>
+<p><strong>Results.</strong> On MCP-Universe with fine-tuned Qwen3-32B: 15.7%&nbsp;→&nbsp;35.3%
+accuracy; −78% tokens on their heaviest domain; 47.6 primitive tool calls compressed into
+20.8 model-visible calls. Failure-mode shift: wrong-tool errors go to ~0 but
+<em>premature final answer</em> surges 29.8%&nbsp;→&nbsp;54.9%.</p>
+<p><strong>Caveats for us.</strong> Headline numbers depend on supervised fine-tuning of
+small open models; the interface itself is harness-level. Hiding intermediate calls inside
+a raw Python block conflicts with a target-aware permission gate — any adoption here must
+route every inner <code>call_tool</code> through <code>permissions.check</code>. See §5
+(parked, R8 collision).</p>
+
+<h3>3.2 Speculative Interaction Agents</h3>
+<p><strong>Mechanism.</strong> An event-driven loop where tool calls form a dependency
+graph (extending LLMCompiler): calls reference earlier outputs by ID, execute in parallel
+when operands are ready, and can be modified or removed before execution; cancelled calls
+cascade-cancel dependents and the model is told (an explicit cancel note in context)
+that an expected observation will never arrive. Read-only tools run speculatively;
+side-effecting tools buffer until a commit point. A <code>&lt;current_plan&gt;</code>
+block restating in-flight calls is re-injected each turn.</p>
+<p><strong>Results.</strong> Prompt-only on a strong hosted model: 1.3–1.7× latency at
+near-parity accuracy. Their small-model tier needed special fine-tuning and an
+interruptible serving engine — and failed on naturalistic streaming speech.</p>
+<p><strong>Caveats for us.</strong> The streaming-user-input half needs infrastructure the
+bridge doesn't expose and a CLI doesn't have. The scheduler concepts (DAG dispatch,
+cancel messaging, commit discipline) are the transferable part.</p>
+
+<h3>3.3 Speculative Programmatic Tool Calling (sPTC)</h3>
+<p><strong>Mechanism.</strong> While a code action streams in, a shadow interpreter
+pre-launches tool calls whose inputs are already determined, caching results in a promise
+store keyed by (tool, args, occurrence). The real execution checks the store first.
+Speculation is gated by purity annotations and a denylist; shadow state never touches real
+state and is discarded on malformed output.</p>
+<p><strong>Results.</strong> Honest and modest: ~1–1.2× end-to-end in the author's own
+favorable setting; 2.4× on a fixed example where six serial sub-calls collapse to
+parallel.</p>
+<p><strong>Caveats for us.</strong> The streaming half isn't worth its complexity when
+tools are fast local file operations. The &ldquo;JIT&rdquo; half — statically
+parallelizing independent calls inside a received block — is the keeper, and only matters
+if a block-style action ever lands (§5).</p>
+
+<h3>3.4 Scroll (&ldquo;Context as an Environment&rdquo;)</h3>
+<p><strong>Mechanism.</strong> Three stores: an append-only event log (SQLite; every event
+gets a monotone <code>seq</code> address; BM25 full-text search via FTS5 — deterministic,
+no embeddings, no model calls at write time); durable payload storage (large tool results
+externalized to files, event rows keep a bounded preview + recovery pointer); and a
+persistent sandboxed Python kernel. Model-facing operations: <em>locate</em>
+(<code>search</code>), <em>materialize</em> (<code>expand(seq)</code> recovers verbatim
+spans), <em>compute</em>, <em>expose</em> (only printed output enters the next context).
+Eviction is recoverable: payloads fold to pointers first, whole spans only under pressure,
+and evicted spans leave one-line model-written <em>headlines</em> in a tiered roll-up
+index so the agent stays aware of what it can no longer see.</p>
+<p><strong>Results.</strong> BEAM 10M-token histories: 73.1 (+5.1 over best published)
+ingesting raw history with zero ingestion model calls; LOCA 256K controlled comparison:
+86.7% vs 65.3 (summarization agent) / 66.7 (retrieval agent). Ablation: replacing the
+kernel with <em>plain tool calls</em> keeps most of the benefit (−7.3 overall) — the
+losslessness carries the gain, not the kernel.</p>
+<p><strong>Caveats for us.</strong> The persistent Python kernel is a second-shell trust
+surface that would bypass the permission matrix; the ablation says we can skip it and
+expose search/expand as ordinary gated registry tools.</p>
+
+<h3>3.5 LongHorizon-Harness</h3>
+<p><strong>Mechanism.</strong> Manage–Execute–Audit loop. The <em>Manager</em> owns a
+structured task-state record set (requirements / artifacts / facts; each pending /
+completed / blocked / <em>untrusted</em>, with evidence pointers) and has no environment
+access. The <em>Executor</em> runs one subtask contract (goal, acceptance criteria,
+boundary constraints, referenced audit evidence only) in a fresh bounded context; its
+report is treated as an unverified claim; its raw trajectory is discarded. The
+<em>Auditor</em> is read-only and fresh-context; it independently inspects the
+environment against the acceptance criteria; the harness watches task-relevant paths
+during the audit and any mutation voids it. Hard rule: a record flips to
+&ldquo;completed&rdquo; only on clean audit evidence, never on an executor claim.
+An <code>ask</code> route surfaces user decisions as a first-class Manager output.</p>
+<p><strong>Results.</strong> Matched comparisons (same model, same backend):
+WeaveBench 51.8%&nbsp;→&nbsp;80.7%; Terminal-Bench 69.7%&nbsp;→&nbsp;77.2% at −24% tokens;
+OSWorld binary 3×. Manager overhead 2–8% of tokens; the auditor costs 19–38% and can
+regress short capability-bound tasks — this belongs behind an opt-in, not as the default
+loop. Gains concentrate where an <em>authoritative closure</em> exists (a file, setting,
+or artifact the auditor can check).</p>
+
+<h3>3.6 Atlas</h3>
+<p><strong>Mechanism.</strong> Training-free path: cluster historical queries, record each
+(model, tool-config) pair's empirical accuracy and token cost per cluster, route new
+queries to the nearest cluster's argmax under
+<code>U&nbsp;=&nbsp;(1−α)·accuracy&nbsp;−&nbsp;α·cost</code>. A second, RL-trained routing
+path handles out-of-distribution queries (not transferable — needs PPO training
+infrastructure).</p>
+<p><strong>Results.</strong> A pool of routed 7–8B models beat GPT-4o in-distribution
+(63.5% vs 53.1%); the cluster path collapses out-of-distribution, which is the honest
+limit of a lookup table.</p>
+
+<h3>3.7 OctoTools</h3>
+<p><strong>Mechanism.</strong> Tool cards carry description, input/output schema, example
+invocations, and — the load-bearing field — free-text <em>limitations and best
+practices</em> that the planner reads and acts on. The loop ends with a <em>context
+verifier</em>: a dedicated turn checking completeness / inconsistencies / ambiguities,
+emitting CONTINUE or STOP. Toolset selection is greedy: measure a base set on a small
+validation corpus, keep each candidate tool with positive delta.</p>
+<p><strong>Results.</strong> +9.3 points average over 16 benchmarks vs zero-shot GPT-4o
+with <em>identical tools and budgets</em> vs AutoGen/LangChain (so the delta is
+architecture, not tool coverage). With tool calls randomly failing at probability 0.4,
+average drop ≤1.6% — the verifier routes around noise. Average 2.56 executed steps under a
+10-step cap: the verifier also stops early and saves tokens.</p>
+<p><strong>Caveats for us.</strong> Skip the per-step planner/executor two-model split —
+Claude's native structured tool_use already solves what it exists for.</p>
+
+<h3>3.8 EnvScaler</h3>
+<p><strong>Mechanism (transferable parts).</strong> (1) Task completion scored by a
+checklist of independently generated terminal-state validators —
+<code>check(final_state)&nbsp;→&nbsp;bool</code> per checklist item, reward = pass
+fraction. Process-agnostic, tolerant of alternative solution paths, partial credit.
+(2) A dual-agent QA loop for generated artifacts: a <em>testing agent</em> that sees only
+the interface fires ~100 positive and negative calls; a <em>checking agent</em> that sees
+source, return value, and state diff judges pass/warning/fail; below a pass-rate
+threshold the artifact is rejected. (3) State-diff capture ({field, from, to}) around
+each mutating call as the checker's key input.</p>
+<p><strong>Results.</strong> Their headline (SFT+RL on synthesized environments,
++13 points on BFCL multi-turn) is a training result and irrelevant here; the verification
+patterns are the value.</p>
+
+<h3>3.9 Real-Time Action Chunking</h3>
+<p><strong>Honest assessment.</strong> Robotics flow-policy inpainting; ~90% of the paper
+does not transfer. Two scheduling analogies survive: (1) <em>frozen-prefix pipelining</em>
+— draft the next batch while the current batch executes, treating dispatched work as
+immutable and replanning only the undispatched remainder; (2) <em>never blend divergent
+plans</em> — their experiments show averaging two plans that embody different strategies
+produces a plan belonging to neither (their robot e-stopped). Plus a dumb-robust trick:
+estimate the next latency conservatively as the max over a recent-history buffer.</p>
+
+<h2 id="ideas">4. The twelve borrowable ideas</h2>
+
+<p class="small">Numbering matches the 2026-08-31 chat synthesis. None require model
+fine-tuning. &ldquo;Connects to&rdquo; names the open backlog item each idea would
+advance (IDs per the concordance/handoff trackers).</p>
+
+<h3>Group 1 — Verification (the strongest cross-paper theme)</h3>
+
+<div class="idea"><h4>Idea 1 — The audit rule: executor claims never mark work done</h4>
+<span class="tag">LongHorizon-Harness</span><span class="tag effort-medium">effort: medium</span>
+<span class="tag">connects: coordinator verify phase, HE-09</span>
+<p>Make the coordinator's <code>verify</code> phase a read-only auditor: a worker spawned
+with a deny-all-mutations permission profile (the gate already supports this), given only
+the subtask's acceptance criteria — never the executor's transcript — inspecting the
+filesystem independently. Add the deterministic integrity check: snapshot/watch
+task-relevant paths during the audit; any mutation voids it. The single portable rule even
+without full MEA: <em>a completion claim never flips a task-state record — only audit
+evidence does.</em></p></div>
+
+<div class="idea"><h4>Idea 2 — Terminal-state validation checklists</h4>
+<span class="tag">EnvScaler</span><span class="tag effort-small">effort: small–medium</span>
+<span class="tag">connects: HE-06 (thin golden-eval corpus), coordinator acceptance</span>
+<p>Score a worker's or run's output by a list of small independent predicates over the
+final workspace state (file exists, content matches, tests green), reported as a pass
+fraction. Deterministic, solution-path-agnostic, partial credit. HE-06's seven named
+missing eval cases could each be one checklist. If the Starlark lab ever resumes, R11's
+kill/resume tests should assert terminal-state predicates, not trajectories.</p></div>
+
+<div class="idea"><h4>Idea 3 — Opt-in end-of-run verifier turn</h4>
+<span class="tag">OctoTools + HyperTool</span><span class="tag effort-small">effort: small</span>
+<p>Behind a flag (e.g. <code>--verify-finish</code>): one structured model turn before
+accepting a final answer — complete? inconsistencies? ambiguities? → CONTINUE or STOP.
+OctoTools' data says it catches errors <em>and</em> saves tokens by stopping early;
+HyperTool's data says &ldquo;premature final answer&rdquo; becomes the dominant failure as
+per-turn efficiency rises.</p></div>
+
+<div class="idea"><h4>Idea 4 — Tester/checker admission gate for generated artifacts</h4>
+<span class="tag">EnvScaler</span><span class="tag effort-medium">effort: medium</span>
+<p>When an agent generates something the runner will use (hook, prompt template,
+command-builder preset): a tester agent that sees only the interface fires positive and
+negative cases; a checker agent that sees source + state diff judges each; a pass-rate
+threshold admits or rejects. Mechanizes the charter's review instinct.</p></div>
+
+<h3>Group 2 — Context and memory (extending the existing ledger)</h3>
+
+<div class="idea"><h4>Idea 5 — Stable addresses + full-text search over own history</h4>
+<span class="tag">Scroll</span><span class="tag effort-medium">effort: medium</span>
+<span class="tag">connects: unified transcript/index layout (workspace fact)</span>
+<p>Monotone <code>seq</code> per transcript/ledger event; mirror into SQLite + FTS5;
+expose <code>search_history(query)</code> and <code>expand(seq)</code> as ordinary gated
+registry tools. Scroll's own ablation de-risks exactly this cheap version: plain tools
+capture most of the kernel's benefit. Biggest capability-per-line idea on this list.</p></div>
+
+<div class="idea"><h4>Idea 6 — Recoverable clipping instead of lossy clipping</h4>
+<span class="tag">Scroll</span><span class="tag effort-small">effort: small (depends on idea 5)</span>
+<p>Today <span class="path">context-projection.js</span> clips old tool results at 12,000
+chars and the tail is unreachable. Change the clip marker from &ldquo;truncated&rdquo; to
+&ldquo;truncated — recover with <code>expand(seq&nbsp;N)</code>&rdquo;, and make truncation
+messages tell the model how to re-query smaller. Canonical history is already lossless on
+disk; this only changes what the marker says.</p></div>
+
+<div class="idea"><h4>Idea 7 — Headlines + a &ldquo;what you've forgotten&rdquo; index</h4>
+<span class="tag">Scroll</span><span class="tag effort-small">effort: small–medium</span>
+<p>One model-written headline per turn (task / verified state / next action) bound to the
+turn's <code>seq</code>; when spans fall out of the projection, show a compact rolled-up
+headline index. Solves what search cannot: search recovers only what the agent thinks to
+ask about; the index keeps it aware of what it can no longer see. Checkpoint digests are
+halfway there.</p></div>
+
+<h3>Group 3 — The tool interface</h3>
+
+<div class="idea"><h4>Idea 8 — <code>limitations</code> / <code>best_practices</code> fields on tool cards</h4>
+<span class="tag">OctoTools</span><span class="tag effort-trivial">effort: trivial</span>
+<span class="tag">connects: the 08-31 ask_user_question root cause, generalized</span>
+<p>Two free-text fields per tool definition, rendered into the model-facing description.
+This repo already proved the mechanism twice on the same day: the tool went unused because
+its description discouraged it, and the thermo-nuclear review then found the same
+discouraging wording surviving in the judgment prompt (Medium #3, fixed in
+<code>d0a80d8</code>). A one-time audit of all 20 descriptions is the natural first slice
+of this thread.</p></div>
+
+<h3>Group 4 — Coordinator and routing</h3>
+
+<div class="idea"><h4>Idea 10 — Ledger-driven (model × capability-preset) routing</h4>
+<span class="tag">Atlas</span><span class="tag effort-medium">effort: medium</span>
+<span class="tag">connects: worker bakeoff W1, budget broker</span>
+<p>Tag coordinator tasks by type; aggregate historical success and token cost per
+(worker model × capability group) from existing ledgers (aggregates only — never quote
+payload text); route to the argmax of
+<code>U&nbsp;=&nbsp;(1−α)·accuracy&nbsp;−&nbsp;α·cost</code>. The α knob lives in the
+budget layer, per the orchestration-bounds philosophy. Formalizes the existing
+Fable/Opus pairing intuition.</p></div>
+
+<div class="idea"><h4>Idea 11 — Frozen-prefix pipelining + the no-blending warning</h4>
+<span class="tag">Real-Time Action Chunking</span><span class="tag effort-small">effort: small</span>
+<p>(a) While a worker batch executes, the coordinator drafts the next batch treating
+dispatched work as immutable — replan only the undispatched remainder. (b) Free warning
+for any synthesis step: when parallel workers return divergent strategies, pick one —
+never splice or average them.</p></div>
+
+<h3>Group 5 — Telemetry</h3>
+
+<div class="idea"><h4>Idea 12 — Three counters and one field</h4>
+<span class="tag">HyperTool, Atlas, OctoTools</span><span class="tag effort-trivial">effort: trivial each</span>
+<span class="tag">connects: HE-05 OTel half (if/when paid)</span>
+<p>(a) Count primitive tools executed separately from model-visible calls (the efficiency
+metric for anything batch-shaped, including the existing read batch). (b) Per-task
+model-call counts as a routing-health signal. (c) Record the model's stated sub-goal
+alongside each tool call — upgrades C3-style forensic sweeps.</p></div>
+
+<h3>Bonus scheduler ideas already mostly present</h3>
+<p class="small">Cancellation messaging (tell the model explicitly when an expected
+observation will never arrive — Berkeley) is substantially implemented: aborted turns
+persist synthetic <code>is_error</code> results for unexecuted calls, and the 08-31
+thermo-nuclear fixes extended the same discipline to the question card. The remaining
+gap is coordinator-level: telling a <em>coordinator</em> model when a cancelled worker's
+report will never arrive.</p>
+
+<h2 id="not">5. Explicitly not borrowing</h2>
+
+<ul>
+  <li><strong>Every training pipeline</strong> (HyperTool SFT, Atlas PPO router, EnvScaler
+      RL, Berkeley clock-gym): they exist to make 3–8B open models competent; the bridge
+      serves Claude.</li>
+  <li><strong>Scroll's persistent Python kernel</strong>: a live stateful REPL is a second
+      shell bypassing the permission matrix; the paper's own ablation says plain gated
+      tools capture most of the value.</li>
+  <li><strong>Streaming-input machinery and mid-generation speculation</strong>: needs
+      interruptible serving the bridge doesn't expose; sPTC's own numbers (1–1.2×) say the
+      complexity isn't paid for when tools are fast local file operations.</li>
+  <li><strong>OctoTools' per-step planner/executor two-model split</strong>: doubles model
+      calls to solve free-form Python invocation, which structured tool_use doesn't have.
+      Its free-form Python executor also contradicts the deny-matrix posture.</li>
+  <li><strong>RTC's inpainting mathematics</strong>: requires gradient access to a
+      continuous action generator; stays in robotics.</li>
+</ul>
+
+<div class="parked">
+<p><strong>Parked — Idea 9, a gated <code>run_block</code> tool (HyperTool + sPTC).</strong>
+One registry tool accepting a small script that calls existing tools via
+<code>call_tool(name,&nbsp;args)</code>, every inner call routed through
+<code>permissions.check</code>, returning only <code>result</code>; independent inner
+calls statically parallelized. Highest ceiling on the list (−78% tokens on HyperTool's
+heaviest domain) and the highest cost: the natural substrate would be a deterministic
+mini-interpreter, and the obvious candidate collides with the <strong>R8 owner decision
+(2026-08-31: Starlark frozen as a separate lab, no runner edge)</strong>. Do not build
+toward this unless Alan explicitly reopens R8 or commissions a separate JS-side
+interpreter. Expect &ldquo;premature final answer&rdquo; to become the dominant failure
+mode if blocks ever land (pair with Idea 3).</p>
+</div>
+
+<h2 id="direction">6. The folded direction (with the 08-31 session context)</h2>
+
+<p>Cross-referencing <span class="path">HANDOFF-session-2026-08-31.md</span> produced
+three folds:</p>
+<ol>
+  <li><strong>Idea 8 is the ACP session's root cause, generalized.</strong> The
+      <code>ask_user_question</code> fix and the thermo-nuclear Medium #3 both showed the
+      model-facing description/prompt is the steering wheel. A one-time audit of all 20
+      tool descriptions extends the same lesson catalog-wide.</li>
+  <li><strong>Idea 2 defines the right shape for Starlark R11's tests</strong> if the
+      frozen lab ever resumes (terminal-state predicates, not trajectories). The freeze
+      itself is untouched; Alan chose to let the lab sit (2026-08-31).</li>
+  <li><strong>Idea 9 collides with R8 and stays parked</strong> (see §5).</li>
+</ol>
+
+<p class="callout"><strong>Sequenced direction (Step 0 and Step 1 done as of this doc's
+date):</strong><br />
+<strong>Step 0 ✔</strong> — Close the thermo-nuclear review of <code>c39ca6d</code>
+(done: <code>d0a80d8</code>, all four findings fixed, full suite 1055/0).<br />
+<strong>Step 1 ✔</strong> — Persist this analysis (this document).<br />
+<strong>Step 2</strong> — Tool-description audit (Idea 8): trivial, catalog-wide, updates
+<span class="path">README.md</span> / quickstart / command-builder per the docs rule.<br />
+<strong>Step 3</strong> — First real build slice: terminal-state checklists feeding the
+golden-eval corpus (Idea 2 → HE-06), then searchable history + recoverable clipping
+(Ideas 5+6) as the larger follow-on.<br />
+Remaining owner decision: confirm the Step 2 → Step 3 ordering, or jump straight to
+Ideas 5+6.</p>
+
+<h2 id="provenance">7. Provenance and limits</h2>
+<ul class="small">
+  <li>Reader passes were performed by three parallel subagent sessions on 2026-08-31;
+      each read the full text of its papers (pypdf extraction; figures via captions only).
+      Quantitative claims above are transcribed from those reports, not re-verified
+      against the PDFs a second time — treat any surprising number as
+      &ldquo;check the PDF&rdquo; rather than settled.</li>
+  <li>The repo-state facts (tool counts, file names, line references, open backlog items)
+      were mapped the same day by a read-only repo pass and cross-checked against
+      <span class="path">CLAUDE.md</span>'s Current Work Thread pointers.</li>
+  <li>The source PDFs are <em>not</em> committed to the repo (≈50&nbsp;MB of third-party
+      copyrighted papers); they live untracked in
+      <span class="path">docs/Programmatic&nbsp;Tooling&nbsp;Research/</span>. If that
+      folder moves, the arXiv identifiers in §1 re-locate every paper.</li>
+</ul>
+
+</body>
+</html>

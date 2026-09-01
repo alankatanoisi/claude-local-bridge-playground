@@ -304,6 +304,12 @@ items rather than starting a parallel tracker.
   Starlark code 2026-08-11; lab idle during ACP. This machine: no Go toolchain, no local
   campaign ledger, no `starlark-host/{runs,eval-runs}` evidence dirs.
 
+- **Programmatic-tooling research thread (nine papers → runner ideas) — entry
+  `docs/programmatic-tooling-research-review-2026-08-31.html`.** Twelve borrowable ideas
+  mapped to open backlog items; §6 holds the sequenced direction (Steps 0–1 done
+  2026-08-31; Step 2 = tool-description audit, awaiting Alan's go). Idea 9 (`run_block`)
+  is parked on the R8 freeze — do not build toward it unbidden.
+
 - **ACP thread (Bridge Runner → T3 Code) — Slices A–D built; current entry
   `HANDOFF-acp-ask-user-question-2026-08-31.md`.** Design record for A–C:
   `HANDOFF-acp-slices-b-c-2026-08-22.md` (the 08-11 handoff is superseded). Slice D:
