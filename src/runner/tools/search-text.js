@@ -33,8 +33,9 @@ function definition() {
   return {
     name: 'search_text',
     description:
-      'Search for a text pattern inside the project. ' +
-      'Prefers ripgrep, falls back to grep or Node walk. ' +
+      'Search file CONTENTS for a case-insensitive text pattern; to find files by NAME pattern use glob instead. ' +
+      'Prefer plain literal text: regex syntax works only when ripgrep or grep is installed, ' +
+      'not in the Node fallback, so metacharacters may match differently across machines. ' +
       'Skips .git, node_modules, dist, build, coverage, and actions-runner. ' +
       'Never returns matches from deny-matrix files (.env, keys, credentials).',
     input_schema: {
@@ -42,7 +43,7 @@ function definition() {
       properties: {
         pattern: {
           type: 'string',
-          description: 'Text pattern to search for',
+          description: 'Text pattern to search for (case-insensitive; prefer plain literal text over regex)',
         },
         path: {
           type: 'string',

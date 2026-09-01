@@ -35,6 +35,7 @@ function definition() {
       'Delegate a focused read-only subtask to a generic child agent with its own context window. ' +
       'Prefer it for two or more substantial independent research tracks unless child-agent overhead would exceed the benefit. ' +
       'The user does not need to request delegation. ' +
+      'The child starts with NO conversation context: put everything it needs into the prompt (max 8000 characters). ' +
       'The child returns a summary and cannot spawn further children.',
     input_schema: {
       type: 'object',

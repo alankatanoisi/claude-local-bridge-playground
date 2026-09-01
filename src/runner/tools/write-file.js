@@ -21,6 +21,7 @@ function definition() {
     name: 'write_file',
     description:
       'Create a new file or overwrite an existing file with the given content. ' +
+      'Overwriting replaces the ENTIRE file: for a small change to an existing file, prefer edit_file. ' +
       'A backup of any existing file is saved before overwriting. ' +
       'Content is limited to 50KB.',
     input_schema: {

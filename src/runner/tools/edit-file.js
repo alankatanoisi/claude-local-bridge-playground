@@ -20,7 +20,9 @@ function definition() {
     name: 'edit_file',
     description:
       'Replace one occurrence of old_string with new_string in a file. ' +
-      'The old_string must match exactly once in the file. ' +
+      'The old_string must match exactly once in the file; if it matches more than once, ' +
+      'include more surrounding lines to make it unique. ' +
+      'To replace an entire file, use write_file instead. ' +
       'A backup is saved before the edit.',
     input_schema: {
       type: 'object',
