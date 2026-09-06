@@ -1,0 +1,42 @@
+{
+  "id": "he06-plan-proposal-invalid-edit",
+  "description": "HE-06 case 5: in plan mode, an edit whose old_string does not exist is recorded as an INVALID proposal (not fabricated success) and disk stays untouched.",
+  "prompt": "Change notes.txt to say updated.",
+  "cwd_files": {
+    "notes.txt": "original\n"
+  },
+  "run": {
+    "maxSteps": 3,
+    "plan": true,
+    "allowedTools": ["read_file", "edit_file"]
+  },
+  "model_script": [
+    {
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "tu1",
+          "name": "edit_file",
+          "input": {
+            "path": "notes.txt",
+            "old_string": "this-string-is-not-in-the-file",
+            "new_string": "updated"
+          }
+        }
+      ],
+      "usage": { "input_tokens": 50, "output_tokens": 30 }
+    },
+    {
+      "content": [
+        { "type": "text", "text": "The proposed edit does not apply cleanly." }
+      ],
+      "usage": { "input_tokens": 80, "output_tokens": 12 }
+    }
+  ],
+  "checklist": [
+    { "name": "the proposal is flagged invalid, not fabricated as applied", "check": "tool_result_includes", "tool": "edit_file", "includes": "proposal invalid" },
+    { "name": "the invalid proposal is surfaced as an error result", "check": "tool_errored", "tool": "edit_file" },
+    { "name": "plan mode never touches the file", "check": "file_content", "path": "notes.txt", "equals": "original\n" },
+    { "name": "the run still completes normally", "check": "stop_reason", "equals": "success" }
+  ]
+}

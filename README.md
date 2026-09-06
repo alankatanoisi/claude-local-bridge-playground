@@ -572,9 +572,23 @@ node bin/local-bridge-runner.js runner eval --update    # refresh expect blocks 
 ```
 
 Golden cases live in `test/runner/golden/*.json`. Each case pins a `model_script` (assistant tool-call
-stream) and an `expect` snapshot. Paths, timestamps, and secrets are normalized before diffing. When you
-change runner behavior on purpose, run with `--update` and commit the refreshed `expect` blocks together
-with the code change so reviewers can see the regression approval explicitly.
+stream) and is scored one of two ways (a case may use both):
+
+- `expect` — a recorded whole-run snapshot, diffed field-by-field. Paths, timestamps, and secrets are
+  normalized before diffing. When you change runner behavior on purpose, run with `--update` and commit
+  the refreshed `expect` blocks together with the code change so reviewers can see the regression
+  approval explicitly. `--update` never touches checklist-only cases.
+- `checklist` — hand-written **terminal-state predicates** (2026-08-31 research review, idea 2): small
+  named checks over the final workspace and run outcome (`stop_reason`, `file_exists`/`file_absent`/
+  `file_content`, `tool_called`/`tool_errored`/`tool_denied`, `tool_result_includes`/`tool_result_lacks`,
+  `final_text_includes`, `trace_has_event`), each pass/fail on its own, reported as a pass fraction.
+  A case is green only at fraction 1.0; unknown check types fail rather than silently pass.
+
+Cases may also declare `cwd_symlinks` fixtures and multi-`phases` runs sharing one workspace (with
+`use_session: true`, one session store) — how resume-shaped cases work. The seven `he06-*` cases cover
+the HE-06 permission/budget/resume spine: symlink deny, authority ceiling, cost-budget exhaustion,
+resume-degraded refusal, plan-mode invalid proposal, shell hidden under `--dont-ask`, and the
+offered-tools quarantine.
 
 ### Explicit tool authority
 

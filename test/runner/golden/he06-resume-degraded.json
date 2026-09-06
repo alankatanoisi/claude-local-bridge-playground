@@ -1,0 +1,47 @@
+{
+  "id": "he06-resume-degraded",
+  "description": "HE-06 case 4 (two phases): phase 1 ends max_steps, marking session health degraded; phase 2's plain resume is refused (resume_failed) with the fresh-session guidance, without --ack-resume-risk.",
+  "phases": [
+    {
+      "prompt": "Keep listing files forever.",
+      "use_session": true,
+      "run": { "maxSteps": 1 },
+      "model_script": [
+        {
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "tu1",
+              "name": "list_files",
+              "input": { "path": "." }
+            }
+          ],
+          "usage": { "input_tokens": 40, "output_tokens": 20 }
+        }
+      ]
+    },
+    {
+      "prompt": "Continue where you left off.",
+      "use_session": true,
+      "run": { "maxSteps": 2, "resume": true },
+      "model_script": [
+        {
+          "content": [
+            { "type": "text", "text": "This response should never be requested." }
+          ],
+          "usage": { "input_tokens": 40, "output_tokens": 10 }
+        }
+      ]
+    }
+  ],
+  "cwd_files": {
+    "readme.txt": "hello\n"
+  },
+  "checklist": [
+    { "name": "phase 1 degrades the session via max_steps", "check": "stop_reason", "phase": 1, "equals": "max_steps" },
+    { "name": "phase 2 resume is refused", "check": "stop_reason", "phase": 2, "equals": "resume_failed" },
+    { "name": "refusal names the degraded health", "check": "final_text_includes", "phase": 2, "includes": "Session health is degraded" },
+    { "name": "refusal points at the fresh-session remedy", "check": "final_text_includes", "phase": 2, "includes": "--new-session" },
+    { "name": "the refused resume executes no tools", "check": "tool_not_called", "phase": 2, "tool": "list_files" }
+  ]
+}

@@ -252,7 +252,12 @@ async function main() {
           process.exit(1);
         }
         if (!args.values.quiet) {
-          console.error('[runner eval] ' + summary.total + ' golden case(s) passed');
+          // Checklist cases report a predicate tally too (terminal-state
+          // checklists, research review 2026-08-31 idea 2 → HE-06).
+          const tallies = summary.checklistTotals || { total: 0, passed: 0 };
+          const checklistNote =
+            tallies.total > 0 ? ' (' + tallies.passed + '/' + tallies.total + ' checklist predicates)' : '';
+          console.error('[runner eval] ' + summary.total + ' golden case(s) passed' + checklistNote);
         }
       })
       .catch((err) => {

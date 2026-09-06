@@ -1,0 +1,38 @@
+{
+  "id": "he06-offered-tools-quarantine",
+  "description": "HE-06 case 7: a hidden-by-default tool (apply_patch) that was never offered this turn is hard-refused by the registry's offered-set pin and cannot mutate disk.",
+  "prompt": "Apply a patch to notes.txt.",
+  "cwd_files": {
+    "notes.txt": "original\n"
+  },
+  "run": {
+    "maxSteps": 3
+  },
+  "model_script": [
+    {
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "tu1",
+          "name": "apply_patch",
+          "input": {
+            "patch": "*** Begin Patch\n*** Update File: notes.txt\n@@\n-original\n+updated\n*** End Patch\n"
+          }
+        }
+      ],
+      "usage": { "input_tokens": 45, "output_tokens": 30 }
+    },
+    {
+      "content": [
+        { "type": "text", "text": "That tool is not available in this run." }
+      ],
+      "usage": { "input_tokens": 75, "output_tokens": 12 }
+    }
+  ],
+  "checklist": [
+    { "name": "the unoffered tool is refused as an error", "check": "tool_errored", "tool": "apply_patch" },
+    { "name": "the refusal names the offered-set quarantine", "check": "tool_result_includes", "tool": "apply_patch", "includes": "not offered" },
+    { "name": "the target file is untouched", "check": "file_content", "path": "notes.txt", "equals": "original\n" },
+    { "name": "the run still completes normally", "check": "stop_reason", "equals": "success" }
+  ]
+}

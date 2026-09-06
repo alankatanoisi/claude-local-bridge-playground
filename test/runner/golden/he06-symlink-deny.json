@@ -1,0 +1,40 @@
+{
+  "id": "he06-symlink-deny",
+  "description": "HE-06 case 1 (Safari-2/HE-01 spine): reading through an in-root symlink whose realpath basename is deny-listed (.env) is denied at the gate, leaks nothing, and the run still finishes.",
+  "prompt": "Read alias.txt and tell me what is inside.",
+  "cwd_files": {
+    ".env": "FAKE_GOLDEN_TOKEN=deny-me\n",
+    "readme.txt": "hello\n"
+  },
+  "cwd_symlinks": {
+    "alias.txt": ".env"
+  },
+  "run": {
+    "maxSteps": 3
+  },
+  "model_script": [
+    {
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "tu1",
+          "name": "read_file",
+          "input": { "path": "alias.txt" }
+        }
+      ],
+      "usage": { "input_tokens": 40, "output_tokens": 20 }
+    },
+    {
+      "content": [
+        { "type": "text", "text": "I was not able to read that file." }
+      ],
+      "usage": { "input_tokens": 70, "output_tokens": 12 }
+    }
+  ],
+  "checklist": [
+    { "name": "read through the symlink alias is permission-denied", "check": "tool_denied", "tool": "read_file" },
+    { "name": "the denied read is reported as an error to the model", "check": "tool_errored", "tool": "read_file" },
+    { "name": "no read_file result leaks the .env content", "check": "tool_result_lacks", "tool": "read_file", "lacks": "FAKE_GOLDEN_TOKEN" },
+    { "name": "the run still completes normally", "check": "stop_reason", "equals": "success" }
+  ]
+}

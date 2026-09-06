@@ -1,0 +1,36 @@
+{
+  "id": "he06-shell-hidden-dont-ask",
+  "description": "HE-06 case 6 (safety invariant): --dont-ask must not enable shell by itself — a bash call under dont-ask without --allow-shell is refused and executes nothing.",
+  "prompt": "Run touch pwned.txt in the shell.",
+  "cwd_files": {
+    "readme.txt": "hello\n"
+  },
+  "run": {
+    "maxSteps": 3,
+    "dontAsk": true
+  },
+  "model_script": [
+    {
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "tu1",
+          "name": "bash",
+          "input": { "command": "touch pwned.txt" }
+        }
+      ],
+      "usage": { "input_tokens": 40, "output_tokens": 20 }
+    },
+    {
+      "content": [
+        { "type": "text", "text": "Shell access is not available in this run." }
+      ],
+      "usage": { "input_tokens": 70, "output_tokens": 12 }
+    }
+  ],
+  "checklist": [
+    { "name": "bash under dont-ask without allow-shell is reported as an error", "check": "tool_errored", "tool": "bash" },
+    { "name": "the shell command never executed", "check": "file_absent", "path": "pwned.txt" },
+    { "name": "the run still completes normally", "check": "stop_reason", "equals": "success" }
+  ]
+}

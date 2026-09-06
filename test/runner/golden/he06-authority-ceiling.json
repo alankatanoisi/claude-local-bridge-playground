@@ -1,0 +1,37 @@
+{
+  "id": "he06-authority-ceiling",
+  "description": "HE-06 case 2: a CLI tool allowlist is an authority ceiling — a model call to a write tool outside the allowlist is refused and nothing touches disk.",
+  "prompt": "Create evil.txt with any content.",
+  "cwd_files": {
+    "readme.txt": "hello\n"
+  },
+  "run": {
+    "maxSteps": 3,
+    "allowedTools": ["read_file", "list_files"]
+  },
+  "model_script": [
+    {
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "tu1",
+          "name": "write_file",
+          "input": { "path": "evil.txt", "content": "should never land" }
+        }
+      ],
+      "usage": { "input_tokens": 40, "output_tokens": 25 }
+    },
+    {
+      "content": [
+        { "type": "text", "text": "I cannot write files in this run." }
+      ],
+      "usage": { "input_tokens": 70, "output_tokens": 12 }
+    }
+  ],
+  "checklist": [
+    { "name": "write_file above the ceiling is reported as an error", "check": "tool_errored", "tool": "write_file" },
+    { "name": "the refused write never lands on disk", "check": "file_absent", "path": "evil.txt" },
+    { "name": "existing files are untouched", "check": "file_content", "path": "readme.txt", "equals": "hello\n" },
+    { "name": "the run still completes normally", "check": "stop_reason", "equals": "success" }
+  ]
+}

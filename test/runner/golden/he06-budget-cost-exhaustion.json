@@ -1,0 +1,42 @@
+{
+  "id": "he06-budget-cost-exhaustion",
+  "description": "HE-06 case 3: when scripted usage pushes estimated cost past --max-cost-usd, the run stops with cost_budget_exceeded and the next scripted tool call never executes.",
+  "prompt": "List the files, then read readme.txt.",
+  "cwd_files": {
+    "readme.txt": "hello\n"
+  },
+  "run": {
+    "maxSteps": 4,
+    "maxCostUsd": 0.00001
+  },
+  "model_script": [
+    {
+      "content": [
+        { "type": "text", "text": "Listing first." },
+        {
+          "type": "tool_use",
+          "id": "tu1",
+          "name": "list_files",
+          "input": { "path": "." }
+        }
+      ],
+      "usage": { "input_tokens": 2000000, "output_tokens": 100000 }
+    },
+    {
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "tu2",
+          "name": "read_file",
+          "input": { "path": "readme.txt" }
+        }
+      ],
+      "usage": { "input_tokens": 100, "output_tokens": 10 }
+    }
+  ],
+  "checklist": [
+    { "name": "run stops with cost_budget_exceeded", "check": "stop_reason", "equals": "cost_budget_exceeded" },
+    { "name": "the first (pre-exhaustion) tool call still ran", "check": "tool_called", "tool": "list_files" },
+    { "name": "no tool call executes after exhaustion", "check": "tool_not_called", "tool": "read_file" }
+  ]
+}
