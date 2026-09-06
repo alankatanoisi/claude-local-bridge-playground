@@ -277,7 +277,9 @@ items rather than starting a parallel tracker.
     - W1 worker bakeoff: `docs/worker-bakeoff-2026-07-31.{html,md}`
   - Prior execution handoff (historical): `HANDOFF-orchestration-prototypes-2026-07-31.md`
   - Findings backlog: `docs/harness-engineering-runner-runtime-review-2026-07-28.html` (HE-01…HE-11).
-    HE-01 **tool-layer residual closed 2026-07-31** (see Path-safety status). Carries two known
+    HE-01 **tool-layer residual closed 2026-07-31** (see Path-safety status). HE-06 **seven named
+    missing cases all landed 2026-09-06** as terminal-state checklist goldens (corpus 2→9; the
+    review's ~15-case target remains open headroom). Carries two known
     errata (E1 line-count summary card, E2 HE-03 example list) — read the validation record before
     quoting it.
 - Prioritized agenda (annotated): `docs/ai-orchestration-study-review-and-next-steps-2026-07-30.html`
@@ -299,18 +301,21 @@ items rather than starting a parallel tracker.
   (`starlark-host/`). D-F1 closed `4c6904a` (worker retries get the host rejection reason);
   summary ceiling 700→1200 (owner decision, decision-tested). 08-10 two-axis tables describe
   the **old** contract. **R8 decided 2026-08-31: frozen as a separate lab** (no
-  `run_workflow` runner edge — banner on the 08-25 handoff). Open: R12 (deferred),
-  R11 (kill/resume tests — natural next in-lab build), R14a/b. Last
-  Starlark code 2026-08-11; lab idle during ACP. This machine: no Go toolchain, no local
-  campaign ledger, no `starlark-host/{runs,eval-runs}` evidence dirs.
+  `run_workflow` runner edge — banner on the 08-25 handoff). **Lab un-idled 2026-09-06
+  (Alan; R8 architecture unchanged): R11 + stretch R14a/b briefed for Codex —
+  `CODEX-TASK-starlark-r11-2026-09-06.md`, $0 build + $10 optional-live ceiling.**
+  Open: R12 (deferred). Last Starlark code 2026-08-11. This machine: no Go toolchain, no local
+  campaign ledger.
 
 - **Programmatic-tooling research thread (nine papers → runner ideas) — entry
   `docs/programmatic-tooling-research-review-2026-08-31.html`.** Twelve borrowable ideas
   mapped to open backlog items; §6 holds the sequenced direction (Steps 0–2 done
-  2026-08-31; Step 2 = tool-description audit landed `5de3b3c`). Next: Step 3
-  (terminal-state checklists → HE-06, then searchable history), pending a chat with
-  Alan. Idea 9 (`run_block`) is parked on the R8 freeze — do not build toward it
-  unbidden.
+  2026-08-31; Step 2 = tool-description audit landed `5de3b3c`). **Step 3 first half
+  landed 2026-09-06 (Alan-directed): terminal-state checklist scoring in
+  `src/runner/golden-eval.js` + the seven HE-06 named cases (`test/runner/golden/he06-*`,
+  corpus 2→9; multi-phase + symlink fixtures added).** Next: searchable history +
+  recoverable clipping (ideas 5+6). Idea 9 (`run_block`) stays parked on R8's
+  no-runner-edge architecture — do not build toward it unbidden.
 
 - **ACP thread (Bridge Runner → T3 Code) — Slices A–D built; current entry
   `HANDOFF-acp-ask-user-question-2026-08-31.md`.** Design record for A–C:
