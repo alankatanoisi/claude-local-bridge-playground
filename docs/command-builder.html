@@ -1776,6 +1776,21 @@
                     <input type="checkbox" value="run_skill" />
                     <span><strong>run_skill</strong><small>Load a skill document body by name</small></span>
                   </label>
+                  <div class="capability-group">History recall</div>
+                  <label
+                    class="check-label tool-choice"
+                    title="Keyword search across this session's own full history — including complete tool results that were clipped out of the model's visible context to save space. Deterministic (no model calls), read-only, secrets redacted."
+                  >
+                    <input type="checkbox" value="search_history" />
+                    <span><strong>search_history</strong><small>Search the session's own lossless history</small></span>
+                  </label>
+                  <label
+                    class="check-label tool-choice"
+                    title="Recover the verbatim text of an earlier history entry by id (from a clip marker or a search_history hit). Large entries are returned in pages so recovery cannot blow up the context again."
+                  >
+                    <input type="checkbox" value="expand_history" />
+                    <span><strong>expand_history</strong><small>Recover a clipped history entry verbatim</small></span>
+                  </label>
                   <div class="capability-group">Write</div>
                   <label
                     class="check-label tool-choice"
@@ -2214,6 +2229,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         agents: ['spawn_agent'],
         worktrees: ['enter_worktree', 'exit_worktree', 'list_worktrees'],
         skills: ['run_skill'],
+        history: ['search_history', 'expand_history'],
       };
 
       const PERMISSION_STYLE_HINTS = {

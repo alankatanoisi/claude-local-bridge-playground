@@ -330,6 +330,12 @@ or its dedicated flag:
 - **agents** (`--capabilities agents`): `spawn_agent` — delegate a subtask to a child agent (top-level only; asks by default)
 - **worktrees** (`--capabilities worktrees`): `enter_worktree`, `exit_worktree`, `list_worktrees` — parallel git worktree slots per run
 - **skills** (`--capabilities skills`): `run_skill` — load a skill document body by name (read-only)
+- **history** (`--capabilities history`): `search_history`, `expand_history` — deterministic recall over the
+  session's own lossless canonical history (2026-08-31 research review, ideas 5+6). `search_history` keyword-searches
+  past turns and COMPLETE tool results (including spans the context projection clipped); `expand_history` recovers an
+  entry verbatim by id with offset paging. When this group is enabled, projection clip/stub markers name the id to
+  recover (`recover: expand_history id=…`); stale-read markers still say re-read, on purpose. Both tools are
+  read-only and pass the central secret-redaction boundary.
 - **lsp** (`--capabilities lsp` or `--enable-lsp`): `lsp_query`
 - **shell** (`--allow-shell` **only** — never via `--capabilities`): `bash`, `manage_shell_jobs` — unsandboxed local-account authority (starts in `--cwd`, not a cwd jail)
 

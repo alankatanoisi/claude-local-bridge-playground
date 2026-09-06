@@ -31,7 +31,7 @@ const {
   formatTaskScopeEndTip,
   RECOMMENDATIONS,
 } = require('./session-health');
-const { computeAllowedTools, normalizeCapabilityList } = require('./tool-visibility');
+const { computeAllowedTools, normalizeCapabilityList, isToolVisible } = require('./tool-visibility');
 const {
   JsonlTrace,
   bodySummary,
@@ -753,6 +753,15 @@ async function run(options) {
   const toolHistory = [];
   let currentStep = 0;
   let messages = null;
+  // Ideas 5+6 (history capability group): tools get a READ-ONLY view of the
+  // canonical, lossless message history — the source expand_history recovers
+  // from. A closure over the `let` binding, so it tracks resume reassignment.
+  // Tools must never mutate the returned array or its messages.
+  ctx.getCanonicalMessages = () => messages || [];
+  // Recovery hints in projection clip markers are only honest when the
+  // expand_history tool is actually offered on this run (visibility is fixed
+  // at startup by flags/capabilities, so computing this once is safe).
+  const historyRecoveryEnabled = isToolVisible('expand_history', ctx);
   const inheritedParentBudget =
     parentBudgetRemaining ||
     (process.env.BRIDGE_RUNNER_BUDGET_INPUT_REMAINING || process.env.BRIDGE_RUNNER_BUDGET_OUTPUT_REMAINING
@@ -1399,6 +1408,7 @@ async function run(options) {
       policy: runtimeContextPolicy,
       calibration,
       contextState: ctx.contextState,
+      recovery: { enabled: historyRecoveryEnabled },
       runtime: {
         tasks: ctx.tasks,
         changedFiles: (ctx.undoLog || []).map((entry) => entry.path).filter(Boolean),

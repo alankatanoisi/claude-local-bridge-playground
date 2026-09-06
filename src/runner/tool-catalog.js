@@ -37,6 +37,8 @@ const TOOL_MODULES = [
   require('./tools/exit-worktree'),
   require('./tools/manage-shell-jobs'),
   require('./tools/run-skill'),
+  require('./tools/search-history'),
+  require('./tools/expand-history'),
   require('./tools/git-status'),
   require('./tools/lsp-query'),
   require('./tools/edit-file'),
@@ -124,6 +126,10 @@ const CAPABILITY_GROUPS = Object.freeze({
   agents: Object.freeze(['spawn_agent']),
   worktrees: Object.freeze(['enter_worktree', 'exit_worktree', 'list_worktrees']),
   skills: Object.freeze(['run_skill']),
+  // Research review 2026-08-31 ideas 5+6: recall over the session's own
+  // lossless canonical history. Opt-in (not core) per the minimal-default
+  // direction; when enabled, projection clip markers also gain recovery hints.
+  history: Object.freeze(['search_history', 'expand_history']),
   lsp: Object.freeze(['lsp_query']),
   shell: Object.freeze(['bash', 'manage_shell_jobs']),
 });
@@ -156,7 +162,7 @@ const TOOL_GROUPS = buildGroupIndex(CAPABILITY_GROUPS, TOOLS);
 
 // Groups a user may name in --capabilities. `core` is always on (naming it is
 // harmless but pointless); `shell` is deliberately excluded — see above.
-const OPTIONAL_CAPABILITIES = Object.freeze(['edits', 'recovery', 'agents', 'worktrees', 'skills', 'lsp']);
+const OPTIONAL_CAPABILITIES = Object.freeze(['edits', 'recovery', 'agents', 'worktrees', 'skills', 'history', 'lsp']);
 
 /**
  * N1 — filesystem target argument names the permission gate must inspect.

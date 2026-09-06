@@ -35,7 +35,13 @@ describe('FG-D tool-module registration completeness', () => {
   // Files under tools/ that are shared machinery, not tools. A NEW file that
   // is neither here nor in TOOL_MODULES fails loudly — the author must decide
   // which it is instead of shipping an orphan.
-  const KNOWN_HELPERS = new Set(['_file-cache.js', '_search-cache.js', 'file-write-utils.js', 'persistent-shell.js']);
+  const KNOWN_HELPERS = new Set([
+    '_file-cache.js',
+    '_search-cache.js',
+    '_history-index.js',
+    'file-write-utils.js',
+    'persistent-shell.js',
+  ]);
 
   it('FG-D1: every file in src/runner/tools is either a registered tool or a known helper', () => {
     const files = fs.readdirSync(TOOLS_DIR).filter((f) => f.endsWith('.js'));

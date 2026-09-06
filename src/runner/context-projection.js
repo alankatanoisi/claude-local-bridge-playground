@@ -63,7 +63,17 @@ function toolUseById(messages) {
   return map;
 }
 
-function reduceOldEvidence(messages, cutoff, targetTokens, requestBase, factor) {
+// Ideas 5+6 (research review 2026-08-31): when the run offers the history
+// capability group, lossy markers name their recovery route. Canonical
+// history is lossless, so a clipped/stubbed result is a slice away — the
+// marker just has to say so. Stale-read markers deliberately do NOT get this
+// hint: superseded evidence should be re-read from disk, not recovered.
+function recoveryHint(recovery, block) {
+  if (!recovery || !recovery.enabled || !block || !block.tool_use_id) return '';
+  return '; recover: expand_history id=' + block.tool_use_id;
+}
+
+function reduceOldEvidence(messages, cutoff, targetTokens, requestBase, factor, recovery) {
   let current = cloneMessages(messages);
   const uses = toolUseById(messages);
   const writes = [];
@@ -114,9 +124,9 @@ function reduceOldEvidence(messages, cutoff, targetTokens, requestBase, factor) 
   if (occupancy() > targetTokens) {
     rewriteResult(
       (block) => stringifyToolResultContent(block.content).length > OLD_RESULT_CLIP_CHARS,
-      (_block, before) => {
+      (block, before) => {
         stats.clipped++;
-        return headTail(before, OLD_RESULT_CLIP_CHARS, 'context:old-result-head-tail');
+        return headTail(before, OLD_RESULT_CLIP_CHARS, 'context:old-result-head-tail' + recoveryHint(recovery, block));
       },
     );
   }
@@ -134,7 +144,8 @@ function reduceOldEvidence(messages, cutoff, targetTokens, requestBase, factor) 
           '; original_chars=' +
           before.length +
           '; sha256=' +
-          sourceHash(before)
+          sourceHash(before) +
+          recoveryHint(recovery, block)
         );
       },
     );
@@ -244,7 +255,7 @@ function appendAnchor(messages, anchor) {
   return [...messages, { role: 'user', content: anchor }];
 }
 
-function emergencyReduceRecent(messages, policy) {
+function emergencyReduceRecent(messages, policy, recovery) {
   let largest = null;
   for (let messageIndex = 0; messageIndex < messages.length; messageIndex++) {
     const message = messages[messageIndex];
@@ -263,14 +274,18 @@ function emergencyReduceRecent(messages, policy) {
   const out = messages.slice();
   const message = messages[largest.messageIndex];
   const content = message.content.slice();
-  const reduced = headTail(largest.text, policy.emergencyResultChars, 'context:emergency-recent-result');
+  const reduced = headTail(
+    largest.text,
+    policy.emergencyResultChars,
+    'context:emergency-recent-result' + recoveryHint(recovery, largest.block),
+  );
   content[largest.blockIndex] = { ...largest.block, content: reduced };
   out[largest.messageIndex] = { ...message, content };
   return { messages: out, count: 1, charsRemoved: largest.text.length - reduced.length };
 }
 
 function buildContextProjection(input) {
-  const { messages, system, tools, policy, calibration, contextState, runtime } = input;
+  const { messages, system, tools, policy, calibration, contextState, runtime, recovery } = input;
   const requestBase = { system, tools };
   const before = estimateRequest({ ...requestBase, messages }, calibration.factor);
   let after = before;
@@ -296,7 +311,7 @@ function buildContextProjection(input) {
   }
 
   if (['compact', 'checkpoint', 'ceiling'].includes(initialTier)) {
-    const reduced = reduceOldEvidence(projected, cutoff, policy.compact, requestBase, calibration.factor);
+    const reduced = reduceOldEvidence(projected, cutoff, policy.compact, requestBase, calibration.factor, recovery);
     projected = reduced.messages;
     stats = reduced.stats;
     if (stats.staleDropped) stages.push('drop_stale_old_results');
@@ -315,7 +330,7 @@ function buildContextProjection(input) {
 
   currentEstimate = estimateRequest({ ...requestBase, messages: projected }, calibration.factor);
   if (currentEstimate.calibratedTokens >= policy.inputCeiling) {
-    emergency = emergencyReduceRecent(projected, policy);
+    emergency = emergencyReduceRecent(projected, policy, recovery);
     projected = emergency.messages;
     if (emergency.count) stages.push('emergency_recent_result_reduction');
   }

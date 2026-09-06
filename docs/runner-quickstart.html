@@ -447,8 +447,8 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
         <h2>Available tools</h2>
         <p>
           The runner exposes only the seven-tool core by default (read + session tools). Everything else is an
-          explicit opt-in: <code>--capabilities edits,recovery,agents,worktrees,skills,lsp</code> for tool groups,
-          <code>--allow-shell</code> for shell, <code>--tools</code> for an exact list.
+          explicit opt-in: <code>--capabilities edits,recovery,agents,worktrees,skills,history,lsp</code> for tool
+          groups, <code>--allow-shell</code> for shell, <code>--tools</code> for an exact list.
         </p>
         <div class="tool-grid">
           <div class="tool-card">
@@ -528,6 +528,16 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               Load a skill Markdown body by name from <code>.bridge-runner/skills/</code> or
               <code>.cursor/skills/</code>. Read-only — returns text for the model; does not execute shell or network
               steps embedded in the skill.
+            </p>
+          </div>
+          <div class="tool-card">
+            <h4>search_history / expand_history</h4>
+            <p>
+              Recall over the session's own lossless history (<code>--capabilities history</code>).
+              <code>search_history</code> is a deterministic keyword search across past turns and complete tool
+              results — including parts clipped out of the visible context; <code>expand_history</code> recovers an
+              entry verbatim by id, with offset paging for large results. When this group is enabled, context clip
+              markers name the id to recover. Read-only; output passes the standard secret redaction.
             </p>
           </div>
           <div class="tool-card">
