@@ -310,12 +310,17 @@ items rather than starting a parallel tracker.
 - **Programmatic-tooling research thread (nine papers → runner ideas) — entry
   `docs/programmatic-tooling-research-review-2026-08-31.html`.** Twelve borrowable ideas
   mapped to open backlog items; §6 holds the sequenced direction (Steps 0–2 done
-  2026-08-31; Step 2 = tool-description audit landed `5de3b3c`). **Step 3 first half
-  landed 2026-09-06 (Alan-directed): terminal-state checklist scoring in
-  `src/runner/golden-eval.js` + the seven HE-06 named cases (`test/runner/golden/he06-*`,
-  corpus 2→9; multi-phase + symlink fixtures added).** Next: searchable history +
-  recoverable clipping (ideas 5+6). Idea 9 (`run_block`) stays parked on R8's
-  no-runner-edge architecture — do not build toward it unbidden.
+  2026-08-31; Step 2 = tool-description audit landed `5de3b3c`). **Step 3 fully landed
+  2026-09-06 (Alan-directed): terminal-state checklist scoring + the seven HE-06 cases
+  (`65c001a`, corpus 2→9), then searchable history + recoverable clipping (`19c2a69`:
+  opt-in `history` capability group — `search_history`/`expand_history` over lossless
+  canonical history; projection clip markers gain `recover: expand_history id=…` only
+  when the group is offered; stale-read markers deliberately keep re-read).** The §6
+  sequence is complete — the next slice is a fresh Alan decision (open candidates:
+  idea 7 headlines index, idea 3 `--verify-finish`, idea 12 counters, idea 1 audit
+  rule). Idea 9 (`run_block`) stays parked on R8's no-runner-edge architecture — do
+  not build toward it unbidden. Cursor invariant review of `65c001a`+`19c2a69`
+  deferred by Alan (2026-09-06, momentum) — still owed downstream.
 
 - **ACP thread (Bridge Runner → T3 Code) — Slices A–D built; current entry
   `HANDOFF-acp-ask-user-question-2026-08-31.md`.** Design record for A–C:
