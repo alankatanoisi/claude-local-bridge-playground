@@ -44,6 +44,22 @@
 
 <h1>Programmatic Tooling Research Review — 2026-08-31</h1>
 
+<p class="callout"><strong>Cursor invariant review of landed Step&nbsp;3 commit
+<code>65c001a</code> (2026-09-06) — open.</strong>
+See <span class="path">HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md</span>.
+No High findings. Medium: <code>runner eval --update</code> reports checklist
+cases passed without scoring them. Do not treat the commit message's suite
+tally as a closed invariant review until that finding is fixed or explicitly
+wontfixed.</p>
+<p class="callout"><strong>Cursor invariant review of
+<code>19c2a69^..2da8066</code> (history + headlines, 2026-09-06) — open.</strong>
+See <span class="path">HANDOFF-context-layer-thermo-nuclear-2026-09-06.md</span>.
+No High findings. Medium: headline index can list still-visible exchanges as
+forgotten after a checkpoint restores stubs; the index can trip
+<code>context_ceiling_unrecoverable</code>. Starlark commit <code>84dd73a</code>
+sat in that git range; its abort/resume findings live in
+<span class="path">HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md</span>.</p>
+
 <dl class="meta">
   <dt>Doc type</dt>
   <dd>Durable research review (immutable record of a one-time analysis). Facts about the

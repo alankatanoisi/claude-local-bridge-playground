@@ -1,5 +1,14 @@
 # Starlark R11 — interruption and worker resume
 
+> **Thermo-nuclear review 2026-09-06 — OPEN findings:**
+> [`HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md`](HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md).
+> Build/test-gate claims in this file are not contradicted. Do **not** treat
+> `84dd73a` as invariant-clean: abort can drop a settled (charged) bridge
+> result so `--resume` pays again; `run_aborted` is written before the worker
+> pool drains; checkpoints are not fsynced; resume replays the whole pipeline
+> inside `coordinator.js` (622 → 874 lines). Review is review-only until Alan
+> asks for a fix.
+
 > **START HERE — new Starlark thread entry, 2026-09-06.** This handoff supersedes
 > [the 2026-08-25 status handoff](HANDOFF-starlark-status-and-recommendations-2026-08-25.md)
 > as the thread entry. That dated record and the A–D implementation records remain

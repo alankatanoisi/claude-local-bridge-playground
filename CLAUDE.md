@@ -305,7 +305,12 @@ items rather than starting a parallel tracker.
   `CODEX-TASK-starlark-r11-2026-09-06.md`): run-level AbortController + SIGINT/SIGTERM
   trip-and-flush, `--resume <runDir>` worker-phase resume from the ledger, golden
   descriptor plans, plan/input SHA-256 fingerprints, evaluator-dependent tests skip
-  instead of ENOENT; live smoke skipped, $0 spent.** The brief stays at the root until
+  instead of ENOENT; live smoke skipped, $0 spent.** **Thermo-nuclear review
+  2026-09-06 (findings not fixed):** Starlark slice
+  `HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md`; overlapping git range
+  (history + headlines + this commit)
+  `HANDOFF-context-layer-thermo-nuclear-2026-09-06.md`. Do not treat R11
+  abort/resume as settled. The brief stays at the root until
   Alan accepts, then archive it. Open: R12 (deferred). This machine: no Go toolchain, no
   local campaign ledger.
 
@@ -327,8 +332,11 @@ items rather than starting a parallel tracker.
   only when the history group is offered.** Next slice is a fresh Alan decision (open
   candidates: idea 3 `--verify-finish`, idea 12 counters, idea 1 audit rule). Idea 9
   (`run_block`) stays parked on R8's no-runner-edge architecture — do not build toward
-  it unbidden. Cursor invariant review of `65c001a`+`19c2a69`+idea 7 deferred by Alan
-  (2026-09-06, momentum) — still owed downstream.
+  it unbidden. **Cursor invariant review of `19c2a69^..2da8066` (history +
+  headlines, plus Starlark `84dd73a` which sat in that range):**
+  `HANDOFF-context-layer-thermo-nuclear-2026-09-06.md` — review only, findings
+  open. `65c001a` (eval harness / HE-06 goldens) was not in that range; its
+  review is `HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md`.
 
 - **ACP thread (Bridge Runner → T3 Code) — Slices A–D built; current entry
   `HANDOFF-acp-ask-user-question-2026-08-31.md`.** Design record for A–C:
