@@ -9,3 +9,4 @@ actions-runner/
 .DS_Store
 **/.DS_Store
 .codegraphy/*
+.cursor/hooks/state/continual-learning.json
