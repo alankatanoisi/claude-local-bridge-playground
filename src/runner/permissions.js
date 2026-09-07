@@ -121,7 +121,17 @@ function _getDecisionCache(ctx) {
 }
 
 function _decisionKey(toolName, args, ctx) {
-  const flags = (ctx.acceptEdits ? 'A' : '') + (ctx.dontAsk ? 'D' : '') + (ctx.allowShell ? 'S' : '');
+  // Use the same effective restrictions as the permission gate below. A run
+  // can become more restrictive while keeping the same context object; an
+  // earlier cached allow must not survive enabling plan or no-network mode.
+  // Effective flags also preserve restrictions imposed by the startup ceiling.
+  const eff = effectiveFlags(ctx);
+  const flags =
+    (ctx.acceptEdits ? 'A' : '') +
+    (ctx.dontAsk ? 'D' : '') +
+    (eff.allowShell ? 'S' : '') +
+    (eff.plan ? 'P' : '') +
+    (eff.noNetwork ? 'N' : '');
   // P0-10: worktree enter/exit mutates ctx.cwd on the SAME ctx object, so a
   // decision cached under one root would otherwise keep answering for a
   // different root. rootEpoch is bumped on every root transition; keying on it

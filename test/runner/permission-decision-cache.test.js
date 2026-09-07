@@ -84,3 +84,48 @@ describe('Ext-8 permission decision cache', () => {
     assert.equal(dB.decision, 'ask', 'different flags → different decision');
   });
 });
+
+// A context is reused during a run. Tightening its policy must take effect even
+// when exactly the same tool request was allowed and cached earlier.
+describe('permission cache respects policy narrowing', () => {
+  const { createAuthorityCeiling } = require('../../src/runner/authority');
+  const registry = require('../../src/runner/tool-registry');
+
+  function narrowingCtx(t, initial = {}) {
+    const ctx = { ...freshCtx('narrowing'), allowShell: true, ...initial };
+    ctx.authorityCeiling = createAuthorityCeiling(ctx);
+    t.after(() => fs.rmSync(ctx.cwd, { recursive: true, force: true }));
+    return ctx;
+  }
+
+  it('rechecks a cached write after plan mode is enabled', async (t) => {
+    const ctx = narrowingCtx(t);
+    const args = { path: 'sentinel.txt', content: 'temporary test fixture' };
+    assert.equal(permissions.check('write_file', args, ctx).decision, 'allow');
+
+    // Warm the real cache before changing the SAME context object.
+    ctx.plan = true;
+    const result = await registry.execute('write_file', args, ctx, 'cache-plan-test');
+    assert.equal(fs.existsSync(path.join(ctx.cwd, args.path)), false, 'plan mode must prevent the write');
+    assert.equal(result.needsConfirmation, true);
+    assert.equal(permissions.check('write_file', args, ctx).decision, 'ask');
+  });
+
+  it('rechecks a cached network command after noNetwork is enabled', (t) => {
+    const ctx = narrowingCtx(t);
+    // Classify this string only: the test never runs curl or accesses a network.
+    const args = { command: 'curl https://example.com' };
+    assert.equal(permissions.check('bash', args, ctx).decision, 'allow');
+    ctx.noNetwork = true;
+    assert.equal(permissions.check('bash', args, ctx).decision, 'deny');
+  });
+
+  it('keeps the startup network restriction when its mutable flag is cleared', (t) => {
+    const ctx = narrowingCtx(t, { noNetwork: true });
+    const args = { command: 'curl https://example.com' };
+    const denied = permissions.check('bash', args, ctx);
+    assert.equal(denied.decision, 'deny');
+    ctx.noNetwork = false;
+    assert.equal(permissions.check('bash', args, ctx).decision, 'deny');
+  });
+});
