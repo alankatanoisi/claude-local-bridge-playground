@@ -296,16 +296,18 @@ items rather than starting a parallel tracker.
   ledger-aware resume) closed same evening** — `HANDOFF-f6-ledger-aware-resume-2026-07-31.md`.
   Residual: A1-F4/A1-F5, A3-F4, DBOS arm, HE-05 OTel half.
 
-- **Starlark thread — current entry
-  `HANDOFF-starlark-status-and-recommendations-2026-08-25.md`.** Bundles A–D built 2026-08-10
-  (`starlark-host/`). D-F1 closed `4c6904a` (worker retries get the host rejection reason);
-  summary ceiling 700→1200 (owner decision, decision-tested). 08-10 two-axis tables describe
-  the **old** contract. **R8 decided 2026-08-31: frozen as a separate lab** (no
-  `run_workflow` runner edge — banner on the 08-25 handoff). **Lab un-idled 2026-09-06
-  (Alan; R8 architecture unchanged): R11 + stretch R14a/b briefed for Codex —
-  `CODEX-TASK-starlark-r11-2026-09-06.md`, $0 build + $10 optional-live ceiling.**
-  Open: R12 (deferred). Last Starlark code 2026-08-11. This machine: no Go toolchain, no local
-  campaign ledger.
+- **Starlark thread — current entry `HANDOFF-starlark-r11-2026-09-06.md`** (Codex; supersedes
+  the 08-25 status handoff as entry — that file and Bundles A–D records stay unchanged).
+  Bundles A–D built 2026-08-10 (`starlark-host/`). D-F1 closed `4c6904a`; summary ceiling
+  700→1200 (owner decision). 08-10 two-axis tables describe the **old** contract. **R8
+  decided 2026-08-31 and reaffirmed 2026-09-06: separate lab, no `run_workflow` runner edge —
+  revisit only after R11 use.** **R11 + R14a/b landed 2026-09-06 (`84dd73a`, Codex from
+  `CODEX-TASK-starlark-r11-2026-09-06.md`): run-level AbortController + SIGINT/SIGTERM
+  trip-and-flush, `--resume <runDir>` worker-phase resume from the ledger, golden
+  descriptor plans, plan/input SHA-256 fingerprints, evaluator-dependent tests skip
+  instead of ENOENT; live smoke skipped, $0 spent.** The brief stays at the root until
+  Alan accepts, then archive it. Open: R12 (deferred). This machine: no Go toolchain, no
+  local campaign ledger.
 
 - **Programmatic-tooling research thread (nine papers → runner ideas) — entry
   `docs/programmatic-tooling-research-review-2026-08-31.html`.** Twelve borrowable ideas
