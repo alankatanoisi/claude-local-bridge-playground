@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
+const { evaluatorRequired } = require('./helpers/evaluator-required');
 
 const { CostBudget } = require('../src/bridge');
 const { aggregate, classifyRejection, runRepeatedTrials, scoreRun } = require('../src/evaluation-harness');
@@ -78,7 +79,7 @@ test('scoreRun reads the rubric from durable state and events', () => {
   assert.equal(score.costUsd, 0.12);
 });
 
-test('mock repeated trials run the full loop and aggregate per model', async () => {
+test('mock repeated trials run the full loop and aggregate per model', evaluatorRequired, async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'eval-fixture-'));
   fs.writeFileSync(path.join(root, 'one.txt'), 'fixture one\n');
   fs.writeFileSync(path.join(root, 'two.txt'), 'fixture two\n');

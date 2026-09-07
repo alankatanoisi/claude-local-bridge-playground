@@ -2,10 +2,11 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const { evaluatorRequired } = require('./helpers/evaluator-required');
 
 const { generateEvaluationMatrix, validateMatrix } = require('../src/evaluation-matrix');
 
-test('Starlark expands the bounded eight-case evaluation matrix', async () => {
+test('Starlark expands the bounded eight-case evaluation matrix', evaluatorRequired, async () => {
   const matrix = await generateEvaluationMatrix();
   assert.equal(matrix.cases.length, 8);
   assert.equal(new Set(matrix.cases.map((entry) => entry.id)).size, 8);

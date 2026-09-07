@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const test = require('node:test');
+const { evaluatorRequired } = require('./helpers/evaluator-required');
 
 const { loadExperimentConfig } = require('../src/config');
 const { ROOT, prepareWorkflowDocuments, runWorkflow } = require('../src/workflow-runner');
@@ -25,7 +26,7 @@ test('test-triage workflow collects the two intentional failures', async () => {
   assert.ok(collection.documents.every((document) => document.kind === 'test_failure'));
 });
 
-test('provider-neutral registry executes repository fan-out in mock mode', async () => {
+test('provider-neutral registry executes repository fan-out in mock mode', evaluatorRequired, async () => {
   const runRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workflow-repo-'));
   const result = await runWorkflow({
     config,
@@ -44,7 +45,7 @@ test('provider-neutral registry executes repository fan-out in mock mode', async
   assert.ok(fs.existsSync(path.join(result.runDir, 'collection.json')));
 });
 
-test('test failure triage records deliberate failures and bounded recovery', async () => {
+test('test failure triage records deliberate failures and bounded recovery', evaluatorRequired, async () => {
   const runRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'workflow-triage-'));
   const result = await runWorkflow({
     config,

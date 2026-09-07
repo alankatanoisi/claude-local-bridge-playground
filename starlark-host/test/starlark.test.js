@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const { evaluatorRequired } = require('./helpers/evaluator-required');
 
 const { evaluateStarlark, extractStarlark } = require('../src/starlark');
 
@@ -9,7 +10,7 @@ test('extracts fenced Starlark without surrounding prose', () => {
   assert.equal(extractStarlark('Here:\n```starlark\ndef plan(ctx):\n    return []\n```'), 'def plan(ctx):\n    return []');
 });
 
-test('evaluates pure JSON-shaped Starlark', async () => {
+test('evaluates pure JSON-shaped Starlark', evaluatorRequired, async () => {
   const response = await evaluateStarlark({
     source: 'def plan(ctx):\n    return [{"id": ctx["id"], "items": [1, 2]}]',
     functionName: 'plan',
@@ -21,7 +22,7 @@ test('evaluates pure JSON-shaped Starlark', async () => {
   assert.ok(response.steps > 0);
 });
 
-test('rejects module loads', async () => {
+test('rejects module loads', evaluatorRequired, async () => {
   await assert.rejects(
     evaluateStarlark({
       source: 'load("outside.star", "x")\ndef plan(ctx):\n    return []',
@@ -34,7 +35,7 @@ test('rejects module loads', async () => {
   );
 });
 
-test('stops a generated program at the execution-step ceiling', async () => {
+test('stops a generated program at the execution-step ceiling', evaluatorRequired, async () => {
   await assert.rejects(
     evaluateStarlark({
       source: 'def plan(ctx):\n    values = []\n    for i in range(100000000):\n        values.append(i)\n    return values',

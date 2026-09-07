@@ -35,7 +35,7 @@ Claude bridge, but the registry contract can accept additional adapters later.
 
 - Mock mode is the default and costs nothing.
 - Live mode requires both `--mode live` and an explicit `--max-cost-usd`.
-- The CLI refuses a cap above the configuration ceiling of `$10`.
+- The CLI refuses a cap above the configuration ceiling of `$20` (unchanged by R11).
 - Generated Starlark cannot select a model or introduce unknown descriptor fields.
 - The planner sees document metadata; workers receive only explicitly referenced documents.
 - The experiment is read-only over the configured target repository.
@@ -57,8 +57,10 @@ npm run preflight
 npm run mock
 ```
 
-Success means the Go evaluator builds, all Node tests pass, and mock mode creates
-a completed run under `runs/` with deliberate failures and bounded retries.
+These commands require an already-built Go evaluator and create a completed run
+under `runs/` with deliberate failures and bounded retries. `npm run verify`
+builds that evaluator and runs the tests; it requires Go. For the path that works
+without Go, use the R11 commands below.
 
 ## Workflow dry runs
 
@@ -211,3 +213,106 @@ Resume events append to the same run ledger with continuing sequence
 numbers; nothing is rewritten. Field-proven 2026-08-10: the fan-out canary
 that truncated its monolithic synthesis was completed by the same model via
 map-reduce for ~$0.015.
+
+## Interrupting and resuming a run (R11)
+
+The lab is active again as of 2026-09-06. R8 still keeps it separate from the
+runner: there is no runner `run_workflow` tool or integration edge.
+
+On your Mac, open **Terminal** using Spotlight: press Command–Space, type
+“Terminal”, then press Return. Paste the following into the Terminal window.
+Lines beginning with `#` are explanatory comments; Terminal ignores them.
+
+```bash
+# Move Terminal into the actual playground repository.
+cd /Users/alanman/Developer/claude-local-bridge-playground
+
+# Build the plan on the host and analyze the files deterministically.
+# Mock synthesis also costs zero. This command does not need Go or the bridge.
+node starlark-host/bin/run-workflow.js --workflow repo_fanout --mode mock --plan-source host_json --worker-provider deterministic_analyst
+```
+
+Success prints a JSON (JavaScript Object Notation) summary with `phase` equal to
+`completed` and a `runDir` folder path. That folder contains the saved inputs,
+worker artifacts, `events.jsonl` (one JSON event per line), and `state.json`
+(the most recent checkpoint). Keep the printed `runDir` if you want to resume.
+
+Pressing Control–C in the Terminal window sends **SIGINT**, a cooperative stop
+request. **SIGTERM** is another cooperative stop request, usually sent by a
+parent process. Both stop the queue, cancel outstanding bridge requests, append
+`run_aborted` with a reason, and checkpoint `phase: aborted`. The process waits
+for outstanding budget cleanup before exiting with code 130 or 143 respectively.
+A small deterministic run may finish before you can interrupt it.
+
+**SIGKILL** stops the process immediately, so it cannot write an abort checkpoint.
+Worker success events are saved synchronously to disk; resume reads those events
+even when the checkpoint predates them. The process-kill tests target only child
+processes the tests created.
+
+In the same Terminal window and repository folder, replace the quoted example
+below with the exact `runDir` printed by your mock run:
+
+```bash
+# Continue unfinished jobs using the original saved inputs and accepted plans.
+node starlark-host/bin/run-workflow.js --resume "/absolute/path/from/runDir"
+```
+
+Both `run-workflow.js` and `run-experiment.js` accept `--resume <runDir>` and use
+one shared worker-resume path. The experiment entry point also accepts
+`--plan-source host_json` and `--worker-provider deterministic_analyst` for a
+fresh experiment. Resume preserves the saved configuration; do not combine it
+with fresh-run options such as `--workflow` or `--worker-provider`.
+
+- A job with `job_succeeded` reuses its saved artifact and never executes again.
+- A job that started without a success or failure receipt executes again. This
+  is **at-least-once execution**: interrupted work may have run before the stop,
+  so its side effects cannot be assumed to happen only once.
+- Saved failures stay failures; the existing bounded recovery plan controls their
+  retries. An interrupted recovery phase resumes the accepted recovery plan.
+- A completed run is a no-op: resume exits successfully without starting jobs.
+- A `partial` run with `synthesisFailure` still uses `resume-synthesis.js`, as
+  documented above. Worker resume points you to that existing command.
+
+Mock remains the default. A live resume requires explicit `--mode live` and the
+**same** positive `--max-cost-usd` as the original run. It reopens the original
+campaign, refuses a different campaign or ceiling, and refuses to create a fresh
+allowance if the saved campaign ledger is missing. An interrupted HTTP request
+may have incurred provider usage that no response reported; the local ledger
+can account only for received usage, not prove the provider's final bill.
+
+Common errors: a wrong folder path produces a missing-file error; use the exact
+printed `runDir`. A mode or cap mismatch requires the original run's settings.
+A damaged ledger or changed saved plan/input causes resume to stop before starting
+work; preserve those files for inspection. Resume does not repair or truncate
+ledger history. Use one process per run folder; simultaneous resumes are not a
+supported use of this lab.
+
+## Offline regression checks and accepted-plan fingerprints (R11 / R14a / R14b)
+
+In **Terminal**, from the same repository folder, run:
+
+```bash
+# Run all host tests. Evaluator-dependent tests visibly skip if Go's binary
+# has not been built; host-JSON, interruption, resume, and hash tests still run.
+npm --prefix starlark-host test
+```
+
+Success means zero failures. Skips explicitly name the missing `starlark-eval`
+binary; they are not evaluator passes. The R11 tests check named final-state
+properties of events, artifacts, execution receipts, and budget files. They
+include genuine child-process SIGINT/SIGTERM/SIGKILL and simultaneous HTTP calls.
+
+`test/golden-plans/` holds fixed expected initial and recovery descriptors for
+three fixtures. Tests compare against committed JSON; they never update it.
+An intentional plan change therefore needs an explicit snapshot review.
+
+Accepted-plan events include `hashes` with an algorithm label, `planHash`,
+`programHash`, and `inputHash`; checkpoints retain `planHashes`, `recoveryHashes`,
+and the base `inputHash`. These use SHA-256 (Secure Hash Algorithm, 256-bit)
+over canonical JSON: object keys are sorted, array order is preserved. For
+Starlark, `programHash` covers the accepted source string after lint repairs,
+with that source saved in `artifacts/plan-source-accepted.json` (or
+`recover-source-accepted.json`). For `host_json`, the program is the descriptor
+list. Input hashes cover the objective, saved input metadata and actual text;
+recovery also covers its initial failure records. Hashes check consistency,
+not who authored a file. The existing per-run evidence layout is unchanged.

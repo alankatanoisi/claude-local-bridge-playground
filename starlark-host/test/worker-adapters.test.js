@@ -109,7 +109,7 @@ test('deterministic provider is byte-for-byte reproducible and costs nothing', a
 });
 
 test('the full repo_fanout workflow completes on the deterministic provider at $0', async () => {
-  // Mock planner (MockBridge) + deterministic workers: a complete pipeline
+  // Host JSON plan + mock synthesis + deterministic workers: a complete pipeline
   // run with zero model calls of any kind.
   const config = loadExperimentConfig();
   const summary = await runWorkflow({
@@ -118,6 +118,7 @@ test('the full repo_fanout workflow completes on the deterministic provider at $
     mode: 'mock',
     faultProfile: 'none',
     workerProvider: 'deterministic_analyst',
+    planSource: 'host_json',
     runRoot: fs.mkdtempSync(path.join(os.tmpdir(), 'det-workflow-')),
   });
   assert.equal(summary.phase, 'completed');

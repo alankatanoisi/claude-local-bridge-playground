@@ -1,0 +1,62 @@
+{
+  "plan": [
+    {
+      "id": "analyze_one",
+      "worker": "code_analyst",
+      "task": "Analyze input one for the stated objective. Report only evidence-backed findings from the supplied document.",
+      "input_ids": ["one"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 2600
+    },
+    {
+      "id": "analyze_two",
+      "worker": "code_analyst",
+      "task": "Analyze input two for the stated objective. Report only evidence-backed findings from the supplied document.",
+      "input_ids": ["two"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 2600
+    },
+    {
+      "id": "analyze_three",
+      "worker": "code_analyst",
+      "task": "Analyze input three for the stated objective. Report only evidence-backed findings from the supplied document.",
+      "input_ids": ["three"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 2600
+    },
+    {
+      "id": "analyze_four",
+      "worker": "code_analyst",
+      "task": "Analyze input four for the stated objective. Report only evidence-backed findings from the supplied document.",
+      "input_ids": ["four"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 2600
+    }
+  ],
+  "recovery": [
+    {
+      "id": "retry_analyze_one",
+      "worker": "code_analyst",
+      "task": "Analyze input one for the stated objective. Report only evidence-backed findings from the supplied document. This is a bounded retry; return strict JSON only.",
+      "input_ids": ["one"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 2600,
+      "retry_of": "analyze_one"
+    },
+    {
+      "id": "retry_analyze_three",
+      "worker": "code_analyst",
+      "task": "Analyze input three for the stated objective. Report only evidence-backed findings from the supplied document. This is a bounded retry; return strict JSON only.",
+      "input_ids": ["three"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 2600,
+      "retry_of": "analyze_three"
+    }
+  ]
+}

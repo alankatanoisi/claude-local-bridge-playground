@@ -29,7 +29,15 @@ class RunLedger {
 
   append(type, payload = {}) {
     const event = { seq: ++this.seq, at: new Date().toISOString(), type, payload };
-    fs.appendFileSync(this.eventsPath, JSON.stringify(event) + '\n', { mode: 0o600 });
+    // Persist each receipt before reporting success. A signal handler cannot
+    // help after SIGKILL, so durability belongs here, on the write itself.
+    const fd = fs.openSync(this.eventsPath, 'a', 0o600);
+    try {
+      fs.writeFileSync(fd, JSON.stringify(event) + '\n');
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
     return event;
   }
 

@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
+const { evaluatorRequired } = require('./helpers/evaluator-required');
 
 const { CostBudget } = require('../src/bridge');
 const { PhasedCoordinator } = require('../src/coordinator');
@@ -117,7 +118,7 @@ test('triple-quoted strings are handled as single literals', () => {
   assert.equal(result.applied.length, 0, 'triple string then separate statement is not adjacency');
 });
 
-test('coordinator: adjacent-string plan is auto-repaired and accepted first-pass', async () => {
+test('coordinator: adjacent-string plan is auto-repaired and accepted first-pass', evaluatorRequired, async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-repair-'));
   fs.writeFileSync(path.join(root, 'one.txt'), 'fixture one\n');
   const budget = new CostBudget(0);
@@ -157,7 +158,7 @@ test('coordinator: adjacent-string plan is auto-repaired and accepted first-pass
   assert.match(events, /adjacent-strings/);
 });
 
-test('coordinator: f-string plan is rejected with lint guidance in the repair prompt', async () => {
+test('coordinator: f-string plan is rejected with lint guidance in the repair prompt', evaluatorRequired, async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-reject-'));
   fs.writeFileSync(path.join(root, 'one.txt'), 'fixture one\n');
   const budget = new CostBudget(0);

@@ -15,13 +15,12 @@
  */
 
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
+const { evaluatorRequired } = require('./helpers/evaluator-required');
 const test = require('node:test');
 
-const { DEFAULT_BINARY, evaluateStarlark } = require('../src/starlark');
+const { evaluateStarlark } = require('../src/starlark');
 const { validateJobs } = require('../src/validator');
 
-const binaryPresent = fs.existsSync(DEFAULT_BINARY);
 const run = (options) =>
   evaluateStarlark({ functionName: 'plan', context: {}, maxSteps: 200000, timeoutMs: 2000, ...options });
 
@@ -42,7 +41,7 @@ function policyFixture() {
   };
 }
 
-test('comprehension bomb trips the deterministic step ceiling', { skip: !binaryPresent && 'evaluator binary not built' }, async () => {
+test('comprehension bomb trips the deterministic step ceiling', evaluatorRequired, async () => {
   // Note: starlark-go rejects the '**' operator outright, so the bomb uses a
   // literal count. The comprehension burns one step per element and must hit
   // the 200k step ceiling long before completing a billion iterations.
@@ -52,28 +51,28 @@ test('comprehension bomb trips the deterministic step ceiling', { skip: !binaryP
   );
 });
 
-test('while loop is rejected at parse/resolve time', { skip: !binaryPresent && 'evaluator binary not built' }, async () => {
+test('while loop is rejected at parse/resolve time', evaluatorRequired, async () => {
   await assert.rejects(
     run({ source: 'def plan(ctx):\n    while True:\n        pass\n    return []' }),
     /while|not supported|parse|syntax/i,
   );
 });
 
-test('recursion is rejected by the evaluator', { skip: !binaryPresent && 'evaluator binary not built' }, async () => {
+test('recursion is rejected by the evaluator', evaluatorRequired, async () => {
   await assert.rejects(
     run({ source: 'def plan(ctx):\n    return plan(ctx)' }),
     /recursion|recursive/i,
   );
 });
 
-test('load() is disabled', { skip: !binaryPresent && 'evaluator binary not built' }, async () => {
+test('load() is disabled', evaluatorRequired, async () => {
   await assert.rejects(
     run({ source: 'load("evil.star", "x")\ndef plan(ctx):\n    return []' }),
     /load is disabled|load/i,
   );
 });
 
-test('homoglyph function names do not satisfy the required entry point', { skip: !binaryPresent && 'evaluator binary not built' }, async () => {
+test('homoglyph function names do not satisfy the required entry point', evaluatorRequired, async () => {
   // Cyrillic 'р' in 'рlan' — visually identical, semantically absent.
   await assert.rejects(
     run({ source: 'def рlan(ctx):\n    return []' }),
@@ -81,7 +80,7 @@ test('homoglyph function names do not satisfy the required entry point', { skip:
   );
 });
 
-test('giant string output is stopped by the host stdout ceiling', { skip: !binaryPresent && 'evaluator binary not built' }, async () => {
+test('giant string output is stopped by the host stdout ceiling', evaluatorRequired, async () => {
   // ~48MB result in very few steps: the step ceiling cannot catch this;
   // the Node-side output cap must.
   await assert.rejects(
@@ -93,7 +92,7 @@ test('giant string output is stopped by the host stdout ceiling', { skip: !binar
   );
 });
 
-test('deeply nested results fail closed at the validator, not with a crash', { skip: !binaryPresent && 'evaluator binary not built' }, async () => {
+test('deeply nested results fail closed at the validator, not with a crash', evaluatorRequired, async () => {
   const source = [
     'def plan(ctx):',
     '    value = []',
@@ -108,7 +107,7 @@ test('deeply nested results fail closed at the validator, not with a crash', { s
   assert.throws(() => validateJobs(evaluated.result, policyFixture()), /must be an object/);
 });
 
-test('oversized job counts are rejected by the phase limit', { skip: !binaryPresent && 'evaluator binary not built' }, async () => {
+test('oversized job counts are rejected by the phase limit', evaluatorRequired, async () => {
   const source = [
     'def plan(ctx):',
     '    return [{',
@@ -145,7 +144,7 @@ test('descriptor smuggling: authority-shaped and alias fields are rejected', () 
   }
 });
 
-test('infinite-loop-shaped compute is stopped by the wall-clock timeout as second guard', { skip: !binaryPresent && 'evaluator binary not built' }, async () => {
+test('infinite-loop-shaped compute is stopped by the wall-clock timeout as second guard', evaluatorRequired, async () => {
   // Big-but-under-step-ceiling compute with a tiny timeout: the cancel timer
   // must win even when the step ceiling would not trip.
   await assert.rejects(

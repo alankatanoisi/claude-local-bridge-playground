@@ -1,0 +1,9 @@
+[
+  { "name": "experiment", "workerName": "code_analyst", "inputIds": ["one", "two", "three", "four"] },
+  {
+    "name": "repo_fanout",
+    "workerName": "repo_file_analyst",
+    "inputIds": ["doc1", "doc2", "doc3", "doc4", "doc5", "doc6"]
+  },
+  { "name": "test_triage", "workerName": "test_failure_triager", "inputIds": ["failure1", "failure2"] }
+]

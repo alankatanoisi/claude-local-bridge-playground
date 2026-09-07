@@ -59,7 +59,7 @@ class WorkerRegistry {
     return profile;
   }
 
-  async execute({ workerName, prompt, maxTokens, timeoutMs, label }) {
+  async execute({ workerName, prompt, maxTokens, timeoutMs, label, signal }) {
     const profile = this.profile(workerName);
     const route = this.routes.get(profile.route);
     const provider = this.providers.get(route.provider);
@@ -74,6 +74,7 @@ class WorkerRegistry {
       effort: profile.effort || route.effort || 'low',
       timeoutMs,
       label,
+      signal,
     });
   }
 }

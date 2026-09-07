@@ -7,7 +7,11 @@ const crypto = require('crypto');
 
 const { ClaudeBridge, CostBudget, MockBridge } = require('../src/bridge');
 const { openCampaignBudget } = require('../src/campaign-budget');
+const { createRunController, installRunSignals } = require('../src/run-abort');
 const { loadExperimentConfig } = require('../src/config');
+const { resumeWorkerRun, routesForProfiles } = require('../src/workflow-runner');
+const { createDeterministicProvider } = require('../src/deterministic-analyst');
+const { createBridgeWorkerRegistry } = require('../src/worker-registry');
 const { PhasedCoordinator } = require('../src/coordinator');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -16,6 +20,28 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const config = loadExperimentConfig();
   const mode = args.mode || 'mock';
+  if (args.resume) {
+    const allowed = new Set(['resume', 'mode', 'maxCostUsd', 'campaign']);
+    for (const key of Object.keys(args)) if (!allowed.has(key)) throw new Error(`--resume cannot combine with ${key}`);
+    const controller = createRunController();
+    const removeSignals = installRunSignals(controller);
+    try {
+      const summary = await resumeWorkerRun({
+        runDir: args.resume,
+        mode,
+        maxCostUsd: Number(args.maxCostUsd || 0),
+        campaignId: args.campaign,
+        controller,
+      });
+      process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
+    } finally {
+      removeSignals();
+    }
+    return;
+  }
+  const workerProvider = args.workerProvider || 'local_claude_bridge';
+  if (!['local_claude_bridge', 'deterministic_analyst'].includes(workerProvider))
+    throw new Error('unknown worker provider');
   const axis = args.axis || 'planner';
   const faultProfile = args.faultProfile || 'mixed';
   const traceLevel = args.traceLevel || config.traceLevel || 'off';
@@ -31,9 +57,7 @@ async function main() {
     throw new Error('live mode requires an explicit positive --max-cost-usd');
   }
   if (mode === 'live' && requestedCap > config.maxExperimentCostUsd) {
-    throw new Error(
-      `requested cap $${requestedCap} exceeds configuration ceiling $${config.maxExperimentCostUsd}`,
-    );
+    throw new Error(`requested cap $${requestedCap} exceeds configuration ceiling $${config.maxExperimentCostUsd}`);
   }
   // Live runs meter against the durable campaign ledger (R1); a run without
   // --campaign starts a fresh durable campaign whose id is printed in the
@@ -68,7 +92,25 @@ async function main() {
             runId: traceId,
           })
         : new MockBridge({ budget });
+    const controller = createRunController();
+    const removeSignals = installRunSignals(controller);
     const coordinator = new PhasedCoordinator({
+      controller,
+      executionContext: {
+        mode,
+        maxCostUsd: requestedCap || 0,
+        campaignId: budget.campaignId || null,
+        budgetLedgerPath: budget.ledgerPath || null,
+        traceLevel,
+        workerProvider,
+      },
+      workerRegistry: createBridgeWorkerRegistry({
+        profiles: config.workerProfiles,
+        bridge,
+        modelRoutes: routesForProfiles(config.workerProfiles, workerModel, workerProvider),
+        extraProviders: { deterministic_analyst: createDeterministicProvider() },
+      }),
+      planSource: args.planSource || 'starlark',
       config,
       bridge,
       plannerModel,
@@ -87,7 +129,7 @@ async function main() {
         recoveryMetrics: result.recoveryMetrics || null,
         successes: result.results.filter((item) => item.ok).length,
         failures: result.results.filter((item) => !item.ok).length,
-        synthesisOk: !result.synthesisFailure,
+        synthesisOk: result.phase === 'completed' && !result.synthesisFailure,
         synthesisFailure: result.synthesisFailure || null,
         estimatedCostUsd: budget.usedUsd,
         trace: bridge.traceMetadata ? bridge.traceMetadata() : null,
@@ -107,12 +149,13 @@ async function main() {
         estimatedCostUsd: budget.usedUsd,
         trace: bridge.traceMetadata ? bridge.traceMetadata() : null,
       });
+    } finally {
+      removeSignals();
     }
+    if (controller.signal.aborted) break;
   }
 
-  process.stdout.write(
-    JSON.stringify({ mode, axis, faultProfile, traceLevel, summaries, budget }, null, 2) + '\n',
-  );
+  process.stdout.write(JSON.stringify({ mode, axis, faultProfile, traceLevel, summaries, budget }, null, 2) + '\n');
   if (failedRuns) process.exitCode = 1;
 }
 
@@ -122,9 +165,8 @@ function parseArgs(argv) {
     const value = argv[index];
     if (value === '--matrix') args.matrix = true;
     else if (value.startsWith('--')) {
-      const key = value
-        .slice(2)
-        .replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      if (index + 1 >= argv.length || argv[index + 1].startsWith('--')) throw new Error(`missing value for '${value}'`);
+      const key = value.slice(2).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
       args[key] = argv[++index];
     } else throw new Error(`unexpected argument: ${value}`);
   }
@@ -143,10 +185,9 @@ function selectModels(args, config, axis) {
 
 function makeRunDir({ mode, axis, plannerModel, workerModel, faultProfile }) {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const name = [stamp, mode, axis, plannerModel, workerModel, faultProfile]
-    .join('__')
-    .replace(/[^a-zA-Z0-9._-]/g, '_');
+  const name = [stamp, mode, axis, plannerModel, workerModel, faultProfile].join('__').replace(/[^a-zA-Z0-9._-]/g, '_');
   const runDir = path.join(ROOT, 'runs', name);
+  fs.mkdirSync(path.dirname(runDir), { recursive: true, mode: 0o700 });
   fs.mkdirSync(runDir, { recursive: false, mode: 0o700 });
   return runDir;
 }

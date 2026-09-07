@@ -1,0 +1,90 @@
+{
+  "plan": [
+    {
+      "id": "analyze_doc1",
+      "worker": "repo_file_analyst",
+      "task": "Analyze input doc1 for the stated objective. Report only evidence-backed findings from the supplied document.",
+      "input_ids": ["doc1"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 1800
+    },
+    {
+      "id": "analyze_doc2",
+      "worker": "repo_file_analyst",
+      "task": "Analyze input doc2 for the stated objective. Report only evidence-backed findings from the supplied document.",
+      "input_ids": ["doc2"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 1800
+    },
+    {
+      "id": "analyze_doc3",
+      "worker": "repo_file_analyst",
+      "task": "Analyze input doc3 for the stated objective. Report only evidence-backed findings from the supplied document.",
+      "input_ids": ["doc3"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 1800
+    },
+    {
+      "id": "analyze_doc4",
+      "worker": "repo_file_analyst",
+      "task": "Analyze input doc4 for the stated objective. Report only evidence-backed findings from the supplied document.",
+      "input_ids": ["doc4"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 1800
+    },
+    {
+      "id": "analyze_doc5",
+      "worker": "repo_file_analyst",
+      "task": "Analyze input doc5 for the stated objective. Report only evidence-backed findings from the supplied document.",
+      "input_ids": ["doc5"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 1800
+    },
+    {
+      "id": "analyze_doc6",
+      "worker": "repo_file_analyst",
+      "task": "Analyze input doc6 for the stated objective. Report only evidence-backed findings from the supplied document.",
+      "input_ids": ["doc6"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 1800
+    }
+  ],
+  "recovery": [
+    {
+      "id": "retry_analyze_doc1",
+      "worker": "repo_file_analyst",
+      "task": "Analyze input doc1 for the stated objective. Report only evidence-backed findings from the supplied document. This is a bounded retry; return strict JSON only.",
+      "input_ids": ["doc1"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 1800,
+      "retry_of": "analyze_doc1"
+    },
+    {
+      "id": "retry_analyze_doc3",
+      "worker": "repo_file_analyst",
+      "task": "Analyze input doc3 for the stated objective. Report only evidence-backed findings from the supplied document. This is a bounded retry; return strict JSON only.",
+      "input_ids": ["doc3"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 1800,
+      "retry_of": "analyze_doc3"
+    },
+    {
+      "id": "retry_analyze_doc5",
+      "worker": "repo_file_analyst",
+      "task": "Analyze input doc5 for the stated objective. Report only evidence-backed findings from the supplied document. This is a bounded retry; return strict JSON only.",
+      "input_ids": ["doc5"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 1800,
+      "retry_of": "analyze_doc5"
+    }
+  ]
+}

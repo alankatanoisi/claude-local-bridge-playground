@@ -21,7 +21,9 @@ test('Claude adapter sends concurrent Messages requests and settles reservations
     const chunks = [];
     request.on('data', (chunk) => chunks.push(chunk));
     request.on('end', () => {
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      const raw = Buffer.concat(chunks).toString('utf8');
+      assert.ok(raw.length, `mock bridge received empty ${request.method} ${request.url}; headers=${JSON.stringify({ host: request.headers.host, length: request.headers['content-length'], agent: request.headers['user-agent'] })}`);
+      const body = JSON.parse(raw);
       bodies.push(body);
       setTimeout(() => {
         active -= 1;

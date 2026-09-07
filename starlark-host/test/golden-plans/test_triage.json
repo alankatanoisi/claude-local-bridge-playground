@@ -1,0 +1,34 @@
+{
+  "plan": [
+    {
+      "id": "analyze_failure1",
+      "worker": "test_failure_triager",
+      "task": "Analyze input failure1 for the stated objective. Report only evidence-backed findings from the supplied document.",
+      "input_ids": ["failure1"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 1400
+    },
+    {
+      "id": "analyze_failure2",
+      "worker": "test_failure_triager",
+      "task": "Analyze input failure2 for the stated objective. Report only evidence-backed findings from the supplied document.",
+      "input_ids": ["failure2"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 1400
+    }
+  ],
+  "recovery": [
+    {
+      "id": "retry_analyze_failure1",
+      "worker": "test_failure_triager",
+      "task": "Analyze input failure1 for the stated objective. Report only evidence-backed findings from the supplied document. This is a bounded retry; return strict JSON only.",
+      "input_ids": ["failure1"],
+      "depends_on": [],
+      "timeout_ms": 30000,
+      "max_output_tokens": 1400,
+      "retry_of": "analyze_failure1"
+    }
+  ]
+}

@@ -19,6 +19,7 @@
  */
 
 const crypto = require('crypto');
+const { checkAbort } = require('./run-abort');
 
 const { WORKER_OUTPUT_LIMITS } = require('./worker-contract');
 
@@ -79,7 +80,8 @@ function analyzeDocument(document) {
  */
 function createDeterministicProvider() {
   return {
-    async execute({ prompt, label }) {
+    async execute({ prompt, label, signal }) {
+      checkAbort(signal);
       const documents = extractDocuments(prompt);
       if (documents.length === 0) {
         // Same failure shape a malformed worker response produces: strict
@@ -94,7 +96,11 @@ function createDeterministicProvider() {
         costUsd: 0,
         rawStopReason: 'end_turn',
         deterministic: true,
-        requestFingerprint: crypto.createHash('sha256').update(String(label) + prompt).digest('hex').slice(0, 16),
+        requestFingerprint: crypto
+          .createHash('sha256')
+          .update(String(label) + prompt)
+          .digest('hex')
+          .slice(0, 16),
       };
     },
   };

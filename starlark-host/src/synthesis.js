@@ -58,11 +58,7 @@ function validateSynthesisResponse(response) {
 function resolveSynthesisOptions(overrides = {}, resultCount = 0) {
   const options = { ...DEFAULT_OPTIONS, ...overrides };
   const strategy =
-    options.strategy === 'auto'
-      ? resultCount > options.autoThreshold
-        ? 'map_reduce'
-        : 'single'
-      : options.strategy;
+    options.strategy === 'auto' ? (resultCount > options.autoThreshold ? 'map_reduce' : 'single') : options.strategy;
   return { ...options, strategy };
 }
 
@@ -80,12 +76,13 @@ function chunk(items, size) {
  * Never throws for semantic failures — those come back as `failure` with a
  * `stage` ('single' | 'map' | 'reduce') so the caller can record and resume.
  */
-async function runSynthesis({ bridge, model, objective, results, options }) {
+async function runSynthesis({ bridge, model, objective, results, options, signal }) {
   const resolved = resolveSynthesisOptions(options, results.length);
 
   if (resolved.strategy === 'single') {
     const response = await bridge.call({
       model,
+      signal,
       system: SYNTHESIS_SYSTEM,
       prompt: buildSynthesisPrompt(objective, results),
       maxTokens: resolved.singleMaxTokens,
@@ -109,6 +106,7 @@ async function runSynthesis({ bridge, model, objective, results, options }) {
       'State job ids, what succeeded or failed, and the strongest evidence-backed findings.';
     const response = await bridge.call({
       model,
+      signal,
       system: SYNTHESIS_SYSTEM,
       prompt,
       maxTokens: resolved.mapMaxTokens,
@@ -140,6 +138,7 @@ async function runSynthesis({ bridge, model, objective, results, options }) {
     'that no part mentions, and do not claim a failed job succeeded.';
   const response = await bridge.call({
     model,
+    signal,
     system: SYNTHESIS_SYSTEM,
     prompt: reducePrompt,
     maxTokens: resolved.reduceMaxTokens,

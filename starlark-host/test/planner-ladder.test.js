@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
+const { evaluatorRequired } = require('./helpers/evaluator-required');
 
 const { CostBudget } = require('../src/bridge');
 const { PhasedCoordinator } = require('../src/coordinator');
@@ -45,7 +46,7 @@ function fixtureConfig(root) {
   };
 }
 
-test('R13: planning escalates one tier after the cheap tier exhausts repairs', async () => {
+test('R13: planning escalates one tier after the cheap tier exhausts repairs', evaluatorRequired, async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ladder-'));
   fs.writeFileSync(path.join(root, 'one.txt'), 'fixture one\n');
   const budget = new CostBudget(0);
@@ -107,7 +108,7 @@ test('R13: planning escalates one tier after the cheap tier exhausts repairs', a
   assert.ok(fs.existsSync(path.join(runDir, 'artifacts', 'plan-source-attempt-3.json')));
 });
 
-test('R13: a ladder that exhausts every tier fails with the last error', async () => {
+test('R13: a ladder that exhausts every tier fails with the last error', evaluatorRequired, async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ladder-fail-'));
   fs.writeFileSync(path.join(root, 'one.txt'), 'fixture one\n');
   const budget = new CostBudget(0);

@@ -87,6 +87,7 @@ async function runWorkflow({
   planSource = 'starlark',
   runRoot = path.join(ROOT, 'workflow-runs'),
   prototypeRoot = ROOT,
+  controller,
 }) {
   validateRunOptions({ config, mode, faultProfile, traceLevel, maxCostUsd });
   const workflow = config.workflows[workflowName];
@@ -95,10 +96,7 @@ async function runWorkflow({
   // Live spend is metered by the durable campaign ledger (R1): separate
   // commands naming the same campaign share ONE allowance instead of each
   // starting a fresh in-memory cap. Mock runs stay in-memory and free.
-  const budget =
-    mode === 'live'
-      ? await openCampaignBudget({ campaignId, limitUsd: maxCostUsd })
-      : new CostBudget(0);
+  const budget = mode === 'live' ? await openCampaignBudget({ campaignId, limitUsd: maxCostUsd }) : new CostBudget(0);
   const traceId = `workflow-${crypto.randomUUID()}`;
   const bridge =
     mode === 'live'
@@ -144,6 +142,15 @@ async function runWorkflow({
     workerName: workflow.worker,
     workerRegistry,
     planSource,
+    controller,
+    executionContext: {
+      mode,
+      maxCostUsd,
+      campaignId: budget.campaignId || null,
+      budgetLedgerPath: budget.ledgerPath || null,
+      traceLevel,
+      workerProvider,
+    },
   });
 
   atomicWrite(path.join(runDir, 'collection.json'), collection.receipt);
@@ -170,6 +177,69 @@ async function runWorkflow({
     error.runDir = runDir;
     throw error;
   }
+}
+
+/** Reopen the same run for either CLI; no collection or replanning on resume. */
+async function resumeWorkerRun({ runDir, mode = 'mock', maxCostUsd = 0, campaignId = null, controller }) {
+  runDir = path.resolve(runDir);
+  const saved = JSON.parse(fs.readFileSync(path.join(runDir, 'run-context.json'), 'utf8'));
+  const context = saved.executionContext;
+  if (!context || mode !== context.mode) throw new Error('resume mode must explicitly match the saved run mode');
+  validateRunOptions({
+    config: saved.config,
+    mode,
+    faultProfile: saved.faultProfile,
+    traceLevel: context.traceLevel,
+    maxCostUsd,
+  });
+  if (mode === 'live' && (maxCostUsd !== context.maxCostUsd || (campaignId && campaignId !== context.campaignId))) {
+    throw new Error('live resume must retain the saved cost cap and campaign');
+  }
+  const state = JSON.parse(fs.readFileSync(path.join(runDir, 'state.json'), 'utf8'));
+  // A completed run is a read-only no-op, including no new budget calls.
+  if (state.phase === 'completed') return { runDir, phase: state.phase, resumed: false };
+  if (mode === 'live' && (!context.budgetLedgerPath || !fs.existsSync(context.budgetLedgerPath))) {
+    throw new Error('saved campaign ledger is missing; refusing to create a fresh allowance on resume');
+  }
+  const budget =
+    mode === 'live'
+      ? await openCampaignBudget({
+          campaignId: context.campaignId,
+          limitUsd: maxCostUsd,
+          dir: path.dirname(path.dirname(context.budgetLedgerPath)),
+        })
+      : new CostBudget(0);
+  const traceId = `resume-${crypto.randomUUID()}`;
+  const bridge =
+    mode === 'live'
+      ? new ClaudeBridge({
+          runnerRepo: saved.config.runnerRepo,
+          bridgeUrl: saved.config.bridgeUrl,
+          callerToken: process.env.BRIDGE_CALLER_TOKEN,
+          budget,
+          effort: saved.config.effort,
+          traceLevel: context.traceLevel,
+          traceId,
+          runId: traceId,
+        })
+      : new MockBridge({ budget, workerName: saved.workerName });
+  const workerRegistry = createBridgeWorkerRegistry({
+    profiles: saved.config.workerProfiles,
+    bridge,
+    modelRoutes: routesForProfiles(saved.config.workerProfiles, saved.workerModel, context.workerProvider),
+    extraProviders: { deterministic_analyst: createDeterministicProvider() },
+  });
+  const coordinator = new PhasedCoordinator({ ...saved, bridge, workerRegistry, runDir, controller });
+  const result = await coordinator.run({ resume: true });
+  return {
+    runDir,
+    phase: result.phase,
+    resumed: true,
+    successes: result.results.filter((item) => item.ok).length,
+    failures: result.results.filter((item) => !item.ok).length,
+    estimatedCostUsd: budget.usedUsd,
+    campaignId: budget.campaignId || null,
+  };
 }
 
 function routesForProfiles(profiles, workerModel, provider = 'local_claude_bridge') {
@@ -255,7 +325,7 @@ function summarizeWorkflow({
     recoveryAttempts: state.recoveryMetrics?.attempts || 0,
     successes: state.results.filter((item) => item.ok).length,
     failures: state.results.filter((item) => !item.ok).length,
-    synthesisOk: !state.synthesisFailure,
+    synthesisOk: state.phase === 'completed' && !state.synthesisFailure,
     durationMs,
     estimatedCostUsd: budget.usedUsd,
     // Durable campaign fields (absent for in-memory mock budgets).
@@ -273,6 +343,7 @@ module.exports = {
   prepareWorkflowDocuments,
   routesForProfiles,
   runWorkflow,
+  resumeWorkerRun,
   summarizeWorkflow,
   validateRunOptions,
 };

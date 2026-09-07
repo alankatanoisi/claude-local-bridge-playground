@@ -1,33 +1,57 @@
 #!/usr/bin/env node
 'use strict';
 
+const { createRunController, installRunSignals } = require('../src/run-abort');
 const { loadExperimentConfig } = require('../src/config');
-const { runWorkflow } = require('../src/workflow-runner');
+const { runWorkflow, resumeWorkerRun } = require('../src/workflow-runner');
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const config = loadExperimentConfig();
   const mode = args.mode || 'mock';
-  const summary = await runWorkflow({
-    config,
-    workflowName: args.workflow || 'repo_fanout',
-    mode,
-    plannerModel: args.plannerModel || config.fixedPlannerModel,
-    // R13: --planner-ladder haiku-model,sonnet-model,… (cheapest first).
-    plannerLadder: args.plannerLadder ? args.plannerLadder.split(',').map((model) => model.trim()) : null,
-    workerModel: args.workerModel || config.fixedWorkerModel,
-    faultProfile: args.faultProfile || 'none',
-    traceLevel: args.traceLevel || config.traceLevel || 'off',
-    maxCostUsd: args.maxCostUsd === undefined ? 0 : Number(args.maxCostUsd),
-    campaignId: args.campaign || null,
-    // R9: --worker-provider deterministic_analyst routes worker jobs to the
-    // zero-cost static profiler instead of the Claude bridge.
-    workerProvider: args.workerProvider || 'local_claude_bridge',
-    // R14c: --plan-source host_json builds the fully-determined fan-out plan
-    // on the host (no planner calls, no Starlark; same validator).
-    planSource: args.planSource || 'starlark',
-  });
-  process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
+  const controller = createRunController();
+  const removeSignals = installRunSignals(controller);
+  try {
+    if (args.resume) {
+      // Reconfiguration belongs to a new experiment. Resume keeps the original
+      // descriptors, inputs, worker route, and campaign from the durable receipt.
+      const allowed = new Set(['resume', 'mode', 'maxCostUsd', 'campaign']);
+      for (const key of Object.keys(args))
+        if (!allowed.has(key)) throw new Error(`--resume cannot combine with ${key}`);
+      const summary = await resumeWorkerRun({
+        runDir: args.resume,
+        mode,
+        maxCostUsd: Number(args.maxCostUsd || 0),
+        campaignId: args.campaign,
+        controller,
+      });
+      process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
+      return;
+    }
+    const summary = await runWorkflow({
+      controller,
+      config,
+      workflowName: args.workflow || 'repo_fanout',
+      mode,
+      plannerModel: args.plannerModel || config.fixedPlannerModel,
+      // R13: --planner-ladder haiku-model,sonnet-model,… (cheapest first).
+      plannerLadder: args.plannerLadder ? args.plannerLadder.split(',').map((model) => model.trim()) : null,
+      workerModel: args.workerModel || config.fixedWorkerModel,
+      faultProfile: args.faultProfile || 'none',
+      traceLevel: args.traceLevel || config.traceLevel || 'off',
+      maxCostUsd: args.maxCostUsd === undefined ? 0 : Number(args.maxCostUsd),
+      campaignId: args.campaign || null,
+      // R9: --worker-provider deterministic_analyst routes worker jobs to the
+      // zero-cost static profiler instead of the Claude bridge.
+      workerProvider: args.workerProvider || 'local_claude_bridge',
+      // R14c: --plan-source host_json builds the fully-determined fan-out plan
+      // on the host (no planner calls, no Starlark; same validator).
+      planSource: args.planSource || 'starlark',
+    });
+    process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
+  } finally {
+    removeSignals();
+  }
 }
 
 function parseArgs(argv) {
@@ -36,9 +60,7 @@ function parseArgs(argv) {
     const option = argv[index];
     if (!option.startsWith('--')) throw new Error(`unexpected argument '${option}'`);
     if (index + 1 >= argv.length) throw new Error(`missing value for '${option}'`);
-    const key = option
-      .slice(2)
-      .replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    const key = option.slice(2).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
     args[key] = argv[++index];
   }
   return args;

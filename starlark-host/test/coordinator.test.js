@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const test = require('node:test');
+const { evaluatorRequired } = require('./helpers/evaluator-required');
 
 const { CostBudget, MockBridge } = require('../src/bridge');
 const {
@@ -79,7 +80,7 @@ test('a refusal or empty final response cannot be recorded as successful synthes
   assert.equal(validateSynthesisResponse({ rawStopReason: 'end_turn', text: 'Grounded result' }), null);
 });
 
-test('phased hybrid records mixed failures and retries only retryable work', async () => {
+test('phased hybrid records mixed failures and retries only retryable work', evaluatorRequired, async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'starlark-hybrid-'));
   const docs = ['one', 'two', 'three', 'four'].map((id) => {
     fs.writeFileSync(path.join(root, `${id}.txt`), `fixture ${id}\n`);
@@ -120,7 +121,7 @@ test('phased hybrid records mixed failures and retries only retryable work', asy
   assert.match(events, /permanent_before_call/);
 });
 
-test('planner gets one measured repair turn after a rejected Starlark plan', async () => {
+test('planner gets one measured repair turn after a rejected Starlark plan', evaluatorRequired, async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'starlark-repair-'));
   fs.writeFileSync(path.join(root, 'one.txt'), 'fixture one\n');
   const config = {

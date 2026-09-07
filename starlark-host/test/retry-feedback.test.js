@@ -16,6 +16,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
+const { evaluatorRequired } = require('./helpers/evaluator-required');
 
 const { CostBudget } = require('../src/bridge');
 const { PhasedCoordinator, buildWorkerPrompt } = require('../src/coordinator');
@@ -40,7 +41,7 @@ test('buildWorkerPrompt appends host feedback only when provided', () => {
 // Full pipeline: worker returns an over-ceiling summary on attempt 1 (a real
 // contract violation, not an injected fault), then a compliant one on the
 // retry. The retry prompt must carry the validator's message.
-test('a worker rejected for a real contract violation retries WITH the reason', async () => {
+test('a worker rejected for a real contract violation retries WITH the reason', evaluatorRequired, async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'feedback-'));
   fs.writeFileSync(path.join(root, 'one.txt'), 'fixture one\n');
   const budget = new CostBudget(0);

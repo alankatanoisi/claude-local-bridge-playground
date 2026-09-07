@@ -2,6 +2,8 @@
 
 const path = require('path');
 
+const { checkAbort } = require('./run-abort');
+
 const TRACE_LEVELS = new Set(['off', 'summary', 'redacted', 'full']);
 
 class CostBudget {
@@ -99,24 +101,12 @@ class ClaudeBridge {
       bridgeTracePath:
         this.traceLevel === 'off'
           ? null
-          : path.join(
-              process.env.HOME || '',
-              '.claude-local-bridge',
-              'traces',
-              `${this.traceId}.bridge.jsonl`,
-            ),
+          : path.join(process.env.HOME || '', '.claude-local-bridge', 'traces', `${this.traceId}.bridge.jsonl`),
     };
   }
 
-  async call({
-    model,
-    system,
-    prompt,
-    maxTokens,
-    label,
-    effort = this.effort,
-    timeoutMs = 120000,
-  }) {
+  async call({ model, system, prompt, maxTokens, label, effort = this.effort, timeoutMs = 120000, signal }) {
+    checkAbort(signal);
     // The counter is assigned before the network wait. Concurrent workers can
     // finish in any order, but every request still receives one stable number.
     const traceTurn = this.nextTraceTurn++;
@@ -124,8 +114,7 @@ class ClaudeBridge {
     // Source code is token-dense, so three characters per token deliberately
     // over-reserves compared with the common four-character approximation.
     const estimatedInputTokens = Math.ceil((system.length + prompt.length) / 3);
-    const pessimisticCost =
-      (estimatedInputTokens / 1_000_000) * rates.input + (maxTokens / 1_000_000) * rates.output;
+    const pessimisticCost = (estimatedInputTokens / 1_000_000) * rates.input + (maxTokens / 1_000_000) * rates.output;
     // Await tolerates both budgets: the in-memory CostBudget is synchronous,
     // the durable campaign budget takes a cross-process lock.
     const reservation = await this.budget.reserve(pessimisticCost, label);
@@ -135,9 +124,7 @@ class ClaudeBridge {
     // controls. The host omits unsupported fields instead of letting a worker
     // spend a request on a predictable validation error.
     const selectedEffort = capability.effortLevels ? effort : 'auto';
-    const selectedThinking = ['manual-only', 'manual-or-none'].includes(capability.thinking)
-      ? 'auto'
-      : 'adaptive';
+    const selectedThinking = ['manual-only', 'manual-or-none'].includes(capability.thinking) ? 'auto' : 'adaptive';
     const controls = this.capabilities.resolveModelControls({
       model,
       effort: selectedEffort,
@@ -154,14 +141,22 @@ class ClaudeBridge {
     const started = Date.now();
     let response;
     try {
+      checkAbort(signal);
       // Native fetch uses a concurrent connection pool. The runner's buffered
       // client intentionally has one socket, which would serialize this trial.
-      response = await postMessage(this.bridgeUrl, body, this.callerToken, {
-        level: this.traceLevel,
-        traceId: this.traceId,
-        runId: this.runId,
-        turn: traceTurn,
-      }, timeoutMs);
+      response = await postMessage(
+        this.bridgeUrl,
+        body,
+        this.callerToken,
+        {
+          level: this.traceLevel,
+          traceId: this.traceId,
+          runId: this.runId,
+          turn: traceTurn,
+        },
+        timeoutMs,
+        signal,
+      );
     } catch (error) {
       await this.budget.release(reservation);
       throw error;
@@ -183,6 +178,7 @@ class ClaudeBridge {
       traceId: this.traceId,
       traceTurn,
     });
+    checkAbort(signal);
     return {
       text,
       usage: response.usage || {},
@@ -194,7 +190,7 @@ class ClaudeBridge {
   }
 }
 
-async function postMessage(bridgeUrl, body, callerToken, trace = {}, timeoutMs = 120000) {
+async function postMessage(bridgeUrl, body, callerToken, trace = {}, timeoutMs = 120000, signal) {
   const headers = { 'content-type': 'application/json' };
   if (callerToken) headers.authorization = `Bearer ${callerToken}`;
   if (trace.level && trace.level !== 'off') {
@@ -212,15 +208,19 @@ async function postMessage(bridgeUrl, body, callerToken, trace = {}, timeoutMs =
       method: 'POST',
       headers,
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
+      // Aborting fetch destroys the request, including a response body that
+      // is still streaming. The timeout remains an independent upper bound.
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
     });
   } catch (cause) {
+    checkAbort(signal);
     const error = new Error(`bridge network error: ${cause.message}`);
     error.retryable = true;
     throw error;
   }
 
   const raw = await response.text();
+  checkAbort(signal);
   if (!response.ok) {
     const error = new Error(`bridge returned HTTP ${response.status}: ${raw.slice(0, 500)}`);
     error.statusCode = response.status;
@@ -256,7 +256,8 @@ class MockBridge {
     this.workerName = workerName;
   }
 
-  async call({ label }) {
+  async call({ label, signal }) {
+    checkAbort(signal);
     let text;
     if (label.startsWith('plan:')) {
       text = `def plan(ctx):
@@ -296,10 +297,12 @@ class MockBridge {
         confidence: 0.9,
       });
     } else {
-      text = 'Mock synthesis: the host validated plans, recorded failures, retried eligible work, and retained artifacts.';
+      text =
+        'Mock synthesis: the host validated plans, recorded failures, retried eligible work, and retained artifacts.';
     }
     const call = { label, model: 'mock', usage: {}, costUsd: 0, durationMs: 1, requestId: null };
     await this.budget.record(call);
+    checkAbort(signal);
     return { text, usage: {}, costUsd: 0, rawStopReason: 'end_turn' };
   }
 }
