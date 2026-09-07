@@ -316,11 +316,17 @@ items rather than starting a parallel tracker.
   opt-in `history` capability group — `search_history`/`expand_history` over lossless
   canonical history; projection clip markers gain `recover: expand_history id=…` only
   when the group is offered; stale-read markers deliberately keep re-read).** The §6
-  sequence is complete — the next slice is a fresh Alan decision (open candidates:
-  idea 7 headlines index, idea 3 `--verify-finish`, idea 12 counters, idea 1 audit
-  rule). Idea 9 (`run_block`) stays parked on R8's no-runner-edge architecture — do
-  not build toward it unbidden. Cursor invariant review of `65c001a`+`19c2a69`
-  deferred by Alan (2026-09-06, momentum) — still owed downstream.
+  sequence is complete. **Idea 7 landed 2026-09-06 (Alan-directed): the
+  "what you've forgotten" headline index — `src/runner/context-headlines.js`; the
+  projection appends `[context:headline-index v1]` at the tail (next to the anchor,
+  never in the cache-stable prefix) whenever exchanges are digested behind the
+  checkpoint or have results stubbed/stale-dropped; headlines are the assistant's own
+  first sentence (no extra model call); oldest roll up past 40 lines; recovery wording
+  only when the history group is offered.** Next slice is a fresh Alan decision (open
+  candidates: idea 3 `--verify-finish`, idea 12 counters, idea 1 audit rule). Idea 9
+  (`run_block`) stays parked on R8's no-runner-edge architecture — do not build toward
+  it unbidden. Cursor invariant review of `65c001a`+`19c2a69`+idea 7 deferred by Alan
+  (2026-09-06, momentum) — still owed downstream.
 
 - **ACP thread (Bridge Runner → T3 Code) — Slices A–D built; current entry
   `HANDOFF-acp-ask-user-question-2026-08-31.md`.** Design record for A–C:
