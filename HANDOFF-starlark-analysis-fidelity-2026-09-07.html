@@ -1,0 +1,1209 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Starlark | Do the final analyses deserve trust?</title><style>
+:root{--ink:#172d36;--muted:#50666f;--teal:#14736b;--line:#d6e2df;--cream:#f3f4ee;--paper:#fffefa}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--cream);color:var(--ink);font:16px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}aside{position:fixed;inset:0 auto 0 0;width:272px;background:#142f37;color:#dcece8;padding:38px 28px;overflow:auto}.eyebrow{text-transform:uppercase;letter-spacing:.15em;font-size:11px;font-weight:750;color:#9eceb6}.brand{font-size:34px;line-height:1.13;letter-spacing:-1px;margin:20px 0 28px}.nav a{display:block;font-size:13px;line-height:1.45;color:#dcece8;text-decoration:none;border-top:1px solid #335059;padding:12px 0}.nav a:hover{color:#fff}.aside-note{margin-top:28px;font-size:12px;color:#a9c3c7}main{margin-left:272px;max-width:1500px;padding:42px 50px}.topline{font-size:12px;text-transform:uppercase;letter-spacing:.13em;color:var(--teal);margin-bottom:15px;font-weight:700}.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin-bottom:24px}.metric{background:#e2ece4;padding:22px 24px;border:1px solid #cbded1;border-radius:12px}.metric strong{display:block;font-size:31px;line-height:1.25;font-variant-numeric:tabular-nums;letter-spacing:-1px}.metric span{display:block;font-size:12px;color:#375d54;margin-top:8px}.uncertainty{background:#fff0d6;border:1px solid #e3cb9c;border-radius:10px;padding:15px 22px;font-size:14px;margin-bottom:24px;color:#684d1e}article{background:var(--paper);padding:42px 46px;border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 30px #182e3610}h1{font-size:39px;line-height:1.17;letter-spacing:-1.2px;margin:0 0 24px}h2{font-size:25px;line-height:1.35;margin:48px 0 20px;padding-top:22px;border-top:1px solid var(--line);scroll-margin-top:24px}p,li{overflow-wrap:anywhere}li{padding-left:4px;margin:8px 0}a{color:#086b73;text-decoration-thickness:1px;text-underline-offset:3px}code{font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;background:#edf1ec;border-radius:4px;padding:2px 5px;overflow-wrap:anywhere}blockquote{margin:22px 0;padding:5px 22px;background:#edf4eb;border-left:4px solid #71977f;color:#335245}.table-scroll{overflow-x:auto;margin:22px 0;border:1px solid var(--line);border-radius:9px}table{border-collapse:collapse;width:100%;font-size:13px;min-width:640px}th,td{text-align:left;padding:13px 14px;vertical-align:top;border-bottom:1px solid var(--line)}th{background:#e2ece4;color:#244d43;font-weight:750}tr:last-child td{border-bottom:0}tbody tr:nth-child(even){background:#f7f8f2}footer{font-size:12px;color:var(--muted);margin:24px 2px}strong{font-weight:720}@media(max-width:1050px){aside{width:220px;padding:28px 20px}main{margin-left:220px;padding:28px}article{padding:30px}.metric{padding:16px}.metric strong{font-size:27px}}@media(max-width:760px){aside{position:static;width:auto;padding:25px}.brand{font-size:28px;margin:10px 0}.nav{display:none}.aside-note{margin:15px 0 0}main{margin:0;padding:18px}.metrics{gap:8px}.metric{padding:13px 10px}.metric strong{font-size:23px}.metric span{font-size:10px}article{padding:26px 20px}h1{font-size:31px}h2{font-size:23px}.uncertainty{font-size:13px}}@media print{aside,.metrics,.topline{display:none}main{margin:0;padding:0;max-width:none}article{border:0;padding:0;box-shadow:none}body{background:white;font-size:11px}.table-scroll{overflow:visible}table{min-width:0;font-size:10px}h1{font-size:25px}h2{font-size:18px;break-after:avoid}a{color:inherit}code{font-size:10px}}
+
+.metric{background:#e7ece8}.uncertainty{border-color:#d9a59c;background:#fae7e1;color:#713d35}.filters{display:flex;gap:15px;align-items:end;flex-wrap:wrap;padding:20px;background:#e7eee9;border-radius:10px;margin-top:30px}.filters label{font-size:12px;font-weight:700;display:grid;gap:5px}.filters input,.filters select,.filters button,button{font-family:inherit;font-size:14px;padding:10px;border:1px solid #aabdb4;border-radius:5px;background:white;color:#172d36}.filters input{width:260px}.filters output{font-size:12px;padding:9px}tr[hidden]{display:none}tr.claim[data-verdict="Contradicted"] td:first-child{border-left:4px solid #a44738}tr.claim[data-verdict="Unsupported"] td:first-child{border-left:4px solid #b78b30}tr.claim[data-verdict="Supported"] td:first-child{border-left:4px solid #33786c}pre{background:#152f37;color:#e6eeeb;padding:22px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.6}pre code{background:none;color:inherit;padding:0}td:first-child{min-width:65px}article{padding:38px 34px}h3{font-size:22px;margin-top:32px}.nav a{padding:9px 0;font-size:12px}@media print{.filters{display:none}tr[hidden]{display:table-row!important}pre{white-space:pre-wrap;background:#eee;color:#111}}
+</style></head><body><div style="position:relative;z-index:2;background:#fff2cf;color:#263238;padding:18px;margin:12px;border:2px solid #b68b25"><strong>Subsequent authorized correction:</strong> See the <a href="HANDOFF-permission-cache-fix-2026-09-07.html">permission-cache fix and Cursor handoff</a>. This report preserves the earlier review state; no-fix/no-publication statements and source references are historical.</div><aside><div class="eyebrow">Evidence quality review</div><div class="brand">Does it<br>deserve trust?</div><nav class="nav" aria-label="Review sections"><a href="#s1">1. Scope, method, and counts</a><a href="#s2">2. What deserves trust, and what does not</a><a href="#s3">3. Confirmed code issue: stale permissions after restriction changes</a><a href="#s4">4. Why synthesis was especially unreliable</a><a href="#s5">5. Corrected understanding of the three files</a><a href="#s6">6. Not bugs to fix from these reports</a><a href="#s7">7. Source key and evidence pointers</a><a href="#s8">8. Claim-by-claim final-report review</a><a href="#s9">9. Explicit worker-claim audit</a><a href="#s10">10. Checks, first failures, and publication disposition</a><a href="#s11">11. Reproduction pointer for the next agent</a></nav><p class="aside-note">07 Sep 2026 · R11 follow-up<br>One confirmed conditional code defect<br>No fixes or publication</p></aside><main><div class="topline">Source → worker → synthesis · Full claim audit</div><section class="metrics" aria-label="Review findings"><div class="metric"><strong>101</strong><span>Final assertions reviewed · 36 worker claims</span></div><div class="metric"><strong>24</strong><span>Contradicted final assertions · 22 unsupported</span></div><div class="metric"><strong>1</strong><span>Code fix candidate reproduced · 2 red checks</span></div></section><div class="uncertainty"><strong>Review verdict:</strong> useful orientation, unreliable as a code-fix list. The conditional publishing requirement is not met; source remains unchanged.</div><article><h1>Starlark final-analysis fidelity review — 2026-09-07</h1>
+<blockquote>
+<p><strong>REVIEW VERDICT: do not use the three generated final analyses as trusted code-audit findings.</strong> They provide useful orientation and one reproducible lead, but they contain incorrect APIs, unsupported causal claims, and exaggerated risk. This review supplements the <a href="HANDOFF-starlark-r11-live-verification-2026-09-07.md">live-verification handoff</a>; the earlier interruption/accounting results remain valid. Its content-coverage checks were not a factual-accuracy review.</p>
+</blockquote>
+<p><strong>Browser companion:</strong> <a href="HANDOFF-starlark-analysis-fidelity-2026-09-07.html">Open the full standalone review</a>.</p>
+<p><strong>Publishing condition not met:</strong> a permission-cache defect was reproduced. No runtime code has been fixed, committed, or pushed. Alan authorized commit/push if everything checked out without necessary code fixes; this is not that outcome. The defect is in the runner, outside the previous Starlark runtime-edit boundary, so this review leaves a concrete fix handoff for an explicit next step.</p>
+<h2 id="s1">1. Scope, method, and counts</h2>
+<p>Verified folder and intended target: <code>/Users/alanman/.codex/worktrees/df82/claude-local-bridge-playground</code>. Branch: <code>codex/starlark-r11-live-verification</code>. Common Git directory: <code>/Users/alanman/Developer/claude-local-bridge-playground/.git</code>. Baseline: <code>406423b4d6ea1ead837b3bedb6f09f618a2a5d8a</code>; GitHub <code>main</code> still matched at review start. Only the prior uncommitted handoff pair existed when this review began. The owner’s main checkout was not edited.</p>
+<p>I read all three final analyses, all nine successful worker artifacts, their summaries and evidence arrays, and the exact three source files saved for every trial. All nine saved-source hashes match their declared hashes and this worktree’s source bytes. Therefore the printed source line references below describe the actual material the workers received, not a newer version substituted after the experiment.</p>
+<p>I separated <strong>101 substantive final assertions</strong> and reviewed the <strong>36 explicit worker claims</strong> that fed them. Compound statements were separated when their components had different truth values; repeated final summary-table entries share their earlier assessment. Headings, formatting, and restatements are not additional claims. The appendices paraphrase claims and cite code instead of republishing raw prompts, transcripts, or run-ledger payloads.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Final report</th>
+<th align="right">Supported</th>
+<th align="right">Reasonable inference</th>
+<th align="right">Unsupported</th>
+<th align="right">Contradicted</th>
+<th align="right">Total</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A — host plan, SIGTERM</td>
+<td align="right">18</td>
+<td align="right">2</td>
+<td align="right">9</td>
+<td align="right">7</td>
+<td align="right">36</td>
+</tr>
+<tr>
+<td>B — Starlark plan, SIGTERM</td>
+<td align="right">12</td>
+<td align="right">1</td>
+<td align="right">5</td>
+<td align="right">6</td>
+<td align="right">24</td>
+</tr>
+<tr>
+<td>C — host plan, SIGKILL</td>
+<td align="right">20</td>
+<td align="right">2</td>
+<td align="right">8</td>
+<td align="right">11</td>
+<td align="right">41</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td align="right"><strong>50</strong></td>
+<td align="right"><strong>5</strong></td>
+<td align="right"><strong>22</strong></td>
+<td align="right"><strong>24</strong></td>
+<td align="right"><strong>101</strong></td>
+</tr>
+</tbody></table></div>
+<p>The 36 explicit worker claims contain <strong>26 supported, 5 unsupported, and 5 contradicted</strong> entries. These counts are not accuracy percentages, model rankings, or statistically representative performance estimates: claim segmentation is a reviewer judgment, claim importance differs, and only three runs were inspected. A report can contain many correct descriptions while still being unsafe to use for deciding what code to change.</p>
+<p><strong>Verdict rules:</strong> Supported means the scoped statement follows the saved source or verified run evidence. Reasonable inference means a conditional conclusion is plausible and its limits are explicit. Unsupported means the available evidence does not establish the asserted causality, severity, workload, or guarantee. Contradicted means code, recorded evidence, or a focused executable check disagrees. When a statement contains a true kernel but a false conclusion, the assessment explains both rather than silently accepting the whole statement.</p>
+<p>Cross-file checks are clearly marked <strong>additional context</strong>. The original workers were assigned one file each; they cannot fairly be faulted for not inspecting unprovided callers, but they should not have made confident claims about those callers. I inspected adjacent files only to test their proposed impacts and avoid recommending fixes for imagined problems. No fresh bridge/model calls were made.</p>
+<h2 id="s2">2. What deserves trust, and what does not</h2>
+<p><strong>Useful orientation:</strong> the workers generally identify the three components correctly: a parent/child token-lease broker, a permission-decision gate, and an append-only session ledger with a cursor optimization. The reports also identify real local properties such as closure-held state, an uncapped pending-intent array, and best-effort cursor writing. These are useful starting points for inspection.</p>
+<p><strong>Unsafe as a code-change list:</strong> several claimed failure mechanisms are invented or overstated. Report A claims the permission resolver is not visibly called, although the assigned file explicitly calls it and handles denial. Report B predicts that caching an “ask” response would suppress confirmation, although the caller converts any ask result into a confirmation request. Report C gets the eviction algorithm wrong and overstates path-escape reachability, even while noticing a real missing cache-key field.</p>
+<p><strong>One real lead survives verification:</strong> report C’s narrower observation about an omitted plan-mode cache key is correct. That correctness does not validate its surrounding High-severity claims. Its worker did not supply that finding; synthesis introduced it, and this review subsequently verified it against source and execution. A claim that happens to be true can still lack provenance in the evidence available to the synthesizer.</p>
+<p><strong>Earlier experiment results remain intact:</strong> saved successes were reused, unfinished jobs were repeated, artifacts and input hashes matched, and recorded usage reconciled. Those results concern control flow and bookkeeping. They do not imply that generated descriptions of the runner’s source are accurate.</p>
+<h2 id="s3">3. Confirmed code issue: stale permissions after restriction changes</h2>
+<p><strong>F1 — fix warranted, scoped priority P2 (conditional correctness/safety defect).</strong> A context that previously cached an allow decision can be narrowed into plan mode without invalidating that old decision. The cache key includes <code>acceptEdits</code>, <code>dontAsk</code>, <code>allowShell</code>, arguments, tool name, and <code>rootEpoch</code>; it omits <code>plan</code> and <code>noNetwork</code>. The cache hit returns before fresh policy evaluation.</p>
+<p>Primary source: <a href="src/runner/permissions.js">permissions.js</a>, printed lines <strong>123–136, 158–188</strong>. The documented narrowing contract is in <a href="src/runner/authority.js">authority.js</a>, lines <strong>3–10, 49–63</strong>. Actual tool dispatch uses that decision in <a href="src/runner/tool-registry.js">tool-registry.js</a>, lines <strong>216–255</strong>. The main pipeline executes the tool before its confirmation/proposal branch at <a href="src/runner/tool-pipeline.js">tool-pipeline.js</a>, lines <strong>475–509</strong>.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Focused observation</th>
+<th>Warm cache after narrowing</th>
+<th>Fresh check / control</th>
+<th>What this establishes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ctx.plan</code>: false → true, same context and write arguments</td>
+<td><code>allow</code>; same cached object</td>
+<td><code>ask</code></td>
+<td>Newly requested plan restriction is missed</td>
+</tr>
+<tr>
+<td>Real dispatcher after the above cache warm-up</td>
+<td><code>ok: true</code>; fixture file written</td>
+<td>Only a disposable fixture was used</td>
+<td>This can affect execution, not just a displayed decision</td>
+</tr>
+<tr>
+<td><code>ctx.noNetwork</code>: false → true, same command arguments</td>
+<td><code>allow</code></td>
+<td><code>deny</code></td>
+<td>Newly tightened network-command gate is missed; no network command was executed</td>
+</tr>
+<tr>
+<td>Explicit <code>invalidateDecisionCache(ctx)</code> after plan change</td>
+<td><code>ask</code></td>
+<td>Passing control</td>
+<td>Restart is not required; existing invalidation works</td>
+</tr>
+<tr>
+<td>Change included <code>acceptEdits</code> flag</td>
+<td>Decision recomputed</td>
+<td>Passing control</td>
+<td>Not every mode distinction is absent from the key</td>
+</tr>
+<tr>
+<td>Run starts with a plan ceiling</td>
+<td><code>ask</code></td>
+<td>Passing control</td>
+<td>These tests do not show a startup-plan bypass</td>
+</tr>
+</tbody></table></div>
+<p><strong>Reachability limit:</strong> reproduction deliberately mutates a permitted internal context after an initial cached decision. I did not establish a normal user command or attacker-controlled input that performs that mutation in the current run loop. The defect violates the documented allowance for tightening restrictions and is observable through the real dispatcher, but this is not evidence of an internet exploit, arbitrary path escape, or a broken startup ceiling. <code>write_file</code> still repeats filesystem-target checks. Network execution retains separate best-effort environment controls; this review tested the permission gate only.</p>
+<p>The new regression expectations produced <strong>5 tests: 3 pass, 2 fail, 0 skip</strong> on their first run. The two failures expect newly enabled plan/network restrictions to take effect. They remain failing; no assertion was weakened and no runtime patch was made. The accompanying direct observer recorded a real write to a new private fixture directory inside the ignored review bundle.</p>
+<p><strong>Recommended fix boundary:</strong> re-evaluate mutable policy restrictions before accepting a cached allow, or include their effective values in a complete cache identity with reliable invalidation. Cover at least <code>plan</code> and <code>noNetwork</code>, and deliberately account for other permission inputs such as narrowed tool allowlists rather than assuming these two fields exhaust the issue. Keep startup ceilings, explicit confirmation behavior, path rechecks, and root-epoch transitions intact. This is a small runner follow-up requiring its own authorization; it is not a reason to redesign Starlark.</p>
+<p><strong>Required acceptance for that follow-up:</strong> keep the two new expectations unchanged and make them pass; test a warmed cache through real tool dispatch; preserve startup-plan/no-shell/no-network ceiling tests; preserve ordinary mode transitions, ask behavior, cache recency, and worktree-root invalidation. Then run the relevant runner checks and broader required gates. No claim is made here that such a fix has been implemented or passed.</p>
+<h2 id="s4">4. Why synthesis was especially unreliable</h2>
+<p>The synthesis stage receives the objective and compact successful worker outputs/failure records. It does <strong>not</strong> receive the original source files or the run interruption/resume event history. This is visible at <a href="starlark-host/src/synthesis.js">synthesis.js</a>, printed lines <strong>34–42</strong>, and I verified an exact match against the actual saved synthesis request for each of the three runs.</p>
+<p>All three requests supplied three successful terminal results with logical <code>attempt: 1</code>. Resumed unfinished work reuses that logical attempt number. Consequently, report A’s statement that no deliberate failure happened cannot be inferred from those inputs: the original run was deliberately interrupted, and two jobs made repeat requests. Report C’s more limited statement that the supplied artifacts do not show control-plane interruption history is justified.</p>
+<p>Three distinct fidelity problems appear:</p>
+<ol>
+<li><strong>Worker error passed through.</strong> For example, worker B calls budget release a full-Map scan; the method does not perform that scan. Several workers also confuse a permission decision with its severity label.</li>
+<li><strong>Synthesis invents details.</strong> Incorrect function signatures, a nonexistent ledger <code>match()</code> method, and a nonexistent <code>_checkShellScan()</code> method appear in the final analyses. A missing code excerpt becomes a claim that the code itself is missing.</li>
+<li><strong>Synthesis strengthens uncertainty into impact.</strong> Uncapped arrays become predicted out-of-memory failures; possible missing release becomes caps supposedly unenforceable; missing diagnostics becomes undetectable corruption. The reports provide no workload, memory, timing, or attack-path evidence for those stronger conclusions.</li>
+</ol>
+<p>The current synthesis validator checks refusal, truncation, and empty output (<a href="starlark-host/src/synthesis.js">synthesis.js</a>, lines <strong>45–55</strong>). It is not a fact checker. <code>synthesisOk</code> means the stage completed under those checks. It must not be interpreted as “the report is correct.” Likewise, matching function names and input coverage—as used in the preceding verification—does not prove the sentences around those names.</p>
+<p>Confidence numbers are copied accurately in some places but are not calibrated probabilities of correctness. The synthesizer invents explanations of what those numbers mean. This review therefore does not use the confidence fields to overrule evidence.</p>
+<h2 id="s5">5. Corrected understanding of the three files</h2>
+<p><strong>Budget broker.</strong> <code>createBudgetBroker(options)</code> establishes input/output caps. <code>acquire(totalUsage, request)</code> subtracts active reservations and current usage, clamps requested allocations, and can refuse exhausted dimensions. <code>release(leaseId, actualUsage)</code> removes a known reservation and returns reconciled usage, or an explicit incomplete/error result; the caller adds usage to its own total. Caps are not updated by release. Lease/incomplete state is in memory. Missing release can withhold capacity; it does not by itself permit spending above a cap. Additional current-run context limits spawns to eight and handles release on the ordinary returned-success/failure paths.</p>
+<p><strong>Permissions.</strong> <code>check(toolName, args, ctx)</code> returns enriched allow/deny/ask decisions. <code>hard_deny</code> is a severity; <code>plan_only</code> is an internal table outcome translated into ask/proposal behavior. The file visibly calls <code>safety.resolveFileTarget</code> and handles denial. Cache hits refresh recency, so the 512-entry cache is least-recently-used in the relevant sense, not strict first-in-first-out. The omission of plan/network restriction state is a real conditional stale-cache defect. Automatic flags do not override the eligible explicit-consent cases, and earlier denials still take precedence.</p>
+<p><strong>Session ledger.</strong> <code>append(type, payload)</code> writes one event and synchronously updates in-memory sequence/pending-intent state. Cursor restoration checks version, integer fields, file size, and trailing newline; fallback scans the saved ledger. Tail-delimiter state is set by the scan, not by successful cursor restoration. Combining delimiter/event in one write removes an intermediate application-level write window; it does not prove universal operating-system atomicity or power-loss durability. <code>getCursor().source</code> exposes whether cursor or scan was used, although the precise failure reason is not recorded. Pending-intent growth and probabilistic effect identifiers are local properties requiring workload-specific evaluation before classifying them as defects.</p>
+<h2 id="s6">6. Not bugs to fix from these reports</h2>
+<ul>
+<li><strong>Do not add a missing resolver call:</strong> it already exists, including denial handling, at permissions lines 235–254.</li>
+<li><strong>Do not replace a supposed first-in-first-out cache:</strong> cache hits already refresh recency; a focused 512-entry control confirms that a recently touched entry survives eviction.</li>
+<li><strong>Do not rewrite the ledger for the proposed same-instance async race:</strong> append is synchronous with no suspension point, and the specific interleaving is unsupported. Multiple writers are a separate unproven use case.</li>
+<li><strong>Do not add expiry just to remove pending intents:</strong> removing unresolved effect evidence can itself make recovery less honest. Establish lifecycle and workload requirements first.</li>
+<li><strong>Do not treat missing lease release as proven over-budget spending:</strong> it can starve allocation. Keep missing usage explicit; do not “repair” accounting by assuming missing work was free.</li>
+<li><strong>Do not change supported null/unlimited cap behavior because a model dislikes it:</strong> malformed-input reachability and intended validation belong in a separate focused check; constructor semantics alone do not prove a CLI bypass.</li>
+<li><strong>Do not add a general distributed lock or persistence system to the broker/ledger from this review:</strong> the supplied files are local components, and no supported multiwriter/distributed scenario was demonstrated.</li>
+<li><strong>Do not interpret the six interrupted provider requests as free:</strong> the original uncertainty hold is still required. This review incurred zero new bridge spend.</li>
+</ul>
+<p>The uncapped arrays, probabilistic identifiers, caller responsibility for lease release, and missing detailed cursor-fallback reason remain legitimate observations or research questions. They are not demonstrated High/Medium defects under the stated workload. The one confirmed fix candidate is F1 above.</p>
+<h2 id="s7">7. Source key and evidence pointers</h2>
+<p>The claim tables use these abbreviations only to keep citations readable:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Exact reviewed file</th>
+<th>Meaning of numbers</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>B</td>
+<td><a href="src/runner/budget-broker.js">src/runner/budget-broker.js</a></td>
+<td>Printed source line numbers in the unchanged baseline</td>
+</tr>
+<tr>
+<td>P</td>
+<td><a href="src/runner/permissions.js">src/runner/permissions.js</a></td>
+<td>Printed source line numbers in the unchanged baseline</td>
+</tr>
+<tr>
+<td>L</td>
+<td><a href="src/runner/session-ledger.js">src/runner/session-ledger.js</a></td>
+<td>Printed source line numbers in the unchanged baseline</td>
+</tr>
+</tbody></table></div>
+<p>Additional files cited explicitly were checked in this same baseline, but were not supplied to the original one-file workers. Prior run evidence and exact directory names are inventoried in the <a href="HANDOFF-starlark-r11-live-verification-2026-09-07.md">live-verification handoff</a>.</p>
+<p>Private review evidence is under <code>starlark-host/workflow-runs/fidelity-review-2026-09-07/</code>: source integrity receipt, source copies, final/worker claim JSON, actual-synthesis-input cross-check, direct cache probe, first failing regression log, inherited targeted logs, and new disposable fixture directories. These files are ignored by Git. The reports include sanitized findings and the complete paraphrased claim catalogue so a later reviewer can assess the reasoning without receiving raw prompts or transcripts.</p>
+<section class="filters" aria-label="Claim review filters"><label>Find a claim<input id="query" type="search" placeholder="Claim ID, file, or phrase"></label><label>Verdict<select id="verdict"><option value="">All verdicts</option><option>Supported</option><option>Reasonable inference</option><option>Unsupported</option><option>Contradicted</option></select></label><output id="count" aria-live="polite">137 claim rows</output><button id="reset" type="button">Reset</button></section><h2 id="s8">8. Claim-by-claim final-report review</h2>
+<p>Repeated summary-table assertions inherit these verdicts. The “origin” column identifies whether the claim appeared in a worker, was expanded by synthesis, or was first added by synthesis; it does not imply the originator verified the claim. Supported source-level discoveries added by synthesis still lack worker provenance and required this independent review.</p>
+<h3>Report A</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Claim paraphrase</th>
+<th>Verdict</th>
+<th>Origin</th>
+<th>Evidence and correction</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A01</td>
+<td>Three workers succeeded.</td>
+<td>Supported</td>
+<td>Run summary</td>
+<td>Nine saved worker artifacts across A/B/C; A has three successes. Prior verified run audit.</td>
+</tr>
+<tr>
+<td>A02</td>
+<td>Budget broker holds parent-child token reservations in memory.</td>
+<td>Supported</td>
+<td>Worker A budget summary</td>
+<td>B33–61, B69–99: closure Map, caps, and remainder calculation.</td>
+</tr>
+<tr>
+<td>A03</td>
+<td>Broker reconciles usage on release.</td>
+<td>Supported</td>
+<td>Worker A budget summary</td>
+<td>B106–130 returns usage for the caller; does not itself add parent usage. Read narrowly as returning a reconciliation result.</td>
+</tr>
+<tr>
+<td>A04</td>
+<td>acquire takes inputCap and outputCap and returns current budget state.</td>
+<td>Contradicted</td>
+<td>Synthesis addition</td>
+<td>B33–35 supplies caps at construction; B69 signature is acquire(totalUsage, request). B94–99 returns a lease, not a snapshot.</td>
+</tr>
+<tr>
+<td>A05</td>
+<td>release takes separate input/output usage arguments and updates parent caps.</td>
+<td>Contradicted</td>
+<td>Synthesis addition</td>
+<td>B106 takes (leaseId, actualUsage); caps are constants; B113–122 returns usage without updating parent totals.</td>
+</tr>
+<tr>
+<td>A06</td>
+<td>State is per-instance closures with no persistence or cross-process synchronization.</td>
+<td>Supported</td>
+<td>Worker A budget summary</td>
+<td>B33–39, B152–160: no persistence or interprocess locking in this module.</td>
+</tr>
+<tr>
+<td>A07</td>
+<td>Incomplete-child records have no built-in cap or prune operation.</td>
+<td>Supported</td>
+<td>Worker A budget claim 3</td>
+<td>B125–149: append, inspect/copy; no removal API.</td>
+</tr>
+<tr>
+<td>A08</td>
+<td>Thousands of failed spawns over weeks threaten out-of-memory in the current runner.</td>
+<td>Unsupported</td>
+<td>Worker concern amplified by synthesis</td>
+<td>No memory/time measurement. Additional scope: spawn-agent.js:17,113–122 caps a run at eight spawns; run.js:782 creates its broker per run. The isolated module can accumulate records, but this operating scenario was not established.</td>
+</tr>
+<tr>
+<td>A09</td>
+<td>There may be cleanup elsewhere not visible in the worker excerpt.</td>
+<td>Reasonable inference</td>
+<td>Synthesis caveat</td>
+<td>Workers saw only B. Integration was outside their input; absence of an excerpt cannot prove absence of callers.</td>
+</tr>
+<tr>
+<td>A10</td>
+<td>Permissions maps categories to mode-dependent decisions and checks authority.</td>
+<td>Supported</td>
+<td>Worker A permissions summary</td>
+<td>P15–61, P210–255, P432–480.</td>
+</tr>
+<tr>
+<td>A11</td>
+<td>check takes tool, args, mode, and ctx as four arguments.</td>
+<td>Contradicted</td>
+<td>Synthesis addition</td>
+<td>P158 signature is check(toolName, args, ctx); activeMode derives mode at P84–91.</td>
+</tr>
+<tr>
+<td>A12</td>
+<td>Permission decisions block, ask, or allow.</td>
+<td>Supported</td>
+<td>Worker A permissions summary</td>
+<td>P218–255 and P435–480 return deny/ask/allow. Hard-deny is severity, not a decision enum.</td>
+</tr>
+<tr>
+<td>A13</td>
+<td>The cache keys tool, arguments, selected context flags, and epoch; asks are not cached.</td>
+<td>Supported</td>
+<td>Worker A permissions summary</td>
+<td>P123–136 includes acceptEdits/dontAsk/allowShell/rootEpoch and args; P181 excludes ask. This is not a claim that every policy field is included.</td>
+</tr>
+<tr>
+<td>A14</td>
+<td>The immutable ceiling prevents all mid-run mode escalation.</td>
+<td>Unsupported</td>
+<td>Worker summary generalized</td>
+<td>P13 imports effectiveFlags/toolAboveCeiling; source alone does not prove all callers. Additional authority.js:49–63 preserves startup plan/network restrictions, but cache-hit timing remains relevant. Edit automation is a distinct consent channel.</td>
+</tr>
+<tr>
+<td>A15</td>
+<td>Destructive cleanup/history operations always ask regardless of automation.</td>
+<td>Supported</td>
+<td>Worker A permissions claim 3</td>
+<td>P386–429: eligible operations ask; earlier hard-denies still win. Not every destructive action is globally covered by this sentence.</td>
+</tr>
+<tr>
+<td>A16</td>
+<td>isBlockedBasename is compatibility-only and path enforcement is delegated.</td>
+<td>Supported</td>
+<td>Worker A permissions claim 4</td>
+<td>P66–74 and P235–254 explicitly show both alias and actual resolver call.</td>
+</tr>
+<tr>
+<td>A17</td>
+<td>No resolver call or handling of its result is visible in permissions.js.</td>
+<td>Contradicted</td>
+<td>Synthesis addition from omitted worker excerpt</td>
+<td>P235–254 visibly calls safety.resolveFileTarget and returns a denial when allowed is false.</td>
+</tr>
+<tr>
+<td>A18</td>
+<td>The A11 refactor therefore creates a demonstrated false safety boundary.</td>
+<td>Unsupported</td>
+<td>Synthesis amplification</td>
+<td>A11 is a code-deduplication comment, not a reproduced missing-enforcement incident. A missing excerpt does not establish missing code.</td>
+</tr>
+<tr>
+<td>A19</td>
+<td>Removing the explanatory comment could leave delegation broken.</td>
+<td>Unsupported</td>
+<td>Synthesis addition</td>
+<td>Comments do not implement the alias or resolver loop. Requires a separate code change not demonstrated.</td>
+</tr>
+<tr>
+<td>A20</td>
+<td>isInsideProject/isHardDeny are special enforcement overrides.</td>
+<td>Unsupported</td>
+<td>Synthesis addition</td>
+<td>P76–81 and P568–569 export helpers. isInsideProject is not called in the check path; isHardDeny interprets severity for callers.</td>
+</tr>
+<tr>
+<td>A21</td>
+<td>Ledger is append-only JSONL with sequence and pending-intent recovery.</td>
+<td>Supported</td>
+<td>Worker A ledger summary</td>
+<td>L166–193, L119–146, L213–235. Recovery is bounded by parsed/available evidence, not a universal durability guarantee.</td>
+</tr>
+<tr>
+<td>A22</td>
+<td>A kept-open descriptor uses synchronous writes and combines repair newline with event.</td>
+<td>Supported</td>
+<td>Worker A ledger claims 1/3</td>
+<td>L152–184. One write call is established; universal atomicity or power-loss durability is not.</td>
+</tr>
+<tr>
+<td>A23</td>
+<td>Cursor fast path requires matching size and a terminating newline.</td>
+<td>Supported</td>
+<td>Worker A ledger claim 2</td>
+<td>L44–80 also checks version and safe nonnegative sequence/offset integers.</td>
+</tr>
+<tr>
+<td>A24</td>
+<td>Invalid cursor triggers full scan.</td>
+<td>Supported</td>
+<td>Worker A ledger summary</td>
+<td>L37–40, L44–80, L119–146.</td>
+</tr>
+<tr>
+<td>A25</td>
+<td>Ledger holds pendingIntents, offset, and tail-delimiter state.</td>
+<td>Supported</td>
+<td>Worker A ledger summary</td>
+<td>L28–34, L186–190.</td>
+</tr>
+<tr>
+<td>A26</td>
+<td>_needsTailDelimiter is set by _restoreFromCursor.</td>
+<td>Contradicted</td>
+<td>Synthesis addition</td>
+<td>L124 sets it in _loadLastSeq; _restoreFromCursor rejects a non-newline tail.</td>
+</tr>
+<tr>
+<td>A27</td>
+<td>There is no per-file multiwriter lock in this module.</td>
+<td>Supported</td>
+<td>Synthesis addition</td>
+<td>L152–193 contains no lock. This identifies a local assumption, not a proven supported multiwriter bug.</td>
+</tr>
+<tr>
+<td>A28</td>
+<td>Two async tasks on the same instance can interleave inside synchronous append as described.</td>
+<td>Contradicted</td>
+<td>Synthesis addition</td>
+<td>L166–193 has no asynchronous suspension; the proposed same-instance mid-method interleaving does not follow this code.</td>
+</tr>
+<tr>
+<td>A29</td>
+<td>The described extra blank line makes repair correctness break.</td>
+<td>Unsupported</td>
+<td>Synthesis addition</td>
+<td>L201–202 and L124–125 filter empty lines. No corruption reproduction or operating-system atomicity evidence supports this mechanism. Multiple writers may cause other issues, but not established by this story.</td>
+</tr>
+<tr>
+<td>A30</td>
+<td>A single writer assumption needs validation before claiming multiwriter safety.</td>
+<td>Reasonable inference</td>
+<td>Synthesis caveat</td>
+<td>No per-file lock in L; caller topology absent from worker input. Valid limitation, not a high-confidence bug.</td>
+</tr>
+<tr>
+<td>A31</td>
+<td>Worker confidence 0.74 is high and measures concurrency assurance.</td>
+<td>Unsupported</td>
+<td>Synthesis addition</td>
+<td>0.74 is copied correctly, but no calibration or meaning mapping exists. Worker A ledger did not report this concurrency risk.</td>
+</tr>
+<tr>
+<td>A32</td>
+<td>No deliberate failures occurred in the run.</td>
+<td>Contradicted</td>
+<td>Synthesis inferred from successful compact results</td>
+<td>Fault profile none means no injected worker faults, but this run was deliberately SIGTERM-interrupted. Synthesis saw compact terminal results without run interruption history.</td>
+</tr>
+<tr>
+<td>A33</td>
+<td>All three terminal worker receipts say attempt 1.</td>
+<td>Supported</td>
+<td>Compact worker metadata</td>
+<td>Original and resumed execution use the same logical attempt value; this does not prove one execution. Two jobs have two real requests.</td>
+</tr>
+<tr>
+<td>A34</td>
+<td>The reported code labels document production incidents A11/C2/D2/P0-10.</td>
+<td>Unsupported</td>
+<td>Synthesis addition</td>
+<td>Comments identify changes and one D2 incident; C2 is an optimization label. Personal research code and these labels do not establish a production incident record.</td>
+</tr>
+<tr>
+<td>A35</td>
+<td>Confidence values range from 0.62 to 0.74.</td>
+<td>Supported</td>
+<td>Worker confidence fields</td>
+<td>A: budget .70, permissions .62, ledger .74.</td>
+</tr>
+<tr>
+<td>A36</td>
+<td>Those confidence values specifically measure incomplete call-site and concurrency coverage.</td>
+<td>Unsupported</td>
+<td>Synthesis addition</td>
+<td>Workers supplied numbers, not that explanation; ledger worker did not discuss the invented concurrency risk.</td>
+</tr>
+</tbody></table></div>
+<h3>Report B</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Claim paraphrase</th>
+<th>Verdict</th>
+<th>Origin</th>
+<th>Evidence and correction</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>B01</td>
+<td>Budget constructor sets caps and leases available remainder to children.</td>
+<td>Supported</td>
+<td>Worker B budget summary</td>
+<td>B33–99.</td>
+</tr>
+<tr>
+<td>B02</td>
+<td>The module does not itself kill or throttle child processes.</td>
+<td>Supported</td>
+<td>Worker B budget claim 1</td>
+<td>B exports accounting methods and starts no processes.</td>
+</tr>
+<tr>
+<td>B03</td>
+<td>It performs no limit enforcement at all; enforcement is entirely external.</td>
+<td>Contradicted</td>
+<td>Synthesis broadens worker distinction</td>
+<td>B74–87 clamps requests and refuses exhausted capped dimensions. Actual child consumption enforcement is external; admission enforcement is local.</td>
+</tr>
+<tr>
+<td>B04</td>
+<td>Caller adds returned child usage to parent totalUsage.</td>
+<td>Supported</td>
+<td>Worker B budget summary</td>
+<td>B10–12, B113–122; additional run.js:822–829 confirms integration.</td>
+</tr>
+<tr>
+<td>B05</td>
+<td>leasedTotals scans active leases for acquire/unleasedRemaining.</td>
+<td>Supported</td>
+<td>Worker B budget claim 4, narrowed</td>
+<td>B41–61 and B74. Unconstrained acquire exits earlier; capped acquisition has linear scan.</td>
+</tr>
+<tr>
+<td>B06</td>
+<td>Every budget operation, including release, scans the entire Map.</td>
+<td>Contradicted</td>
+<td>Worker B budget claim 4 retained in heading/table</td>
+<td>B106–130 release never calls leasedTotals; caps are not recomputed there.</td>
+</tr>
+<tr>
+<td>B07</td>
+<td>Dozens of leases will cause meaningful degradation at current scale.</td>
+<td>Unsupported</td>
+<td>Synthesis amplification</td>
+<td>Linear complexity is supported; no timing evidence. Additional current spawn limit is eight per run. No performance fix justified by this result.</td>
+</tr>
+<tr>
+<td>B08</td>
+<td>Permissions combines categories, context, path guards, shell rules, and overrides.</td>
+<td>Supported</td>
+<td>Worker B permissions summary</td>
+<td>P210–480.</td>
+</tr>
+<tr>
+<td>B09</td>
+<td>It is the only tool authorization boundary in the system.</td>
+<td>Unsupported</td>
+<td>Worker B permissions claim 1 amplified</td>
+<td>File supports a central gate, not exclusivity. Additional tool-registry.js:241–243 checks offered tools and write-file.js:51 repeats path checks.</td>
+</tr>
+<tr>
+<td>B10</td>
+<td>plan_only is a runtime mode name alongside default and acceptEdits.</td>
+<td>Contradicted</td>
+<td>Synthesis transcription</td>
+<td>P15–61 mode is plan; plan_only is a table outcome translated to ask at P448–455.</td>
+</tr>
+<tr>
+<td>B11</td>
+<td>Filesystem resolution is delegated to safety.resolveFileTarget.</td>
+<td>Supported</td>
+<td>Worker B permissions claim 2</td>
+<td>P235–254.</td>
+</tr>
+<tr>
+<td>B12</td>
+<td>Mode and ceiling checks establish one-way restrictions in all cache states.</td>
+<td>Unsupported</td>
+<td>Worker B permissions claim 4</td>
+<td>Fresh-path checks exist, but earlier cached allows survive new plan/noNetwork flags; reproduced in private probes.</td>
+</tr>
+<tr>
+<td>B13</td>
+<td>Ask decisions are excluded from the cache.</td>
+<td>Supported</td>
+<td>Worker B permissions claim 3</td>
+<td>P181; inherited targeted test also passes.</td>
+</tr>
+<tr>
+<td>B14</td>
+<td>Simply caching an ask decision would suppress the confirmation prompt.</td>
+<td>Contradicted</td>
+<td>Synthesis new causal claim</td>
+<td>Additional tool-registry.js:216–234 maps every ask result to needsConfirmation. Cached ask is still an ask. No automatic suppression mechanism was demonstrated.</td>
+</tr>
+<tr>
+<td>B15</td>
+<td>A future refactor could accidentally break confirmation behavior.</td>
+<td>Reasonable inference</td>
+<td>Synthesis hypothetical</td>
+<td>Any permission refactor needs regression coverage. This is not a current bug, and the predicted cache-only mechanism is wrong.</td>
+</tr>
+<tr>
+<td>B16</td>
+<td>Ledger uses append-only events, persistent descriptor, and a cursor.</td>
+<td>Supported</td>
+<td>Worker B ledger summary</td>
+<td>L22–40, L152–193, L217–224.</td>
+</tr>
+<tr>
+<td>B17</td>
+<td>Cursor size/newline checks and scan fallback recover saved sequence/intents.</td>
+<td>Supported</td>
+<td>Worker B ledger claims 1/3</td>
+<td>L44–80, L119–146. Does not repair arbitrary lost or corrupt event content.</td>
+</tr>
+<tr>
+<td>B18</td>
+<td>Pending intents are matched to result effect identifiers.</td>
+<td>Supported</td>
+<td>Worker B ledger claim 4</td>
+<td>L186–190, L129–133.</td>
+</tr>
+<tr>
+<td>B19</td>
+<td>Pending intents have no intrinsic size cap or expiry.</td>
+<td>Supported</td>
+<td>Worker B ledger claim 4</td>
+<td>L186–190 only adds/removes on event matching; no maximum.</td>
+</tr>
+<tr>
+<td>B20</td>
+<td>The implementation pushes an object shaped as effectId/intent/etc.</td>
+<td>Contradicted</td>
+<td>Synthesis fabricated code-shaped excerpt</td>
+<td>L187 actually pushes {seq, type, id: payload.effectId}.</td>
+</tr>
+<tr>
+<td>B21</td>
+<td>There is a match() method with no timeout/deduplication.</td>
+<td>Contradicted</td>
+<td>Synthesis invented API</td>
+<td>No match method is defined or exported. Matching is inline in append/_loadLastSeq.</td>
+</tr>
+<tr>
+<td>B22</td>
+<td>Unmatched intents will eventually exhaust memory in this observed workload.</td>
+<td>Unsupported</td>
+<td>Worker conditional growth amplified</td>
+<td>Unbounded API accumulation is possible; workload scale, retained session lifecycle, and memory measurements are missing. No demonstrated out-of-memory event.</td>
+</tr>
+<tr>
+<td>B23</td>
+<td>All confidence values are between 0.7 and 0.8.</td>
+<td>Supported</td>
+<td>Worker confidence fields</td>
+<td>B: .8, .8, .7.</td>
+</tr>
+<tr>
+<td>B24</td>
+<td>Confidence/coverage specifically identifies startup sequencing and concurrent intermodule consistency.</td>
+<td>Unsupported</td>
+<td>Synthesis addition</td>
+<td>The workers did not provide these specific incomplete-coverage findings; P1-01 is a plan-mode comment, not startup evidence.</td>
+</tr>
+</tbody></table></div>
+<h3>Report C</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Claim paraphrase</th>
+<th>Verdict</th>
+<th>Origin</th>
+<th>Evidence and correction</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>C01</td>
+<td>Broker is an in-memory manager of child token allocations.</td>
+<td>Supported</td>
+<td>Worker C budget summary</td>
+<td>B33–99; distributed describes logical child allocation, not distributed synchronization.</td>
+</tr>
+<tr>
+<td>C02</td>
+<td>acquire takes a cap as its argument.</td>
+<td>Contradicted</td>
+<td>Synthesis invented signature</td>
+<td>B69: acquire(totalUsage, request); caps enter at construction.</td>
+</tr>
+<tr>
+<td>C03</td>
+<td>release takes leaseId and usage and returns reconciliation data.</td>
+<td>Supported</td>
+<td>Worker C budget summary</td>
+<td>B106–130.</td>
+</tr>
+<tr>
+<td>C04</td>
+<td>Leases have no timeout/forced cleanup in the broker itself.</td>
+<td>Supported</td>
+<td>Worker C budget claim 1</td>
+<td>B37, B89–93, B106–111; no lease TTL mechanism.</td>
+</tr>
+<tr>
+<td>C05</td>
+<td>If a live broker caller never releases a lease it continues reserving capacity.</td>
+<td>Reasonable inference</td>
+<td>Worker C budget claim 1</td>
+<td>B55–61 subtracts active leases. Conditional API-level starvation is plausible; current caller cleanup must be checked separately.</td>
+</tr>
+<tr>
+<td>C06</td>
+<td>Stuck leases make caps unenforceable and demonstrate High impact.</td>
+<td>Contradicted</td>
+<td>Synthesis amplification</td>
+<td>Stuck leases reduce available capacity; they do not by themselves permit over-allocation. High impact/reachability was not established. Current spawn path releases on returned failure/success at spawn-agent.js:194–199.</td>
+</tr>
+<tr>
+<td>C07</td>
+<td>There is no audit/introspection of a stuck lease.</td>
+<td>Unsupported</td>
+<td>Synthesis addition</td>
+<td>B137–149 exposes count and totals, not every active lease ID. Additional spawn-agent.js:141–143 records the lease ID in its result note. No broker event log is a narrower supported observation.</td>
+</tr>
+<tr>
+<td>C08</td>
+<td>Restart loses the broker’s closure state.</td>
+<td>Supported</td>
+<td>Worker C budget claim 2</td>
+<td>B33–39. Durable campaign accounting is a separate component; do not confuse the two.</td>
+</tr>
+<tr>
+<td>C09</td>
+<td>Unknown lease release returns unreconciled without changing real leases.</td>
+<td>Supported</td>
+<td>Worker C budget claim 3 kernel</td>
+<td>B107–110 returns explicit incomplete:true and reason:unknown_lease.</td>
+</tr>
+<tr>
+<td>C10</td>
+<td>Unknown lease handling silently proves divergence from actual state.</td>
+<td>Unsupported</td>
+<td>Worker C budget claim 3 amplified</td>
+<td>An explicit error result is returned; absence of automatic repair is not proof of divergence. Caller behavior was not supplied.</td>
+</tr>
+<tr>
+<td>C11</td>
+<td>Invalid negative/nonfinite caps become unlimited.</td>
+<td>Supported</td>
+<td>Worker C budget claim 4</td>
+<td>B23–30, B70–71. This is the local function behavior; actual CLI bad-input reachability was not established.</td>
+</tr>
+<tr>
+<td>C12</td>
+<td>Permissions layers authority/path/shell/category checks and caching.</td>
+<td>Supported</td>
+<td>Worker C permissions summary</td>
+<td>P158–480, with earlier denials taking precedence over later asks.</td>
+</tr>
+<tr>
+<td>C13</td>
+<td>Returned decision values include hard_deny and plan_only.</td>
+<td>Contradicted</td>
+<td>Synthesis confuses table/severity/API</td>
+<td>P94–102, P448–455, P568–569: decisions are allow/deny/ask; hard_deny is severity; plan_only translates to ask.</td>
+</tr>
+<tr>
+<td>C14</td>
+<td>Eligible destructive cleanup and git-history operations force explicit ask.</td>
+<td>Supported</td>
+<td>Worker C permissions claim 3</td>
+<td>P386–429 after shell/allowlist/deny gates. Automation flags do not grant these operations.</td>
+</tr>
+<tr>
+<td>C15</td>
+<td>Cache keys selected flags, arguments, tool, and rootEpoch.</td>
+<td>Supported</td>
+<td>Worker C permissions summary</td>
+<td>P123–136. Root epoch is included; plan/noNetwork are omitted.</td>
+</tr>
+<tr>
+<td>C16</td>
+<td>Cache stores only allow and hard_deny outcomes.</td>
+<td>Contradicted</td>
+<td>Worker C permissions claim 2</td>
+<td>P181 stores any non-ask decision, including bypassable deny; hard_deny is severity. Comments are less precise than executable code.</td>
+</tr>
+<tr>
+<td>C17</td>
+<td>A cache hit returns before uncached authority and path checks.</td>
+<td>Supported</td>
+<td>Synthesis source-level deduction</td>
+<td>P169–178. Not present as a worker finding, but independently confirmed.</td>
+</tr>
+<tr>
+<td>C18</td>
+<td>Changing a restriction without changing the key can leave stale allows.</td>
+<td>Supported</td>
+<td>Synthesis new finding, independently reproduced</td>
+<td>Private probe: plan false→true retains allow and permits fixture write through registry; noNetwork false→true retains gate allow while a fresh context denies.</td>
+</tr>
+<tr>
+<td>C19</td>
+<td>rootEpoch changes themselves can leave the same old cache entry active.</td>
+<td>Contradicted</td>
+<td>Synthesis heading overgeneralizes</td>
+<td>P129/P136 includes epoch; inherited root-transition test passes. The omission concerns other state, not an incremented epoch.</td>
+</tr>
+<tr>
+<td>C20</td>
+<td>The cache uses first-in-first-out eviction rather than least-recently-used.</td>
+<td>Contradicted</td>
+<td>Worker ambiguity resolved wrongly by synthesis</td>
+<td>P172–173 refreshes hits by deleting/reinserting. Private 512-entry control proves a recently touched entry survives eviction.</td>
+</tr>
+<tr>
+<td>C21</td>
+<td>The file calls a method named _checkShellScan.</td>
+<td>Contradicted</td>
+<td>Synthesis invented API</td>
+<td>P262–264 imports and calls scanShellCommand. No _checkShellScan method exists.</td>
+</tr>
+<tr>
+<td>C22</td>
+<td>Cache staleness proves a High-severity adversarial path escape.</td>
+<td>Unsupported</td>
+<td>Synthesis amplification</td>
+<td>Conditional stale-permission defect is real; no attacker-controlled mutation route or actual path escape demonstrated. write-file.js:51 rechecks target paths.</td>
+</tr>
+<tr>
+<td>C23</td>
+<td>Restrictions cannot be refreshed without restarting the context.</td>
+<td>Contradicted</td>
+<td>Synthesis addition</td>
+<td>P139–145 exports invalidateDecisionCache(ctx), which clears cached decisions. Positive control applies the new restriction successfully.</td>
+</tr>
+<tr>
+<td>C24</td>
+<td>A dated comment proves multiple historical bypass incidents.</td>
+<td>Unsupported</td>
+<td>Synthesis expansion</td>
+<td>P386–405 references one shared-checkout incident. Plural bypass incidents and causal history beyond comments were not independently established.</td>
+</tr>
+<tr>
+<td>C25</td>
+<td>Cache key omits every mode distinction.</td>
+<td>Contradicted</td>
+<td>Synthesis overgeneralization</td>
+<td>P124 includes acceptEdits/dontAsk, and changing acceptEdits recomputes. It specifically omits plan; that narrower claim is supported.</td>
+</tr>
+<tr>
+<td>C26</td>
+<td>Changing plan mode can reuse an earlier cached allow on the same context.</td>
+<td>Supported</td>
+<td>Synthesis addition, independently reproduced</td>
+<td>P124 lacks plan; cold check returns ask while warm cache returns allow. Startup plan ceiling remains protected in tested controls.</td>
+</tr>
+<tr>
+<td>C27</td>
+<td>Fresh-path authority ceiling precedes category rules.</td>
+<td>Supported</td>
+<td>Worker C hierarchy</td>
+<td>P218 before P338 onward. Cache hit precedes both.</td>
+</tr>
+<tr>
+<td>C28</td>
+<td>Ledger logs events, detects sequence gaps, and tracks pending effects.</td>
+<td>Supported</td>
+<td>Worker C ledger summary</td>
+<td>L166–193, L227–235, L186–190.</td>
+</tr>
+<tr>
+<td>C29</td>
+<td>The append API takes one event object.</td>
+<td>Contradicted</td>
+<td>Synthesis invented signature</td>
+<td>L166: append(type, payload={}).</td>
+</tr>
+<tr>
+<td>C30</td>
+<td>Ledger and cursor share a location with atomic-write support.</td>
+<td>Reasonable inference</td>
+<td>Synthesis assumption</td>
+<td>L18–20 puts cursor beside ledger; additional private-fs.js:129–145 writes temp then renames. Does not establish universal filesystem guarantees.</td>
+</tr>
+<tr>
+<td>C31</td>
+<td>Cursor corruption/absence/size mismatch silently causes scan fallback.</td>
+<td>Supported</td>
+<td>Worker C ledger claim 3</td>
+<td>L37–40, L44–80; precise failure reason is not logged here.</td>
+</tr>
+<tr>
+<td>C32</td>
+<td>Cursor write failures are caught without rethrow.</td>
+<td>Supported</td>
+<td>Worker C ledger claim 3</td>
+<td>L110–115 catches failures; missing cursor leads to fallback later.</td>
+</tr>
+<tr>
+<td>C33</td>
+<td>No observation of whether cursor or scan was used exists.</td>
+<td>Contradicted</td>
+<td>Synthesis exaggeration</td>
+<td>L78 and L145 set source; L217–224 exposes getCursor().source. Exact fallback reason remains unavailable.</td>
+</tr>
+<tr>
+<td>C34</td>
+<td>Cursor corruption becomes completely undetectable until user-visible slowdown.</td>
+<td>Unsupported</td>
+<td>Synthesis exaggeration</td>
+<td>No latency data; getCursor reveals chosen path. Absence of detailed reason logging is an observability limitation, not demonstrated Medium impact.</td>
+</tr>
+<tr>
+<td>C35</td>
+<td>Fallback preserves correctness for every corrupt ledger because scan is authoritative.</td>
+<td>Unsupported</td>
+<td>Synthesis guarantee</td>
+<td>Scan is fallback truth but skips malformed records at L135–136 and trusts parsed values; cannot recover lost content or guarantee all corruption handling.</td>
+</tr>
+<tr>
+<td>C36</td>
+<td>Effect IDs use Math.random with no cryptographic collision guarantee.</td>
+<td>Supported</td>
+<td>Worker C ledger claim 4</td>
+<td>L250–251 combines timestamp and six base-36 random characters. No uniqueness check shown.</td>
+</tr>
+<tr>
+<td>C37</td>
+<td>Exposing IDs or using separate sessions itself makes collisions a material defect.</td>
+<td>Unsupported</td>
+<td>Synthesis extrapolation</td>
+<td>Exposure affects predictability, not collision probability; timestamp scope and event volume matter. No collision or exploit demonstrated.</td>
+</tr>
+<tr>
+<td>C38</td>
+<td>Repair newline and next event are combined in one synchronous write.</td>
+<td>Supported</td>
+<td>Worker C ledger claim 2</td>
+<td>L181–184. One call is supported; power-loss durability/atomicity across storage layers is not proven.</td>
+</tr>
+<tr>
+<td>C39</td>
+<td>The described repair is sound on every relevant storage layer.</td>
+<td>Unsupported</td>
+<td>Synthesis assurance</td>
+<td>No operating-system/storage fault experiment; do not elevate one write call to universal durability.</td>
+</tr>
+<tr>
+<td>C40</td>
+<td>Supplied synthesis inputs do not show interruption/control-plane history.</td>
+<td>Supported</td>
+<td>Synthesis coverage caveat</td>
+<td>synthesis.js:34–42 sends compact terminal results and objective, not abort/resume history. Prior full run evidence does show intentional interruptions.</td>
+</tr>
+<tr>
+<td>C41</td>
+<td>No signal handlers, distributed recovery, or concurrent-append guards appear in the three files.</td>
+<td>Supported</td>
+<td>Synthesis scoped limitation</td>
+<td>True for these inputs. It says nothing about the other modules or Starlark run-level handlers.</td>
+</tr>
+</tbody></table></div>
+<h2 id="s9">9. Explicit worker-claim audit</h2>
+<p>IDs use trial letter, file key (B/P/L), and the one-based item in that worker’s claims array. Summary/evidence-field inaccuracies are also discussed in the final-claim review and source notes. Original confidence values were inspected but not treated as verification.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Verdict</th>
+<th>Evidence and qualification</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>W-A-B1</td>
+<td>Unsupported</td>
+<td>B55–61/106–130: timely release is not the entire cap invariant. A missing release withholds capacity; accurate totalUsage and child enforcement also matter.</td>
+</tr>
+<tr>
+<td>W-A-B2</td>
+<td>Supported</td>
+<td>B89 uses four random bytes, a 32-bit ID space; active-ID collision is possible but not observed. Current spawn limit of eight is additional context.</td>
+</tr>
+<tr>
+<td>W-A-B3</td>
+<td>Supported</td>
+<td>B125–149 has no internal incomplete-array cap. Treat growth as module-level possibility, not a measured current-run memory failure.</td>
+</tr>
+<tr>
+<td>W-A-B4</td>
+<td>Supported</td>
+<td>B23–30 maps negative/nonfinite values to null; reachable bad CLI input is unproven.</td>
+</tr>
+<tr>
+<td>W-A-P1</td>
+<td>Supported</td>
+<td>P210–480 is the central permission gate; exclusivity beyond this module is not established.</td>
+</tr>
+<tr>
+<td>W-A-P2</td>
+<td>Contradicted</td>
+<td>P181 caches any non-ask decision, including bypassable deny; hard_deny is severity, not an outcome enum.</td>
+</tr>
+<tr>
+<td>W-A-P3</td>
+<td>Supported</td>
+<td>P386–429 asks on eligible destructive operations after earlier denials. The word always has those preconditions.</td>
+</tr>
+<tr>
+<td>W-A-P4</td>
+<td>Supported</td>
+<td>P66–74 and P235–254 show the compatibility alias and resolver enforcement.</td>
+</tr>
+<tr>
+<td>W-A-L1</td>
+<td>Supported</td>
+<td>L152–184 keeps a file descriptor open for synchronous writes.</td>
+</tr>
+<tr>
+<td>W-A-L2</td>
+<td>Supported</td>
+<td>L44–80 validates size/newline plus version/integer constraints.</td>
+</tr>
+<tr>
+<td>W-A-L3</td>
+<td>Supported</td>
+<td>L181–184 combines repair delimiter and event in one write.</td>
+</tr>
+<tr>
+<td>W-A-L4</td>
+<td>Contradicted</td>
+<td>L217–224 getCursor only returns state; L107–116 _writeCursor persists it. The worker incorrectly groups both as persisting operations.</td>
+</tr>
+<tr>
+<td>W-B-B1</td>
+<td>Supported</td>
+<td>B never kills/throttles a child; it does enforce allocation admission at B74–87.</td>
+</tr>
+<tr>
+<td>W-B-B2</td>
+<td>Supported</td>
+<td>B33–39 stores state in closure Map/array only.</td>
+</tr>
+<tr>
+<td>W-B-B3</td>
+<td>Unsupported</td>
+<td>B110 explicitly reports unknown_lease and incomplete:true. Calling this silent mismatching implies a malfunction not shown by the code.</td>
+</tr>
+<tr>
+<td>W-B-B4</td>
+<td>Contradicted</td>
+<td>B106–130 release does not scan leases; B41–61 and B74 support linear capped acquire/unleasedRemaining, not every operation.</td>
+</tr>
+<tr>
+<td>W-B-P1</td>
+<td>Supported</td>
+<td>P is a central decision module; additional offered-tool and path checks exist elsewhere.</td>
+</tr>
+<tr>
+<td>W-B-P2</td>
+<td>Supported</td>
+<td>P235 calls safety.resolveFileTarget and handles a denied result.</td>
+</tr>
+<tr>
+<td>W-B-P3</td>
+<td>Contradicted</td>
+<td>P181 excludes ask but caches non-hard denies too. No-ask caching alone is not proof of all confirmation invariants.</td>
+</tr>
+<tr>
+<td>W-B-P4</td>
+<td>Unsupported</td>
+<td>P uses effectiveFlags/toolAboveCeiling on fresh checks; a cached allow misses new plan/noNetwork restrictions. Existing startup-ceiling controls still pass.</td>
+</tr>
+<tr>
+<td>W-B-L1</td>
+<td>Supported</td>
+<td>L37–40 restores from validated cursor or scans.</td>
+</tr>
+<tr>
+<td>W-B-L2</td>
+<td>Supported</td>
+<td>L181–182 combines delimiter/event in one write, without proving power-loss durability.</td>
+</tr>
+<tr>
+<td>W-B-L3</td>
+<td>Supported</td>
+<td>L65–73 rejects size/non-newline mismatch.</td>
+</tr>
+<tr>
+<td>W-B-L4</td>
+<td>Supported</td>
+<td>L186–190 tracks/removes matching effects without a built-in maximum.</td>
+</tr>
+<tr>
+<td>W-C-B1</td>
+<td>Unsupported</td>
+<td>B invariant does not depend entirely on release. Accuracy of totalUsage and child usage also matters; missing release alone can starve rather than overspend.</td>
+</tr>
+<tr>
+<td>W-C-B2</td>
+<td>Supported</td>
+<td>B33–39: in-memory state is lost at restart.</td>
+</tr>
+<tr>
+<td>W-C-B3</td>
+<td>Unsupported</td>
+<td>B110 returns a specific incomplete/error reason. This does not establish silent divergence; preserving unrelated leases is expected.</td>
+</tr>
+<tr>
+<td>W-C-B4</td>
+<td>Supported</td>
+<td>B23–30 confirms invalid-cap conversion. Default CLI reachability remains outside the supplied input.</td>
+</tr>
+<tr>
+<td>W-C-P1</td>
+<td>Supported</td>
+<td>P218–429 follows this broad hierarchy on uncached checks; earlier hard denials and cache hits are qualifications.</td>
+</tr>
+<tr>
+<td>W-C-P2</td>
+<td>Contradicted</td>
+<td>P172–185 refreshes hit recency and caches all non-ask decisions; first-in-first-out and allow/hard_deny-only are inaccurate.</td>
+</tr>
+<tr>
+<td>W-C-P3</td>
+<td>Supported</td>
+<td>P386–429 enforces those consent asks after preliminary denials.</td>
+</tr>
+<tr>
+<td>W-C-P4</td>
+<td>Supported</td>
+<td>P55–61 marks effectful categories plan_only at table level; actual returned permission is ask and pipeline records proposals. Not a claim that arbitrary cache state is safe.</td>
+</tr>
+<tr>
+<td>W-C-L1</td>
+<td>Supported</td>
+<td>L manages its own file/cursor read/write APIs; it cannot exclude other processes from those files.</td>
+</tr>
+<tr>
+<td>W-C-L2</td>
+<td>Supported</td>
+<td>L181–184 combines delimiter and event. Calling it atomic follows a comment but must be limited to one write invocation.</td>
+</tr>
+<tr>
+<td>W-C-L3</td>
+<td>Supported</td>
+<td>L110–115 swallows cursor-write errors and constructor can fall back. The ledger itself can still fail; never fatal only describes the cursor optimization.</td>
+</tr>
+<tr>
+<td>W-C-L4</td>
+<td>Supported</td>
+<td>L250–251 uses timestamp plus Math.random suffix. Collision possibility exists; security requirement or observed collision is absent.</td>
+</tr>
+</tbody></table></div>
+<h2 id="s10">10. Checks, first failures, and publication disposition</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Check in this review</th>
+<th>Actual result</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Saved sources vs declared hashes vs current baseline</td>
+<td>9 of 9 match</td>
+<td>Correct historical input bytes were reviewed</td>
+</tr>
+<tr>
+<td>Existing cache/authority/budget tests</td>
+<td>27 pass, 0 fail, 0 skip</td>
+<td>Existing checks pass despite the newly reproduced gap</td>
+</tr>
+<tr>
+<td>Existing ledger/crash/spawn tests</td>
+<td>16 pass, 0 fail, 0 skip</td>
+<td>Relevant regression controls pass</td>
+</tr>
+<tr>
+<td>New warmed-cache narrowing expectations and controls</td>
+<td><strong>3 pass, 2 fail, 0 skip</strong></td>
+<td>New gap reproduced; failures preserved</td>
+</tr>
+<tr>
+<td>Real dispatcher fixture probe</td>
+<td>Fixture write occurred after plan narrowing</td>
+<td>Concrete effect in private disposable directory</td>
+</tr>
+<tr>
+<td>Cache recency and included-mode flag controls</td>
+<td>Pass</td>
+<td>Refutes strict FIFO and all-mode-omitted claims</td>
+</tr>
+<tr>
+<td>Actual synthesis-input comparison</td>
+<td>One exact match for each of A/B/C</td>
+<td>Missing run-history/source context established from real requests</td>
+</tr>
+<tr>
+<td>Report formatting, links, and browser companion</td>
+<td>Formatting and documentation checks passed; HTML structure and local links checked; visual inspection skipped</td>
+<td>Browser tool blocked the local-file URL; no visual or interactive browser acceptance claimed</td>
+</tr>
+</tbody></table></div>
+<p>No fix was applied before reporting first results. No live run was repeated to obtain a preferred answer. The root full suite and Starlark evaluator suite were not rerun during this source/artifact review because no runtime/test implementation changed; their prior counts remain historical evidence in the previous handoff. This turn’s 43 inherited targeted passes and two deliberately retained new failures are the relevant new results. Network commands were classified as strings only; no outbound network execution was attempted by a probe.</p>
+<p>The original durable campaign ledger remains byte-identical to the prior final snapshot: <strong>$0.179656 recorded; six interrupted requests with uncertain billing; $5 uncertainty hold retained.</strong> This review added <strong>$0 of bridge/model experiment spend</strong>. That statement concerns the experiment ledger, not the cost of using Codex itself.</p>
+<p><strong>Folder:</strong> <code>/Users/alanman/.codex/worktrees/df82/claude-local-bridge-playground</code>. <strong>Branch:</strong> <code>codex/starlark-r11-live-verification</code>. <strong>New deliverables:</strong> this Markdown review and its self-contained HTML companion. The previous live handoff pair remains uncommitted alongside them. No tracked source/test/configuration files changed. Private probe scripts, fixtures, and review evidence remain in ignored directories. No commits, push, merge, main-checkout edits, or automatic fixes were performed.</p>
+<p><strong>Recommended next step:</strong> authorize a narrow F1 cache correction and keep the remaining generated “bugs” as reviewed observations. After that correction passes unchanged regression expectations and the required broader checks, decide whether to publish the handoff documents and fix together or separately. Cursor can then perform its independent invariant review. A later synthesis improvement should require provenance-backed claims and distinguish “not included in my evidence” from “absent in the code”; include run-history metadata only if the final report is expected to explain interruption behavior. Those synthesis changes are proposals, not implemented fixes or prerequisites retroactively imposed on the original experiment.</p>
+<p><strong>Limits:</strong> one reviewer, three runs, one source baseline, no broad model comparison, no operating-system crash/power-loss experiment, and no demonstrated hostile route to mutate the permission context. This report rejects unsupported high-severity stories while preserving the conditional code defect it actually reproduced.</p>
+<h2 id="s11">11. Reproduction pointer for the next agent</h2>
+<p>The private scripts are <code>probe-cache.cjs</code> and <code>cache-regressions.test.cjs</code> in the ignored review directory. They import the unchanged real runner modules and create only new local fixture files. The first regression log remains <code>cache-regressions-first.log</code>. If the next reviewer is on the other laptop and does not have ignored evidence, the following minimal reproduction is sufficient to reconstruct the plan-mode check from the same baseline.</p>
+<p><strong>Where to run:</strong> this is an agent-facing reproduction. In Terminal, first move into a verified checkout of <code>claude-local-bridge-playground</code> at the reviewed baseline and confirm the folder/branch before running it. Paste the entire block into Terminal, not Spotlight or a browser. It uses a newly created temporary directory and does not modify repository source. The current defective behavior prints <code>cached: allow</code>, <code>fresh: ask</code>, and <code>wroteFixture: true</code>. If the issue is fixed, the cached path must cease allowing that write. Missing-module errors mean Terminal is not in the project root; resolve the location rather than changing imports to another repository.</p>
+<pre><code class="language-bash">node --require ./test/setup.js &lt;&lt;&#39;NODE&#39;
+// Load the actual permission and dispatch implementation from this checkout.
+const fs = require(&#39;fs&#39;);
+const os = require(&#39;os&#39;);
+const path = require(&#39;path&#39;);
+const permissions = require(&#39;./src/runner/permissions&#39;);
+const registry = require(&#39;./src/runner/tool-registry&#39;);
+const { createAuthorityCeiling } = require(&#39;./src/runner/authority&#39;);
+
+// Keep every possible write inside a brand-new throwaway folder.
+const folder = fs.mkdtempSync(path.join(os.tmpdir(), &#39;fidelity-cache-&#39;));
+const ctx = {
+  cwd: folder,
+  cwdRealpath: fs.realpathSync(folder),
+  acceptEdits: true,
+  dontAsk: true,
+  plan: false,
+};
+ctx.authorityCeiling = createAuthorityCeiling(ctx);
+const args = { path: &#39;sentinel.txt&#39;, content: &#39;temporary review fixture&#39; };
+
+// Cache an allow while writing is permitted, then narrow the same context.
+permissions.check(&#39;write_file&#39;, args, ctx);
+ctx.plan = true;
+const cached = permissions.check(&#39;write_file&#39;, args, ctx).decision;
+
+// A copied context has a fresh cache and shows what current policy requires.
+const fresh = permissions.check(&#39;write_file&#39;, args, { ...ctx }).decision;
+registry.execute(&#39;write_file&#39;, args, ctx, &#39;fidelity-check&#39;).then((result) =&gt; {
+  console.log({
+    cached,
+    fresh,
+    ok: result.ok,
+    wroteFixture: fs.existsSync(path.join(folder, &#39;sentinel.txt&#39;)),
+    fixtureFolder: folder,
+  });
+});
+NODE
+</code></pre>
+<p>This is a reproduction of a conditional cache/dispatcher defect, not a claim that starting the runner with <code>--plan</code> is broken. Preserve that distinction in the next handoff.</p>
+</article><footer>Complete report embedded · Claim filtering is optional · <a href="HANDOFF-starlark-analysis-fidelity-2026-09-07.md">Markdown companion</a> · No external fonts, scripts, or network dependencies.</footer></main><script>const items=[...document.querySelectorAll('tbody tr')].filter(r=>/^(?:[ABC]\d{2}|W-[ABC]-[BPL]\d)$/.test(r.cells[0]?.textContent.trim())); const q=document.getElementById('query'),v=document.getElementById('verdict'),c=document.getElementById('count');for(const row of items){const status=[...row.cells].map(x=>x.textContent.trim()).find(x=>['Supported','Reasonable inference','Unsupported','Contradicted'].includes(x));row.dataset.verdict=status;row.classList.add('claim');row.cells[0].id=row.cells[0].textContent.trim();}function filter(){let count=0;for(const row of items){const show=(!v.value||row.dataset.verdict===v.value)&&row.textContent.toLowerCase().includes(q.value.toLowerCase());row.hidden=!show;if(show)count++;}c.textContent=count+' of '+items.length+' claim rows';}q.addEventListener('input',filter);v.addEventListener('change',filter);document.getElementById('reset').addEventListener('click',()=>{q.value='';v.value='';filter();});filter();</script></body></html>

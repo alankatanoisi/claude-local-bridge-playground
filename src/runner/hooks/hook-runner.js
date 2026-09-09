@@ -7,13 +7,17 @@
 const { spawnSync } = require('child_process');
 const safety = require('../safety');
 const { scanShellCommand } = require('../shell-policy');
+const { effectiveFlags } = require('../authority');
 
 const DEFAULT_HOOK_TIMEOUT_MS = 120_000;
 const MAX_HOOK_OUTPUT_CHARS = 8000;
 
 function buildHookEnv(ctx) {
   const env = safety.buildSafeEnv();
-  if (ctx?.noNetwork) {
+  // Effective flag (ctx may be omitted by some callers — default to {} so the
+  // ceiling lookup stays safe). A startup no-network ceiling survives a
+  // mid-run clear of the mutable flag, same as the shell scanner.
+  if (effectiveFlags(ctx || {}).noNetwork) {
     env.http_proxy = '127.0.0.1:1';
     env.https_proxy = '127.0.0.1:1';
     env.HTTP_PROXY = '127.0.0.1:1';

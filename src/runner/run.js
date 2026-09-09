@@ -49,7 +49,7 @@ const { createBudgetBroker } = require('./budget-broker');
 const { writeRunManifest } = require('./recovery/run-manifest');
 const { scrubDeepSecrets } = require('./redaction-boundary');
 const { normalizeEffort, resolveModelControls } = require('./model-capabilities');
-const { createAuthorityCeiling } = require('./authority');
+const { createAuthorityCeiling, effectiveFlags } = require('./authority');
 const { deriveContextPolicy } = require('./context-runtime-policy');
 const { buildContextProjection } = require('./context-projection');
 const {
@@ -860,7 +860,12 @@ async function run(options) {
         acceptEdits: ctx.acceptEdits,
         dontAsk: ctx.dontAsk,
         plan: ctx.plan,
-        noNetwork: ctx.noNetwork,
+        // Effective, not raw: a child must inherit the startup no-network
+        // ceiling even if the parent's mutable flag was cleared mid-run
+        // (thermo-nuclear F1). allowShell/acceptEdits/dontAsk stay raw here
+        // because narrowChildAuthority clamps them against the parent ceiling
+        // downstream; noNetwork has no such downstream clamp.
+        noNetwork: effectiveFlags(ctx).noNetwork,
       },
       transcriptPath,
       tracePath: trace?.filePath || null,

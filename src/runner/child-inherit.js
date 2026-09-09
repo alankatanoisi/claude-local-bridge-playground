@@ -16,6 +16,11 @@
  * Secrets: caller tokens travel via BRIDGE_CALLER_TOKEN env only, never argv.
  */
 
+// effectiveFlags: the parent's startup no-network ceiling must propagate to
+// children even if the parent's mutable ctx.noNetwork flag was cleared mid-run
+// (same invariant as the shell scanner; thermo-nuclear F1).
+const { effectiveFlags } = require('./authority');
+
 /**
  * Build the inherit bag from parent run context. `live` may supply remaining
  * wall-clock budget computed at spawn time.
@@ -27,7 +32,7 @@ function buildChildInheritSpec(ctx, live = {}) {
     effort: src.effort || null,
     thinking: src.thinking || null,
     bridgeUrl: src.bridgeUrl || null,
-    noNetwork: !!(src.noNetwork || (ctx && ctx.noNetwork)),
+    noNetwork: !!(src.noNetwork || (ctx && effectiveFlags(ctx).noNetwork)),
     maxWallClockMs:
       typeof live.maxWallClockMs === 'number'
         ? live.maxWallClockMs
