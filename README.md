@@ -505,7 +505,14 @@ Context shaping is request-local: session checkpoints retain raw canonical messa
 protects the newest eight semantic exchanges, reserves the requested response output, and may replace only old
 evidence with stable re-fetch markers or a deterministic checkpoint. `runner.contextState` stores the objective,
 latest directive, per-model estimate calibration (initial factor 1.5), history-quality label, and checkpoint epoch.
-Rendered anchors and projections are never stored as canonical messages. Unknown models use a visible conservative
+When the projection hides whole exchanges — digested behind a checkpoint, or with tool results stubbed or
+stale-dropped — it also appends a compact **headline index** (`[context:headline-index v1]`, 2026-08-31 research
+review idea 7): one line per hidden exchange, using the assistant's own first sentence from that turn as a
+model-written headline (no extra model call), plus a tool summary and the canonical addresses (`m<i>`, tool_use ids).
+Beyond 40 hidden exchanges the oldest roll up into a single range line. Clipped head+tail results are not listed —
+they still show real bytes and carry their own marker. With `--capabilities history` the index says how to recover
+each entry via `expand_history`. Rendered anchors, headline indexes, and projections are never stored as canonical
+messages. Unknown models use a visible conservative
 200,000-token estimate; known model limits come from the versioned model catalog.
 
 Adaptive thinking defaults to `--thinking auto`. The runner sends `thinking: { type: "adaptive" }` for known models

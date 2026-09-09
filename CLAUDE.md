@@ -296,16 +296,23 @@ items rather than starting a parallel tracker.
   ledger-aware resume) closed same evening** — `HANDOFF-f6-ledger-aware-resume-2026-07-31.md`.
   Residual: A1-F4/A1-F5, A3-F4, DBOS arm, HE-05 OTel half.
 
-- **Starlark thread — current entry
-  `HANDOFF-starlark-status-and-recommendations-2026-08-25.md`.** Bundles A–D built 2026-08-10
-  (`starlark-host/`). D-F1 closed `4c6904a` (worker retries get the host rejection reason);
-  summary ceiling 700→1200 (owner decision, decision-tested). 08-10 two-axis tables describe
-  the **old** contract. **R8 decided 2026-08-31: frozen as a separate lab** (no
-  `run_workflow` runner edge — banner on the 08-25 handoff). **Lab un-idled 2026-09-06
-  (Alan; R8 architecture unchanged): R11 + stretch R14a/b briefed for Codex —
-  `CODEX-TASK-starlark-r11-2026-09-06.md`, $0 build + $10 optional-live ceiling.**
-  Open: R12 (deferred). Last Starlark code 2026-08-11. This machine: no Go toolchain, no local
-  campaign ledger.
+- **Starlark thread — current entry `HANDOFF-starlark-r11-2026-09-06.md`** (Codex; supersedes
+  the 08-25 status handoff as entry — that file and Bundles A–D records stay unchanged).
+  Bundles A–D built 2026-08-10 (`starlark-host/`). D-F1 closed `4c6904a`; summary ceiling
+  700→1200 (owner decision). 08-10 two-axis tables describe the **old** contract. **R8
+  decided 2026-08-31 and reaffirmed 2026-09-06: separate lab, no `run_workflow` runner edge —
+  revisit only after R11 use.** **R11 + R14a/b landed 2026-09-06 (`84dd73a`, Codex from
+  `CODEX-TASK-starlark-r11-2026-09-06.md`): run-level AbortController + SIGINT/SIGTERM
+  trip-and-flush, `--resume <runDir>` worker-phase resume from the ledger, golden
+  descriptor plans, plan/input SHA-256 fingerprints, evaluator-dependent tests skip
+  instead of ENOENT; live smoke skipped, $0 spent.** **Thermo-nuclear review
+  2026-09-06 (findings not fixed):** Starlark slice
+  `HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md`; overlapping git range
+  (history + headlines + this commit)
+  `HANDOFF-context-layer-thermo-nuclear-2026-09-06.md`. Do not treat R11
+  abort/resume as settled. The brief stays at the root until
+  Alan accepts, then archive it. Open: R12 (deferred). This machine: no Go toolchain, no
+  local campaign ledger.
 
 - **Programmatic-tooling research thread (nine papers → runner ideas) — entry
   `docs/programmatic-tooling-research-review-2026-08-31.html`.** Twelve borrowable ideas
@@ -316,11 +323,20 @@ items rather than starting a parallel tracker.
   opt-in `history` capability group — `search_history`/`expand_history` over lossless
   canonical history; projection clip markers gain `recover: expand_history id=…` only
   when the group is offered; stale-read markers deliberately keep re-read).** The §6
-  sequence is complete — the next slice is a fresh Alan decision (open candidates:
-  idea 7 headlines index, idea 3 `--verify-finish`, idea 12 counters, idea 1 audit
-  rule). Idea 9 (`run_block`) stays parked on R8's no-runner-edge architecture — do
-  not build toward it unbidden. Cursor invariant review of `65c001a`+`19c2a69`
-  deferred by Alan (2026-09-06, momentum) — still owed downstream.
+  sequence is complete. **Idea 7 landed 2026-09-06 (Alan-directed): the
+  "what you've forgotten" headline index — `src/runner/context-headlines.js`; the
+  projection appends `[context:headline-index v1]` at the tail (next to the anchor,
+  never in the cache-stable prefix) whenever exchanges are digested behind the
+  checkpoint or have results stubbed/stale-dropped; headlines are the assistant's own
+  first sentence (no extra model call); oldest roll up past 40 lines; recovery wording
+  only when the history group is offered.** Next slice is a fresh Alan decision (open
+  candidates: idea 3 `--verify-finish`, idea 12 counters, idea 1 audit rule). Idea 9
+  (`run_block`) stays parked on R8's no-runner-edge architecture — do not build toward
+  it unbidden. **Cursor invariant review of `19c2a69^..2da8066` (history +
+  headlines, plus Starlark `84dd73a` which sat in that range):**
+  `HANDOFF-context-layer-thermo-nuclear-2026-09-06.md` — review only, findings
+  open. `65c001a` (eval harness / HE-06 goldens) was not in that range; its
+  review is `HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md`.
 
 - **ACP thread (Bridge Runner → T3 Code) — Slices A–D built; current entry
   `HANDOFF-acp-ask-user-question-2026-08-31.md`.** Design record for A–C:

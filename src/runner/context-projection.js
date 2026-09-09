@@ -10,6 +10,7 @@ const { stringifyToolResultContent } = require('./tool-result-content');
 const { estimateRequest, fingerprint } = require('./context-estimator');
 const { pressureTier } = require('./context-runtime-policy');
 const { renderSessionAnchor } = require('./session-anchor');
+const { buildHeadlines, selectHiddenHeadlines, renderHeadlineIndex } = require('./context-headlines');
 const { CATEGORIES, WRITE_TOOLS } = require('./tool-catalog');
 
 const OLD_RESULT_CLIP_CHARS = 12_000;
@@ -80,7 +81,10 @@ function reduceOldEvidence(messages, cutoff, targetTokens, requestBase, factor, 
   for (const use of uses.values()) {
     if (WRITE_TOOLS.has(use.name) && use.input?.path) writes.push({ path: use.input.path, index: use.messageIndex });
   }
-  const stats = { staleDropped: 0, clipped: 0, stubbed: 0, charsRemoved: 0 };
+  // hiddenToolUseIds feeds the idea-7 headline index: results that were
+  // stale-dropped or stubbed are no longer visible at all (clipped ones still
+  // show head+tail and carry their own marker, so they are not "hidden").
+  const stats = { staleDropped: 0, clipped: 0, stubbed: 0, charsRemoved: 0, hiddenToolUseIds: new Set() };
 
   function rewriteResult(predicate, transform) {
     current = current.map((message, index) => {
@@ -111,8 +115,9 @@ function reduceOldEvidence(messages, cutoff, targetTokens, requestBase, factor, 
         writes.some((write) => write.path === use.input.path && write.index > use.messageIndex)
       );
     },
-    (_block, before) => {
+    (block, before) => {
       stats.staleDropped++;
+      if (block.tool_use_id) stats.hiddenToolUseIds.add(block.tool_use_id);
       return '[context:stale-read] Superseded result; re-read current bytes. original_chars=' + before.length;
     },
   );
@@ -136,6 +141,7 @@ function reduceOldEvidence(messages, cutoff, targetTokens, requestBase, factor, 
       (block) => stringifyToolResultContent(block.content).length > 300,
       (block, before) => {
         stats.stubbed++;
+        if (block.tool_use_id) stats.hiddenToolUseIds.add(block.tool_use_id);
         const use = uses.get(block.tool_use_id);
         return (
           '[context:old-result-refetch] tool=' +
@@ -295,8 +301,9 @@ function buildContextProjection(input) {
   let projected = messages;
   let checkpoint = contextState?.checkpoint || null;
   let checkpointStable = true;
-  let stats = { staleDropped: 0, clipped: 0, stubbed: 0, charsRemoved: 0 };
+  let stats = { staleDropped: 0, clipped: 0, stubbed: 0, charsRemoved: 0, hiddenToolUseIds: new Set() };
   let emergency = { count: 0, charsRemoved: 0 };
+  let headlineIndex = { text: '', entries: 0, rolledUp: 0 };
   const stages = [];
 
   if (initialTier === 'ceiling' && groups.length <= 1) {
@@ -339,6 +346,23 @@ function buildContextProjection(input) {
   if (stages.length > 0 || checkpoint) {
     projected = appendAnchor(projected, renderSessionAnchor(contextState, runtime));
     stages.push('session_anchor');
+  }
+
+  // Idea 7: the "what you've forgotten" index. Built from CANONICAL messages
+  // (never the projection), listing every exchange the model can no longer see
+  // verbatim — digested behind the checkpoint or with results stubbed/stale-
+  // dropped. Appended at the tail next to the anchor so the cache-stable
+  // checkpoint prefix never churns as the hidden set grows.
+  if (input.headlines !== false) {
+    const hidden = selectHiddenHeadlines(buildHeadlines(messages), {
+      rawCutoff: checkpoint?.rawCutoff || 0,
+      hiddenToolUseIds: stats.hiddenToolUseIds,
+    });
+    if (hidden.length) {
+      headlineIndex = renderHeadlineIndex(hidden, { recoveryEnabled: !!(recovery && recovery.enabled) });
+      projected = appendAnchor(projected, headlineIndex.text);
+      stages.push('headline_index');
+    }
   }
   after = estimateRequest({ ...requestBase, messages: projected }, calibration.factor);
   const nextState = {
@@ -384,6 +408,9 @@ function buildContextProjection(input) {
       charactersRemoved: stats.charsRemoved + emergency.charsRemoved,
       emergencyReductionCount: emergency.count,
       anchorPresent: stages.includes('session_anchor'),
+      headlineIndexEntries: headlineIndex.entries,
+      headlineIndexRolledUp: headlineIndex.rolledUp,
+      headlineIndexChars: headlineIndex.text.length,
       checkpointEpoch: checkpoint?.epoch || 0,
       checkpointRawCutoff: checkpoint?.rawCutoff || 0,
       checkpointStable,
