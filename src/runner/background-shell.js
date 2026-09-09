@@ -11,13 +11,16 @@ const { spawn } = require('child_process');
 const crypto = require('crypto');
 const safety = require('./safety');
 const { scanShellCommand } = require('./shell-policy');
+const { effectiveFlags } = require('./authority');
 
 const MAX_JOBS = 8;
 const MAX_CAPTURE_CHARS = 120_000;
 
 function buildEnv(ctx) {
   const env = safety.buildSafeEnv();
-  if (ctx.noNetwork) {
+  // Effective flag: the startup no-network ceiling survives a mid-run clear of
+  // the mutable ctx flag (same invariant as the scanner in shell-policy.js).
+  if (effectiveFlags(ctx).noNetwork) {
     env.http_proxy = '127.0.0.1:1';
     env.https_proxy = '127.0.0.1:1';
     env.HTTP_PROXY = '127.0.0.1:1';

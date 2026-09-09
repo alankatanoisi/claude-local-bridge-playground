@@ -15,6 +15,7 @@
 const { spawnSync } = require('child_process');
 const safety = require('../safety');
 const { SHELL_AUTHORITY_HONESTY } = require('../shell-policy');
+const { effectiveFlags } = require('../authority');
 const persistentShell = require('./persistent-shell');
 
 const DEFAULT_SHELL_TIMEOUT = 30000;
@@ -45,7 +46,9 @@ function definition() {
 
 function buildEnv(ctx) {
   const env = safety.buildSafeEnv();
-  if (ctx.noNetwork) {
+  // Effective flag: the startup no-network ceiling survives a mid-run clear of
+  // the mutable ctx flag (same invariant as the scanner in shell-policy.js).
+  if (effectiveFlags(ctx).noNetwork) {
     env.http_proxy = '127.0.0.1:1';
     env.https_proxy = '127.0.0.1:1';
     env.HTTP_PROXY = '127.0.0.1:1';

@@ -126,6 +126,16 @@ describe('permission cache respects policy narrowing', () => {
     const denied = permissions.check('bash', args, ctx);
     assert.equal(denied.decision, 'deny');
     ctx.noNetwork = false;
+    // Re-checking the IDENTICAL args is answered by the decision cache (same
+    // key, cached deny) — it never re-runs the gate. Keep it: a cached deny
+    // staying cached is still worth pinning.
     assert.equal(permissions.check('bash', args, ctx).decision, 'deny');
+    // A NEW command string forces a cold (uncached) gate evaluation. This is
+    // the case that proves the startup ceiling itself is enforced: the shell
+    // scanner must read the effective (ceiling-clamped) noNetwork flag, not
+    // the mutable flag just cleared above. Before the scanner read effective
+    // flags (thermo-nuclear F1), this assertion returned 'allow'.
+    assert.equal(permissions.check('bash', { command: 'curl https://other.example' }, ctx).decision, 'deny');
+    assert.equal(permissions.check('bash', { command: 'wget https://other.example' }, ctx).decision, 'deny');
   });
 });

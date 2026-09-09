@@ -156,9 +156,17 @@ describe('FG-I egress capability containment', () => {
   // that can never be dropped (authority.js), but a ceiling nobody consults is
   // decoration. Pinning the consumer set means deleting a check is loud, and
   // adding an egress surface without one is a reviewed decision.
-  it('FG-I2: the ctx.noNetwork guard is honoured at every registered enforcement point', () => {
+  //
+  // Post-F1 (thermo-nuclear review, 2026-09-09): enforcement points must branch
+  // on the EFFECTIVE (ceiling-clamped) flag — effectiveFlags(ctx).noNetwork —
+  // never the raw mutable flag. A raw `ctx.noNetwork` branch goes silent the
+  // moment the flag is cleared mid-run, which is exactly the escape the ceiling
+  // exists to forbid. So this register now pins the effective-flag branches AND
+  // bans raw-flag branches outright.
+  it('FG-I2: the noNetwork guard is honoured at every registered enforcement point (effective flag only)', () => {
     const EXPECTED_ENFORCERS = ['background-shell.js', 'hooks/hook-runner.js', 'shell-policy.js', 'tools/bash.js'];
-    const actual = [];
+    const effective = [];
+    const raw = [];
     const walk = (dir) => {
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const p = path.join(dir, entry.name);
@@ -166,19 +174,30 @@ describe('FG-I egress capability containment', () => {
         else if (entry.name.endsWith('.js')) {
           const src = fs.readFileSync(p, 'utf8');
           // A real guard branches on the flag; assignment/propagation does not count.
+          if (/if\s*\(\s*effectiveFlags\([\s\S]{0,32}?\.noNetwork/.test(src)) {
+            effective.push(path.relative(RUNNER_DIR, p));
+          }
           if (/if\s*\(\s*ctx\??\.?\??noNetwork|if\s*\(\s*ctx\?\.\s*noNetwork/.test(src)) {
-            actual.push(path.relative(RUNNER_DIR, p));
+            raw.push(path.relative(RUNNER_DIR, p));
           }
         }
       }
     };
     walk(RUNNER_DIR);
     assert.deepEqual(
-      actual.sort(),
+      effective.sort(),
       EXPECTED_ENFORCERS.sort(),
-      'The set of modules that actually branch on ctx.noNetwork changed.\n' +
+      'The set of modules that branch on the effective noNetwork flag changed.\n' +
         'Removing one silently un-enforces --no-network on that surface; adding a network\n' +
         'tool without one means --no-network does not cover it. Update this register on purpose.',
+    );
+    assert.deepEqual(
+      raw,
+      [],
+      'Raw ctx.noNetwork guard branch(es) found: ' +
+        raw.join(', ') +
+        '. Enforcement must read effectiveFlags(ctx).noNetwork — a raw branch goes ' +
+        'silent when the mutable flag is cleared mid-run (thermo-nuclear F1).',
     );
   });
 

@@ -14,6 +14,10 @@ const path = require('path');
 // subset — shell permitted `.netrc`, `.npmrc`, and `id_rsa` basenames that the
 // file tools already denied. Importing the shared list closes that asymmetry.
 const { isBlockedBasename } = require('./safety');
+// The authority ceiling makes --no-network a one-way restriction: checks below
+// must consult the ceiling-clamped (effective) flag, not the mutable ctx flag,
+// so clearing ctx.noNetwork mid-run cannot drop the startup network guard.
+const { effectiveFlags } = require('./authority');
 
 /** Short label for CLI flags, banners, and compact warnings. */
 const SHELL_AUTHORITY_SHORT =
@@ -174,7 +178,10 @@ function scanShellCommand(command, ctx = {}) {
     }
   }
 
-  if (ctx.noNetwork) {
+  // Effective, not raw: with a startup no-network ceiling, this still emits
+  // after ctx.noNetwork is cleared mid-run (thermo-nuclear F1). Without a
+  // ceiling, effectiveFlags falls back to the raw flag — behavior unchanged.
+  if (effectiveFlags(ctx).noNetwork) {
     for (const pat of NETWORK_PATTERNS) {
       if (pat.test(cmd)) {
         issues.push({ kind: 'network_command', pattern: pat.source });
