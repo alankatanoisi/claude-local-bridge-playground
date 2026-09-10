@@ -180,3 +180,91 @@ describe('projection integration', () => {
     assert.ok(!JSON.stringify(projected.messages).includes('expand_history'));
   });
 });
+
+// Thermo-nuclear review 2026-09-06 (context layer), Medium #1 and #2: the
+// hidden set must be measured on the request actually sent, and the index must
+// never turn a fitting request into a hard stop.
+describe('hidden-set honesty and ceiling safety', () => {
+  function headlineIndexText(messages) {
+    for (const message of messages) {
+      for (const block of Array.isArray(message.content) ? message.content : []) {
+        if (block?.type === 'text' && String(block.text).startsWith('[context:headline-index')) return block.text;
+      }
+    }
+    return '';
+  }
+
+  function verbatimResultIds(messages, length) {
+    const ids = new Set();
+    for (const message of messages) {
+      for (const block of Array.isArray(message.content) ? message.content : []) {
+        if (block?.type !== 'tool_result' || typeof block.content !== 'string') continue;
+        if (block.content.includes('[context:')) continue; // marker, stub, or clip — not verbatim
+        if (length === undefined || block.content.length === length) ids.add(block.tool_use_id);
+      }
+    }
+    return ids;
+  }
+
+  it('does not list results a partial checkpoint restored verbatim (Medium #1)', () => {
+    // Geometry that forces the checkpoint loop to stop early: one huge first
+    // exchange (digesting it collapses the estimate below compact), mid-size
+    // exchanges the reduction pass stubs, and a protected tail that keeps
+    // post-reduction occupancy above the checkpoint threshold. The checkpoint
+    // then rebuilds its tail from the ORIGINAL messages, restoring tu3/tu4
+    // verbatim even though reduction had stubbed them.
+    const raw = [{ role: 'user', content: 'objective' }];
+    raw.push(...exchange(0, 'x'.repeat(300_000)));
+    for (let i = 1; i <= 4; i++) raw.push(...exchange(i, String(i).repeat(8_000)));
+    for (let i = 5; i <= 6; i++) raw.push(...exchange(i, String(i).repeat(30_000)));
+    const projected = project(raw, {
+      policy: policyWith({ compact: 30_000, checkpoint: 20_000, protectedExchanges: 2 }),
+      recovery: { enabled: true },
+    });
+    assert.equal(projected.stopReason, undefined);
+    assert.ok(projected.decision.oldResultsStubbed > 0, 'fixture must stub old results');
+    assert.ok(projected.decision.checkpointRawCutoff > 0, 'fixture must checkpoint');
+    const restored = verbatimResultIds(projected.messages, 8_000);
+    assert.ok(restored.size > 0, 'fixture must restore a previously stubbed result behind a partial checkpoint');
+    const index = headlineIndexText(projected.messages);
+    assert.ok(index, 'digested exchanges must still be indexed');
+    assert.match(index, /ids: tu0/, 'a digested exchange stays in the index');
+    for (const id of restored) {
+      assert.ok(!index.includes(id), 'index must not list ' + id + ' — its result is back verbatim in the tail');
+    }
+  });
+
+  it('never lists an id whose result is verbatim in the projected request (14×30k geometry)', () => {
+    const projected = project(bigHistory(14), {
+      policy: policyWith({ checkpoint: 35_000 }),
+      recovery: { enabled: true },
+    });
+    const index = headlineIndexText(projected.messages);
+    assert.ok(index, 'fixture must produce an index');
+    const listed = [...index.matchAll(/tu\d+/g)].map((match) => match[0]);
+    assert.ok(listed.length > 0);
+    const verbatim = verbatimResultIds(projected.messages);
+    for (const id of listed) {
+      assert.ok(!verbatim.has(id), 'index lists ' + id + ' but its full result is visible in the request');
+    }
+  });
+
+  it('drops the index instead of tripping the ceiling when the request barely fits (Medium #2)', () => {
+    const raw = bigHistory(14);
+    // Measure the exact post-projection occupancy without the index, then set
+    // the ceiling just above it: the request fits, the index would not.
+    const probe = project(raw, { headlines: false, recovery: { enabled: true } });
+    assert.equal(probe.stopReason, undefined);
+    const tight = policyWith({
+      checkpoint: 10_000_000,
+      inputCeiling: probe.decision.afterCalibratedTokens + 60,
+    });
+    const projected = project(raw, { policy: tight, recovery: { enabled: true } });
+    assert.equal(projected.stopReason, undefined, 'the index must be dropped, never turned into a hard stop');
+    assert.ok(projected.decision.stages.includes('headline_index_dropped'));
+    assert.ok(!projected.decision.stages.includes('headline_index'));
+    assert.equal(projected.decision.headlineIndexDropped, true);
+    assert.equal(projected.decision.headlineIndexEntries, 0);
+    assert.ok(!JSON.stringify(projected.messages).includes('headline-index'));
+  });
+});

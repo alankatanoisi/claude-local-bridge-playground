@@ -17,6 +17,13 @@ const OLD_RESULT_CLIP_CHARS = 12_000;
 const CHECKPOINT_DIGEST_CHARS = 24_000;
 const CANONICAL_HIGH_WATER_BYTES = 32 * 1024 * 1024;
 
+// Marker prefixes for tool results whose bytes were REPLACED entirely (unlike
+// clip/emergency markers, which sit inside surviving head+tail bytes). Shared
+// between the rewrite transforms and hiddenResultIdsIn so the headline index
+// can never drift from what the markers actually say.
+const STALE_MARKER = '[context:stale-read]';
+const STUB_MARKER = '[context:old-result-refetch]';
+
 function sourceHash(text) {
   return crypto
     .createHash('sha256')
@@ -81,10 +88,7 @@ function reduceOldEvidence(messages, cutoff, targetTokens, requestBase, factor, 
   for (const use of uses.values()) {
     if (WRITE_TOOLS.has(use.name) && use.input?.path) writes.push({ path: use.input.path, index: use.messageIndex });
   }
-  // hiddenToolUseIds feeds the idea-7 headline index: results that were
-  // stale-dropped or stubbed are no longer visible at all (clipped ones still
-  // show head+tail and carry their own marker, so they are not "hidden").
-  const stats = { staleDropped: 0, clipped: 0, stubbed: 0, charsRemoved: 0, hiddenToolUseIds: new Set() };
+  const stats = { staleDropped: 0, clipped: 0, stubbed: 0, charsRemoved: 0 };
 
   function rewriteResult(predicate, transform) {
     current = current.map((message, index) => {
@@ -117,8 +121,7 @@ function reduceOldEvidence(messages, cutoff, targetTokens, requestBase, factor, 
     },
     (block, before) => {
       stats.staleDropped++;
-      if (block.tool_use_id) stats.hiddenToolUseIds.add(block.tool_use_id);
-      return '[context:stale-read] Superseded result; re-read current bytes. original_chars=' + before.length;
+      return STALE_MARKER + ' Superseded result; re-read current bytes. original_chars=' + before.length;
     },
   );
 
@@ -141,10 +144,10 @@ function reduceOldEvidence(messages, cutoff, targetTokens, requestBase, factor, 
       (block) => stringifyToolResultContent(block.content).length > 300,
       (block, before) => {
         stats.stubbed++;
-        if (block.tool_use_id) stats.hiddenToolUseIds.add(block.tool_use_id);
         const use = uses.get(block.tool_use_id);
         return (
-          '[context:old-result-refetch] tool=' +
+          STUB_MARKER +
+          ' tool=' +
           (use?.name || 'unknown') +
           (use?.input?.path ? '; path=' + use.input.path : '') +
           '; original_chars=' +
@@ -290,6 +293,28 @@ function emergencyReduceRecent(messages, policy, recovery) {
   return { messages: out, count: 1, charsRemoved: largest.text.length - reduced.length };
 }
 
+// Which tool results is the model actually unable to see in THIS request?
+// Measured on the projected messages, not on reduction bookkeeping: a partial
+// checkpoint rebuilds its tail from the ORIGINAL messages, silently restoring
+// results an earlier reduction pass stubbed, so a side-channel id list
+// recorded during reduction can name exchanges that are back verbatim
+// (thermo-nuclear review 2026-09-06, Medium #1). A result counts as hidden
+// only when its bytes were replaced outright (stub or stale-drop); clipped and
+// emergency-reduced results keep real head+tail bytes plus their own marker.
+function hiddenResultIdsIn(messages) {
+  const hidden = new Set();
+  for (const message of messages) {
+    if (message?.role !== 'user' || !Array.isArray(message.content)) continue;
+    for (const block of message.content) {
+      if (block?.type !== 'tool_result' || !block.tool_use_id || typeof block.content !== 'string') continue;
+      if (block.content.startsWith(STALE_MARKER) || block.content.startsWith(STUB_MARKER)) {
+        hidden.add(block.tool_use_id);
+      }
+    }
+  }
+  return hidden;
+}
+
 function buildContextProjection(input) {
   const { messages, system, tools, policy, calibration, contextState, runtime, recovery } = input;
   const requestBase = { system, tools };
@@ -301,9 +326,10 @@ function buildContextProjection(input) {
   let projected = messages;
   let checkpoint = contextState?.checkpoint || null;
   let checkpointStable = true;
-  let stats = { staleDropped: 0, clipped: 0, stubbed: 0, charsRemoved: 0, hiddenToolUseIds: new Set() };
+  let stats = { staleDropped: 0, clipped: 0, stubbed: 0, charsRemoved: 0 };
   let emergency = { count: 0, charsRemoved: 0 };
   let headlineIndex = { text: '', entries: 0, rolledUp: 0 };
+  let headlineIndexDropped = false;
   const stages = [];
 
   if (initialTier === 'ceiling' && groups.length <= 1) {
@@ -348,20 +374,31 @@ function buildContextProjection(input) {
     stages.push('session_anchor');
   }
 
-  // Idea 7: the "what you've forgotten" index. Built from CANONICAL messages
-  // (never the projection), listing every exchange the model can no longer see
-  // verbatim — digested behind the checkpoint or with results stubbed/stale-
-  // dropped. Appended at the tail next to the anchor so the cache-stable
-  // checkpoint prefix never churns as the hidden set grows.
+  // Idea 7: the "what you've forgotten" index. Headlines come from CANONICAL
+  // messages (never the projection); hidden-ness comes from the PROJECTED
+  // request actually being sent (hiddenResultIdsIn). Appended at the tail next
+  // to the anchor so the cache-stable checkpoint prefix never churns as the
+  // hidden set grows.
   if (input.headlines !== false) {
     const hidden = selectHiddenHeadlines(buildHeadlines(messages), {
       rawCutoff: checkpoint?.rawCutoff || 0,
-      hiddenToolUseIds: stats.hiddenToolUseIds,
+      hiddenToolUseIds: hiddenResultIdsIn(projected),
     });
     if (hidden.length) {
-      headlineIndex = renderHeadlineIndex(hidden, { recoveryEnabled: !!(recovery && recovery.enabled) });
-      projected = appendAnchor(projected, headlineIndex.text);
-      stages.push('headline_index');
+      const rendered = renderHeadlineIndex(hidden, { recoveryEnabled: !!(recovery && recovery.enabled) });
+      const withIndex = appendAnchor(projected, rendered.text);
+      const withIndexEstimate = estimateRequest({ ...requestBase, messages: withIndex }, calibration.factor);
+      // The index is an optional aid: a request that already fit under the
+      // ceiling must never be pushed over it by an advisory note (thermo-
+      // nuclear review 2026-09-06, Medium #2). Drop the index, keep the run.
+      if (withIndexEstimate.calibratedTokens < policy.inputCeiling) {
+        headlineIndex = rendered;
+        projected = withIndex;
+        stages.push('headline_index');
+      } else {
+        headlineIndexDropped = true;
+        stages.push('headline_index_dropped');
+      }
     }
   }
   after = estimateRequest({ ...requestBase, messages: projected }, calibration.factor);
@@ -411,6 +448,7 @@ function buildContextProjection(input) {
       headlineIndexEntries: headlineIndex.entries,
       headlineIndexRolledUp: headlineIndex.rolledUp,
       headlineIndexChars: headlineIndex.text.length,
+      headlineIndexDropped,
       checkpointEpoch: checkpoint?.epoch || 0,
       checkpointRawCutoff: checkpoint?.rawCutoff || 0,
       checkpointStable,
