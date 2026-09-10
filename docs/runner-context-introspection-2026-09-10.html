@@ -1,0 +1,1050 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Can the runner inspect its own context?</title>
+    <style>
+      :root {
+        --ink: #172b38;
+        --muted: #526779;
+        --paper: #f4f6f3;
+        --line: #d4dfdf;
+        --teal: #086b67;
+        --gold: #f7e6b2;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          17px/1.7 system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+      a {
+        color: var(--teal);
+        text-underline-offset: 3px;
+      }
+      a:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid #ce891c;
+        outline-offset: 4px;
+      }
+      .wrap {
+        max-width: 1260px;
+        margin: auto;
+        padding: 44px 30px;
+      }
+      header {
+        background: #12343e;
+        color: white;
+        border-radius: 22px;
+        padding: 48px;
+        margin-bottom: 32px;
+      }
+      header p {
+        max-width: 850px;
+        color: #dfeced;
+        font-size: 20px;
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        font-weight: 800;
+        color: #a4d8cb;
+      }
+      h1 {
+        font-size: clamp(32px, 4.5vw, 54px);
+        line-height: 1.13;
+        max-width: 950px;
+        margin: 16px 0 24px;
+      }
+      h2 {
+        font-size: 29px;
+        line-height: 1.25;
+        margin-top: 0;
+      }
+      h3 {
+        font-size: 21px;
+      }
+      p {
+        margin: 14px 0;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        gap: 34px;
+      }
+      nav {
+        position: sticky;
+        top: 24px;
+        align-self: start;
+        font-size: 14px;
+      }
+      nav a {
+        display: block;
+        padding: 7px 0;
+        text-decoration: none;
+      }
+      section {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 32px;
+        margin-bottom: 24px;
+        scroll-margin-top: 24px;
+      }
+      .lead {
+        border-left: 5px solid var(--teal);
+        background: #eaf5f0;
+        padding: 20px 24px;
+        border-radius: 8px;
+      }
+      .note {
+        background: #fff7df;
+        border-left: 5px solid #c39029;
+        padding: 18px 22px;
+        border-radius: 8px;
+      }
+      .small,
+      figcaption {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      code {
+        background: #edf1f3;
+        border-radius: 4px;
+        padding: 2px 5px;
+        font-size: 0.88em;
+        overflow-wrap: anywhere;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: #102e39;
+        color: #e6f4ed;
+        padding: 22px;
+        border-radius: 10px;
+        font-size: 14px;
+        line-height: 1.65;
+      }
+      pre code {
+        padding: 0;
+        background: transparent;
+        color: inherit;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 15px;
+      }
+      td,
+      th {
+        text-align: left;
+        padding: 13px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        background: #edf5f2;
+      }
+      li {
+        margin: 9px 0;
+      }
+      .flow {
+        display: grid;
+        gap: 9px;
+        margin: 24px 0;
+      }
+      .step {
+        border: 1px solid #cbdcdb;
+        background: #f0f7f4;
+        border-radius: 10px;
+        padding: 13px 17px;
+      }
+      .arrow {
+        color: var(--teal);
+        text-align: center;
+        font-weight: 800;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+      .card {
+        background: #edf5f2;
+        padding: 18px;
+        border-radius: 10px;
+      }
+      .card b {
+        display: block;
+        font-size: 24px;
+      }
+      details {
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+        margin-top: 18px;
+      }
+      summary {
+        cursor: pointer;
+        color: var(--teal);
+        font-weight: 700;
+      }
+      footer {
+        font-size: 13px;
+        color: var(--muted);
+        padding: 20px;
+      }
+      header a {
+        color: #bcf0df;
+      }
+      @media (max-width: 850px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        nav {
+          position: static;
+          display: flex;
+          gap: 6px 18px;
+          flex-wrap: wrap;
+        }
+        .wrap {
+          padding: 20px 14px;
+        }
+        header {
+          padding: 30px 24px;
+        }
+        section {
+          padding: 24px 20px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        table {
+          font-size: 13px;
+        }
+        td,
+        th {
+          padding: 9px 6px;
+        }
+      }
+      @media print {
+        body {
+          background: white;
+          font-size: 11pt;
+        }
+        .wrap {
+          padding: 0;
+        }
+        header {
+          background: white;
+          color: #172b38;
+          padding: 20px 0;
+        }
+        header p,
+        .eyebrow {
+          color: #526779;
+        }
+        nav {
+          display: none;
+        }
+        .layout {
+          display: block;
+        }
+        section {
+          break-inside: auto;
+          border: 0;
+          padding: 16px 0;
+        }
+        pre {
+          background: #eee;
+          color: #111;
+        }
+        details {
+          display: block;
+        }
+        a {
+          color: inherit;
+        }
+        h2,
+        h3 {
+          break-after: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="eyebrow">Runner laboratory · September 10, 2026 · Human report</div>
+        <h1>Can the runner inspect its own context?</h1>
+        <p>
+          What the host knows, what the model can retrieve, what real-time records reveal, and where a dedicated context
+          inspector would fit.
+        </p>
+      </header>
+      <div class="layout">
+        <nav aria-label="Report sections">
+          <a href="#answer">1. Yes—but there are three different kinds of “peek”</a
+          ><a href="#layers">2. The five layers that people often call “context”</a
+          ><a href="#inventory">3. What is actually on this Mac</a
+          ><a href="#stores">4. Which record answers which question?</a
+          ><a href="#trace">5. How close is a trace to the actual context window?</a
+          ><a href="#recall">6. What the model can inspect during its own run today</a
+          ><a href="#boundary">7. Why reading .bridge-runner is a different capability</a
+          ><a href="#pressure">8. What the runner already knows about context pressure</a
+          ><a href="#timing">9. “Real time” has several meanings here</a
+          ><a href="#use">10. How to use the existing capabilities without conflating them</a
+          ><a href="#future">11. What I would add for genuine context self-inspection</a
+          ><a href="#handoff">12. Verification and handoff</a>
+        </nav>
+        <main>
+          <section id="answer">
+            <h2>1. Yes—but there are three different kinds of “peek”</h2>
+            <div class="lead">
+              <strong
+                >Our host can inspect the conversation it retains and the request it builds. The model already has
+                optional tools for recalling its own conversation history. But the model does not currently have a
+                dedicated tool for inspecting the complete outbound context snapshot, and its ordinary file tools cannot
+                open <code>~/.bridge-runner</code>.</strong
+              >
+            </div>
+            <p>
+              The tilde in <code>~/.bridge-runner</code> means your home folder; on this Mac that is
+              <code>/Users/alanman/.bridge-runner</code>. That directory holds several different kinds of records. It is
+              not a single live “brain dump.”
+            </p>
+            <table>
+              <tr>
+                <th>Who is looking?</th>
+                <th>What is available today?</th>
+                <th>Important limit</th>
+              </tr>
+              <tr>
+                <td>The local host program</td>
+                <td>
+                  The live message array, system instructions, tool definitions, projection decisions, request objects,
+                  and returned usage.
+                </td>
+                <td>This is program data, not access to the model’s internals.</td>
+              </tr>
+              <tr>
+                <td>The model working inside the runner</td>
+                <td>
+                  The request supplied to it, plus optional <code>search_history</code> and
+                  <code>expand_history</code> calls.
+                </td>
+                <td>
+                  History tools retrieve retained conversation entries, not the complete request envelope or arbitrary
+                  log files.
+                </td>
+              </tr>
+              <tr>
+                <td>You or an authorized external diagnostic session</td>
+                <td>Saved traces, session checkpoints, transcripts, event ledgers, and archives.</td>
+                <td>Capture level, timing, redaction, and missing records limit reconstruction.</td>
+              </tr>
+            </table>
+            <p>
+              <strong>“It was logged” and “the model can see it” are separate facts.</strong> A host write to disk does
+              not insert that file into the next model request. To make a record visible to the model, something must
+              explicitly place its contents or a bounded summary into a message or tool result.
+            </p>
+            <p class="small">
+              Sources: <a href="../src/runner/run.js">run.js</a>,
+              <a href="../src/runner/tools/search-history.js">search_history</a>,
+              <a href="../src/runner/tools/expand-history.js">expand_history</a>,
+              <a href="../src/runner/safety.js">file access rules</a>.
+            </p>
+          </section>
+          <section id="layers">
+            <h2>2. The five layers that people often call “context”</h2>
+            <p>
+              A <strong>context window</strong> is the model’s bounded input-and-response working space for one request.
+              The host constructs what goes into that space. The complete conversation accumulated over a long session
+              can be much larger than the selected material in a particular request.
+            </p>
+            <div
+              class="flow"
+              role="img"
+              aria-label="Canonical history becomes a projected request, then a bridge-transformed request, then a model response and tool results that extend history"
+            >
+              <div class="step">
+                <strong>1 · Canonical history</strong><br />The host’s retained messages: user text, assistant
+                responses, tool calls, and tool results.
+              </div>
+              <div class="arrow">↓ select, shorten, summarize when needed</div>
+              <div class="step">
+                <strong>2 · Request projection</strong><br />A per-request view of history, possibly with shortened old
+                results, a checkpoint digest, an objective reminder, and an index of hidden exchanges.
+              </div>
+              <div class="arrow">↓ add system instructions, tool definitions, cache annotations, model controls</div>
+              <div class="step">
+                <strong>3 · Runner request body</strong><br />The actual JavaScript object built for the bridge.
+                Captured at <code>runner_model_request_built</code>.
+              </div>
+              <div class="arrow">↓ bridge processing</div>
+              <div class="step">
+                <strong>4 · Transformed upstream request</strong><br />The bridge resolves the model and adjusts the
+                system field before forwarding. Captured at <code>bridge_request_transformed</code>.
+              </div>
+              <div class="arrow">↓ remote model processes request</div>
+              <div class="step">
+                <strong>5 · Response and subsequent tool execution</strong><br />Returned content and tool results
+                extend canonical history; the next step builds a new request.
+              </div>
+            </div>
+            <p>
+              <strong>Canonical</strong> means the host’s retained reference history. A <strong>projection</strong> is
+              the selected view sent for a particular step. A <strong>request body</strong> is the structured data sent
+              over the connection. None of these is the model’s internal state of attention, neuron activations, or a
+              complete record of hidden reasoning.
+            </p>
+            <p>
+              The source intentionally keeps lossy request shaping out of the canonical message array. This lets the
+              host show less old material now while retaining it for later retrieval. “Lossless” is relative to what
+              entered that history: a file read that returned only a page never supplied the omitted pages, and old
+              sessions saved under earlier compaction behavior cannot recreate already discarded text.
+            </p>
+            <p>
+              The system prompt and tool definitions are separate from the canonical messages. Searching history is
+              therefore not equivalent to asking “show every byte of my current system prompt and available tool
+              schema.” A schema is the field definition that tells a model how to call a tool.
+            </p>
+            <p class="small">
+              Sources: <a href="../src/runner/context-projection.js">projection ownership and stages</a>,
+              <a href="../src/runner/run.js">final request construction</a>,
+              <a href="../src/handlers/anthropic.js">bridge transformation order</a>,
+              <a href="../src/runner/session-store.js">legacy-history handling</a>.
+            </p>
+          </section>
+          <section id="inventory">
+            <h2>3. What is actually on this Mac</h2>
+            <p>
+              I inspected directory metadata and aggregated record shapes without copying prompts, conversations,
+              session identifiers, or file-content payloads into this report. This snapshot was taken around
+              <strong>2026-09-10 14:23 UTC (07:23 Pacific daylight time)</strong>. Files can change after the snapshot.
+            </p>
+            <table>
+              <tr>
+                <th>Category under .bridge-runner</th>
+                <th>Regular files</th>
+                <th>Total bytes</th>
+                <th>What the number means</th>
+              </tr>
+              <tr>
+                <td><code>traces/</code></td>
+                <td>39</td>
+                <td>28,668,723</td>
+                <td>Stored runner flight-recorder files.</td>
+              </tr>
+              <tr>
+                <td><code>logs/</code></td>
+                <td>181</td>
+                <td>3,291,148</td>
+                <td>Log files; not necessarily 181 unique sessions.</td>
+              </tr>
+              <tr>
+                <td><code>sessions/</code></td>
+                <td>221</td>
+                <td>3,963,755</td>
+                <td>Checkpoint and related files, not 221 nonempty conversations.</td>
+              </tr>
+              <tr>
+                <td><code>archive/</code></td>
+                <td>924</td>
+                <td>3,616,051</td>
+                <td>Derived archive files and indexes.</td>
+              </tr>
+              <tr>
+                <td><code>campaigns/</code></td>
+                <td>1</td>
+                <td>10,928</td>
+                <td>Campaign accounting; not a context snapshot.</td>
+              </tr>
+              <tr>
+                <td><code>worktrees/</code></td>
+                <td>0</td>
+                <td>0</td>
+                <td>No regular files in this category at inspection.</td>
+              </tr>
+            </table>
+            <p>
+              There were also two regular files directly in the root; their contents were not needed. The latest
+              modification in traces, logs, sessions, and archive was around 14:15:58 UTC. Recent timestamps do not
+              establish that a particular runner is still active.
+            </p>
+            <div class="grid">
+              <div class="card">
+                <b>206</b>Runner request-built events; all 206 had payload objects containing system, messages, and
+                tools.
+              </div>
+              <div class="card">
+                <b>1,649</b>Parsed trace events, all marked full capture. No malformed trace lines in this snapshot.
+              </div>
+              <div class="card">
+                <b>38 of 39</b>Runner run identifiers had a matching bridge trace file; 203 transformed request events
+                had captured payloads.
+              </div>
+            </div>
+            <p>
+              The runner traces contained 173 response-received events, 33 bridge-error events, 136 context-projection
+              events, and 263 tool-request / 263 tool-finished events. They also contained 23 run-completed and 7
+              run-failed events. These are <em>aggregate counts</em>, not proof of one-to-one pairing, completeness, or
+              the reasons some traces lack a terminal event.
+            </p>
+            <p>
+              Of 145 session-state JSON files, 26 had nonempty message arrays and 20 had a populated context-state
+              object. None had a populated checkpoint object. That does not prove the runner has never shortened
+              context: different runs, earlier formats, and non-checkpoint reductions are possible.
+            </p>
+            <div class="note">
+              <strong>What this observation establishes:</strong> useful request-shaped captures really exist here,
+              including bridge-side captures. It does not establish that every run was traced, every stored history is
+              complete, every request reached the model, or every current runtime feature was enabled in those
+              historical runs.
+            </div>
+          </section>
+          <section id="stores">
+            <h2>4. Which record answers which question?</h2>
+            <table>
+              <tr>
+                <th>Record</th>
+                <th>Best question to ask it</th>
+                <th>What it does not prove</th>
+              </tr>
+              <tr>
+                <td><code>traces/*.runner.jsonl</code></td>
+                <td>What request did the runner build? What projection choices and tool outcomes were recorded?</td>
+                <td>That the request reached the upstream model unchanged.</td>
+              </tr>
+              <tr>
+                <td><code>~/.claude-local-bridge/traces/*.bridge.jsonl</code></td>
+                <td>What arrived at the bridge, what was transformed, and what upstream lifecycle events occurred?</td>
+                <td>What internal model computations occurred.</td>
+              </tr>
+              <tr>
+                <td><code>sessions/*.state.json</code></td>
+                <td>What conversation and runner metadata were saved for resume?</td>
+                <td>The exact system/tools/request projection used at every historical step.</td>
+              </tr>
+              <tr>
+                <td><code>sessions/*.ledger.jsonl</code> and cursor sidecars</td>
+                <td>What ordered session and effect events were recorded, and what may need recovery?</td>
+                <td>A complete substitute for request payloads or conversation state.</td>
+              </tr>
+              <tr>
+                <td><code>logs/*.jsonl</code></td>
+                <td>What user/assistant/tool events were recorded for audit?</td>
+                <td>The full request body: its request event records step/model, not all instructions and messages.</td>
+              </tr>
+              <tr>
+                <td>Optional human log</td>
+                <td>What happened in readable prose, including tool requests, results, errors and final text?</td>
+                <td>A faithful multimodal or complete wire-format transcript.</td>
+              </tr>
+              <tr>
+                <td><code>archive/</code></td>
+                <td>How can completed-run material be browsed, rolled up, and exported?</td>
+                <td>An always-current view of a running process.</td>
+              </tr>
+            </table>
+            <p>
+              <strong>JSONL</strong> means JSON Lines: one structured JSON record per line. A
+              <strong>checkpoint</strong> is a saved snapshot used to resume. A <strong>ledger</strong> is an ordered
+              record of events. A <strong>trace</strong> records diagnostic observations at named boundaries.
+            </p>
+            <p>
+              The ordinary command-line entry point creates a default transcript path even when tracing is off. Tracing
+              defaults to <code>off</code>. Session persistence requires a resolved session path or identifier;
+              <code>--new-session</code> can create one. A hosted caller can pass different options. Do not assume every
+              way of invoking <code>run()</code> enables the same files.
+            </p>
+            <p>
+              A separate project-local <code>&lt;working folder&gt;/.bridge-runner/</code> may contain recovery
+              manifests and configuration. It is not the same directory as the home-level
+              <code>/Users/alanman/.bridge-runner</code>.
+            </p>
+            <p class="small">
+              Sources: <a href="../bin/local-bridge-runner.js">command defaults</a>,
+              <a href="../src/runner/session-store.js">session state</a>,
+              <a href="../src/runner/session-ledger.js">ledger</a>,
+              <a href="../src/runner/transcript.js">transcript</a>, <a href="../src/runner/human-log.js">human log</a>,
+              <a href="../src/runner/archive/collector.js">archive collector</a>.
+            </p>
+          </section>
+          <section id="trace">
+            <h2>5. How close is a trace to the actual context window?</h2>
+            <p>
+              For “what did the runner intend to send at step N?”, the most direct event is
+              <code>runner_model_request_built</code>. It is recorded after projection, cache annotations, and
+              message-contract validation, immediately before the network call. At payload-capturing levels it contains
+              the built request’s system, messages, tools, model, and output controls.
+            </p>
+            <p>
+              For “what did the bridge prepare for the upstream model?”, inspect the matching
+              <code>bridge_request_transformed</code> event. The bridge first logs the incoming request, then resolves
+              the model, defaults the response allowance if needed, and reshapes the system field. The transformed body
+              is then passed to the proxy. Thus the runner-side capture alone is not sufficient to describe all
+              bridge-side instruction changes.
+            </p>
+            <table>
+              <tr>
+                <th>Trace level</th>
+                <th>Available information</th>
+              </tr>
+              <tr>
+                <td><code>off</code></td>
+                <td>No events from that trace instance.</td>
+              </tr>
+              <tr>
+                <td><code>summary</code></td>
+                <td>Request sizes, counts, tool names, hashes and other event metadata; no captured body payload.</td>
+              </tr>
+              <tr>
+                <td><code>redacted</code></td>
+                <td>Structured payload capture with scrubbing.</td>
+              </tr>
+              <tr>
+                <td><code>full</code></td>
+                <td>
+                  Payload capture; still processed by redaction before persistence. It is not guaranteed to be
+                  byte-identical to the outgoing request.
+                </td>
+              </tr>
+            </table>
+            <p>
+              <strong>A useful implementation detail:</strong> although <code>captureForLevel(full)</code> is more
+              permissive on strings, <code>JsonlTrace.append()</code> performs another redaction pass over the full
+              event. The saved full trace must therefore be treated as a scrubbed diagnostic copy. Comparing the
+              recorded pre-redaction body hash with a hash recomputed from the saved payload can legitimately differ.
+            </p>
+            <p>
+              Match records using their local run/trace identifier, turn, boundary, and time. Repeated attempts can
+              share a turn label; do not treat the turn number alone as a universally unique request identity. A
+              request-built event proves construction, not transmission or acceptance. Use bridge lifecycle and response
+              records to establish more of that chain.
+            </p>
+            <p>
+              The proxy’s response preview is bounded; it is not a complete stream archive. The runner’s response event
+              captures the assembled response when that event is reached, rather than each live text fragment.
+              Cancellation and early exits can leave a different subset of events.
+            </p>
+            <p>
+              No trace reveals how much attention the model paid to a paragraph, whether it understood a rule, or its
+              entire private computation. Returned thinking blocks, if present, are response content; they are not an
+              instrumentation feed into all model internals.
+            </p>
+            <p class="small">
+              Sources: <a href="../src/runner/run.js">request/response trace points</a>,
+              <a href="../src/trace-utils.js">trace capture and append redaction</a>,
+              <a href="../src/bridge-trace.js">bridge events</a>,
+              <a href="../src/handlers/anthropic.js">transformation</a>,
+              <a href="../src/proxy.js">lifecycle and bounded preview</a>.
+            </p>
+          </section>
+          <section id="recall">
+            <h2>6. What the model can inspect during its own run today</h2>
+            <p>
+              The implemented route is the optional <code>history</code> capability group. A capability group is a named
+              set of tools enabled for a run. <code>--capabilities history</code> exposes the two history tools under
+              ordinary capability selection; an exact <code>--tools</code> list takes precedence, so the final
+              advertised tools should be checked.
+            </p>
+            <table>
+              <tr>
+                <th>Tool</th>
+                <th>Behavior</th>
+                <th>Bounds</th>
+              </tr>
+              <tr>
+                <td><code>search_history</code></td>
+                <td>
+                  Case-insensitive literal keyword search over retained user/assistant text, tool inputs and results.
+                  Returns ranked snippets and addresses.
+                </td>
+                <td>
+                  Default 8 hits; maximum 25; 240-character snippet windows. Up to 12 query terms, each at least 2
+                  characters.
+                </td>
+              </tr>
+              <tr>
+                <td><code>expand_history</code></td>
+                <td>
+                  Returns a selected entry or message by tool-call identifier or address such as <code>m12.b0</code>.
+                  Large entries are paged with a character offset.
+                </td>
+                <td>Default 20,000 characters; maximum 50,000; minimum page budget 200.</td>
+              </tr>
+            </table>
+            <p>
+              The tools call <code>ctx.getCanonicalMessages()</code>, a closure over the live message array. They do not
+              scan the home folder, depend on trace capture, or require a saved session file to work within the active
+              run. A resumed session can expose whatever history was restored into that array.
+            </p>
+            <p>
+              A tool-call identifier preferentially resolves to its result; if no result exists it can resolve to the
+              tool input. <code>m12</code> means canonical message index 12; <code>m12.b0</code> means its first content
+              block. These are canonical-history addresses, not positions in a shortened request. A displayed range such
+              as <code>m0–m2</code> is a label, not a supported range-query argument.
+            </p>
+            <p>
+              History search is not semantic search: a paraphrase can miss a relevant entry. The returned snippets pass
+              through the normal tool-output redaction boundary. Thinking and redacted-thinking blocks are deliberately
+              excluded from the index. Images and documents are represented by placeholders when tool-result content is
+              converted to searchable text; expansion does not recreate those binary contents.
+            </p>
+            <p>
+              <strong>Concrete example:</strong> suppose an earlier test returned a long diagnostic report, and the
+              projection now shows only a short marker. The model can search for a distinctive error identifier, get the
+              old tool-call address, and expand the relevant page. This retrieves retained evidence without rerunning
+              the test. If a marker says the file content is stale because a later write changed it, the appropriate
+              action is a fresh file read instead.
+            </p>
+            <p>
+              There is no model call inside these lookup functions. Their returned text still occupies context and
+              contributes to the next model request’s input. “No model call for search” does not mean unlimited recall
+              is free of context or subsequent token cost.
+            </p>
+            <p class="small">
+              Sources: <a href="../src/runner/tools/search-history.js">search</a>,
+              <a href="../src/runner/tools/expand-history.js">expansion</a>,
+              <a href="../src/runner/tools/_history-index.js">addresses and exclusions</a>,
+              <a href="../src/runner/tool-result-content.js">multimodal text conversion</a>,
+              <a href="../src/runner/tool-visibility.js">visibility precedence</a>.
+            </p>
+          </section>
+          <section id="boundary">
+            <h2>7. Why reading .bridge-runner is a different capability</h2>
+            <p>
+              The host writes its diagnostic files using its own filesystem functions. The model’s ordinary
+              <code>read_file</code>, search and file-listing routes follow workspace confinement and deny rules.
+              <code>.bridge-runner</code> is explicitly included in the protected directory rules.
+            </p>
+            <p>
+              I exercised the existing path resolver without reading any log payload. An absolute home trace path was
+              rejected as outside the working directory. A relative project-local <code>.bridge-runner</code> path was
+              rejected by the deny rules. Even using the home folder as the resolver’s working directory did not permit
+              its <code>.bridge-runner</code> child.
+            </p>
+            <div class="lead">
+              <strong>The supported distinction is useful:</strong> the model can retrieve its own selected historical
+              evidence through a host-provided tool, while broad access to the directory of every session’s records is a
+              separate authority.
+            </div>
+            <p>
+              My external diagnostic tools in this conversation are not the runner’s tool implementation. My authorized
+              aggregate inspection of this folder does not demonstrate that a model running inside your runner could
+              perform the same operation.
+            </p>
+            <p>
+              I would not solve context introspection by enabling shell access, changing the working folder, or
+              weakening the directory rule. The existing history tools demonstrate a more precise approach: the host
+              exposes a bounded view of the current session directly. A future context inspector can use that same
+              pattern.
+            </p>
+            <p class="small">
+              Sources: <a href="../src/runner/safety.js">confinePath / resolveFileTarget / DENY_MATRIX_PATTERNS</a>,
+              <a href="../src/runner/tools/read-file.js">read_file</a>,
+              <a href="../src/runner/run.js">getCanonicalMessages</a>. These are capability descriptions, not a new
+              security audit or a change to the rules.
+            </p>
+          </section>
+          <section id="pressure">
+            <h2>8. What the runner already knows about context pressure</h2>
+            <p>
+              Before each request, the host estimates input size from the serialized system, tools, and messages. This
+              is an estimator, not an exact tokenizer. It starts from character length divided by four and applies a
+              calibration factor, initially 1.5. Returned usage adjusts that factor for the model when the associated
+              request fingerprint matches.
+            </p>
+            <p>
+              Observed input occupancy adds <code>input_tokens</code>, <code>cache_read_input_tokens</code>, and
+              <code>cache_creation_input_tokens</code>. A cached prefix still forms part of the request context; caching
+              does not mean those instructions or messages vanish from what the request supplies.
+            </p>
+            <p>
+              The policy uses the local model catalog, reserves the requested response output, and subtracts a margin of
+              at least 10,000 tokens or one percent of the window. Unknown models use a reported estimated fallback.
+              These are local policy decisions, not independently verified current provider specifications.
+            </p>
+            <p>
+              <strong>Do not use the bridge’s count-tokens route as an exact measurement:</strong> the current handler
+              returns a compatibility response of zero. The runner’s working size logic is the local estimator plus
+              response-usage calibration.
+            </p>
+            <p>
+              The trace’s <code>context_projection</code> event records estimated before/after sizes, thresholds,
+              pressure tier, calibration, canonical message count and bytes, clipping/stubbing counts, checkpoint epoch,
+              and reminder/index presence. The event is also emitted to the output channel. It is not automatically
+              inserted as a complete dashboard into the model’s messages.
+            </p>
+            <p>
+              Under pressure, the projection can remove superseded old results, keep only the head and tail of large old
+              results, replace older results with reference markers, create a deterministic digest of older raw
+              messages, or reduce one large recent result in an emergency. It protects the recent semantic
+              exchanges—keeping tool calls and results properly grouped. It can also append an objective/task reminder
+              and a short “hidden history” index.
+            </p>
+            <p>
+              Those digests are built from retained raw exchanges by ordinary code, not an extra summarizing model call
+              on this current path. Old <code>context-compactor.js</code> code exists in the repository; its presence
+              alone does not describe the active request-building path. The current trace reports which projection
+              stages ran.
+            </p>
+            <details>
+              <summary>Two implementation limits to keep in view</summary>
+              <p>
+                The 32-mebibyte canonical-history high-water constant currently sets a diagnostic flag; this projector
+                does not enforce it as a hard memory cap. Also, reminder/index text is added before a final size check;
+                existing review notes discuss edge cases involving hidden-history labels and last-stage overhead. This
+                report does not claim those review findings are fixed.
+              </p>
+            </details>
+            <p class="small">
+              Sources: <a href="../src/runner/context-estimator.js">estimates and calibration</a>,
+              <a href="../src/runner/context-runtime-policy.js">limits and margins</a>,
+              <a href="../src/runner/context-projection.js">active shaping path</a>,
+              <a href="../src/runner/context-headlines.js">hidden-history index</a>,
+              <a href="../src/handlers/anthropic.js">count-tokens compatibility handler</a>,
+              <a href="../HANDOFF-context-layer-thermo-nuclear-2026-09-06.md">existing context review</a>.
+            </p>
+          </section>
+          <section id="timing">
+            <h2>9. “Real time” has several meanings here</h2>
+            <table>
+              <tr>
+                <th>Surface</th>
+                <th>Write timing in the implementation</th>
+              </tr>
+              <tr>
+                <td>Runner trace</td>
+                <td>
+                  Synchronous append when the named event occurs. The request event precedes the network call; the
+                  response event follows the assembled response and intervening checks.
+                </td>
+              </tr>
+              <tr>
+                <td>Session event ledger</td>
+                <td>
+                  Synchronous event write with a cursor sidecar update; not a full context snapshot on every append.
+                </td>
+              </tr>
+              <tr>
+                <td>Transcript</td>
+                <td>
+                  Buffered in groups of 10 events, with explicit final/usage flushes. A file reader can lag behind
+                  in-memory activity.
+                </td>
+              </tr>
+              <tr>
+                <td>Session state</td>
+                <td>
+                  Often saved through a 75-millisecond debounce by default, with explicit flush/save paths. Timing can
+                  be configured.
+                </td>
+              </tr>
+              <tr>
+                <td>Human log</td>
+                <td>
+                  Sections appended when methods are called. Assistant sections use the assembled response, not every
+                  streaming fragment.
+                </td>
+              </tr>
+              <tr>
+                <td>Archive collector</td>
+                <td>Collects in memory and exports through the finalization path.</td>
+              </tr>
+            </table>
+            <p>
+              A synchronous append makes an event available through the operating system’s file interface; it is not the
+              same as a guarantee that every byte survives sudden power loss. These runner writers should not be
+              confused with the separate Starlark ledger’s synchronized event writes.
+            </p>
+            <p>
+              <strong>There is also an unavoidable one-step boundary.</strong> At step 12, the model asks to inspect
+              history. The host executes that tool after receiving the request. The result joins the next request, where
+              projection may make new decisions. Reading a step-12 snapshot cannot itself reveal the exact final step-13
+              request that will contain the read result.
+            </p>
+            <p>
+              During an unfinished model response, host-side streaming may show text to the operator, but the response
+              has not yet become an ordinary completed message available for another tool call by that same model.
+              Today’s runner does not provide concurrent self-observation of its own partially generated response
+              through these history tools.
+            </p>
+            <p>
+              This is why an inspector should say “last built request” or “request for step 12,” rather than vaguely
+              claiming to show “my current context” with no timestamp or request identity.
+            </p>
+            <p class="small">
+              Sources: <a href="../src/runner/transcript.js">buffering</a>,
+              <a href="../src/runner/session-store.js">debounced writes</a>,
+              <a href="../src/runner/session-ledger.js">event writes</a>,
+              <a href="../src/runner/private-fs.js">filesystem primitives</a>,
+              <a href="../src/runner/run.js">tool and request ordering</a>,
+              <a href="../src/runner/archive/collector.js">archive lifecycle</a>.
+            </p>
+          </section>
+          <section id="use">
+            <h2>10. How to use the existing capabilities without conflating them</h2>
+            <p>
+              <strong>For “what did I see earlier?”</strong> enable the history capability in the runner’s normal
+              configuration and ask it to use search/expansion. A suitable instruction is: “Find the earlier diagnostic
+              output by its exact error identifier, recover only the relevant page, and state whether it is historical
+              or still current.” This is an example prompt, not a command to paste into Terminal.
+            </p>
+            <p>
+              <strong>For “what did the model receive at that step?”</strong> use operator-side inspection of the runner
+              request event and matching transformed bridge event. Check capture level, run identity, turn and event
+              order; inspect only the needed fields. A transcript’s visible conversation alone cannot answer this fully.
+            </p>
+            <p>
+              <strong>For “why did it forget something?”</strong> compare the retained message to the actual request
+              projection and its stage metadata. Was the information never loaded, read only partially, clipped,
+              replaced by a digest, stale, or still present? If it was present, the trace still cannot prove why the
+              model failed to use it.
+            </p>
+            <p>
+              <strong>For “how much room remains?”</strong> use the named request’s estimate, response reserve, and last
+              matched observed usage. Label estimates as estimates. The cumulative token total for a whole run is not
+              the size of one request’s context window.
+            </p>
+            <p>
+              If you simply want to find these folders visually, open Finder, select Go → Go to Folder, and paste
+              <code>/Users/alanman/.bridge-runner</code>. The expected result is the directory containing traces, logs,
+              sessions and archive. If it is missing on another Mac, confirm the home folder and how that runner was
+              invoked; the folder is machine-local. No shell command or new live run is needed for this report.
+            </p>
+            <p>
+              Separate child runs are not one shared mind: the ordinary runner’s <code>spawn_agent</code> explicitly
+              starts the child without the parent conversation and passes a bounded prompt. A parent’s history tool does
+              not automatically index every child session or all files in the home directory.
+            </p>
+            <p class="small">
+              Sources: <a href="../src/runner/tools/spawn-agent.js">child context contract</a>,
+              <a href="../src/runner/tool-catalog.js">history capability group</a>,
+              <a href="../src/runner/run.js">projection and usage flow</a>.
+            </p>
+          </section>
+          <section id="future">
+            <h2>11. What I would add for genuine context self-inspection</h2>
+            <p>
+              <strong>Recommendation only—no runtime change is implemented or authorized by this report.</strong> Keep
+              history recall and request inspection separate. The former retrieves old evidence; the latter explains
+              which evidence was selected and which request surfaces existed.
+            </p>
+            <ol>
+              <li>
+                <strong>A small host-provided context-status tool.</strong> Return the last built request’s run/step
+                identity, timestamp, model, estimated input size, response reserve, catalog provenance, message/tool
+                counts, projection stages, checkpoint epoch, and historical observed usage. The reply should name its
+                measurement boundary and avoid copying the whole prompt.
+              </li>
+              <li>
+                <strong>A bounded request-snapshot viewer.</strong> Let the model request a specific system section,
+                tool definition, or message page from a host-owned snapshot. Use section identifiers and character
+                budgets. Expose only the current session’s intended diagnostic material, rather than a general
+                filesystem path argument.
+              </li>
+              <li>
+                <strong>A map from retained history to the request.</strong> Identify which canonical entries are
+                present verbatim, clipped, stale, or represented by a digest. That directly answers “is this evidence
+                actually in the last request?”—something history search alone cannot establish.
+              </li>
+              <li>
+                <strong>Clear timing and provenance.</strong> Distinguish “last built,” “sent,” “response observed,” and
+                “bridge transformed.” Return fingerprints and explicit redaction/truncation markers. Never call a
+                scrubbed snapshot an exact raw-wire replay.
+              </li>
+              <li>
+                <strong>Prevent repeated self-copying.</strong> Exclude or summarize prior inspection-tool dumps when
+                appropriate; page targeted sections rather than putting a complete old request inside a new request.
+                Otherwise inspecting context can itself become a major source of context growth.
+              </li>
+              <li>
+                <strong>Keep source text and retrieved text in their proper roles.</strong> Historical material should
+                remain quoted evidence, not newly promoted instructions. Signed thinking need not be exposed through the
+                recall interface.
+              </li>
+            </ol>
+            <p>
+              I would start with the small status tool and a canonical-to-projection map. They answer the practical
+              questions with much less input growth than dumping all trace content. A paged snapshot viewer is the next
+              step when precise instruction or schema debugging is needed. A broad log browser adds cross-run complexity
+              and is less focused on understanding the current request.
+            </p>
+            <p>
+              A synthetic local test should verify that the inspector describes the captured request, that history
+              recall still works after projection, that the system/tools remain distinct from messages, and that the
+              returned inspection result affects only a subsequent request. No new live model campaign is necessary to
+              establish those mechanical contracts; live use would separately test whether the model uses the
+              information well.
+            </p>
+          </section>
+          <section id="handoff">
+            <h2>12. Verification and handoff</h2>
+            <p>
+              Source snapshot: <code>f0f8549ca697acf26a3608cc9cdab18b40c10905</code> on playground <code>main</code>.
+              The local directory and detected Git root were
+              <code>/Users/alanman/Developer/claude-local-bridge-playground</code>; origin matched the playground; the
+              tree was clean and the initial fast-forward-only pull was already up to date. The earlier Starlark
+              documents were already committed before this task.
+            </p>
+            <p>
+              <strong>Executed checks:</strong> the six existing test files for trace utilities, history tools, context
+              rebuild, headline indexes, session debounce and transcripts passed on the first run:
+              <strong>50 tests, 0 failures, 0 skips</strong>. They include a synthetic 80-step large-read projection
+              test. Three pure path-resolution probes confirmed the file-tool restrictions without reading log contents.
+            </p>
+            <p>
+              <strong>Observed artifacts:</strong> aggregate directory counts, trace event/payload presence,
+              session-state schema presence, and bridge-file joins. No ledger payload text, prompts, source payloads or
+              individual session identifiers are reproduced. Historical captures may reflect earlier runtime versions;
+              current code and point-in-time artifact observations are deliberately distinguished.
+            </p>
+            <p>
+              <strong>Deliverables:</strong> this human report,
+              <a href="runner-context-introspection-agent-primer-2026-09-10.md">agent Markdown primer</a>, and
+              <a href="runner-context-introspection-agent-primer-2026-09-10.html">its matching HTML companion</a>, all
+              in <code>docs/</code>. No runtime settings, source, existing logs, or persistent memories were changed. No
+              commit or push was made.
+            </p>
+            <p>
+              <strong>Limits:</strong> no new live model request, no full root-suite rerun, no exhaustive trace-pair
+              reconciliation, no provider-internal introspection, and no browser-rendered visual inspection. Those are
+              distinct from the focused tests and aggregate checks actually performed. The remaining design gap is an
+              explicit model-facing request inspector; trace existence alone does not fill it.
+            </p>
+          </section>
+          <section id="final-checks">
+            <h2>Final document checks</h2>
+            <p>
+              Final document checks passed: repository documentation defaults/manifest checks, targeted Prettier checks,
+              HTML nesting and unique anchors, and 91 local links across the two HTML files. Browser visual inspection
+              was not performed. At final status, unrelated working-tree changes appeared in src/credentials.js,
+              src/claude-code-fingerprint-fallback.json and a fingerprint-check automation report. This task did not
+              create or modify those changes; they were left untouched. The three context-introspection documents are
+              the only task-authored files.
+            </p>
+          </section>
+        </main>
+      </div>
+      <footer>
+        Local research documentation · Source f0f8549ca697 · Self-contained styling; no external scripts, fonts, or
+        services.
+      </footer>
+    </div>
+  </body>
+</html>

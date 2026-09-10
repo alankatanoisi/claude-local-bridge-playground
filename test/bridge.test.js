@@ -211,7 +211,9 @@ describe('credentials.buildAuthHeaders', () => {
 });
 
 describe('credentials.prependClaudeCodeSystem', () => {
-  it('prepends fallback system blocks when no live system blocks were captured', () => {
+  it('prepends only the identity block as fallback (no fabricated billing block)', () => {
+    // Claude Code 2.1.267 sends no billing system block; a fabricated stale
+    // one made the gateway reject newer models with a 400 version error.
     const { prependClaudeCodeSystem } = require('../src/credentials');
     const body = {
       model: 'claude-fable-5',
@@ -225,10 +227,6 @@ describe('credentials.prependClaudeCodeSystem', () => {
 
     assert.equal(returned, body);
     assert.deepEqual(body.system, [
-      {
-        type: 'text',
-        text: 'x-anthropic-billing-header: cc_version=2.1.119.401; cc_entrypoint=claude-vscode; cch=d0a6f;',
-      },
       {
         type: 'text',
         text: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",

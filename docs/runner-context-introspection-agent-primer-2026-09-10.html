@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Agent primer: context introspection</title>
+    <style>
+      :root {
+        --ink: #172b38;
+        --muted: #526779;
+        --paper: #f4f6f3;
+        --line: #d4dfdf;
+        --teal: #086b67;
+        --gold: #f7e6b2;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          17px/1.7 system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+      a {
+        color: var(--teal);
+        text-underline-offset: 3px;
+      }
+      a:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid #ce891c;
+        outline-offset: 4px;
+      }
+      .wrap {
+        max-width: 1260px;
+        margin: auto;
+        padding: 44px 30px;
+      }
+      header {
+        background: #12343e;
+        color: white;
+        border-radius: 22px;
+        padding: 48px;
+        margin-bottom: 32px;
+      }
+      header p {
+        max-width: 850px;
+        color: #dfeced;
+        font-size: 20px;
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        font-weight: 800;
+        color: #a4d8cb;
+      }
+      h1 {
+        font-size: clamp(32px, 4.5vw, 54px);
+        line-height: 1.13;
+        max-width: 950px;
+        margin: 16px 0 24px;
+      }
+      h2 {
+        font-size: 29px;
+        line-height: 1.25;
+        margin-top: 0;
+      }
+      h3 {
+        font-size: 21px;
+      }
+      p {
+        margin: 14px 0;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        gap: 34px;
+      }
+      nav {
+        position: sticky;
+        top: 24px;
+        align-self: start;
+        font-size: 14px;
+      }
+      nav a {
+        display: block;
+        padding: 7px 0;
+        text-decoration: none;
+      }
+      section {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 32px;
+        margin-bottom: 24px;
+        scroll-margin-top: 24px;
+      }
+      .lead {
+        border-left: 5px solid var(--teal);
+        background: #eaf5f0;
+        padding: 20px 24px;
+        border-radius: 8px;
+      }
+      .note {
+        background: #fff7df;
+        border-left: 5px solid #c39029;
+        padding: 18px 22px;
+        border-radius: 8px;
+      }
+      .small,
+      figcaption {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      code {
+        background: #edf1f3;
+        border-radius: 4px;
+        padding: 2px 5px;
+        font-size: 0.88em;
+        overflow-wrap: anywhere;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: #102e39;
+        color: #e6f4ed;
+        padding: 22px;
+        border-radius: 10px;
+        font-size: 14px;
+        line-height: 1.65;
+      }
+      pre code {
+        padding: 0;
+        background: transparent;
+        color: inherit;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 15px;
+      }
+      td,
+      th {
+        text-align: left;
+        padding: 13px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        background: #edf5f2;
+      }
+      li {
+        margin: 9px 0;
+      }
+      .flow {
+        display: grid;
+        gap: 9px;
+        margin: 24px 0;
+      }
+      .step {
+        border: 1px solid #cbdcdb;
+        background: #f0f7f4;
+        border-radius: 10px;
+        padding: 13px 17px;
+      }
+      .arrow {
+        color: var(--teal);
+        text-align: center;
+        font-weight: 800;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+      .card {
+        background: #edf5f2;
+        padding: 18px;
+        border-radius: 10px;
+      }
+      .card b {
+        display: block;
+        font-size: 24px;
+      }
+      details {
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+        margin-top: 18px;
+      }
+      summary {
+        cursor: pointer;
+        color: var(--teal);
+        font-weight: 700;
+      }
+      footer {
+        font-size: 13px;
+        color: var(--muted);
+        padding: 20px;
+      }
+      header a {
+        color: #bcf0df;
+      }
+      @media (max-width: 850px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        nav {
+          position: static;
+          display: flex;
+          gap: 6px 18px;
+          flex-wrap: wrap;
+        }
+        .wrap {
+          padding: 20px 14px;
+        }
+        header {
+          padding: 30px 24px;
+        }
+        section {
+          padding: 24px 20px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        table {
+          font-size: 13px;
+        }
+        td,
+        th {
+          padding: 9px 6px;
+        }
+      }
+      @media print {
+        body {
+          background: white;
+          font-size: 11pt;
+        }
+        .wrap {
+          padding: 0;
+        }
+        header {
+          background: white;
+          color: #172b38;
+          padding: 20px 0;
+        }
+        header p,
+        .eyebrow {
+          color: #526779;
+        }
+        nav {
+          display: none;
+        }
+        .layout {
+          display: block;
+        }
+        section {
+          break-inside: auto;
+          border: 0;
+          padding: 16px 0;
+        }
+        pre {
+          background: #eee;
+          color: #111;
+        }
+        details {
+          display: block;
+        }
+        a {
+          color: inherit;
+        }
+        h2,
+        h3 {
+          break-after: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="eyebrow">Runner laboratory · September 10, 2026 · Agent companion</div>
+        <h1>Agent primer: context introspection</h1>
+        <p>
+          Source map, current recall tools, request boundaries, real-time persistence, aggregate observations, and the
+          remaining design gap.
+        </p>
+      </header>
+      <div class="layout">
+        <nav aria-label="Report sections">
+          <a href="#context">Context and scope</a><a href="#s1">1. Main conclusion and vocabulary</a
+          ><a href="#s3">2. Active construction path</a><a href="#s5">3. Existing model-facing recall tools</a
+          ><a href="#s7">4. File access boundary</a><a href="#s9">5. Record surfaces and timing</a
+          ><a href="#s11">6. Size and pressure visibility</a><a href="#s13">7. Time and observer effects</a
+          ><a href="#s15">8. Aggregate artifact observations</a
+          ><a href="#s17">9. Proposed extension, not implemented work</a><a href="#s19">10. Checks and handoff</a>
+        </nav>
+        <main>
+          <section id="context">
+            <h2>Context and scope</h2>
+            <p>
+              Date: 2026-09-10. Documentation and capability analysis only; no authority to implement new tools, weaken
+              path controls, enable live calls, or edit stored session records.
+            </p>
+            <p>
+              Folder: <code>/Users/alanman/Developer/claude-local-bridge-playground</code>. Branch: <code>main</code>.
+              Source revision: <code>f0f8549ca697acf26a3608cc9cdab18b40c10905</code>. Startup tree was clean; origin
+              matched the playground; initial fast-forward-only pull was already up to date. Reverify before future
+              edits.
+            </p>
+            <p>
+              <a href="runner-context-introspection-2026-09-10.html">Human HTML report</a> ·
+              <a href="runner-context-introspection-agent-primer-2026-09-10.html">HTML companion for this primer</a>.
+            </p>
+          </section>
+          <section id="s1">
+            <h2>1. Main conclusion and vocabulary</h2>
+            <p>
+              Host access, model access, and operator access differ. The host owns live messages, system/tools,
+              projection decisions, request bodies and response usage. The model receives the selected request and can
+              optionally query canonical history through two tools. An authorized external operator can inspect
+              diagnostic files. Ordinary runner file tools do not expose ~/.bridge-runner.
+            </p>
+            <p>
+              Canonical history means retained messages. Projection means the per-request, potentially shortened view.
+              Request body means the structured object sent to the bridge. A trace is a diagnostic record at a boundary.
+              None of these is the model&#x27;s internal attention, activations, or full hidden computation.
+            </p>
+            <p>
+              Do not conflate this runner with starlark-host, or this external Codex session&#x27;s filesystem
+              permissions with the runtime being analyzed. Child spawn_agent runs explicitly begin without the parent
+              conversation; the parent recall tools do not automatically index every child history.
+            </p>
+          </section>
+          <section id="s3">
+            <h2>2. Active construction path</h2>
+            <pre><code>canonical messages array (live closure exposed to history tools)
+  + separately built system instructions and tool definitions
+  -&gt; buildContextProjection(messages, system, tools, policy, calibration)
+     -&gt; optional stale removal / clip / stub / raw checkpoint digest
+     -&gt; session anchor and hidden-history index when applicable
+  -&gt; applyCacheControlBudget()
+  -&gt; assertValidAnthropicMessages(cachedMessages)
+  -&gt; requestBody {model, max_tokens, system, messages, tools, ...controls}
+  -&gt; trace runner_model_request_built BEFORE transport
+  -&gt; modelClient.post / postStream -&gt; local bridge
+     -&gt; bridge_request_received
+     -&gt; model resolution / max_tokens fallback / system reshaping
+     -&gt; bridge_request_transformed
+     -&gt; upstream transport lifecycle
+  -&gt; assembled response, budget and calibration handling
+  -&gt; assistant message, tools, tool-result messages
+  -&gt; next request uses a fresh projection</code></pre>
+            <p>
+              Source: <a href="../src/runner/run.js">run.js</a>,
+              <a href="../src/runner/context-projection.js">context-projection.js</a>,
+              <a href="../src/handlers/anthropic.js">bridge handler</a>,
+              <a href="../src/bridge-trace.js">bridge trace</a>.
+            </p>
+            <p>
+              Projection must not replace canonical history. Canonical retention is relative to received tool outputs:
+              it cannot recover bytes never read, tool-level truncation, or content previously lost in legacy-compacted
+              sessions. SessionStore labels older history quality where applicable. The 32 MiB
+              CANONICAL_HIGH_WATER_BYTES value currently produces a diagnostic flag; it is not an enforced cap in the
+              projector despite the shorthand in history-index comments.
+            </p>
+            <p>
+              The active raw-checkpoint digest is deterministic code over raw messages, not an extra summarizing model
+              call. Presence of legacy context-compactor.js does not establish it is the live path. Inspect current
+              run.js wiring.
+            </p>
+          </section>
+          <section id="s5">
+            <h2>3. Existing model-facing recall tools</h2>
+            <p>
+              <a href="../src/runner/tool-catalog.js">Tool catalog</a>: history is opt-in.
+              <code>--capabilities history</code> ordinarily enables search_history and expand_history. Exact
+              <code>--tools</code> allowlists take precedence; inspect actual visibility. No generic request-context
+              inspector exists in the current tool catalog.
+            </p>
+            <p>
+              <a href="../src/runner/tools/search-history.js">search_history</a>: calls ctx.getCanonicalMessages(),
+              flattens entries, does deterministic literal matching, sorts by score then recency. Default 8/max 25 hits;
+              240-character snippets; up to 12 terms, each 2+ characters. Kind filtering supports tool_result, tool_use
+              and text. No disk scan, embedding model, or inference call.
+            </p>
+            <p>
+              <a href="../src/runner/tools/expand-history.js">expand_history</a>: retrieves entry text by tool_use ID or
+              canonical mN / mN.bB address. A tool ID prefers results over input. Default 20,000/max 50,000 character
+              page; minimum 200; offset pages subsequent spans. A range label such as m0–m2 is not an accepted
+              range-query syntax.
+            </p>
+            <p>
+              <a href="../src/runner/tools/_history-index.js">Index helper</a>: indexes user/assistant text, tool
+              inputs, tool results. Excludes thinking and redacted_thinking. Tool result image/document blocks become
+              placeholders via <a href="../src/runner/tool-result-content.js">tool-result-content</a>; recall does not
+              reproduce binary content. System instructions and tool definitions are not part of the indexed message
+              array.
+            </p>
+            <p>
+              run.js exposes a closure over <code>messages</code>, so in-memory recall works without session persistence
+              or trace capture; resume supplies whatever canonical messages were restored. Returned tool results pass
+              through central redaction. Verbatim means retained text subject to scrubbing and bounds. Recall is not
+              proof the entry appears in the current request projection. Search can miss paraphrases. Recovered text
+              consumes subsequent request context and usage.
+            </p>
+            <p>
+              Projection markers advertise expansion only when expansion is visible. Stale-read markers direct
+              re-reading current source rather than trusting old bytes. Existing review notes identify narrower
+              capability-advertisement and headline-index edge cases; this documentation task does not repair them.
+            </p>
+          </section>
+          <section id="s7">
+            <h2>4. File access boundary</h2>
+            <p>
+              <a href="../src/runner/safety.js">safety.js</a>: confinePath rejects absolute paths and out-of-root
+              traversal; resolveFileTarget checks lexical and resolved deny rules; DENY_MATRIX_PATTERNS explicitly
+              includes .bridge-runner directory segments. Host diagnostics use direct filesystem writers, not model file
+              tools.
+            </p>
+            <p>
+              Three pure resolver probes in this task returned denial: absolute home trace path (working-directory
+              escape), project-local .bridge-runner path (deny rule), and .bridge-runner under a home-directory cwd
+              (deny rule). No trace payload was read by those probes.
+            </p>
+            <p>
+              Do not suggest enabling shell, changing cwd, symlinking records into the workspace, or removing the deny
+              rule as a context-inspection implementation. A future host-owned, session-scoped view is the natural
+              extension of existing recall. SECURITY.md was consulted to keep this capability explanation aligned with
+              repository boundaries; this is not an exhaustive security audit.
+            </p>
+          </section>
+          <section id="s9">
+            <h2>5. Record surfaces and timing</h2>
+            <p>
+              <a href="../src/trace-utils.js">trace-utils.js</a>: default runner traces under
+              ~/.bridge-runner/traces/&lt;timestamp&gt;-&lt;runId&gt;.runner.jsonl. Off by default. JsonlTrace.append
+              synchronously appends an event; no token-stream guarantee. Request-built event captures the built body
+              before sending. Response-received captures assembled response if control flow reaches the event;
+              intervening budget stops can omit it.
+            </p>
+            <p>
+              Levels: summary omits captured payload; redacted and full capture payload. Full is still redacted at
+              append: captureForLevel(full) and JsonlTrace.append have distinct passes, and append calls redactValue
+              with default secret scrubbing. Do not call persisted full payload a byte-exact wire copy.
+              bodySummary&#x27;s hash comes from the original serialized body and may not match a saved scrubbed
+              payload.
+            </p>
+            <p>
+              <a href="../src/bridge-trace.js">bridge-trace.js</a>: separate
+              ~/.claude-local-bridge/traces/&lt;traceId&gt;.bridge.jsonl. Incoming and transformed body events; latter
+              is closer to the upstream-bound request. <a href="../src/proxy.js">proxy.js</a> records lifecycle events
+              and a bounded response preview, not a full stream transcript. Match run/trace ID, turn, boundary and event
+              order; retries can reuse a turn.
+            </p>
+            <p>
+              <a href="../src/runner/transcript.js">transcript.js</a>: append buffer flushes at 10 events, plus explicit
+              final/usage flushes. Request event is only step/model at the call site; transcript is not the full
+              request. CLI defaults to a logs path; run() only instantiates it when given a path.
+            </p>
+            <p>
+              <a href="../src/runner/session-store.js">session-store.js</a>: canonical state messages plus runner
+              metadata. saveSoon default debounce 75 ms, configurable; save/flush paths also exist. Saved copy scrubbed
+              without mutating live messages. Requires a resolved path; --new-session creates an ID, but do not assume
+              every invocation has persistence. Transcript resume is deprecated/rejected by current CLI.
+            </p>
+            <p>
+              <a href="../src/runner/session-ledger.js">session-ledger.js</a>: ordered event records and a
+              sequence/offset/pending-intent cursor. Records operational events, not all request content. appendLedger
+              in run.js scrubs payloads. Event writeSync does not fsync per event in this runner; distinguish the
+              separate Starlark ledger.
+            </p>
+            <p>
+              <a href="../src/runner/human-log.js">human-log.js</a>: readable sections, optional; omits multimodal
+              bodies and uses assembled responses. <a href="../src/runner/archive/collector.js">archive collector</a>:
+              in-memory during run, exported on finalization. Project-local .bridge-runner recovery manifests are
+              separate from home-level records. <a href="../src/runner/private-fs.js">private-fs.js</a> uses private
+              file modes and writes/renames; do not infer full power-loss guarantees from synchronous writes.
+            </p>
+          </section>
+          <section id="s11">
+            <h2>6. Size and pressure visibility</h2>
+            <p>
+              <a href="../src/runner/context-estimator.js">context-estimator.js</a> estimates serialized
+              system/tools/messages length divided by 4, initially multiplied by 1.5. It is not an exact tokenizer.
+              Matched response usage updates per-model calibration, bounded 0.75..3, with smoothing alpha 0.3. Observed
+              input occupancy sums input_tokens + cache_read_input_tokens + cache_creation_input_tokens. Cached input
+              remains context input; total run token spend is not one-request occupancy.
+            </p>
+            <p>
+              <a href="../src/runner/context-runtime-policy.js">context-runtime-policy.js</a> uses local model catalog
+              limits, output reserve, and max(10,000 tokens, 1% of window) margin. Unknown-model fallback is estimated.
+              Do not turn local catalog values into externally verified provider claims. The bridge&#x27;s count-tokens
+              handler returns a compatibility stub of zero, not an actual measurement.
+            </p>
+            <p>
+              context_projection events include before/after estimates, thresholds, calibration factor/samples, prior
+              observed occupancy, stages, canonical size, checkpoint epoch, clipping/stubbing/reminder/index metadata.
+              They are emitted to output and trace, not automatically supplied as a model-readable status table. Models
+              see supplied projection markers and reminders; that is narrower than the host&#x27;s diagnostics.
+            </p>
+            <p>
+              System/tools are built separately; startup context defaults minimal and richer
+              instruction/repository/skill input is opt-in in
+              <a href="../src/runner/context-policy.js">context-policy.js</a>. Inspect the captured request instead of
+              assuming every local instruction file was injected.
+            </p>
+          </section>
+          <section id="s13">
+            <h2>7. Time and observer effects</h2>
+            <p>
+              The model requests a tool after generating a response. Tool output can affect the next request, not the
+              already-sent request that caused the tool call. A future inspector should label last-built request
+              ID/time/boundary and never imply it knows the final next-request shape before that shape is constructed.
+            </p>
+            <p>
+              Reading full request dumps into the conversation can recursively grow context, since future dumps include
+              earlier inspection results. Prefer metadata and paged sections. During streaming, partial text visible to
+              a caller is not necessarily a committed canonical assistant message available for same-run tool recall.
+              Log-file existence or recent modification time does not prove a process is active.
+            </p>
+          </section>
+          <section id="s15">
+            <h2>8. Aggregate artifact observations</h2>
+            <p>
+              Snapshot approximately 2026-09-10 14:23 UTC / 07:23 PDT. Inspected aggregate metadata/schema only; do not
+              copy raw prompts, ledger text, individual session IDs or source payloads into reports.
+            </p>
+            <ul>
+              <li>traces: 39 files, 28,668,723 bytes.</li>
+              <li>logs: 181 files, 3,291,148 bytes.</li>
+              <li>sessions: 221 files, 3,963,755 bytes.</li>
+              <li>archive: 924 files, 3,616,051 bytes.</li>
+              <li>
+                campaigns: 1 file, 10,928 bytes; worktrees: 0 regular files. Two regular root files not inspected for
+                content.
+              </li>
+              <li>Runner traces: 1,649 parsed events, all full capture; zero malformed lines.</li>
+              <li>
+                206 request-built events; all 206 had payload objects with system/messages/tools. 173 response-received,
+                33 bridge-error, 136 context-projection, 263 tool-request and 263 tool-finished events.
+              </li>
+              <li>
+                23 run-completed and 7 run-failed events. Do not infer causes for other traces or pair
+                requests/responses by aggregate arithmetic.
+              </li>
+              <li>
+                38 matching bridge files for 39 runner run IDs; 203 transformed-request events, all with payloads. This
+                is file/event presence, not exhaustive per-request reconciliation.
+              </li>
+              <li>
+                145 session state files: 26 with nonempty messages, 20 with contextState, zero with populated
+                checkpoint. This does not prove compaction never happened.
+              </li>
+            </ul>
+            <p>
+              Latest directory-file modification in the main diagnostic categories was approximately 14:15:58 UTC.
+              Historical records can come from earlier code or invocation modes. Counts can change while other sessions
+              run.
+            </p>
+          </section>
+          <section id="s17">
+            <h2>9. Proposed extension, not implemented work</h2>
+            <p>
+              Consider a session-scoped context-status tool first: last built request identity and timestamp, boundary,
+              model, estimate/reserve, catalog provenance, message/tool counts, canonical-vs-projected sizes, shaping
+              stages, checkpoint, prior observed usage. Next, a canonical-to-projection map for
+              verbatim/clipped/stale/digested evidence. Finally, optional bounded section retrieval for
+              system/tool/message snapshots.
+            </p>
+            <p>
+              Take snapshots at the final request boundary, rather than reconstructing from arbitrary logs. Keep
+              bridge-transformed state distinct. Do not accept arbitrary filesystem paths. Preserve redaction/truncation
+              markers and historical provenance; avoid re-promoting retrieved text into instruction authority. Budget
+              and page retrieval; avoid recursive full-request echo. Current history excludes thinking; broadening that
+              is not necessary for request diagnostics.
+            </p>
+            <p>
+              Mechanical acceptance should use a local synthetic loop with captured requests to verify identity,
+              ordering, clipping vs canonical retention, system/tool separation, redaction and bounds. Model usefulness
+              and factual self-diagnosis require separate evaluation. A trace cannot establish why a model ignored
+              information that was present.
+            </p>
+          </section>
+          <section id="s19">
+            <h2>10. Checks and handoff</h2>
+            <p>
+              First targeted run passed: <strong>50 tests, 0 failed, 0 skipped</strong>, across trace-utils,
+              history-tools, context-management-rebuild, context-headlines, session-store-debounce and transcript.
+              Includes the synthetic 80-step large-read projection test; no live model calls. The three resolver checks
+              denied the expected paths. Aggregate private-folder inventory and schema/event counts completed without
+              quoting payload text.
+            </p>
+            <p>
+              Reproduction for a human: open Terminal using Command-Space, type Terminal and press Return. Enter the
+              following in Terminal, not Spotlight or a browser. Success is the test summary above. The command can take
+              roughly 30 seconds on this machine because of a timer-based test.
+            </p>
+            <pre><code># Put Terminal in the actual playground before using project files.
+cd /Users/alanman/Developer/claude-local-bridge-playground
+
+# Exercise the existing local tests for history, projection, traces and saving.
+# These use synthetic data and local files, not paid model requests.
+node --require ./test/setup.js --test test/trace-utils.test.js test/runner/history-tools.test.js test/runner/context-management-rebuild.test.js test/runner/context-headlines.test.js test/runner/session-store-debounce.test.js test/runner/transcript.test.js</code></pre>
+            <p>
+              If the folder is missing, stop and locate the actual checkout rather than creating a replacement. If node
+              is not found, restore the project&#x27;s existing Node.js environment; Node.js is the program executing
+              these JavaScript tests. Preserve any failing test output before changing code.
+            </p>
+            <p>
+              Files changed: this Markdown primer, matching HTML companion and human HTML report in docs/. No source,
+              runtime settings, stored logs or memory edits. No commit/push. Full root suite, live model campaign,
+              exhaustive wire-pair reconstruction and browser-rendered visual inspection skipped: this task documents
+              current mechanics and inspects aggregate existing evidence. Remaining limits are described above; do not
+              call this a completed context-inspector implementation.
+            </p>
+          </section>
+          <section id="final-checks">
+            <h2>Final document checks</h2>
+            <p>
+              Final document checks passed: repository documentation defaults/manifest checks, targeted Prettier checks,
+              HTML nesting and unique anchors, and 91 local links across the two HTML files. Browser visual inspection
+              was not performed. At final status, unrelated working-tree changes appeared in src/credentials.js,
+              src/claude-code-fingerprint-fallback.json and a fingerprint-check automation report. This task did not
+              create or modify those changes; they were left untouched. The three context-introspection documents are
+              the only task-authored files.
+            </p>
+          </section>
+        </main>
+      </div>
+      <footer>
+        Local research documentation · Source f0f8549ca697 · Self-contained styling; no external scripts, fonts, or
+        services.
+      </footer>
+    </div>
+  </body>
+</html>

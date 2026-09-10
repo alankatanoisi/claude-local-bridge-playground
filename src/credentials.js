@@ -227,10 +227,13 @@ const CLAUDE_CODE_FINGERPRINT = {
   stainless: Object.fromEntries(
     Object.entries(fallbackFingerprint.stableHeaders).filter(([name]) => name.startsWith('x-stainless-')),
   ),
-  // These body-level blocks are older than the header fingerprint above, but
-  // the bridge still needs a fallback shape when live capture has not observed
-  // body system blocks yet. Prefer live blocks whenever they exist.
-  billingHeader: 'x-anthropic-billing-header: cc_version=2.1.119.401; cc_entrypoint=claude-vscode; cch=d0a6f;',
+  // Body-level fallback shape when live capture has not observed system
+  // blocks yet. Verified 2026-09-10 against Claude Code 2.1.267: the client
+  // no longer sends an x-anthropic-billing-header system block (the server
+  // reads the client version from the user-agent instead), so the fallback
+  // prepends only the agent-identity block. A fabricated stale billing block
+  // is actively harmful: the gateway rejected newer models with
+  // "Claude Code 2.1.119 does not support this model" (400) on 2026-09-10.
   agentIdentity: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
 };
 
@@ -252,13 +255,16 @@ function buildAuthHeaders(ctx, creds) {
 
 /**
  * Reshape a request body's `system` field into the array form Claude Code
- * uses, prepending the billing header and SDK identity blocks. Only applied
- * when the credential is an OAuth/Bearer token. API-key mode is intentionally
- * disabled in this playground so the evidence path stays clean.
+ * uses, prepending the SDK identity block (and, only when live capture has
+ * observed one, a billing block). Only applied when the credential is an
+ * OAuth/Bearer token. API-key mode is intentionally disabled in this
+ * playground so the evidence path stays clean.
  *
  * Uses live captured system blocks if available (self-adapting). If no live
  * system blocks were captured, fall back to the last known body-level Claude
- * Code shape so runner requests do not lose the identity/billing prelude.
+ * Code shape so runner requests do not lose the identity prelude. As of
+ * Claude Code 2.1.267 the real client sends no billing block, so the
+ * fallback must not fabricate one (see CLAUDE_CODE_FINGERPRINT above).
  *
  * @param {object} ctx Bridge context
  * @param {object} body Parsed Anthropic request body (mutated in place)
@@ -292,7 +298,9 @@ function prependClaudeCodeSystem(ctx, body, creds) {
 
     body.system = [billingBlock, identityBlock, ...userBlocks];
   } else {
-    const billingBlock = { type: 'text', text: CLAUDE_CODE_FINGERPRINT.billingHeader };
+    // No live capture: mirror the current real client, which sends the
+    // identity block first and no billing block (verified 2026-09-10,
+    // Claude Code 2.1.267).
     const identityBlock = {
       type: 'text',
       text: CLAUDE_CODE_FINGERPRINT.agentIdentity,
@@ -312,7 +320,7 @@ function prependClaudeCodeSystem(ctx, body, creds) {
       userBlocks = body.system;
     }
 
-    body.system = [billingBlock, identityBlock, ...userBlocks];
+    body.system = [identityBlock, ...userBlocks];
   }
 
   return body;
