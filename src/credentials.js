@@ -228,13 +228,20 @@ const CLAUDE_CODE_FINGERPRINT = {
     Object.entries(fallbackFingerprint.stableHeaders).filter(([name]) => name.startsWith('x-stainless-')),
   ),
   // Body-level fallback shape when live capture has not observed system
-  // blocks yet. Verified 2026-09-10 against Claude Code 2.1.267: the client
-  // no longer sends an x-anthropic-billing-header system block (the server
-  // reads the client version from the user-agent instead), so the fallback
-  // prepends only the agent-identity block. A fabricated stale billing block
-  // is actively harmful: the gateway rejected newer models with
-  // "Claude Code 2.1.119 does not support this model" (400) on 2026-09-10.
-  agentIdentity: "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+  // blocks yet. Owned by the manifest's systemBlocks section so the
+  // fingerprint automation can maintain it alongside the headers.
+  // Verified 2026-09-10 against Claude Code 2.1.267: the client no longer
+  // sends an x-anthropic-billing-header system block (the server reads the
+  // client version from the user-agent instead), so billingBlock is null. A
+  // fabricated stale billing block is actively harmful: the gateway rejected
+  // newer models with "Claude Code 2.1.119 does not support this model"
+  // (400) on 2026-09-10.
+  billingBlock:
+    typeof fallbackFingerprint.systemBlocks?.billingBlock === 'string'
+      ? fallbackFingerprint.systemBlocks.billingBlock
+      : null,
+  agentIdentity:
+    fallbackFingerprint.systemBlocks?.agentIdentity || "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
 };
 
 /**
@@ -298,9 +305,15 @@ function prependClaudeCodeSystem(ctx, body, creds) {
 
     body.system = [billingBlock, identityBlock, ...userBlocks];
   } else {
-    // No live capture: mirror the current real client, which sends the
-    // identity block first and no billing block (verified 2026-09-10,
-    // Claude Code 2.1.267).
+    // No live capture: mirror the manifest's verified body shape. As of
+    // Claude Code 2.1.267 that is the identity block first and no billing
+    // block (billingBlock null); if a future client reintroduces one, the
+    // fingerprint automation records its presence and a human updates the
+    // manifest — this code then honors it without changes.
+    const prelude = [];
+    if (CLAUDE_CODE_FINGERPRINT.billingBlock) {
+      prelude.push({ type: 'text', text: CLAUDE_CODE_FINGERPRINT.billingBlock });
+    }
     const identityBlock = {
       type: 'text',
       text: CLAUDE_CODE_FINGERPRINT.agentIdentity,
@@ -320,7 +333,7 @@ function prependClaudeCodeSystem(ctx, body, creds) {
       userBlocks = body.system;
     }
 
-    body.system = [identityBlock, ...userBlocks];
+    body.system = [...prelude, identityBlock, ...userBlocks];
   }
 
   return body;

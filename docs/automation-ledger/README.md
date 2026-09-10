@@ -98,7 +98,11 @@ The template invokes `fingerprint:due`:
 The seven-day due check is the real authority. Duplicate wakeups exit quickly, and a lock prevents overlapping real
 runs. If Monday noon is missed because the laptop is asleep, the next overdue opportunity is recorded as `catch-up`.
 
-No LaunchAgent was installed or loaded as part of adding this file.
+**Status update 2026-09-10:** Alan approved the schedule and the LaunchAgent was installed and loaded
+(see the install commands below). Two template bugs were fixed the same day: launchd counts Sunday as
+weekday 0, so the Monday slot is `Weekday 1` (the template previously said `2`, which is Tuesday), and
+`~/.local/bin` was added to the job's PATH because both `claude` and `node` live there on this Mac —
+without it every scheduled run failed its `claude --version` preflight.
 
 ### Install only after explicit approval
 
@@ -139,5 +143,14 @@ When a check reports drift:
 4. Review the proposed branch, manifest diff, and validation summary with an agent.
 5. Commit, push, or merge only after explicit approval.
 
-The structured fallback source of truth is `src/claude-code-fingerprint-fallback.json`. Body-level fallback system
-blocks remain separately owned by `src/credentials.js` and are intentionally outside automatic patching.
+The structured fallback source of truth is `src/claude-code-fingerprint-fallback.json`, including — since
+2026-09-10 — the body-level system blocks (`systemBlocks.agentIdentity` and `systemBlocks.billingBlock`),
+which `src/credentials.js` now reads from the manifest instead of hardcoding. Background: on 2026-09-10 the
+old hardcoded billing block (advertising Claude Code 2.1.119) made Anthropic's gateway reject newer models
+with a 400 version error, and the automation could not have caught it because it only compared headers.
+
+The checker now also inspects the probe request body: it records the short agent-identity line and whether a
+billing block is present. Privacy posture is unchanged — billing **values** and request bodies are never
+persisted to any report or ledger. Prepare mode may auto-update the identity line and record billing
+**absence** (`billingBlock: null`); if a future Claude Code reintroduces a billing block, the check reports
+its presence as drift and a human must review and update the manifest value manually.

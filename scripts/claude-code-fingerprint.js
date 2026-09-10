@@ -295,6 +295,57 @@ function drainRequest(request, onComplete) {
   request.on('end', onComplete);
 }
 
+// Buffers the probe request body in memory only, so the capture can inspect
+// body-level system blocks. The raw body is never written to any record.
+function bufferRequestBody(request, onComplete) {
+  const chunks = [];
+  let bytes = 0;
+  request.on('data', (chunk) => {
+    bytes += chunk.length;
+    if (bytes > MAX_PROBE_BODY_BYTES) {
+      request.destroy();
+      return;
+    }
+    chunks.push(chunk);
+  });
+  request.on('end', () => onComplete(Buffer.concat(chunks).toString('utf8')));
+}
+
+// The one body-level block the gateway is known to key on. Only its PRESENCE
+// is ever compared or recorded; the value itself stays out of all sinks.
+const BILLING_BLOCK_PREFIX = 'x-anthropic-billing-header:';
+const MAX_IDENTITY_BLOCK_LENGTH = 300;
+
+/**
+ * Extract the comparable body-level system-block facts from a probe request.
+ * Returns presence of a billing block plus the short single-line agent
+ * identity sentence. Anything long or multi-line (the harness prompt, user
+ * system text) is deliberately not captured, mirroring the header-side
+ * privacy posture: request bodies and billing values never persist.
+ */
+function extractObservedSystemBlocks(rawBody) {
+  let parsed;
+  try {
+    parsed = JSON.parse(rawBody);
+  } catch {
+    return null;
+  }
+  const system = Array.isArray(parsed?.system) ? parsed.system : [];
+  let billingBlockPresent = false;
+  let agentIdentity = null;
+  for (const block of system) {
+    const text = typeof block?.text === 'string' ? block.text : '';
+    if (text.startsWith(BILLING_BLOCK_PREFIX)) {
+      billingBlockPresent = true;
+      continue;
+    }
+    if (agentIdentity === null && text && text.length <= MAX_IDENTITY_BLOCK_LENGTH && !/[\r\n]/.test(text)) {
+      agentIdentity = text;
+    }
+  }
+  return { billingBlockPresent, agentIdentity };
+}
+
 async function captureLocalClaudeFingerprint(options = {}) {
   const claudeBin = options.claudeBin || 'claude';
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-fingerprint-'));
@@ -315,14 +366,20 @@ async function captureLocalClaudeFingerprint(options = {}) {
     server = http.createServer((request, response) => {
       const pathname = new URL(request.url, 'http://127.0.0.1').pathname;
 
-      drainRequest(request, () => {
-        if (pathname === '/v1/messages') {
+      if (pathname === '/v1/messages') {
+        // The Messages probe also inspects the request body for the two
+        // body-level system-block facts (billing presence, identity line).
+        // The raw body stays in memory and is discarded after extraction.
+        bufferRequestBody(request, (rawBody) => {
           const sanitized = sanitizeObservedHeaders(request.headers);
+          sanitized.systemBlocks = extractObservedSystemBlocks(rawBody);
           sendMockMessagesResponse(response);
           resolveCapture(sanitized);
-          return;
-        }
+        });
+        return;
+      }
 
+      drainRequest(request, () => {
         if (pathname.endsWith('/count_tokens')) {
           response.writeHead(200, { 'content-type': 'application/json' });
           response.end(JSON.stringify({ input_tokens: 1 }));
@@ -466,21 +523,77 @@ function loadFallbackManifest(filePath = FALLBACK_MANIFEST) {
   if (userAgentVersion !== manifest.claudeCodeVersion) {
     throw new Error('The fallback manifest version does not match its user-agent.');
   }
+
+  // The optional systemBlocks section is the manifest-owned body-level shape
+  // (previously hardcoded in src/credentials.js). Validate hand-edits: the
+  // identity must be one short line; the billing block must be null (current
+  // Claude Code sends none) or a single x-anthropic-billing-header line.
+  if (manifest.systemBlocks !== undefined) {
+    const blocks = manifest.systemBlocks;
+    if (typeof blocks !== 'object' || blocks === null || Array.isArray(blocks)) {
+      throw new Error('The fallback manifest systemBlocks section has an unsupported shape.');
+    }
+    const identity = blocks.agentIdentity;
+    if (
+      typeof identity !== 'string' ||
+      identity.length === 0 ||
+      identity.length > MAX_IDENTITY_BLOCK_LENGTH ||
+      /[\r\n]/.test(identity)
+    ) {
+      throw new Error('The fallback manifest agent-identity block is missing or malformed.');
+    }
+    const billing = blocks.billingBlock;
+    if (
+      billing !== null &&
+      (typeof billing !== 'string' ||
+        !billing.startsWith(BILLING_BLOCK_PREFIX) ||
+        billing.length > MAX_IDENTITY_BLOCK_LENGTH ||
+        /[\r\n]/.test(billing))
+    ) {
+      throw new Error('The fallback manifest billing block must be null or a single x-anthropic-billing-header line.');
+    }
+  }
   return manifest;
 }
 
-function compareFingerprints(manifest, observedHeaders, localVersion, npmLatestVersion) {
+function compareFingerprints(manifest, observedHeaders, localVersion, npmLatestVersion, observedSystemBlocks) {
   const names = [...new Set([...Object.keys(manifest.stableHeaders), ...Object.keys(observedHeaders)])].sort();
   const headerDifferences = names
     .filter((name) => manifest.stableHeaders[name] !== observedHeaders[name])
     .map((name) => ({ name, repo: manifest.stableHeaders[name] || null, observed: observedHeaders[name] || null }));
 
+  // Body-level comparison. Identity is compared by value (a public one-line
+  // sentence); the billing block is compared by PRESENCE only, so a billing
+  // value never enters a report or ledger even when it reappears upstream.
+  const systemBlockDifferences = [];
+  if (observedSystemBlocks && manifest.systemBlocks) {
+    const repoIdentity = manifest.systemBlocks.agentIdentity;
+    if (observedSystemBlocks.agentIdentity && observedSystemBlocks.agentIdentity !== repoIdentity) {
+      systemBlockDifferences.push({
+        name: 'agentIdentity',
+        repo: repoIdentity,
+        observed: observedSystemBlocks.agentIdentity,
+      });
+    }
+    const repoBillingPresent = typeof manifest.systemBlocks.billingBlock === 'string';
+    if (observedSystemBlocks.billingBlockPresent !== repoBillingPresent) {
+      systemBlockDifferences.push({
+        name: 'billingBlock',
+        repo: repoBillingPresent ? 'present' : 'absent',
+        observed: observedSystemBlocks.billingBlockPresent ? 'present' : 'absent',
+      });
+    }
+  }
+
+  const fingerprintDrift =
+    headerDifferences.length > 0 || systemBlockDifferences.length > 0 || manifest.claudeCodeVersion !== localVersion;
+  const releaseDrift = localVersion !== npmLatestVersion;
   return {
     headerDifferences,
-    fingerprintDrift: headerDifferences.length > 0 || manifest.claudeCodeVersion !== localVersion,
-    releaseDrift: localVersion !== npmLatestVersion,
-    driftDetected:
-      headerDifferences.length > 0 || manifest.claudeCodeVersion !== localVersion || localVersion !== npmLatestVersion,
+    systemBlockDifferences,
+    fingerprintDrift,
+    releaseDrift,
+    driftDetected: fingerprintDrift || releaseDrift,
   };
 }
 
@@ -539,16 +652,38 @@ async function refreshCleanMain(run = runFile) {
   return { ok: true, pulled: false };
 }
 
-function writeFallbackManifest(manifest, observedHeaders, localVersion, now, filePath = FALLBACK_MANIFEST) {
+function writeFallbackManifest(
+  manifest,
+  observedHeaders,
+  localVersion,
+  now,
+  observedSystemBlocks = null,
+  filePath = FALLBACK_MANIFEST,
+) {
   const orderedHeaders = {};
   for (const name of STABLE_CAPTURE_HEADERS) {
     if (observedHeaders[name]) orderedHeaders[name] = observedHeaders[name];
   }
+  // Body-level patch policy: the identity line may be auto-updated from the
+  // capture. A billing value is NEVER auto-persisted — when the capture shows
+  // a billing block reappearing, keep the manifest's existing value (usually
+  // null) and let the caller flag it for human review; when the capture shows
+  // no billing block, record that as null.
+  const previousBlocks = manifest.systemBlocks || {};
+  const systemBlocks = {
+    agentIdentity: observedSystemBlocks?.agentIdentity || previousBlocks.agentIdentity || null,
+    billingBlock: observedSystemBlocks
+      ? observedSystemBlocks.billingBlockPresent
+        ? (previousBlocks.billingBlock ?? null)
+        : null
+      : (previousBlocks.billingBlock ?? null),
+  };
   const updated = {
     schemaVersion: manifest.schemaVersion,
     verifiedAt: localCalendarDate(now),
     claudeCodeVersion: localVersion,
     stableHeaders: orderedHeaders,
+    ...(systemBlocks.agentIdentity ? { systemBlocks } : {}),
   };
   atomicWrite(filePath, `${JSON.stringify(updated, null, 2)}\n`, 0o644);
   return updated;
@@ -573,7 +708,9 @@ function baseResult({ mode, trigger, now, gitState, manifest }) {
     fingerprintDrift: null,
     releaseDrift: null,
     headerDifferences: [],
+    systemBlockDifferences: [],
     sanitizedObservedStableHeaders: {},
+    observedSystemBlocks: null,
     ignoredBetaFlags: [],
     actionTaken: 'none',
     patchBranch: null,
@@ -627,6 +764,9 @@ async function gatherEvidence({ mode, trigger, now, dependencies = {} }) {
     const captured = await capture();
     result.sanitizedObservedStableHeaders = captured.stableHeaders;
     result.ignoredBetaFlags = captured.ignoredBetaFlags;
+    // Presence/identity facts only — extractObservedSystemBlocks never returns
+    // billing values or long prompt text, so this is safe to persist.
+    result.observedSystemBlocks = captured.systemBlocks || null;
   } catch (error) {
     result.notes.push(error.message);
   }
@@ -642,6 +782,7 @@ async function gatherEvidence({ mode, trigger, now, dependencies = {} }) {
       result.sanitizedObservedStableHeaders,
       result.localClaudeVersion,
       result.npmLatestClaudeCodeVersion,
+      result.observedSystemBlocks,
     );
     Object.assign(result, comparison);
     result.checkCompleted = true;
@@ -656,6 +797,19 @@ function validationSummary(validation) {
   const failed = validation.filter((item) => item.status === 'fail').length;
   const skipped = validation.filter((item) => item.status === 'skipped').length;
   return `${passed} passed, ${failed} failed, ${skipped} skipped`;
+}
+
+// One safe status line for body-level system blocks: identity drift status
+// plus billing-block presence. Never includes a billing value.
+function describeSystemBlocks(result) {
+  if (!result.observedSystemBlocks) return 'not observed';
+  const identityDrift = (result.systemBlockDifferences || []).some((diff) => diff.name === 'agentIdentity');
+  const billingDrift = (result.systemBlockDifferences || []).some((diff) => diff.name === 'billingBlock');
+  const identity = identityDrift ? 'identity DRIFT' : 'identity ok';
+  const billing = result.observedSystemBlocks.billingBlockPresent
+    ? `billing block present${billingDrift ? ' (DRIFT — value not recorded)' : ''}`
+    : `billing block absent${billingDrift ? ' (DRIFT)' : ''}`;
+  return `${identity}; ${billing}`;
 }
 
 function renderTextReport(result) {
@@ -680,6 +834,7 @@ function renderTextReport(result) {
     `npm latest Claude Code version: ${result.npmLatestClaudeCodeVersion || 'unavailable'}\n` +
     `Repo fallback version before run: ${result.repoFallbackVersionBefore || 'unavailable'}\n` +
     `Drift detected: ${drift}\n` +
+    `Body system blocks: ${describeSystemBlocks(result)}\n` +
     `Action taken: ${result.actionTaken}\n` +
     `Patch branch: ${result.patchBranch || 'none'}\n` +
     `Files changed by automation: ${changed}\n` +
@@ -704,6 +859,7 @@ function renderLedgerEntry(result) {
     `- npm latest Claude Code version: ${result.npmLatestClaudeCodeVersion || 'unavailable'}\n` +
     `- Repo fallback version before run: ${result.repoFallbackVersionBefore || 'unavailable'}\n` +
     `- Drift detected: ${drift}\n` +
+    `- Body system blocks: ${describeSystemBlocks(result)}\n` +
     `- Action taken: ${result.actionTaken}\n` +
     `- Files changed: ${changed}\n` +
     `- Validation: ${validationSummary(result.validation)}\n` +
@@ -867,6 +1023,7 @@ async function runPrepare(options = {}) {
         result.sanitizedObservedStableHeaders,
         result.localClaudeVersion,
         result.npmLatestClaudeCodeVersion,
+        result.observedSystemBlocks,
       ),
     );
     if (!result.fingerprintDrift) {
@@ -907,7 +1064,13 @@ async function runPrepare(options = {}) {
     result.sanitizedObservedStableHeaders,
     result.localClaudeVersion,
     now,
+    result.observedSystemBlocks,
   );
+  if (result.observedSystemBlocks?.billingBlockPresent && typeof manifest.systemBlocks?.billingBlock !== 'string') {
+    result.notes.push(
+      'A billing system block reappeared in the live capture. Billing values are never auto-persisted; review and update the manifest billingBlock manually.',
+    );
+  }
   result.actionTaken = 'patch prepared';
   result.patchPrepared = true;
   result.changedFiles.push('src/claude-code-fingerprint-fallback.json');
@@ -1003,6 +1166,7 @@ module.exports = {
   captureLocalClaudeFingerprint,
   compareFingerprints,
   dueDecision,
+  extractObservedSystemBlocks,
   getLocalClaudeVersion,
   getNpmLatestVersion,
   loadFallbackManifest,

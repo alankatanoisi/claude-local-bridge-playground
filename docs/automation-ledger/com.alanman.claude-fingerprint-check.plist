@@ -21,17 +21,22 @@
   <key>WorkingDirectory</key>
   <string>/Users/alanman/Developer/claude-local-bridge-playground</string>
 
+  <!--
+    ~/.local/bin is included because both `claude` and this Mac's preferred
+    `node` live there; without it every scheduled run fails its
+    `claude --version` preflight.
+  -->
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key>
-    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <string>/Users/alanman/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
   </dict>
 
-  <!-- Monday is weekday 2 in launchd's Sunday-first numbering. -->
+  <!-- launchd counts 0 (and 7) as Sunday, so Monday is weekday 1. -->
   <key>StartCalendarInterval</key>
   <dict>
     <key>Weekday</key>
-    <integer>2</integer>
+    <integer>1</integer>
     <key>Hour</key>
     <integer>12</integer>
     <key>Minute</key>

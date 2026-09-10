@@ -104,6 +104,45 @@ describe('fingerprint automation header containment', () => {
 
     assert.throws(() => automation.loadFallbackManifest(manifestPath), /request-specific or unreviewed beta/);
   });
+
+  it('validates the hand-editable systemBlocks section', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fingerprint-manifest-test-'));
+    const manifestPath = path.join(root, 'fallback.json');
+
+    // A multi-line billing block (or one without the known prefix) must not load.
+    const badBilling = manifest();
+    badBilling.systemBlocks = { agentIdentity: 'You are a Claude agent.', billingBlock: 'not-a-billing-line' };
+    fs.writeFileSync(manifestPath, JSON.stringify(badBilling));
+    assert.throws(() => automation.loadFallbackManifest(manifestPath), /billing block must be null/);
+
+    // A valid section (null billing, one-line identity) loads.
+    const good = manifest();
+    good.systemBlocks = { agentIdentity: 'You are a Claude agent.', billingBlock: null };
+    fs.writeFileSync(manifestPath, JSON.stringify(good));
+    assert.equal(automation.loadFallbackManifest(manifestPath).systemBlocks.billingBlock, null);
+  });
+
+  it('extracts only billing presence and the short identity line from a probe body', () => {
+    const observed = automation.extractObservedSystemBlocks(
+      JSON.stringify({
+        system: [
+          { type: 'text', text: 'x-anthropic-billing-header: cc_version=secret; cch=secret;' },
+          { type: 'text', text: 'You are a Claude agent.' },
+          { type: 'text', text: '\nA very long multi-line harness prompt...\nwith more lines.' },
+        ],
+      }),
+    );
+    assert.deepEqual(observed, { billingBlockPresent: true, agentIdentity: 'You are a Claude agent.' });
+    // The billing VALUE must never survive extraction.
+    assert.equal(JSON.stringify(observed).includes('secret'), false);
+
+    const noBilling = automation.extractObservedSystemBlocks(
+      JSON.stringify({ system: [{ type: 'text', text: 'You are a Claude agent.' }] }),
+    );
+    assert.deepEqual(noBilling, { billingBlockPresent: false, agentIdentity: 'You are a Claude agent.' });
+
+    assert.equal(automation.extractObservedSystemBlocks('not json'), null);
+  });
 });
 
 describe('fingerprint automation drift and due decisions', () => {
@@ -121,6 +160,32 @@ describe('fingerprint automation drift and due decisions', () => {
       changed.headerDifferences.map((difference) => difference.name),
       ['x-stainless-package-version'],
     );
+  });
+
+  it('flags body-level drift by identity value and billing presence only', () => {
+    const withBlocks = manifest();
+    withBlocks.systemBlocks = { agentIdentity: 'You are a Claude agent.', billingBlock: null };
+
+    // Congruent body: no drift.
+    const same = automation.compareFingerprints(withBlocks, stableHeaders, '2.1.223', '2.1.223', {
+      billingBlockPresent: false,
+      agentIdentity: 'You are a Claude agent.',
+    });
+    assert.equal(same.fingerprintDrift, false);
+    assert.deepEqual(same.systemBlockDifferences, []);
+
+    // A reappearing billing block is reported as presence, never as a value.
+    const reappeared = automation.compareFingerprints(withBlocks, stableHeaders, '2.1.223', '2.1.223', {
+      billingBlockPresent: true,
+      agentIdentity: 'A different identity sentence.',
+    });
+    assert.equal(reappeared.fingerprintDrift, true);
+    assert.deepEqual(
+      reappeared.systemBlockDifferences.map((difference) => difference.name),
+      ['agentIdentity', 'billingBlock'],
+    );
+    const billingDiff = reappeared.systemBlockDifferences.find((difference) => difference.name === 'billingBlock');
+    assert.deepEqual(billingDiff, { name: 'billingBlock', repo: 'absent', observed: 'present' });
   });
 
   it('runs after seven days and labels Monday-noon versus catch-up triggers', () => {

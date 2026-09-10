@@ -14,5 +14,9 @@
     "x-stainless-package-version": "0.112.1",
     "x-stainless-runtime": "node",
     "x-stainless-runtime-version": "v26.3.0"
+  },
+  "systemBlocks": {
+    "agentIdentity": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",
+    "billingBlock": null
   }
 }
