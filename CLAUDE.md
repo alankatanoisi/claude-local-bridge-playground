@@ -334,8 +334,10 @@ items rather than starting a parallel tracker.
   (`run_block`) stays parked on R8's no-runner-edge architecture — do not build toward
   it unbidden. **Cursor invariant review of `19c2a69^..2da8066` (history +
   headlines, plus Starlark `84dd73a` which sat in that range):**
-  `HANDOFF-context-layer-thermo-nuclear-2026-09-06.md` — review only, findings
-  open. `65c001a` (eval harness / HE-06 goldens) was not in that range; its
+  `HANDOFF-context-layer-thermo-nuclear-2026-09-06.md` — **Medium #1–#3 and Low
+  #7–#8 closed 2026-09-10** (`6dec086`, `2758fe2`; record
+  `HANDOFF-context-layer-mediums-closed-2026-09-10.md`). Low #4–#6 and the
+  code-quality items stay open. `65c001a` (eval harness / HE-06 goldens) was not in that range; its
   review is `HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md`.
 
 - **ACP thread (Bridge Runner → T3 Code) — Slices A–D built; current entry

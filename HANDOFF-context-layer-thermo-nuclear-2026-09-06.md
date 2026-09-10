@@ -1,5 +1,26 @@
 # Handoff — Thermo-nuclear review of `19c2a69^..2da8066`
 
+> **CLOSED 2026-09-10 — Medium #1, #2, #3 and Low #7, #8 fixed** (Fable, Alan-directed),
+> in this file's recommended order and commit shapes. `6dec086`: hidden-ness is now
+> measured on the projected request (`hiddenResultIdsIn` over the shared stub/stale
+> marker prefixes; `stats.hiddenToolUseIds` deleted), and the index is estimated
+> before it is kept — if it would cross `inputCeiling` it is dropped (stage
+> `headline_index_dropped`, `decision.headlineIndexDropped`) instead of stopping the
+> run. `2758fe2`: `search_history`'s footer names `expand_history` only when
+> `isToolVisible` offers it; runner + coordinator `--help` join
+> `OPTIONAL_CAPABILITIES`; `TOOL_SUMMARIES` / `GROUP_LABELS` /
+> `FULL_TOOL_DESCRIPTIONS` gained `history`, and the P2-01/P2-02 fixtures now include
+> it. Regression tests: early-stop checkpoint restoring stubbed ids (fails pre-fix),
+> ceiling-adjacent index drop (fails pre-fix), 14×30k "no indexed id is verbatim in
+> the request", split `--tools` allowlist footer. Checks: full suite 1,102 pass / 0
+> fail / 1 pre-existing todo; lint, check:docs clean; format:check clean for touched
+> files (four pre-existing handoff `.md` files still warn — untouched here).
+> **Still open:** Low #4 (`getCanonicalMessages` returns the live array), Low #5
+> (stub-only headline wording over-claims), Low #6 (`m0–m2` range label is not an
+> expand id), and the § Code quality items. Session record:
+> `HANDOFF-context-layer-mediums-closed-2026-09-10.md`. Findings text below preserved
+> unchanged.
+
 **Written:** 2026-09-06. Review only; no runner or Starlark source changed
 (this file, plus a Current Work Thread pointer in `CLAUDE.md` and a
 banner on `docs/programmatic-tooling-research-review-2026-08-31.html`).
@@ -17,7 +38,7 @@ that `restoreWorkerPhase` fail-closes on is **intentional** (dropping a
 truncated `job_succeeded` would re-pay); that overlapping-range probe
 is recorded there as Low #7 (name the error), not a skip-the-line fix.
 
-A *thermo-nuclear review* here means a deep invariant audit: bugs, safety,
+A _thermo-nuclear review_ here means a deep invariant audit: bugs, safety,
 and whether the landed shape will fight the next slice. It is not a request
 to rewrite the work.
 
@@ -25,13 +46,13 @@ to rewrite the work.
 
 Five commits, 2026-09-06:
 
-| Commit | What it is |
-| --- | --- |
+| Commit    | What it is                                                                      |
+| --------- | ------------------------------------------------------------------------------- |
 | `19c2a69` | Searchable lossless history + recoverable clipping (`history` capability group) |
-| `d02e9d0` | `CLAUDE.md` research-thread pointer (docs only) |
-| `84dd73a` | Starlark R11/R14: abortable workers, `--resume <runDir>`, plan/input hashes |
-| `406423b` | Starlark R11 thread-entry handoff (docs only) |
-| `2da8066` | Headline index (“what you’ve forgotten”) |
+| `d02e9d0` | `CLAUDE.md` research-thread pointer (docs only)                                 |
+| `84dd73a` | Starlark R11/R14: abortable workers, `--resume <runDir>`, plan/input hashes     |
+| `406423b` | Starlark R11 thread-entry handoff (docs only)                                   |
+| `2da8066` | Headline index (“what you’ve forgotten”)                                        |
 
 The screenshot that named this range “Segment B — context layer” also said
 the in-between commits were “two docs-pointer commits; harmless.” That is
@@ -89,7 +110,7 @@ No High.
    `entry.end > checkpoint.rawCutoff` and the full result is back in the
    tail.
    Trigger: a run that is large enough to stub old results **and** then
-   advance a *partial* checkpoint (the loop in `checkpointProjection`
+   advance a _partial_ checkpoint (the loop in `checkpointProjection`
    217–227 stops at the compact threshold, not at the protected cutoff).
    The stubbed span between `rawCutoff` and the protected tail is restored
    verbatim but still indexed as forgotten. The model may call
@@ -134,7 +155,7 @@ No High.
 3. **`search_history` always tells the model to call `expand_history`,
    even when that tool is not offered.**
    `src/runner/tools/search-history.js` 118 (and the tool description at
-   31–32). Clip-marker and headline recovery wording *are* gated on
+   31–32). Clip-marker and headline recovery wording _are_ gated on
    `expand_history` visibility (`run.js` 764, `recoveryHint` in
    `context-projection.js` 72–75, `renderHeadlineIndex` in
    `context-headlines.js` 170–172). The search tool result is not.
@@ -148,7 +169,7 @@ No High.
    (`expand-history.js` 73–81); that pairing is fine when both are
    offered.
    Fix: only append the recover line when `isToolVisible('expand_history',
-   ctx)` (or refuse to offer one history tool without the other). Prefer
+ctx)` (or refuse to offer one history tool without the other). Prefer
    `--capabilities history` unless the operator really wants a split
    allowlist. Mirror the existing recovery-hint test.
 
@@ -168,7 +189,7 @@ No High.
    shown verbatim.” For a stub, the assistant turn is still in the
    request; only the result body was replaced
    (`reduceOldEvidence` 89–91 rewrites `tool_result` blocks, not
-   assistant text). Clipped head+tail results are correctly *not* hidden
+   assistant text). Clipped head+tail results are correctly _not_ hidden
    (139–140). The stub case is the dishonest one.
    Fix: say results were stubbed/stale-dropped, not that the exchange
    vanished. Keep the stronger wording for checkpointed spans.
@@ -210,14 +231,14 @@ No High.
 
 ## Code quality (not runtime bugs; do not “fix” as if they were)
 
-These are the thermo-nuclear *quality* bar. They overlap Medium #1.
+These are the thermo-nuclear _quality_ bar. They overlap Medium #1.
 
 - **Headlines are a third tail special-case.**
   `context-projection.js` 345–366: `appendAnchor` for the session
   anchor, then again for the index. `appendAnchor` now stuffs any tail
   blob onto the last user message. The next index (idea 12 counters)
   will copy this block. Prefer one `appendTailNotes(projected, [anchor,
-  headlineIndex, …])`; keep `context-headlines.js` as a producer.
+headlineIndex, …])`; keep `context-headlines.js` as a producer.
 - **Hidden-set is reconstructed from side channels, not from
   `projected`.** Same root as Medium #1. One
   `exchangesNotVerbatimIn(canonical, projected)` would delete
@@ -234,7 +255,7 @@ These are the thermo-nuclear *quality* bar. They overlap Medium #1.
 - **Checkpoint digest already summarizes forgotten turns**
   (`digestRawMessages` 162–200, 600-char head/tail). Headlines then
   re-list the assistant’s first 120 chars for `entry.end <= rawCutoff`.
-  Unique headline work is stub/stale in the *live tail*. Optional later
+  Unique headline work is stub/stale in the _live tail_. Optional later
   narrowing: headlines only where the digest is not already the summary.
 - Tests pin incidental render (`context-headlines.test.js` 112–117 full
   line with `30k chars` / `ids: tu0`). Keep invariant assertions
