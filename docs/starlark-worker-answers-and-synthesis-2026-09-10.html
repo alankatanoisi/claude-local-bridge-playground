@@ -1,0 +1,953 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>How worker answers return—and become one final explanation</title>
+    <style>
+      :root {
+        --ink: #172b38;
+        --muted: #526779;
+        --paper: #f4f6f3;
+        --line: #d4dfdf;
+        --teal: #086b67;
+        --gold: #f7e6b2;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          17px/1.7 system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+      a {
+        color: var(--teal);
+        text-underline-offset: 3px;
+      }
+      a:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid #ce891c;
+        outline-offset: 4px;
+      }
+      .wrap {
+        max-width: 1260px;
+        margin: auto;
+        padding: 44px 30px;
+      }
+      header {
+        background: #12343e;
+        color: white;
+        border-radius: 22px;
+        padding: 48px;
+        margin-bottom: 32px;
+      }
+      header p {
+        max-width: 850px;
+        color: #dfeced;
+        font-size: 20px;
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        font-weight: 800;
+        color: #a4d8cb;
+      }
+      h1 {
+        font-size: clamp(32px, 4.5vw, 54px);
+        line-height: 1.13;
+        max-width: 950px;
+        margin: 16px 0 24px;
+      }
+      h2 {
+        font-size: 29px;
+        line-height: 1.25;
+        margin-top: 0;
+      }
+      h3 {
+        font-size: 21px;
+      }
+      p {
+        margin: 14px 0;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        gap: 34px;
+      }
+      nav {
+        position: sticky;
+        top: 24px;
+        align-self: start;
+        font-size: 14px;
+      }
+      nav a {
+        display: block;
+        padding: 7px 0;
+        text-decoration: none;
+      }
+      section {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 32px;
+        margin-bottom: 24px;
+        scroll-margin-top: 24px;
+      }
+      .lead {
+        border-left: 5px solid var(--teal);
+        background: #eaf5f0;
+        padding: 20px 24px;
+        border-radius: 8px;
+      }
+      .note {
+        background: #fff7df;
+        border-left: 5px solid #c39029;
+        padding: 18px 22px;
+        border-radius: 8px;
+      }
+      .small,
+      figcaption {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      code {
+        background: #edf1f3;
+        border-radius: 4px;
+        padding: 2px 5px;
+        font-size: 0.88em;
+        overflow-wrap: anywhere;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: #102e39;
+        color: #e6f4ed;
+        padding: 22px;
+        border-radius: 10px;
+        font-size: 14px;
+        line-height: 1.65;
+      }
+      pre code {
+        padding: 0;
+        background: transparent;
+        color: inherit;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 15px;
+      }
+      td,
+      th {
+        text-align: left;
+        padding: 13px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        background: #edf5f2;
+      }
+      li {
+        margin: 9px 0;
+      }
+      .flow {
+        display: grid;
+        gap: 9px;
+        margin: 24px 0;
+      }
+      .step {
+        border: 1px solid #cbdcdb;
+        background: #f0f7f4;
+        border-radius: 10px;
+        padding: 13px 17px;
+      }
+      .arrow {
+        color: var(--teal);
+        text-align: center;
+        font-weight: 800;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+      .card {
+        background: #edf5f2;
+        padding: 18px;
+        border-radius: 10px;
+      }
+      .card b {
+        display: block;
+        font-size: 24px;
+      }
+      details {
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+        margin-top: 18px;
+      }
+      summary {
+        cursor: pointer;
+        color: var(--teal);
+        font-weight: 700;
+      }
+      footer {
+        font-size: 13px;
+        color: var(--muted);
+        padding: 20px;
+      }
+      header a {
+        color: #bcf0df;
+      }
+      @media (max-width: 850px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        nav {
+          position: static;
+          display: flex;
+          gap: 6px 18px;
+          flex-wrap: wrap;
+        }
+        .wrap {
+          padding: 20px 14px;
+        }
+        header {
+          padding: 30px 24px;
+        }
+        section {
+          padding: 24px 20px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        table {
+          font-size: 13px;
+        }
+        td,
+        th {
+          padding: 9px 6px;
+        }
+      }
+      @media print {
+        body {
+          background: white;
+          font-size: 11pt;
+        }
+        .wrap {
+          padding: 0;
+        }
+        header {
+          background: white;
+          color: #172b38;
+          padding: 20px 0;
+        }
+        header p,
+        .eyebrow {
+          color: #526779;
+        }
+        nav {
+          display: none;
+        }
+        .layout {
+          display: block;
+        }
+        section {
+          break-inside: auto;
+          border: 0;
+          padding: 16px 0;
+        }
+        pre {
+          background: #eee;
+          color: #111;
+        }
+        details {
+          display: block;
+        }
+        a {
+          color: inherit;
+        }
+        h2,
+        h3 {
+          break-after: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="eyebrow">Starlark laboratory · September 10, 2026 · Human report</div>
+        <h1>How worker answers return—and become one final explanation</h1>
+        <p>
+          A guided tour of the actual host, worker contracts, saved evidence, synthesis calls, and the remaining
+          decision about returning a result to a parent agent.
+        </p>
+      </header>
+      <div class="layout">
+        <nav aria-label="Report sections">
+          <a href="#answer">1. Where the answer actually lands</a
+          ><a href="#scope">2. What “Starlark-bound workers” means today</a
+          ><a href="#journey">3. Follow one fan-out from start to finish</a
+          ><a href="#contract">4. Exactly what a worker hands back</a
+          ><a href="#synthesis">5. How the collected answers become one explanation</a
+          ><a href="#visibility">6. What the synthesizer can—and cannot—know</a
+          ><a href="#failures">7. Failures, retries, and what “completed” means</a
+          ><a href="#files">8. Where the answer lives on disk—and what the caller receives</a
+          ><a href="#resume">9. What survives a stopped run</a
+          ><a href="#future">10. My recommendation for a future parent-agent handoff</a
+          ><a href="#verification">11. Evidence, verification, and handoff</a>
+        </nav>
+        <main>
+          <section id="answer">
+            <h2>1. Where the answer actually lands</h2>
+            <div class="lead">
+              <strong
+                >Each worker returns its answer to the JavaScript host as structured text. The host validates it, saves
+                it, and collects it with the other results. Once worker execution and any recovery round finish, the
+                host asks a separate model call to write the combined answer.</strong
+              >
+            </div>
+            <p>
+              There are three different “returns” here, and keeping them separate makes the architecture much easier to
+              understand.
+            </p>
+            <table>
+              <tr>
+                <th>Return</th>
+                <th>What comes back</th>
+                <th>Who receives it</th>
+              </tr>
+              <tr>
+                <td>Starlark finishes planning</td>
+                <td>
+                  A list of job descriptions: what to analyze, which approved worker to use, and which input to supply.
+                </td>
+                <td>The JavaScript host, through the Go evaluator’s output.</td>
+              </tr>
+              <tr>
+                <td>A worker finishes its assignment</td>
+                <td>A compact JSON answer: summary, claims, evidence, and confidence.</td>
+                <td>The host’s coordinator, through a provider adapter.</td>
+              </tr>
+              <tr>
+                <td>Synthesis finishes</td>
+                <td>A combined prose answer.</td>
+                <td>The coordinator, which stores it in the run’s result files.</td>
+              </tr>
+            </table>
+            <p>
+              <strong>The host is ordinary software running locally, not a model with its own mind.</strong> It owns the
+              sequence of operations and the records. The planner and synthesizer are model roles that this software
+              calls when needed. Even when those roles use the same model identifier, they are separate requests with
+              separately constructed context.
+            </p>
+            <p>
+              JSON means JavaScript Object Notation: a text format containing named fields that software can read
+              predictably. A provider adapter is the small piece of code that translates a host request into a provider
+              call and brings the response back.
+            </p>
+            <p class="small">
+              Source: <a href="../starlark-host/src/coordinator.js">PhasedCoordinator.runPhases / runJobs</a>,
+              <a href="../starlark-host/src/worker-registry.js">WorkerRegistry.execute</a>,
+              <a href="../starlark-host/src/synthesis.js">runSynthesis</a>.
+            </p>
+          </section>
+          <section id="scope">
+            <h2>2. What “Starlark-bound workers” means today</h2>
+            <p>
+              I interpret your phrase as the bounded worker jobs in our <code>starlark-host/</code> phased-hybrid
+              laboratory. “Phased” means the host moves through distinct stages; “hybrid” means models make some
+              judgments while ordinary code controls execution.
+            </p>
+            <p>
+              <strong
+                >These workers are currently bounded analysis calls, rather than miniature copies of a full coding-agent
+                session.</strong
+              >
+              The bridge builds each request with a system instruction and one user message. This host does not give the
+              worker an iterative tool loop, a shared chat transcript, or a mechanism to recursively spawn more workers.
+              A worker cannot browse the rest of the repository through this call.
+            </p>
+            <p>
+              Starlark is used as a restricted programming language for producing a plan. Its evaluator receives
+              document metadata—such as identifiers, paths, sizes, and fingerprints—and returns data. The evaluator has
+              no model, filesystem, network, or shell functions. It does not remain suspended waiting for worker
+              callbacks.
+            </p>
+            <div class="note">
+              <strong>Current scope versus future runtime:</strong> the recorded owner decision keeps Starlark as a
+              separate lab with its own command-line entry point. There is no Starlark
+              <code>run_workflow</code> integration edge in the main runner. This report explains the implemented lab as
+              the concrete foundation for your runtime discussion; a future parent-agent handoff is identified
+              separately below.
+            </div>
+            <p>
+              The lab also has a <code>host_json</code> planning option. That creates the same validated job
+              descriptions directly in JavaScript without generating or executing Starlark. It preserves the
+              worker-return and synthesis mechanism, so those mechanisms are not dependent on Starlark syntax.
+            </p>
+            <p class="small">
+              Sources: <a href="../starlark-host/README.md">lab README</a>,
+              <a href="../starlark-host/src/bridge.js">ClaudeBridge.call</a>,
+              <a href="../starlark-host/src/starlark.js">evaluateStarlark</a>,
+              <a href="../HANDOFF-starlark-status-and-recommendations-2026-08-25.md">owner-decision banner</a>,
+              <a href="../HANDOFF-starlark-r11-2026-09-06.md">later implementation record</a>.
+            </p>
+          </section>
+          <section id="journey">
+            <h2>3. Follow one fan-out from start to finish</h2>
+            <p>
+              A <strong>fan-out</strong> splits one objective into several independent jobs. A
+              <strong>fan-in</strong> collects their results again. Picture a research coordinator handing different
+              pages to several readers, receiving their standardized notes, and then commissioning an editor to write
+              the overall explanation.
+            </p>
+            <div
+              class="flow"
+              role="img"
+              aria-label="Host collects inputs, validates Starlark plan, executes bounded workers, saves results, retries eligible failures, synthesizes and stores final text"
+            >
+              <div class="step">
+                <strong>Host collects inputs.</strong> Repository discovery chooses allowed files and saves the supplied
+                input bytes.
+              </div>
+              <div class="arrow">↓</div>
+              <div class="step">
+                <strong>Planner → Starlark evaluator → host validator.</strong> A proposed job list must satisfy the
+                host’s limits.
+              </div>
+              <div class="arrow">↓</div>
+              <div class="step">
+                <strong>Host dispatches worker A · worker B · worker C …</strong> Each receives its assignment and
+                explicitly selected source content.
+              </div>
+              <div class="arrow">↓</div>
+              <div class="step">
+                <strong>Each response returns to its waiting host call.</strong> Parse answer → save artifact → append
+                success receipt. Rejected answers become failure records.
+              </div>
+              <div class="arrow">↓</div>
+              <div class="step">
+                <strong>Host waits for the phase.</strong> If jobs failed, an eligible recovery plan may run a second
+                worker round.
+              </div>
+              <div class="arrow">↓</div>
+              <div class="step">
+                <strong>Host constructs synthesis context.</strong> Compact accepted answers and failure records go to
+                one synthesis call or grouped summary calls.
+              </div>
+              <div class="arrow">↓</div>
+              <div class="step">
+                <strong>Final prose returns to the host.</strong> Save synthesis artifact, result state, and completion
+                evidence; return a status summary to the caller.
+              </div>
+            </div>
+            <p>
+              In the current repository fan-out configuration, the collector selects <em>at most</em> six JavaScript
+              files under <code>src/runner</code>. Each selected file gets exactly one initial job. The configured
+              concurrency is two: at most two worker calls run at the same time, with remaining jobs waiting their turn.
+              Six jobs therefore does not mean six simultaneous model calls. Individual files are bounded at 40,000
+              bytes, and the collection at 180,000 bytes.
+            </p>
+            <p>
+              Jobs may finish in any order. The event log reflects when events occur; the returned result array retains
+              the original job-list order because the host places each answer in its assigned array position. Recovery
+              results are appended after the initial results. Synthesis waits for the worker phase and the recovery
+              phase; it does not update a final answer continuously as individual workers finish.
+            </p>
+            <p class="small">
+              Sources: <a href="../starlark-host/src/workflow-runner.js">prepareWorkflowDocuments / runWorkflow</a>,
+              <a href="../starlark-host/src/coordinator.js">runJobs / mapConcurrent / runPhases</a>,
+              <a href="../starlark-host/experiment.config.json">current configuration</a>.
+            </p>
+          </section>
+          <section id="contract">
+            <h2>4. Exactly what a worker hands back</h2>
+            <p>
+              The transport returns a response envelope—an outer container—with fields such as <code>text</code>, token
+              usage, cost, and a stop reason. The coordinator parses the <code>text</code> as the worker’s actual
+              answer. A token is a small unit of text used in a model’s input and output limits; it is not the same
+              thing as one character or one word.
+            </p>
+            <pre><code>{
+  "summary": "The supplied file coordinates a bounded queue of jobs.",
+  "claims": ["Only the supplied file was inspected."],
+  "evidence": ["The supplied excerpt stores results at their job indices."],
+  "confidence": 0.8
+}</code></pre>
+            <p class="small">
+              Illustrative answer shape only; this is not a saved worker result or a claim about an uninspected source.
+            </p>
+            <table>
+              <tr>
+                <th>Field</th>
+                <th>Enforced requirement</th>
+                <th>What it tells the host</th>
+              </tr>
+              <tr>
+                <td><code>summary</code></td>
+                <td>Nonblank string, at most 1,200 characters.</td>
+                <td>The worker’s compressed account.</td>
+              </tr>
+              <tr>
+                <td><code>claims</code></td>
+                <td>At most four strings, each at most 300 characters.</td>
+                <td>Assertions worth carrying forward.</td>
+              </tr>
+              <tr>
+                <td><code>evidence</code></td>
+                <td>At most four strings, each at most 300 characters.</td>
+                <td>The worker’s stated support.</td>
+              </tr>
+              <tr>
+                <td><code>confidence</code></td>
+                <td>Number from 0 to 1.</td>
+                <td>A self-reported rating, not a verified probability.</td>
+              </tr>
+            </table>
+            <p>
+              All four fields must be present and extra fields are rejected. Empty claim and evidence arrays are
+              allowed. The parser tolerates a surrounding JSON code fence, although the prompts request bare JSON.
+              Overlong model output is rejected; this parser does not quietly shorten it. JavaScript string length
+              supplies the character measurement, so the exact implementation counts UTF-16 code units, which can differ
+              from visible characters for some symbols.
+            </p>
+            <p>
+              The host then adds information the worker does not need to invent: the job description, attempt number,
+              success status, artifact location, usage, and cost. That outer host record connects the answer to the
+              assignment. An <strong>artifact</strong> is a saved output file; a <strong>receipt</strong> is a recorded
+              event saying what happened.
+            </p>
+            <p>
+              <strong>Structured does not mean verified.</strong> The current parser checks field names, types, and
+              sizes. It does not check whether evidence quotes really occur in the file, whether each claim follows from
+              that evidence, or whether the confidence rating is justified.
+            </p>
+            <p class="small">
+              Sources: <a href="../starlark-host/src/worker-contract.js">WORKER_OUTPUT_LIMITS</a>,
+              <a href="../starlark-host/src/coordinator.js">parseWorkerOutput / runJobs</a>,
+              <a href="../starlark-host/src/bridge.js">response extraction</a>.
+            </p>
+          </section>
+          <section id="synthesis">
+            <h2>5. How the collected answers become one explanation</h2>
+            <p>
+              The host constructs a new prompt containing the overall objective and compact result records. For a
+              success it passes <code>job_id</code>, <code>attempt</code>, <code>ok: true</code>, and the four-field
+              <code>output</code>. For a failure it passes <code>job_id</code>, <code>attempt</code>,
+              <code>ok: false</code>, and <code>error</code>.
+            </p>
+            <p>
+              <strong>This is a fresh synthesis request.</strong> It does not inherit the worker conversations or the
+              planner’s earlier thought process. Normal initial-run synthesis uses the active planner-model tier: the
+              model that most recently produced an accepted planning or recovery program. The worker model can be
+              different. Choosing the same model identifier does not automatically share context.
+            </p>
+            <div class="grid">
+              <div class="card"><b>1–4 records</b>One synthesis request under default automatic selection.</div>
+              <div class="card">
+                <b>5+ records</b>Groups of three results get short summaries; another request combines them.
+              </div>
+              <div class="card">
+                <b>6 records → 3 calls</b>Two group summaries plus one final combination, with no retries in this
+                example.
+              </div>
+            </div>
+            <h3>Small collections: one synthesis call</h3>
+            <p>
+              The single call sees the complete compact result set and is allowed up to 2,500 output tokens by default.
+              Its instructions say to use supplied artifacts and failures, distinguish evidence from inference, report
+              incomplete coverage, and never claim that a failed job succeeded.
+            </p>
+            <h3>Larger collections: map-reduce</h3>
+            <p>
+              <strong>Map-reduce</strong> here means “summarize small groups, then combine their summaries.” The map
+              stage divides the result array into groups of three. Each group receives the objective and its compact
+              results, with a request for at most 200 words and an output ceiling of 900 tokens. The map calls currently
+              run sequentially.
+            </p>
+            <p>
+              The reduce stage receives the objective, aggregate success/failure counts, and those prose group
+              summaries. It has a default ceiling of 2,500 output tokens. It does <em>not</em> receive the raw worker
+              outputs again. For seven records the default is three map calls plus one reduce call.
+            </p>
+            <p>
+              These are configurable defaults, not intrinsic rules of Starlark. The 200-word instruction is a model
+              request rather than a separately counted word-limit validator. Group summaries are local in-memory values
+              inside <code>runSynthesis</code>; they are not separate resumable map artifacts. If synthesis is retried,
+              successful workers are reused, but the synthesis operation starts again rather than continuing from a
+              persisted group-summary checkpoint.
+            </p>
+            <div class="note">
+              <strong>The tradeoff:</strong> grouping reduces how much material a single call must summarize. It adds
+              another compression step, where qualifiers, evidence details, or relationships across groups can be lost.
+              It does not add an independent reviewer or make the result inherently more accurate.
+            </div>
+            <p class="small">
+              Sources: <a href="../starlark-host/src/synthesis.js">DEFAULT_OPTIONS / compactResult / runSynthesis</a>,
+              <a href="../starlark-host/src/coordinator.js">activePlannerModel and synthesis invocation</a>.
+            </p>
+          </section>
+          <section id="visibility">
+            <h2>6. What the synthesizer can—and cannot—know</h2>
+            <table>
+              <tr>
+                <th>Information</th>
+                <th>Current synthesis visibility</th>
+              </tr>
+              <tr>
+                <td>Overall objective</td>
+                <td>Yes, supplied explicitly.</td>
+              </tr>
+              <tr>
+                <td>Worker summaries, claims, evidence, confidence</td>
+                <td>Yes in single/map prompts. Reduce sees their group summaries.</td>
+              </tr>
+              <tr>
+                <td>Recorded job failures</td>
+                <td>Yes in compact form; reduce sees summaries and counts.</td>
+              </tr>
+              <tr>
+                <td>Original full source documents</td>
+                <td>No automatic inclusion.</td>
+              </tr>
+              <tr>
+                <td>Full original job descriptions, input identifiers, artifact paths</td>
+                <td>
+                  No automatic inclusion in compact records. Workers may mention some details in their own output.
+                </td>
+              </tr>
+              <tr>
+                <td>Explicit retry relationship (<code>retry_of</code>)</td>
+                <td>Not carried by compactResult; only job identifier and attempt remain.</td>
+              </tr>
+              <tr>
+                <td>Interruption, cancellation, and resume event history</td>
+                <td>No automatic inclusion.</td>
+              </tr>
+              <tr>
+                <td>Raw provider traces, usage, and cost records</td>
+                <td>Not included by the synthesis prompt builder.</td>
+              </tr>
+              <tr>
+                <td>Other workers’ private reasoning or ongoing messages</td>
+                <td>No such shared conversation in this workflow.</td>
+              </tr>
+            </table>
+            <p>
+              This means “combine the workers’ findings” is a model reasoning task over compressed notes. There is no
+              implemented voting rule, confidence-weighted scoring formula, contradiction detector, source lookup tool,
+              or claim-by-claim verifier in this synthesis stage. If workers disagree, the model can discuss that
+              disagreement only to the extent their supplied notes reveal it; software does not adjudicate it for the
+              model.
+            </p>
+            <p>
+              The earlier September 7 fidelity review documented both worker mistakes carried forward and details
+              introduced by synthesis. I checked the current prompt builder and validator again for this report: their
+              evidence boundary remains as described above. I did not rerun that historical campaign or independently
+              repeat its entire factual audit today.
+            </p>
+            <p>
+              <strong>My interpretation for the planned runtime:</strong> the current design has a clear delivery
+              mechanism, but limited preservation and verification of the evidence behind the final prose. A successful
+              delivery and a correct explanation are separate accomplishments.
+            </p>
+            <p class="small">
+              Sources:
+              <a href="../starlark-host/src/synthesis.js"
+                >compactResult / buildSynthesisPrompt / validateSynthesisResponse</a
+              >,
+              <a href="../HANDOFF-starlark-analysis-fidelity-2026-09-07.md">historical fidelity review, section 4</a>.
+            </p>
+          </section>
+          <section id="failures">
+            <h2>7. Failures, retries, and what “completed” means</h2>
+            <p>
+              A malformed worker answer becomes an <code>invalid_worker_output</code> failure, marked retryable. The
+              recovery planner sees failure metadata and can propose retries for eligible failed jobs. The host
+              validates those retry descriptions. On a retry, the host directly supplies the rejection reason to the
+              worker—for example, that its summary exceeded the permitted size—so the worker has something specific to
+              correct.
+            </p>
+            <p>
+              The current coordinator has an initial worker phase and one recovery worker phase. It does not keep asking
+              for repairs forever. Permanent failures are excluded from the eligible retry set. The recovery planner is
+              not an extra stage that reconciles disagreements between successful workers.
+            </p>
+            <h3>A concrete counting example</h3>
+            <p>
+              Suppose six initial jobs produce five accepted answers and one failed answer. The failed job’s recovery
+              succeeds. The accumulated results now contain
+              <strong>seven records: six successes and one historical failure</strong>. All six original inputs may have
+              successful coverage, but the original failure remains in the records.
+            </p>
+            <p>
+              The synthesis prompt and command-line summary count these records. They do not automatically present a
+              deduplicated “final outcome per original input” table. Even the reduce prompt calls the aggregate records
+              “jobs.” Because the compact form omits <code>retry_of</code>, the model has less explicit information for
+              linking that failure to its successful replacement.
+            </p>
+            <h3>When synthesis itself fails</h3>
+            <p>
+              The synthesis validator detects refusal, an output-token ceiling stop, or empty text. These become
+              distinct failure codes with a stage label: single, map, or reduce. A semantic failure gives the run
+              <code>phase: partial</code> and a recorded <code>synthesisFailure</code>. Worker artifacts remain saved.
+              The synthesis-only resume path can retry the prose stage without executing workers again.
+            </p>
+            <p>
+              Transport errors, such as a thrown network exception, are a separate failure path:
+              <code>runSynthesis</code> does not turn every thrown exception into that semantic-failure object. Do not
+              assume every interrupted or failed synthesis has the same resume state.
+            </p>
+            <p>
+              <strong
+                ><code>phase: completed</code> means the synthesis stage passed its current response checks.</strong
+              >
+              Some worker failures may still remain, and the prose has not been fact-checked. Likewise, an event named
+              <code>run_completed</code> is also emitted for semantic synthesis failures with
+              <code>synthesisOk: false</code>; inspect its fields and the stored phase, not its name alone.
+            </p>
+            <p class="small">
+              Sources: <a href="../starlark-host/src/coordinator.js">recovery and completion paths</a>,
+              <a href="../starlark-host/src/synthesis.js">validation and aggregate counting</a>,
+              <a href="../starlark-host/src/resume-synthesis.js">resumeSynthesis</a>.
+            </p>
+          </section>
+          <section id="files">
+            <h2>8. Where the answer lives on disk—and what the caller receives</h2>
+            <p>
+              A run directory is the local folder containing one experiment’s records. Workflow runs normally live below
+              <code>starlark-host/workflow-runs/</code>; the command prints the precise <code>runDir</code>. These
+              evidence folders are excluded from Git tracking.
+            </p>
+            <table>
+              <tr>
+                <th>File inside the run directory</th>
+                <th>Purpose</th>
+              </tr>
+              <tr>
+                <td><code>artifacts/input-&lt;id&gt;.json</code></td>
+                <td>Saved input content and metadata for repeatable reconstruction.</td>
+              </tr>
+              <tr>
+                <td><code>artifacts/&lt;job-id&gt;-attempt-&lt;n&gt;.json</code></td>
+                <td>The accepted four-field worker answer.</td>
+              </tr>
+              <tr>
+                <td><code>events.jsonl</code></td>
+                <td>Ordered event receipts. JSONL means one JSON object per line.</td>
+              </tr>
+              <tr>
+                <td><code>state.json</code></td>
+                <td>The latest checkpoint: a saved snapshot of coordinator state.</td>
+              </tr>
+              <tr>
+                <td><code>run-context.json</code></td>
+                <td>Saved host configuration and execution settings for worker resume.</td>
+              </tr>
+              <tr>
+                <td><code>artifacts/synthesis.json</code></td>
+                <td>Initial successful synthesis text and the result job identifiers.</td>
+              </tr>
+              <tr>
+                <td><code>artifacts/synthesis-resume.json</code></td>
+                <td>Successful synthesis-only retry text.</td>
+              </tr>
+              <tr>
+                <td><code>result.json</code></td>
+                <td>Final stored state, including <code>synthesis</code>, results, phase, and synthesis status.</td>
+              </tr>
+            </table>
+            <p>
+              For ordinary success, the coordinator saves the worker artifact before appending
+              <code>job_succeeded</code>. Event writes are synchronized to disk. Artifact and checkpoint writes use a
+              temporary file followed by rename, so a reader does not ordinarily see a half-written JSON file. That
+              rename mechanism is not the same as synchronizing every artifact and directory to durable storage; do not
+              infer absolute power-loss guarantees from it.
+            </p>
+            <p>
+              <strong>The current command-line caller receives a status summary, not the full final prose.</strong>
+              <code>runWorkflow()</code> returns <code>summarizeWorkflow()</code>, and
+              <code>bin/run-workflow.js</code> prints that summary as JSON. It includes counts, phase, synthesis status,
+              and <code>runDir</code>, but no <code>synthesis</code> text field. The coordinator itself returns the full
+              state internally.
+            </p>
+            <p>
+              So if by “host” you mean a future parent chat agent, there is still a separate integration decision: that
+              parent would need an explicit result-reading or tool-response mechanism. The current lab does not
+              automatically inject the final narrative into a parent conversation. A local file being written does not
+              by itself update a chat.
+            </p>
+            <p class="small">
+              Sources: <a href="../starlark-host/src/ledger.js">RunLedger / atomicWrite</a>,
+              <a href="../starlark-host/src/coordinator.js">artifact and state writes</a>,
+              <a href="../starlark-host/src/workflow-runner.js">summarizeWorkflow</a>,
+              <a href="../starlark-host/bin/run-workflow.js">command output</a>.
+            </p>
+          </section>
+          <section id="resume">
+            <h2>9. What survives a stopped run</h2>
+            <p>
+              Worker resume reconstructs from accepted plans, saved inputs, terminal event receipts, and artifacts. A
+              recorded success is reused. A recorded failure is also reused so the existing recovery rules remain in
+              charge. A started job with no terminal receipt may run again; that is
+              <strong>at-least-once execution</strong>, meaning work can repeat after an interruption.
+            </p>
+            <p>
+              The host verifies recorded plans and available content hashes and refuses malformed or ambiguous
+              reconstruction evidence. A completed run is a no-op on worker resume. A partial run with a semantic
+              synthesis failure is directed to the synthesis-only path.
+            </p>
+            <p>
+              The important distinction is between “a provider may have done work” and “the host has an accepted success
+              receipt.” They can differ at an interruption boundary. The current source checks for cancellation after
+              bridge response settlement, so received usage can be charged while the corresponding job success is
+              suppressed. Existing review notes discuss that boundary. Do not describe this as exactly-once execution or
+              assume interrupted work is free.
+            </p>
+            <details>
+              <summary>Agent detail: synthesis-only resume has a different evidence path</summary>
+              <p>
+                <code>resumeSynthesis()</code> reads <code>state.json</code> and uses <code>state.results</code>; it
+                does not repeat the worker-resume reconstruction checks. Its default strategy is map-reduce. The
+                command-line wrapper supplies the current generic experiment objective and defaults to the stored
+                initial planner model, rather than necessarily restoring the original workflow objective and last
+                accepted planner tier. Those differences deserve explicit handling in any future reproducibility design;
+                this report does not change them.
+              </p>
+            </details>
+            <p class="small">
+              Sources: <a href="../starlark-host/src/coordinator.js">restoreWorkerPhase / runJobs</a>,
+              <a href="../starlark-host/src/bridge.js">settlement and abort ordering</a>,
+              <a href="../starlark-host/src/resume-synthesis.js">synthesis-only implementation</a>,
+              <a href="../starlark-host/bin/resume-synthesis.js">synthesis-only command wrapper</a>,
+              <a href="../HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md">recorded review limitations</a>.
+            </p>
+          </section>
+          <section id="future">
+            <h2>10. My recommendation for a future parent-agent handoff</h2>
+            <p>
+              <strong
+                >This section is a design recommendation, not a claim about implemented or newly approved runtime
+                work.</strong
+              >
+              I would preserve the current separation of responsibilities, then make the evidence and the final handoff
+              more explicit before broadening worker autonomy.
+            </p>
+            <ol>
+              <li>
+                <strong>Return a host-authored result envelope to the parent.</strong> Include run identifier, terminal
+                phase, final prose, a coverage summary, unresolved failures, and links or identifiers for supporting
+                artifacts. The parent can then explain both the answer and how complete it is.
+              </li>
+              <li>
+                <strong>Preserve the relationship between original inputs and retries.</strong> Carry original job
+                identifier, input identifiers, and <code>retry_of</code> through synthesis. Calculate final coverage in
+                ordinary host code, while retaining the full attempt history separately.
+              </li>
+              <li>
+                <strong>Make evidence references machine-checkable.</strong> A claim could point to an input fingerprint
+                and line range or saved excerpt. The host can verify the reference exists. Deciding whether the excerpt
+                supports the claim still requires additional reasoning or review.
+              </li>
+              <li>
+                <strong>Give synthesis a deliberate evidence budget.</strong> Attach selected source excerpts where
+                needed, rather than expecting short worker notes to support every cross-file conclusion. For grouped
+                synthesis, preserve claim and evidence identifiers through each group summary.
+              </li>
+              <li>
+                <strong>Separate prose completion from factual review.</strong> Display synthesis status and
+                verification status as different fields. Preserve uncertainty and disagreement rather than allowing
+                polished prose to obscure them.
+              </li>
+              <li>
+                <strong>Make retries reproducible.</strong> Persist the workflow objective, chosen synthesis model and
+                options, and any intentionally reusable group summaries. A synthesis retry should make any configuration
+                change visible.
+              </li>
+            </ol>
+            <p>
+              For a small experiment, a single synthesis call is easier to inspect because it sees the worker notes
+              directly. Grouped synthesis is useful when the collection becomes too large, but it introduces another
+              place where detail can disappear. A separate evidence-checking pass adds cost and complexity, yet is more
+              relevant to trustworthy conclusions than merely increasing the number of workers.
+            </p>
+            <p>
+              If workers eventually become full tool-using subagents, the host can retain the same broad return pattern:
+              dispatch → wait → validate → persist → synthesize. Their result contract would need to cover changed
+              files, executed checks, unresolved work, and side effects, and the resume rules would need to account for
+              repeated actions. That is additional design work; the current read-only four-field contract does not
+              provide those guarantees.
+            </p>
+          </section>
+          <section id="verification">
+            <h2>11. Evidence, verification, and handoff</h2>
+            <p>
+              This report is grounded in the current local source at commit
+              <code>c45aab64b6bce38cfbddc26d89e5bb89000e743c</code>, inspected September 10, 2026. A commit is a saved
+              Git revision. The branch was <code>main</code>, the tree was initially clean, the GitHub origin matched
+              the playground, and the initial fast-forward-only pull reported that it was already up to date.
+            </p>
+            <p>
+              <strong>Current verification:</strong> the existing synthesis, worker-contract, worker-registry, and
+              worker-adapter test files passed together: <strong>16 passed, 0 failed, 0 skipped</strong>. This includes
+              the deterministic-provider workflow test. These tests exercise program behavior with local stubs or
+              deterministic answers; they are not a new live model factual-accuracy campaign.
+            </p>
+            <p>
+              The report’s source links point to local code and checked-in handoffs. Historical review evidence is
+              attributed as historical; raw session ledgers and private prompt payloads were not copied into these
+              documents. Recommendations are marked separately from implemented behavior.
+            </p>
+            <p>
+              <strong>Deliverables:</strong> this human HTML report;
+              <a href="starlark-worker-answers-agent-primer-2026-09-10.md">agent-facing Markdown primer</a>;
+              <a href="starlark-worker-answers-agent-primer-2026-09-10.html"
+                >matching browser companion for that primer</a
+              >. All are in <code>docs/</code>. No runtime or configuration files were changed. No commit or push was
+              performed.
+            </p>
+            <p>
+              <strong>Checks and limits:</strong> document formatting, local links, HTML structure, and repository
+              documentation checks are checked separately during the handoff. The full runtime suite and new live
+              spending are outside this documentation task; no new claims about live model quality or power-loss
+              recovery are made.
+            </p>
+            <p>
+              <strong>Opening the report:</strong> click its link in the chat. If your editor shows source text, open
+              Finder on your Mac, choose Go → Go to Folder, paste
+              <code>/Users/alanman/Developer/claude-local-bridge-playground/docs</code>, and open this
+              <code>.html</code> file with Safari or Chrome. A successful opening shows this styled page with navigation
+              and tables. No Terminal command is needed.
+            </p>
+          </section>
+          <section id="verification-addendum">
+            <h2>Verification addendum</h2>
+            <p>
+              Verification addendum: repository documentation checks and targeted Prettier formatting checks passed.
+              Both HTML files passed local-link, anchor, and element-nesting checks (71 links combined). The first
+              custom HTML check mishandled self-closing meta elements; correcting that checker produced a pass without a
+              document change. Browser-rendered visual inspection was not performed; responsive and print styles were
+              checked in source only.
+            </p>
+          </section>
+        </main>
+      </div>
+      <footer>
+        Local research documentation · Source snapshot c45aab64b6bc · Self-contained styling; no external scripts,
+        fonts, or services.
+      </footer>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Agent primer: worker returns and synthesis</title>
+    <style>
+      :root {
+        --ink: #172b38;
+        --muted: #526779;
+        --paper: #f4f6f3;
+        --line: #d4dfdf;
+        --teal: #086b67;
+        --gold: #f7e6b2;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          17px/1.7 system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+      a {
+        color: var(--teal);
+        text-underline-offset: 3px;
+      }
+      a:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid #ce891c;
+        outline-offset: 4px;
+      }
+      .wrap {
+        max-width: 1260px;
+        margin: auto;
+        padding: 44px 30px;
+      }
+      header {
+        background: #12343e;
+        color: white;
+        border-radius: 22px;
+        padding: 48px;
+        margin-bottom: 32px;
+      }
+      header p {
+        max-width: 850px;
+        color: #dfeced;
+        font-size: 20px;
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        font-weight: 800;
+        color: #a4d8cb;
+      }
+      h1 {
+        font-size: clamp(32px, 4.5vw, 54px);
+        line-height: 1.13;
+        max-width: 950px;
+        margin: 16px 0 24px;
+      }
+      h2 {
+        font-size: 29px;
+        line-height: 1.25;
+        margin-top: 0;
+      }
+      h3 {
+        font-size: 21px;
+      }
+      p {
+        margin: 14px 0;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        gap: 34px;
+      }
+      nav {
+        position: sticky;
+        top: 24px;
+        align-self: start;
+        font-size: 14px;
+      }
+      nav a {
+        display: block;
+        padding: 7px 0;
+        text-decoration: none;
+      }
+      section {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 32px;
+        margin-bottom: 24px;
+        scroll-margin-top: 24px;
+      }
+      .lead {
+        border-left: 5px solid var(--teal);
+        background: #eaf5f0;
+        padding: 20px 24px;
+        border-radius: 8px;
+      }
+      .note {
+        background: #fff7df;
+        border-left: 5px solid #c39029;
+        padding: 18px 22px;
+        border-radius: 8px;
+      }
+      .small,
+      figcaption {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      code {
+        background: #edf1f3;
+        border-radius: 4px;
+        padding: 2px 5px;
+        font-size: 0.88em;
+        overflow-wrap: anywhere;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: #102e39;
+        color: #e6f4ed;
+        padding: 22px;
+        border-radius: 10px;
+        font-size: 14px;
+        line-height: 1.65;
+      }
+      pre code {
+        padding: 0;
+        background: transparent;
+        color: inherit;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 15px;
+      }
+      td,
+      th {
+        text-align: left;
+        padding: 13px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        background: #edf5f2;
+      }
+      li {
+        margin: 9px 0;
+      }
+      .flow {
+        display: grid;
+        gap: 9px;
+        margin: 24px 0;
+      }
+      .step {
+        border: 1px solid #cbdcdb;
+        background: #f0f7f4;
+        border-radius: 10px;
+        padding: 13px 17px;
+      }
+      .arrow {
+        color: var(--teal);
+        text-align: center;
+        font-weight: 800;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+      .card {
+        background: #edf5f2;
+        padding: 18px;
+        border-radius: 10px;
+      }
+      .card b {
+        display: block;
+        font-size: 24px;
+      }
+      details {
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+        margin-top: 18px;
+      }
+      summary {
+        cursor: pointer;
+        color: var(--teal);
+        font-weight: 700;
+      }
+      footer {
+        font-size: 13px;
+        color: var(--muted);
+        padding: 20px;
+      }
+      header a {
+        color: #bcf0df;
+      }
+      @media (max-width: 850px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        nav {
+          position: static;
+          display: flex;
+          gap: 6px 18px;
+          flex-wrap: wrap;
+        }
+        .wrap {
+          padding: 20px 14px;
+        }
+        header {
+          padding: 30px 24px;
+        }
+        section {
+          padding: 24px 20px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        table {
+          font-size: 13px;
+        }
+        td,
+        th {
+          padding: 9px 6px;
+        }
+      }
+      @media print {
+        body {
+          background: white;
+          font-size: 11pt;
+        }
+        .wrap {
+          padding: 0;
+        }
+        header {
+          background: white;
+          color: #172b38;
+          padding: 20px 0;
+        }
+        header p,
+        .eyebrow {
+          color: #526779;
+        }
+        nav {
+          display: none;
+        }
+        .layout {
+          display: block;
+        }
+        section {
+          break-inside: auto;
+          border: 0;
+          padding: 16px 0;
+        }
+        pre {
+          background: #eee;
+          color: #111;
+        }
+        details {
+          display: block;
+        }
+        a {
+          color: inherit;
+        }
+        h2,
+        h3 {
+          break-after: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="eyebrow">Starlark laboratory · September 10, 2026 · Agent companion</div>
+        <h1>Agent primer: worker returns and synthesis</h1>
+        <p>
+          The implementation map, exact result contracts, evidence boundaries, resume differences, and verification
+          record for the next agent.
+        </p>
+      </header>
+      <div class="layout">
+        <nav aria-label="Report sections">
+          <a href="#context">Context and scope</a><a href="#primer-1">1. Governing distinction</a
+          ><a href="#primer-3">2. Call graph and ownership</a><a href="#primer-5">3. Worker contract and fan-in</a
+          ><a href="#primer-7">4. Exact synthesis context and strategy</a
+          ><a href="#primer-9">5. Retry accounting and terminal meaning</a
+          ><a href="#primer-11">6. Durable files and outer caller boundary</a
+          ><a href="#primer-13">7. Resume details that must not be flattened</a
+          ><a href="#primer-15">8. Recommendations, not implemented requirements</a
+          ><a href="#primer-17">9. Source index and verification handoff</a>
+        </nav>
+        <main>
+          <section id="context">
+            <h2>Context and scope</h2>
+            <p>
+              Date: 2026-09-10. Purpose: explain the existing lab to a subsequent agent; this is documentation, not an
+              implementation brief or approval to integrate Starlark into the runner.
+            </p>
+            <p>
+              Source snapshot: <code>c45aab64b6bce38cfbddc26d89e5bb89000e743c</code> on <code>main</code> in
+              <code>/Users/alanman/Developer/claude-local-bridge-playground</code>. Startup tree clean; origin was the
+              playground; <code>git pull --ff-only origin main</code> reported already up to date. Reverify these facts
+              before later edits.
+            </p>
+            <p>
+              Human report:
+              <a href="starlark-worker-answers-and-synthesis-2026-09-10.html">Worker answers and synthesis</a>. Browser
+              companion for this exact primer:
+              <a href="starlark-worker-answers-agent-primer-2026-09-10.html">Agent primer HTML</a>.
+            </p>
+          </section>
+          <section id="primer-1">
+            <h2>1. Governing distinction</h2>
+            <p>
+              The Starlark program returns job descriptors, not worker answers. The JavaScript host executes those
+              descriptors, receives provider responses, validates worker JSON (JavaScript Object Notation), saves
+              accepted outputs, and constructs synthesis requests. Synthesis is a separate model call or sequence of
+              calls, not a Starlark function.
+            </p>
+            <p>
+              Current worker implementations are bounded single-response analysts. ClaudeBridge constructs a system
+              instruction plus one user message; this host path has no worker tool loop, recursive spawn mechanism, or
+              inherited parent conversation. The deterministic provider implements the same result contract using
+              textual measurements, not model reasoning.
+            </p>
+            <p>
+              Respect the R8 owner decision in
+              <a href="../HANDOFF-starlark-status-and-recommendations-2026-08-25.md">the status handoff banner</a>: keep
+              <code>starlark-host/</code> separate. The later
+              <a href="../HANDOFF-starlark-r11-2026-09-06.md">R11 implementation handoff</a> supersedes older claims
+              that worker resume was unbuilt. Do not port <code>src/runner/coordinator.js</code>, add a runner
+              <code>run_workflow</code> edge, or change bridge/auth internals based on this primer.
+            </p>
+          </section>
+          <section id="primer-3">
+            <h2>2. Call graph and ownership</h2>
+            <pre><code>bin/run-workflow.js
+  -&gt; runWorkflow() in src/workflow-runner.js
+     -&gt; collect bounded input documents
+     -&gt; configure WorkerRegistry and PhasedCoordinator
+     -&gt; coordinator.run() / runPhases()
+        -&gt; planner source -&gt; evaluateStarlark(plan) -&gt; validateJobs()
+           OR host_json descriptors -&gt; same validateJobs()
+        -&gt; runJobs(initial jobs, attempt 1)
+           -&gt; registry.execute(symbolic worker + request)
+              -&gt; host-owned route -&gt; provider.execute()
+                 -&gt; ClaudeBridge.call() or deterministic provider
+           -&gt; parseWorkerOutput(response.text)
+           -&gt; artifact write -&gt; job_succeeded receipt -&gt; result object
+           OR job_failed receipt -&gt; failure result
+        -&gt; optional validated recovery plan
+        -&gt; runJobs(recovery jobs, attempt 2, host rejection feedback)
+        -&gt; runSynthesis(objective, state.results, activePlannerModel)
+        -&gt; synthesis artifact / result.json / state checkpoint
+     -&gt; summarizeWorkflow(): status and runDir, not synthesis prose
+  -&gt; print summary JSON</code></pre>
+            <p>
+              Paths in the call graph are relative to <code>starlark-host/</code>. A descriptor is a data object
+              describing a job. The evaluator runs as a Go child process communicating JSON over its input/output pipes;
+              worker model responses return through awaited JavaScript calls, not through Starlark callbacks.
+            </p>
+            <p>
+              Planner input is metadata; worker input is the objective, assigned task, selected document bytes with
+              identifiers and fingerprints, and rejection feedback on applicable retries. Host routing chooses
+              provider/model. Generated programs cannot choose concrete models or providers.
+            </p>
+          </section>
+          <section id="primer-5">
+            <h2>3. Worker contract and fan-in</h2>
+            <p>
+              Provider response envelope includes <code>text</code>, <code>usage</code>, <code>costUsd</code>, and
+              <code>rawStopReason</code>; some adapters add trace fields. The coordinator parses the text.
+              <code>WORKER_OUTPUT_LIMITS</code> in <code>src/worker-contract.js</code> is authoritative:
+            </p>
+            <ul>
+              <li>
+                Exactly <code>summary</code>, <code>claims</code>, <code>evidence</code>, <code>confidence</code>; no
+                extra keys.
+              </li>
+              <li>Summary: nonblank string, length at most 1200.</li>
+              <li>Claims: array of at most 4 strings; each length at most 300.</li>
+              <li>Evidence: array of at most 4 strings; each length at most 300.</li>
+              <li>Confidence: numeric, 0 through 1.</li>
+              <li>
+                Empty claim/evidence arrays are valid. Length uses JavaScript string length. Fenced JSON is tolerated by
+                parsing despite prompts requesting bare JSON.
+              </li>
+            </ul>
+            <p>
+              <code>runJobs()</code> creates success records with <code>ok</code>, <code>job</code>,
+              <code>attempt</code>, <code>artifact</code>, <code>output</code>, <code>usage</code>, and
+              <code>costUsd</code>. Failure records contain <code>ok: false</code>, <code>job</code>,
+              <code>attempt</code>, <code>error</code>, and <code>charged</code>. Invalid worker text is a retryable
+              <code>invalid_worker_output</code>, not an accepted partial answer. Do not claim worker success is source
+              verification or that the worker path applies the synthesis stop-reason validator.
+            </p>
+            <p>
+              <code>mapConcurrent()</code> assigns each result to its original index and waits for all pool tasks via
+              <code>Promise.allSettled</code>. Thus completion-order receipts and descriptor-order result arrays differ.
+              Initial results enter <code>state.results</code> first; recovery records append afterward. Synthesis waits
+              for these phases. Current configuration: concurrency 2; repo_fanout at most 6 selected files, one input
+              per initial job; 40,000-byte per-file and 180,000-byte collection bounds. These are snapshot configuration
+              values, not universal runtime constants.
+            </p>
+          </section>
+          <section id="primer-7">
+            <h2>4. Exact synthesis context and strategy</h2>
+            <p>
+              <code>src/synthesis.js:compactResult</code> passes successful
+              <code>{job_id, attempt, ok: true, output}</code> or failed
+              <code>{job_id, attempt, ok: false, error}</code> records. The prompt also includes the objective.
+            </p>
+            <p>
+              It omits full source documents, full descriptors, input IDs, artifact paths, explicit
+              <code>retry_of</code>, usage/cost, and interruption/resume history. Some details may appear incidentally
+              in worker text, but the host does not systematically supply them. No earlier model context is
+              automatically inherited.
+            </p>
+            <p>
+              Initial coordinator synthesis uses <code>activePlannerModel</code>, the tier most recently accepted during
+              planning/recovery. This may differ from the initial planner model. Host-JSON planning avoids planner
+              calls; synthesis still uses the selected planner-model setting on an ordinary run.
+            </p>
+            <p>Defaults in <code>DEFAULT_OPTIONS</code>:</p>
+            <ul>
+              <li>
+                <code>strategy: auto</code>; result count &lt;= 4 selects <code>single</code>; count &gt; 4 selects
+                <code>map_reduce</code>.
+              </li>
+              <li>Single output ceiling: 2500 tokens.</li>
+              <li>
+                Map groups: 3 result records each, processed sequentially; each call has 900 output tokens and a prompt
+                request for at most 200 words.
+              </li>
+              <li>
+                Reduce: objective + record success/failure aggregates + map prose summaries; no raw worker objects; 2500
+                output tokens.
+              </li>
+              <li>Calls for map-reduce: ceiling(result count / 3) + 1 when all stages succeed.</li>
+              <li>
+                Map summaries exist in local memory; no persisted per-map resume checkpoint. Synthesis-only resume
+                repeats synthesis, not workers.
+              </li>
+            </ul>
+            <p>
+              Token ceilings are enforced through model request limits; the 200-word instruction is not separately
+              checked. <code>validateSynthesisResponse()</code> checks refusal, max_tokens truncation, and empty text.
+              It does not validate claims, references, contradiction handling, or confidence calibration. Transport
+              exceptions can still throw rather than yielding a semantic failure object.
+            </p>
+            <p>
+              There is no implemented voting, confidence-weighted merge, deterministic claim union, source retrieval, or
+              independent critic here. Map-reduce is layered model summarization, with the possibility of information
+              loss at each layer.
+            </p>
+          </section>
+          <section id="primer-9">
+            <h2>5. Retry accounting and terminal meaning</h2>
+            <p>
+              The coordinator has one initial worker phase and one recovery phase. Retry eligibility is supplied by host
+              failure records and enforced against the recovery policy. The host supplies exact rejection messages
+              directly to retry workers. Recovery handles eligible failures; it is not a disagreement-resolution loop
+              among successful workers.
+            </p>
+            <p>
+              Historical failures remain in <code>state.results</code> when retries succeed. Six initial jobs with one
+              failed attempt and one successful recovery produce seven result records: six successes, one failure.
+              Aggregates count records, not distinct final input outcomes. Reduce labels this aggregate as jobs. Compact
+              synthesis records omit retry_of, weakening explicit lineage. Do not equate failure count with uncovered
+              input count or silently remove historical failures.
+            </p>
+            <p>
+              Semantic synthesis failure sets phase <code>partial</code>, saves <code>synthesisFailure</code>, and
+              preserves worker outputs. Successful synthesis sets phase <code>completed</code> even if unresolved worker
+              failures exist. <code>run_completed</code> is also appended on semantic synthesis failure with
+              <code>synthesisOk: false</code>. Inspect fields, not event names alone. Synthesis completion is not
+              factual correctness.
+            </p>
+          </section>
+          <section id="primer-11">
+            <h2>6. Durable files and outer caller boundary</h2>
+            <p>Under the workflow&#x27;s printed runDir:</p>
+            <ul>
+              <li><code>collection.json</code>: host collection receipt.</li>
+              <li><code>run-context.json</code>: saved host configuration/execution settings for worker resume.</li>
+              <li><code>artifacts/input-&lt;id&gt;.json</code>: saved input bytes and metadata.</li>
+              <li>
+                <code>artifacts/&lt;job-id&gt;-attempt-&lt;n&gt;.json</code>: accepted worker output, written before the
+                success receipt.
+              </li>
+              <li>
+                <code>events.jsonl</code>: append-only JSON Lines (one JSON object per line), ordered receipts with
+                synchronized writes.
+              </li>
+              <li>
+                <code>state.json</code>: latest coordinator checkpoint, including results and synthesis status/text when
+                available.
+              </li>
+              <li><code>artifacts/synthesis.json</code>: initial successful synthesis text and result job IDs.</li>
+              <li><code>artifacts/synthesis-resume.json</code>: successful synthesis-only retry text.</li>
+              <li><code>result.json</code>: final state including <code>synthesis</code>.</li>
+            </ul>
+            <p>
+              <code>atomicWrite()</code> writes a temporary JSON file then renames it; it does not fsync
+              artifact/checkpoint files or their directory. Event fsync alone is not a universal power-loss durability
+              guarantee. Read the recorded
+              <a href="../HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md">R11 review limitations</a> in conjunction
+              with current code.
+            </p>
+            <p>
+              The coordinator returns full state internally. <code>runWorkflow()</code> exposes a summary; the command
+              prints phase, counts, synthesisOk, runDir and related metadata, not synthesis text. A future parent-agent
+              integration must explicitly return/read a result envelope or artifact. There is no automatic parent-chat
+              insertion today.
+            </p>
+          </section>
+          <section id="primer-13">
+            <h2>7. Resume details that must not be flattened</h2>
+            <p>
+              Worker resume reconstructs accepted plans and terminal receipts, restores saved inputs, validates evidence
+              and available hashes, reuses recorded successes and failures, and re-executes started jobs lacking a
+              terminal receipt. It is at-least-once execution. Completed worker resume is a no-op. Partial semantic
+              synthesis failure is redirected to synthesis-only resume.
+            </p>
+            <p>
+              An abort after provider usage settlement can suppress job success. A charged request is not necessarily an
+              accepted output receipt. Do not assert exactly-once behavior, no repeated provider work, or that
+              interrupted usage was free.
+            </p>
+            <p>
+              <code>resumeSynthesis()</code> loads <code>state.results</code> from state.json rather than performing the
+              worker-resume event/artifact reconstruction. It defaults to map_reduce. The command wrapper supplies
+              current <code>config.objective</code> and defaults to <code>state.plannerModel</code>; these can differ
+              from the original workflow objective and final active planner tier. It is a live-only command wrapper with
+              a positive cost cap. This primer authorizes no live calls. Treat objective/model restoration and synthesis
+              retry provenance as future design questions, not repaired behavior.
+            </p>
+          </section>
+          <section id="primer-15">
+            <h2>8. Recommendations, not implemented requirements</h2>
+            <p>
+              For a future parent result, consider an explicit host-authored envelope with run ID, terminal status,
+              synthesis text, final coverage, unresolved failures, attempt history, and artifact references. Carry
+              original input/job identity and retry lineage through synthesis. Use source fingerprints and excerpt/line
+              references for claims; verify reference existence deterministically and treat semantic support as a
+              separate review question.
+            </p>
+            <p>
+              Preserve evidence IDs through map summaries, keep prose status separate from factual-review status, and
+              restore the exact objective/model/options on synthesis retry unless a change is explicit. Full tool-using
+              workers would also require side-effect/change/test reporting and retry semantics beyond the current
+              read-only four-field answer. Do not expand scope merely because this document describes those options.
+            </p>
+          </section>
+          <section id="primer-17">
+            <h2>9. Source index and verification handoff</h2>
+            <p>Primary implementation sources:</p>
+            <ul>
+              <li>
+                <a href="../starlark-host/src/coordinator.js">Coordinator</a>: runPhases, runJobs, parseWorkerOutput,
+                mapConcurrent, restoreWorkerPhase.
+              </li>
+              <li>
+                <a href="../starlark-host/src/synthesis.js">Synthesis</a>: compactResult, prompt construction, defaults,
+                response validation.
+              </li>
+              <li>
+                <a href="../starlark-host/src/worker-registry.js">Registry</a> and
+                <a href="../starlark-host/src/bridge.js">bridge</a>: host routing and provider response envelope.
+              </li>
+              <li>
+                <a href="../starlark-host/src/worker-contract.js">Worker contract</a>,
+                <a href="../starlark-host/src/validator.js">validator</a>, and
+                <a href="../starlark-host/experiment.config.json">configuration</a>.
+              </li>
+              <li>
+                <a href="../starlark-host/src/workflow-runner.js">Workflow runner</a>,
+                <a href="../starlark-host/bin/run-workflow.js">command entry</a>, and
+                <a href="../starlark-host/src/ledger.js">ledger</a>.
+              </li>
+              <li>
+                <a href="../starlark-host/src/resume-synthesis.js">Synthesis resume</a> and
+                <a href="../starlark-host/bin/resume-synthesis.js">its command wrapper</a>.
+              </li>
+              <li>
+                <a href="../HANDOFF-starlark-analysis-fidelity-2026-09-07.md">Historical fidelity review</a>: useful
+                evidence limitations; not a new factual audit performed today.
+              </li>
+            </ul>
+            <p>
+              Executed verification: existing synthesis, worker-contract, worker-registry and worker-adapter tests:
+              <strong>16 pass, 0 fail, 0 skip</strong>, first run. Includes a deterministic-provider workflow with
+              host-JSON planning and mocked synthesis; it is not a live-model/Starlark-evaluator acceptance run.
+            </p>
+            <p>
+              Reproduction for an agent or human: on the Mac, open Terminal through Spotlight (Command-Space, type
+              Terminal, press Return). Enter the following in Terminal, not Spotlight or a browser. Success is a test
+              summary with 16 passes, zero failures and zero skips. These comments explain each command.
+            </p>
+            <pre><code># Move Terminal into the actual playground repository first.
+cd /Users/alanman/Developer/claude-local-bridge-playground
+
+# Run the four existing test files relevant to answer delivery and synthesis.
+# These tests use local fixtures/stubs; they do not spend on live model calls.
+node --test starlark-host/test/synthesis.test.js starlark-host/test/worker-contract.test.js starlark-host/test/worker-registry.test.js starlark-host/test/worker-adapters.test.js</code></pre>
+            <p>
+              If cd says the folder is missing, stop and locate the real checkout; do not create a replacement folder.
+              If Terminal says node is not found, Node.js (the program that runs JavaScript outside a browser) is
+              unavailable on that command path; resolve the existing project environment before retrying. If a test
+              fails, preserve its output and inspect the cause rather than treating this document&#x27;s snapshot as
+              current proof.
+            </p>
+            <p>
+              Folder/branch: the canonical local playground above, main. Files changed: only this primer, its matching
+              HTML companion, and the human HTML report in docs/. Repository documentation checks, formatting, local
+              links and document structure are verified during the final handoff. Full root runtime suite, a new
+              evaluator campaign, live model calls, and a fresh factual-quality audit are skipped because this is a
+              source-grounded documentation task. No runtime/configuration changes, commit, or push. Remaining risks:
+              lossy synthesis, no factual validator, incomplete retry lineage in synthesis, resume provenance
+              differences, and existing interruption/durability limits described above.
+            </p>
+          </section>
+          <section id="verification-addendum">
+            <h2>Verification addendum</h2>
+            <p>
+              Verification addendum: repository documentation checks and targeted Prettier formatting checks passed.
+              Both HTML files passed local-link, anchor, and element-nesting checks (71 links combined). The first
+              custom HTML check mishandled self-closing meta elements; correcting that checker produced a pass without a
+              document change. Browser-rendered visual inspection was not performed; responsive and print styles were
+              checked in source only.
+            </p>
+          </section>
+        </main>
+      </div>
+      <footer>
+        Local research documentation · Source snapshot c45aab64b6bc · Self-contained styling; no external scripts,
+        fonts, or services.
+      </footer>
+    </div>
+  </body>
+</html>
