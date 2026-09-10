@@ -64,12 +64,13 @@ test('P2-01: default and opted-in tool surfaces', async (t) => {
     assert.ok(!names.includes('undo'), 'recovery is a separate opt-in');
   });
 
-  await t.test('recovery, agents, worktrees, skills each opt in independently', () => {
+  await t.test('recovery, agents, worktrees, skills, history each opt in independently', () => {
     const expectations = [
       ['recovery', ['undo', 'undo_edit']],
       ['agents', ['spawn_agent']],
       ['worktrees', ['enter_worktree', 'exit_worktree', 'list_worktrees']],
       ['skills', ['run_skill']],
+      ['history', ['search_history', 'expand_history']],
     ];
     for (const [group, tools] of expectations) {
       const names = offeredNames({ enabledCapabilities: new Set([group]) });
@@ -143,6 +144,7 @@ test('P2-02: capability prose matches the offered definition set', async (t) => 
     ['edits', { enabledCapabilities: new Set(['edits']) }],
     ['edits+recovery', { enabledCapabilities: new Set(['edits', 'recovery']) }],
     ['agents+worktrees', { enabledCapabilities: new Set(['agents', 'worktrees']) }],
+    ['history', { enabledCapabilities: new Set(['history']) }],
     ['shell', { allowShell: true }],
     ['lsp', { enableLsp: true }],
     [
@@ -159,7 +161,7 @@ test('P2-02: capability prose matches the offered definition set', async (t) => 
         const ctx = {
           allowShell: true,
           enableLsp: true,
-          enabledCapabilities: new Set(['edits', 'recovery', 'agents', 'worktrees', 'skills']),
+          enabledCapabilities: new Set(['edits', 'recovery', 'agents', 'worktrees', 'skills', 'history']),
         };
         return ctx;
       })(),
@@ -187,6 +189,10 @@ test('P2-02: capability prose matches the offered definition set', async (t) => 
     const edits = buildFullToolSection({ enabledCapabilities: new Set(['edits']) });
     assert.ok(edits.includes('edit_file'));
     assert.ok(!edits.includes('apply_patch'));
+    const history = buildFullToolSection({ enabledCapabilities: new Set(['history']) });
+    assert.ok(history.includes('search_history'));
+    assert.ok(history.includes('expand_history'));
+    assert.ok(!dflt.includes('search_history'), 'history tools stay out of the default full section');
   });
 
   await t.test('visibility function and prompt agree tool-by-tool across the catalog', () => {

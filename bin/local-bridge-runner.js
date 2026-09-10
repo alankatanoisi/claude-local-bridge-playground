@@ -22,6 +22,9 @@ const { deriveContextPolicy } = require('../src/runner/context-runtime-policy');
 // P1-07: the default model is shared with the bridge through the versioned
 // model catalog so the two layers cannot drift apart.
 const { DEFAULT_MODEL } = require('../src/runner/model-catalog');
+// --help lists capability groups from the catalog itself so the text cannot
+// drift when a group is added (the hand-written list omitted `history`).
+const { OPTIONAL_CAPABILITIES } = require('../src/runner/tool-catalog');
 const DEFAULT_MAX_TOKENS = 2000;
 const DEFAULT_MAX_STEPS = 16;
 
@@ -86,7 +89,9 @@ Options:\n\
   --exclude-dynamic-system-prompt-sections  Put cwd/git fingerprint in first user message\n\
   --permission-mode <m>   default | plan | accept-edits | dont-ask | accept-edits-dont-ask | auto (legacy alias for dont-ask)\n\
   --tools <names>         Comma-separated tools to expose; include apply_patch to opt into patch mode\n\
-  --capabilities <groups> Enable optional tool groups beyond the default core: edits, recovery, agents, worktrees, skills, lsp (shell needs --allow-shell)\n\
+  --capabilities <groups> Enable optional tool groups beyond the default core: ' +
+      OPTIONAL_CAPABILITIES.join(', ') +
+      ' (shell needs --allow-shell)\n\
   --worktree           Start the run INSIDE a fresh git worktree (deterministic isolation; implies --capabilities worktrees). The original checkout is never touched.\n\
   --no-session-persistence    Disable resume checkpoints (*.state.json); manifests/ledger/diagnostics may still write\n\
   --review-memory       List pending memory promotions for approval\n\

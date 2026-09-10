@@ -509,9 +509,13 @@ When the projection hides whole exchanges — digested behind a checkpoint, or w
 stale-dropped — it also appends a compact **headline index** (`[context:headline-index v1]`, 2026-08-31 research
 review idea 7): one line per hidden exchange, using the assistant's own first sentence from that turn as a
 model-written headline (no extra model call), plus a tool summary and the canonical addresses (`m<i>`, tool_use ids).
-Beyond 40 hidden exchanges the oldest roll up into a single range line. Clipped head+tail results are not listed —
-they still show real bytes and carry their own marker. With `--capabilities history` the index says how to recover
-each entry via `expand_history`. Rendered anchors, headline indexes, and projections are never stored as canonical
+Beyond 40 hidden exchanges the oldest roll up into a single range line. Hidden-ness is measured on the request
+actually sent (a partial checkpoint can restore results an earlier pass stubbed, and those are then not listed).
+Clipped head+tail results are not listed — they still show real bytes and carry their own marker. The index is
+advisory: if appending it would push a fitting request over the input ceiling it is dropped (decision stage
+`headline_index_dropped`) rather than stopping the run. With `--capabilities history` the index says how to recover
+each entry via `expand_history`; the `search_history` result footer follows the same rule and only names
+`expand_history` when that tool is offered. Rendered anchors, headline indexes, and projections are never stored as canonical
 messages. Unknown models use a visible conservative
 200,000-token estimate; known model limits come from the versioned model catalog.
 

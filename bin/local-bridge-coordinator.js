@@ -13,6 +13,9 @@ const path = require('path');
 const { Coordinator, PHASES } = require('../src/runner/coordinator');
 const { resolveModelControls } = require('../src/runner/model-capabilities');
 const { normalizeCapabilityList } = require('../src/runner/tool-visibility');
+// --help lists capability groups from the catalog itself so the text cannot
+// drift when a group is added (the hand-written list omitted `history`).
+const { OPTIONAL_CAPABILITIES } = require('../src/runner/tool-catalog');
 const { evaluateWorkspaceTrust } = require('../src/runner/workspace-trust');
 const safety = require('../src/runner/safety');
 
@@ -89,7 +92,7 @@ Execute-agent authority (research/verify workers remain read-only):
   --allow-shell          Expose unsandboxed bash/manage_shell_jobs
   --shell-timeout <ms>   Shell timeout (100..900000; default: 30000)
   --chaos-ok             Acknowledge shell + auto-edits + no-prompts combination
-  --capabilities <list>  Optional groups: edits,recovery,agents,worktrees,skills,lsp
+  --capabilities <list>  Optional groups: ${OPTIONAL_CAPABILITIES.join(',')}
   --enable-lsp           Expose lsp_query to the execute agent
   --test-watch           Run detected tests after writes (requires --allow-shell)
 

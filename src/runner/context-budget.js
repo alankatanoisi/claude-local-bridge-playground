@@ -96,6 +96,8 @@ const TOOL_SUMMARIES = Object.freeze({
   ask_user_question: 'Structured multiple-choice clarification for the operator',
   list_worktrees: 'List active worktree slots and orphan worktree directories',
   run_skill: 'Load a skill document body by name (read-only)',
+  search_history: "Keyword-search this session's own lossless history (deterministic)",
+  expand_history: 'Recover a verbatim span of session history by id (paged)',
   manage_shell_jobs: 'Start/list/poll/kill background shell jobs',
   spawn_agent: 'Delegate a subtask to a child agent (isolated context)',
   enter_worktree: 'Create an isolated git worktree and switch into it',
@@ -118,6 +120,7 @@ const GROUP_LABELS = Object.freeze({
   agents: 'Agents',
   worktrees: 'Worktrees',
   skills: 'Skills',
+  history: 'History',
   lsp: 'LSP',
   shell: 'Shell',
 });

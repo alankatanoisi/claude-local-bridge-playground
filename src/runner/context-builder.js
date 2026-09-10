@@ -60,6 +60,11 @@ const FULL_TOOL_DESCRIPTIONS = [
   ['undo', 'List available backups or restore a file from a previous backup. Use this to recover from mistakes.'],
   ['undo_edit', 'Undo an edit_file or write_file call from the current run by tool_use_id or path.'],
   ['run_skill', 'Load a skill document body by name (read-only).'],
+  [
+    'search_history',
+    "Keyword-search this session's own full history, including tool results clipped or stubbed out of visible context.",
+  ],
+  ['expand_history', 'Recover the verbatim text of an earlier history entry by id (paged via offset/max_chars).'],
   ['spawn_agent', 'Delegate a subtask to a child agent (isolated context).'],
   ['enter_worktree', 'Create an isolated git worktree and switch into it.'],
   ['exit_worktree', 'Leave the active worktree and restore the original cwd.'],

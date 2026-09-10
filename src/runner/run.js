@@ -516,9 +516,10 @@ async function run(options) {
 
   const exposedToolsList = normalizeExposedToolsList(options.exposedTools) || normalizeExposedToolsList(allowedTools);
 
-  // P2-01: optional capability groups (edits, recovery, agents, worktrees,
-  // skills, lsp). Accepts a Set, array, or comma-separated string; throws on
-  // unknown names or an attempt to enable shell without --allow-shell.
+  // P2-01: optional capability groups (OPTIONAL_CAPABILITIES in tool-catalog:
+  // edits, recovery, agents, worktrees, skills, history, lsp). Accepts a Set,
+  // array, or comma-separated string; throws on unknown names or an attempt to
+  // enable shell without --allow-shell.
   const enabledCapabilities = normalizeCapabilityList(capabilities);
 
   const ctx = {

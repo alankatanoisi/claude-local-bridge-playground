@@ -21,7 +21,7 @@ const searchHistory = require('../../src/runner/tools/search-history');
 const expandHistory = require('../../src/runner/tools/expand-history');
 const registry = require('../../src/runner/tool-registry');
 const { TOOL_GROUPS, OPTIONAL_CAPABILITIES } = require('../../src/runner/tool-catalog');
-const { isToolVisible, normalizeCapabilityList } = require('../../src/runner/tool-visibility');
+const { isToolVisible, normalizeCapabilityList, computeAllowedTools } = require('../../src/runner/tool-visibility');
 const { buildContextProjection } = require('../../src/runner/context-projection');
 const { deriveContextPolicy } = require('../../src/runner/context-runtime-policy');
 
@@ -88,12 +88,29 @@ describe('history index (idea 5 plumbing)', () => {
 });
 
 describe('search_history tool', () => {
-  it('finds content by keyword and points at expand_history', () => {
-    const result = searchHistory.execute({ query: 'TIMEOUT_MARKER_9Q4' }, ctxFor(sampleMessages()));
+  it('finds content by keyword and points at expand_history when that tool is offered', () => {
+    const ctx = { ...ctxFor(sampleMessages()), enabledCapabilities: normalizeCapabilityList('history') };
+    const result = searchHistory.execute({ query: 'TIMEOUT_MARKER_9Q4' }, ctx);
     assert.equal(result.ok, true);
     assert.match(result.text, /id=tu_read1/);
     assert.match(result.text, /tool_result read_file/);
     assert.match(result.text, /expand_history/);
+  });
+
+  it('keeps the recover line honest: no expand_history pointer when that tool is not offered', () => {
+    // Thermo-nuclear review 2026-09-06, Medium #3: the projection's markers
+    // already gate recovery wording on expand_history visibility; the search
+    // result must obey the same rule.
+    const bare = searchHistory.execute({ query: 'TIMEOUT_MARKER_9Q4' }, ctxFor(sampleMessages()));
+    assert.equal(bare.ok, true);
+    assert.match(bare.text, /id=tu_read1/, 'hits themselves are unchanged');
+    assert.ok(!bare.text.includes('expand_history'), 'must not point at an unoffered tool');
+    // The live route: a --tools allowlist that offers search without expand.
+    const split = { ...ctxFor(sampleMessages()), _cliToolAllowlist: new Set(['search_history']) };
+    split.allowedTools = computeAllowedTools(split);
+    const result = searchHistory.execute({ query: 'TIMEOUT_MARKER_9Q4' }, split);
+    assert.equal(result.ok, true);
+    assert.ok(!result.text.includes('expand_history'), 'split allowlist must not advertise expand_history');
   });
 
   it('is deterministic: same query, same history, same output', () => {

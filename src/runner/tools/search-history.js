@@ -28,10 +28,10 @@ function definition() {
       "Search this session's own full conversation history (user turns, assistant turns, tool calls, and " +
       'COMPLETE tool results — including parts that were clipped or stubbed out of your visible context). ' +
       'Deterministic keyword search, no model calls. Returns ranked hits with an address (e.g. a tool_use id ' +
-      'or "m12.b0") and a short snippet. Pairs with expand_history: search locates, expand_history recovers ' +
-      'the verbatim text. Best practice: when a context marker says content was clipped or stubbed, search ' +
-      'or expand before re-running expensive tools. Limitation: keyword matching only — use distinctive ' +
-      'literal terms (identifiers, filenames, error text), not paraphrases.',
+      'or "m12.b0") and a short snippet. Pairs with expand_history when that tool is also offered: search ' +
+      'locates, expand_history recovers the verbatim text. Best practice: when a context marker says content ' +
+      'was clipped or stubbed, search before re-running expensive tools. Limitation: keyword matching only — ' +
+      'use distinctive literal terms (identifiers, filenames, error text), not paraphrases.',
     input_schema: {
       type: 'object',
       properties: {
@@ -115,7 +115,17 @@ function execute(args, ctx) {
         snippetAround(entry.text, terms, phrase, SNIPPET_CHARS),
     );
   }
-  lines.push('Recover any entry verbatim with expand_history(id=…).');
+  // Same honesty rule as the projection's context markers: never point the
+  // model at a tool this run will deny (a --tools allowlist can offer search
+  // without expand). Lazy require: tool-catalog loads this module at startup
+  // and tool-visibility requires tool-catalog back, so a top-level require
+  // here would form a load-order cycle; by execute time both are initialized.
+  const { isToolVisible } = require('../tool-visibility');
+  lines.push(
+    isToolVisible('expand_history', ctx)
+      ? 'Recover any entry verbatim with expand_history(id=…).'
+      : 'Snippets are truncated; re-run the source tool if you need full content.',
+  );
   return { ok: true, text: lines.join('\n') };
 }
 
