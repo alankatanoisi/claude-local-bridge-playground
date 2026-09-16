@@ -517,11 +517,16 @@
               <li><code>result.json</code>: final state including <code>synthesis</code>.</li>
             </ul>
             <p>
-              <code>atomicWrite()</code> writes a temporary JSON file then renames it; it does not fsync
-              artifact/checkpoint files or their directory. Event fsync alone is not a universal power-loss durability
+              <code>atomicWrite()</code> writes a temporary JSON file then renames it; as of 2026-09-10 it did not fsync
+              artifact/checkpoint files or their directory. <strong>Update 2026-09-16:</strong>
+              <code>atomicWrite()</code> now fsyncs the temporary file before the rename and the parent directory after
+              it (<code>c7953e3</code>, thermo-nuclear Medium #3; <code>starlark-host/test/ledger.test.js</code> asserts
+              the ordering), and a <code>run_completed</code> event is authoritative over a stale
+              <code>state.json</code> on resume. Event fsync alone is still not a universal power-loss durability
               guarantee. Read the recorded
-              <a href="../HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md">R11 review limitations</a> in conjunction
-              with current code.
+              <a href="../HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md">R11 review limitations</a> and the
+              <a href="../HANDOFF-starlark-mediums-closed-2026-09-16.md">2026-09-16 closure</a> in conjunction with
+              current code.
             </p>
             <p>
               The coordinator returns full state internally. <code>runWorkflow()</code> exposes a summary; the command

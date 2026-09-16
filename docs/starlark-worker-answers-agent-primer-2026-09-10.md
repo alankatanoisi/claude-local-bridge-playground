@@ -101,7 +101,7 @@ Under the workflow's printed runDir:
 - `artifacts/synthesis-resume.json`: successful synthesis-only retry text.
 - `result.json`: final state including `synthesis`.
 
-`atomicWrite()` writes a temporary JSON file then renames it; it does not fsync artifact/checkpoint files or their directory. Event fsync alone is not a universal power-loss durability guarantee. Read the recorded [R11 review limitations](../HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md) in conjunction with current code.
+`atomicWrite()` writes a temporary JSON file then renames it; as of 2026-09-10 it did not fsync artifact/checkpoint files or their directory. **Update 2026-09-16:** `atomicWrite()` now fsyncs the temporary file before the rename and the parent directory after it (`c7953e3`, thermo-nuclear Medium #3; `starlark-host/test/ledger.test.js` asserts the ordering), and a `run_completed` event is authoritative over a stale `state.json` on resume. Event fsync alone is still not a universal power-loss durability guarantee. Read the recorded [R11 review limitations](../HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md) and the [2026-09-16 closure](../HANDOFF-starlark-mediums-closed-2026-09-16.md) in conjunction with current code.
 
 The coordinator returns full state internally. `runWorkflow()` exposes a summary; the command prints phase, counts, synthesisOk, runDir and related metadata, not synthesis text. A future parent-agent integration must explicitly return/read a result envelope or artifact. There is no automatic parent-chat insertion today.
 

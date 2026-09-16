@@ -306,13 +306,20 @@ items rather than starting a parallel tracker.
   trip-and-flush, `--resume <runDir>` worker-phase resume from the ledger, golden
   descriptor plans, plan/input SHA-256 fingerprints, evaluator-dependent tests skip
   instead of ENOENT; live smoke skipped, $0 spent.** **Thermo-nuclear review
-  2026-09-06 (findings not fixed):** Starlark slice
+  2026-09-06:** Starlark slice
   `HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md`; overlapping git range
   (history + headlines + this commit)
-  `HANDOFF-context-layer-thermo-nuclear-2026-09-06.md`. Do not treat R11
-  abort/resume as settled. The brief stays at the root until
-  Alan accepts, then archive it. Open: R12 (deferred). This machine: no Go toolchain, no
-  local campaign ledger.
+  `HANDOFF-context-layer-thermo-nuclear-2026-09-06.md`. **Medium #1–#4 closed
+  2026-09-16 (Fable, Alan-directed): `c7953e3` abort-commit protocol + fsync'd
+  checkpoints, `eb12ff5` `worker-resume.js` extract + phase-dispatch resume; record
+  `HANDOFF-starlark-mediums-closed-2026-09-16.md`. Low #5–#8 still open.** Codex's
+  same-day evidence handoff `HANDOFF-starlark-abort-commit-next-slice-2026-09-16.md`
+  is bannered as superseded by that closure. The brief stays at the root until
+  Alan accepts, then archive it. Open: R12 (deferred). This machine (verified
+  2026-09-16): Go 1.26.8 on PATH (Homebrew `go@1.26`), evaluator built at
+  `starlark-host/bin/starlark-eval` via `npm --prefix starlark-host run build:evaluator`,
+  so the Starlark suite runs with 0 skips; one local campaign ledger exists under
+  `~/.bridge-runner/campaigns/` (from the 09-07 live verification).
 
 - **Programmatic-tooling research thread (nine papers → runner ideas) — entry
   `docs/programmatic-tooling-research-review-2026-08-31.html`.** Twelve borrowable ideas

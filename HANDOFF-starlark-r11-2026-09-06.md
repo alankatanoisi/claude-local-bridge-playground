@@ -1,13 +1,17 @@
 # Starlark R11 — interruption and worker resume
 
-> **Thermo-nuclear review 2026-09-06 — OPEN findings:**
-> [`HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md`](HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md).
-> Build/test-gate claims in this file are not contradicted. Do **not** treat
-> `84dd73a` as invariant-clean: abort can drop a settled (charged) bridge
-> result so `--resume` pays again; `run_aborted` is written before the worker
-> pool drains; checkpoints are not fsynced; resume replays the whole pipeline
-> inside `coordinator.js` (622 → 874 lines). Review is review-only until Alan
-> asks for a fix.
+> **Thermo-nuclear review 2026-09-06 — Medium #1–#4 CLOSED 2026-09-16:**
+> [`HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md`](HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md)
+> carries the CLOSED banner; the record is
+> [`HANDOFF-starlark-mediums-closed-2026-09-16.md`](HANDOFF-starlark-mediums-closed-2026-09-16.md).
+> Commits `c7953e3` (abort-commit protocol + fsync) and `eb12ff5`
+> (`worker-resume.js` extract, phase-dispatch resume). Build/test-gate claims in
+> this file are not contradicted, but its code description is of `84dd73a`: since
+> then a settled bridge result always lands a receipt, `run_aborted` is the last
+> ledger event, checkpoints are fsync'd, and `coordinator.js` is a phase dispatcher
+> (806 lines) with restoration in `src/worker-resume.js`. **Low #5–#8 from the
+> review remain open.** The `.html` companion never carried this banner and was
+> not edited.
 
 > **START HERE — new Starlark thread entry, 2026-09-06.** This handoff supersedes
 > [the 2026-08-25 status handoff](HANDOFF-starlark-status-and-recommendations-2026-08-25.md)

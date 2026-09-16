@@ -1,5 +1,20 @@
 # Handoff — Thermo-nuclear review of `84dd73a^..406423b` (Starlark R11/R14)
 
+> **CLOSED 2026-09-16 — Medium #1, #2, #3, #4 fixed** (Fable, Alan-directed), in this
+> file's recommended order and commit shapes. `c7953e3`
+> (`fix(starlark-host): persist settled work on abort and fsync checkpoints`):
+> `checkAbort` now runs only before new work starts; a bridge response that has
+> settled always lands a terminal receipt; `run_aborted` is appended once, after the
+> worker pool drains, and is mechanically the last ledger event; `atomicWrite` fsyncs
+> the temp file and its directory; `run_completed` in `events.jsonl` is authoritative
+> over a stale `state.json`. `eb12ff5`
+> (`refactor(starlark-host): extract worker-resume.js and dispatch resume by ledger phase`):
+> restoration lives in `src/worker-resume.js`, `coordinator.js` is a phase dispatcher
+> whose phases are idempotent against the ledger, and an abort during synthesis resumes
+> into synthesis only. Every new test was run red against the pre-fix source first.
+> Record: [`HANDOFF-starlark-mediums-closed-2026-09-16.md`](HANDOFF-starlark-mediums-closed-2026-09-16.md).
+> **Low #5–#8 remain open.** The findings text below is unchanged.
+
 **Written:** 2026-09-06. Review only; no Starlark or runner code changed (this
 file + a banner on the thread-entry handoff).
 **Scope:** already-landed playground `main` range `84dd73a^..406423b`:

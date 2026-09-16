@@ -1,5 +1,13 @@
 # Starlark abort-commit protocol: evidence and next-agent handoff
 
+> **UPDATE 2026-09-16 (later the same day) — slices A, B, and C landed.** Medium #1–#4
+> were fixed by Fable at Alan's direction as two commits: `c7953e3` (Medium #1–#3) and
+> `eb12ff5` (Medium #4). Closure record, including a row-by-row answer to the §9
+> acceptance matrix and the §10 boundaries:
+> [`HANDOFF-starlark-mediums-closed-2026-09-16.md`](HANDOFF-starlark-mediums-closed-2026-09-16.md).
+> The evidence below is still valid history. Do **not** re-implement slice A from this
+> file. Low #5–#8 remain open.
+
 > **OPEN FINDINGS — DOCUMENTATION ONLY.** R11 is landed; its completed-worker cancellation gap remains open at the source baseline below. This report does not close the September 6 review or authorize runtime changes. Alan requested this handoff and its publication while other agents were working. Recheck current source and coordinate ownership before implementation.
 
 **Prepared:** September 16, 2026 (America/Los_Angeles). **Author:** Codex. **Audience:** next implementing agent and subsequent invariant reviewer. **Provider spend for this investigation:** $0.
