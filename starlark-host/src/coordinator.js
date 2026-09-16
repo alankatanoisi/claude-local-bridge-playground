@@ -1,11 +1,10 @@
 'use strict';
 
-const crypto = require('crypto');
-const fs = require('fs');
 const path = require('path');
 
 const { checkAbort, createRunController } = require('./run-abort');
-const { contentHash } = require('./plan-hash');
+const { inputContentHash, loadDocuments, publicDocument } = require('./documents');
+const { acceptedPlanHashes, contentHash } = require('./plan-hash');
 const { policyDisclosure } = require('./descriptor-policy');
 const { FaultInjector } = require('./failures');
 const { buildHostJsonPlan, buildHostJsonRecovery } = require('./json-plan');
@@ -14,7 +13,8 @@ const { evaluateStarlark, extractStarlark } = require('./starlark');
 const { lintStarlark } = require('./starlark-lint');
 const { buildSynthesisPrompt, runSynthesis, validateSynthesisResponse } = require('./synthesis');
 const { validateJobs } = require('./validator');
-const { WORKER_OUTPUT_LIMITS } = require('./worker-contract');
+const { parseWorkerOutput } = require('./worker-contract');
+const { restoreWorkerRun } = require('./worker-resume');
 
 const PLANNER_SYSTEM = `You are the planning model inside a user-owned orchestration system. Return only Starlark source code. The code must define def plan(ctx) and return a list of job dictionaries. Starlark has no imports, while loops, exceptions, async functions, filesystem, network, shell, or model access. Unlike Python, adjacent string literals are not implicitly joined; use + when combining strings. The host validates every descriptor and chooses all model IDs.`;
 const RECOVERY_SYSTEM = `You are the recovery-planning model inside a user-owned orchestration system. Return only Starlark source code defining def recover(ctx). Return retry job descriptors only for failures where retryable is true. Every retry must include retry_of. Do not retry permanent failures.`;
@@ -84,8 +84,36 @@ class PhasedCoordinator {
 
   async run({ resume = false } = {}) {
     if (resume) {
-      this.restoreWorkerPhase();
-      if (this.state.phase === 'completed') return this.state;
+      // Medium #4: resume is a phase DISPATCH, not a replay. worker-resume.js
+      // reads the ledger and says what the run is; the phase methods below
+      // then each do only the work the ledger does not already record.
+      const restored = restoreWorkerRun({
+        ledger: this.ledger,
+        objective: this.config.objective,
+        planSource: this.planSource,
+        plannerModel: this.plannerModel,
+        plannerLadder: this.plannerLadder,
+        policyFor: (documents) => this.policy(documents),
+      });
+      this.state = restored.state;
+      if (restored.kind === 'completed') {
+        // A recorded run_completed beat a stale checkpoint; repair the file.
+        if (restored.staleCheckpoint) this.checkpoint();
+        return this.state;
+      }
+      if (restored.kind === 'partial') {
+        // Synthesis FAILED (refusal/truncation/empty) after all workers were
+        // durable. That is a different tool's job. An ABORT during synthesis
+        // is not a failure and stays here: see resumePhases. If the partial
+        // checkpoint itself was lost, repair it first so that tool can run.
+        if (restored.staleCheckpoint) this.checkpoint();
+        throw new Error('use resume-synthesis for a partial run whose synthesis failed');
+      }
+      this.documents = restored.documents;
+      this.inputHash = restored.inputHash;
+      this.activePlannerModel = restored.activePlannerModel;
+      this.ladderIndex = restored.ladderIndex;
+      this.resumeData = restored.resumeData;
     } else {
       // This is the host's configuration, not planner authority. Credentials
       // remain in the environment and are never included in this receipt.
@@ -113,7 +141,7 @@ class PhasedCoordinator {
     // events, which are the truth, not from state.json.
     try {
       checkAbort(this.signal);
-      return await this.runPhases();
+      return await (resume ? this.resumePhases() : this.runPhases());
     } catch (error) {
       if (!this.signal.aborted) throw error;
       this.recordAbort();
@@ -133,49 +161,75 @@ class PhasedCoordinator {
     this.checkpoint();
   }
 
+  // ---------------------------------------------------------------------------
+  // The pipeline, as phases. A fresh run walks all of them in order. A resume
+  // walks the same methods, but each one is idempotent against the ledger:
+  // a plan that was accepted is adopted, not regenerated; a job with a
+  // terminal receipt is reused, not restarted; a phase with nothing left to do
+  // writes no checkpoint. So a run aborted after every worker finished goes
+  // straight to synthesis — the "already past workers → only synthesis" arm
+  // the review asked for, without a second control plane.
+  // ---------------------------------------------------------------------------
+
   async runPhases() {
     const documents = this.documents || loadDocuments(this.config);
-    if (this.resumeData) {
-      this.ledger.append('worker_resume_started', {
-        previousPhase: this.state.phase,
-        trace: this.bridge.traceMetadata?.() || null,
-      });
-      this.state.results = [];
-    }
     const publicDocuments = documents.map(publicDocument);
-    this.inputHash = contentHash({
-      objective: this.config.objective,
-      documents: documents.map((document) => ({ ...publicDocument(document), text: document.text })),
-    });
+    this.inputHash = inputContentHash(contentHash, this.config.objective, documents);
     this.state.inputHash = this.inputHash;
     // Inputs are local run artifacts rather than model conversation state.
     // This gives the user a replayable evidence bundle even if a provider trace
     // is unavailable, while the Starlark program still sees metadata only.
-    if (!this.resumeData) {
-      for (const document of documents) {
-        this.ledger.writeArtifact(`input-${document.id}`, {
-          ...publicDocument(document),
-          text: document.text,
-        });
-      }
-      this.ledger.append('run_started', {
-        plannerModel: this.plannerModel,
-        workerModel: this.workerModel,
-        workerName: this.workerName,
-        trace: this.state.trace,
-        objective: this.config.objective,
-        documents: publicDocuments,
-        inputHash: this.inputHash,
+    for (const document of documents) {
+      this.ledger.writeArtifact(`input-${document.id}`, {
+        ...publicDocument(document),
+        text: document.text,
       });
     }
+    this.ledger.append('run_started', {
+      plannerModel: this.plannerModel,
+      workerModel: this.workerModel,
+      workerName: this.workerName,
+      trace: this.state.trace,
+      objective: this.config.objective,
+      documents: publicDocuments,
+      inputHash: this.inputHash,
+    });
+    const policy = this.policy(publicDocuments);
+    const plan = await this.planPhase(publicDocuments, policy);
+    const initialResults = await this.workerPhase(plan, documents);
+    await this.recoveryPhase({ initialResults, documents, publicDocuments, policy });
+    return this.synthesisPhase();
+  }
 
+  async resumePhases() {
+    const documents = this.documents;
+    const publicDocuments = documents.map(publicDocument);
+    const { plan, recovery, results } = this.resumeData;
+    // Say on the ledger which arm resume is taking, so an operator (and the
+    // tests) can read the decision instead of inferring it from what follows.
+    this.ledger.append('worker_resume_started', {
+      previousPhase: this.state.phase,
+      trace: this.bridge.traceMetadata?.() || null,
+      remaining: {
+        plan: plan.jobs.filter((job) => !results.has(job.id)).length,
+        recovery: recovery ? recovery.jobs.filter((job) => !results.has(job.id)).length : null,
+        synthesis: true,
+      },
+    });
+    this.state.inputHash = this.inputHash;
+    this.state.results = [];
+    this.adoptPlan(plan);
+    const policy = this.policy(publicDocuments);
+    const initialResults = await this.workerPhase(plan, documents);
+    await this.recoveryPhase({ initialResults, documents, publicDocuments, policy });
+    return this.synthesisPhase();
+  }
+
+  async planPhase(publicDocuments, policy) {
     this.state.phase = 'planning';
     this.checkpoint();
-    const policy = this.policy(publicDocuments);
-    let initialPlan;
-    if (this.resumeData) {
-      initialPlan = this.resumeData.plan;
-    } else if (this.planSource === 'host_json') {
+    let plan;
+    if (this.planSource === 'host_json') {
       // R14c: fully determined plan — build it, validate it, spend nothing.
       const jobs = validateJobs(
         buildHostJsonPlan({ documents: publicDocuments, workerName: this.workerName, policy }),
@@ -192,9 +246,9 @@ class PhasedCoordinator {
       };
       const hashes = this.acceptedHashes(jobs);
       this.ledger.append('plan_validated', { jobs, planSource: 'host_json', metrics, hashes });
-      initialPlan = { jobs, metrics, hashes };
+      plan = { jobs, metrics, hashes };
     } else {
-      initialPlan = await this.generateValidatedPlan({
+      plan = await this.generateValidatedPlan({
         phaseLabel: 'plan',
         functionName: 'plan',
         system: PLANNER_SYSTEM,
@@ -207,17 +261,36 @@ class PhasedCoordinator {
       });
     }
     checkAbort(this.signal);
-    const jobs = initialPlan.jobs;
-    this.state.planMetrics = initialPlan.metrics;
-    this.state.planHashes = initialPlan.hashes || null;
-    this.state.jobs = jobs;
+    this.adoptPlan(plan);
+    return plan;
+  }
 
-    this.state.phase = 'workers';
-    this.checkpoint();
-    const initialResults = await this.runJobs(jobs, documents, 1);
+  adoptPlan(plan) {
+    this.state.planMetrics = plan.metrics;
+    this.state.planHashes = plan.hashes || null;
+    this.state.jobs = plan.jobs;
+  }
+
+  // True when at least one of these jobs has no terminal receipt yet. On a
+  // fresh run that is every job; on a resume it is only the unfinished ones.
+  hasPendingJobs(jobs) {
+    return jobs.some((job) => !this.resumeData?.results.has(job.id));
+  }
+
+  async workerPhase(plan, documents) {
+    if (this.hasPendingJobs(plan.jobs)) {
+      this.state.phase = 'workers';
+      this.checkpoint();
+    }
+    // runJobs returns a recorded receipt without starting the job, so when
+    // nothing is pending this costs no calls and appends no events.
+    const results = await this.runJobs(plan.jobs, documents, 1);
     checkAbort(this.signal);
-    this.state.results.push(...initialResults);
+    this.state.results.push(...results);
+    return results;
+  }
 
+  async recoveryPhase({ initialResults, documents, publicDocuments, policy }) {
     const failures = initialResults
       .filter((result) => !result.ok)
       .map((result) => ({
@@ -228,21 +301,22 @@ class PhasedCoordinator {
         retryable: result.error.retryable,
         code: result.error.code,
       }));
+    if (!failures.length) return [];
 
-    let recoveryJobs = [];
-    if (failures.length) {
+    const recoveryPolicy = {
+      ...policy,
+      failedJobIds: failures.filter((failure) => failure.retryable).map((failure) => failure.job_id),
+      exactJobs: undefined,
+      requireAllInputs: false,
+    };
+    let recoveryPlan;
+    if (this.resumeData?.recovery) {
+      // The accepted recovery plan is evidence; adopt it, never re-plan.
+      recoveryPlan = this.resumeData.recovery;
+    } else {
       this.state.phase = 'recovery_planning';
       this.checkpoint();
-      const recoveryPolicy = {
-        ...policy,
-        failedJobIds: failures.filter((failure) => failure.retryable).map((failure) => failure.job_id),
-        exactJobs: undefined,
-        requireAllInputs: false,
-      };
-      let recoveryPlan;
-      if (this.resumeData?.recovery) {
-        recoveryPlan = this.resumeData.recovery;
-      } else if (this.planSource === 'host_json') {
+      if (this.planSource === 'host_json') {
         const retries = failures.some((failure) => failure.retryable)
           ? validateJobs(buildHostJsonRecovery({ failures, policy: recoveryPolicy }), recoveryPolicy, 'recovery')
           : [];
@@ -270,28 +344,33 @@ class PhasedCoordinator {
           acceptedEvent: 'recovery_plan_validated',
         });
       }
-      checkAbort(this.signal);
-      recoveryJobs = recoveryPlan.jobs;
-      this.state.recoveryMetrics = recoveryPlan.metrics;
-      this.state.recoveryHashes = recoveryPlan.hashes || null;
+    }
+    checkAbort(this.signal);
+    const recoveryJobs = recoveryPlan.jobs;
+    this.state.recoveryMetrics = recoveryPlan.metrics;
+    this.state.recoveryHashes = recoveryPlan.hashes || null;
+    if (this.hasPendingJobs(recoveryJobs)) {
       this.state.phase = 'recovery_workers';
       this.checkpoint();
-      // D-F1: retries carry the host's rejection reason. The feedback flows
-      // host -> worker directly (appended to the retry prompt), never through
-      // the recovery planner's task text — the planner would pay the measured
-      // verbosity tax and burn task-character budget relaying it. This
-      // mirrors the planner repair loop, where the host's rejection message
-      // is what makes second attempts succeed.
-      const priorFailures = new Map(
-        initialResults
-          .filter((result) => !result.ok)
-          .map((result) => [result.job.id, { code: result.error.code, message: result.error.message }]),
-      );
-      const recoveryResults = await this.runJobs(recoveryJobs, documents, 2, priorFailures);
-      checkAbort(this.signal);
-      this.state.results.push(...recoveryResults);
     }
+    // D-F1: retries carry the host's rejection reason. The feedback flows
+    // host -> worker directly (appended to the retry prompt), never through
+    // the recovery planner's task text — the planner would pay the measured
+    // verbosity tax and burn task-character budget relaying it. This
+    // mirrors the planner repair loop, where the host's rejection message
+    // is what makes second attempts succeed.
+    const priorFailures = new Map(
+      initialResults
+        .filter((result) => !result.ok)
+        .map((result) => [result.job.id, { code: result.error.code, message: result.error.message }]),
+    );
+    const recoveryResults = await this.runJobs(recoveryJobs, documents, 2, priorFailures);
+    checkAbort(this.signal);
+    this.state.results.push(...recoveryResults);
+    return recoveryResults;
+  }
 
+  async synthesisPhase() {
     this.state.phase = 'synthesis';
     this.checkpoint();
     // R10: synthesis is independently fallible AND independently retryable —
@@ -338,147 +417,8 @@ class PhasedCoordinator {
     return this.state;
   }
 
-  restoreWorkerPhase() {
-    const saved = JSON.parse(fs.readFileSync(this.ledger.statePath, 'utf8'));
-    // Fail closed on damaged evidence. Silently dropping an unreadable success
-    // receipt could turn a supposedly reused job into a duplicate execution.
-    const events = fs
-      .readFileSync(this.ledger.eventsPath, 'utf8')
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => JSON.parse(line));
-    if (events.some((event, index) => index && event.seq <= events[index - 1].seq)) {
-      throw new Error('run ledger sequence is not strictly increasing');
-    }
-    this.state = saved;
-    if (saved.phase === 'completed') return;
-    // Events are fsync'd per line; the checkpoint is fsync'd too (Medium #3)
-    // but a kill between run_completed and the final checkpoint still leaves
-    // state.json one step behind. The event log is the truth: a recorded
-    // run_completed means every worker AND the synthesis were paid for, so
-    // resume must be a no-op rather than a second synthesis purchase.
-    if (events.some((event) => event.type === 'run_completed')) {
-      const resultPath = path.join(this.ledger.runDir, 'result.json');
-      // result.json is written (atomically) right before the checkpoint, so it
-      // normally exists; fall back to the saved state marked completed if not.
-      this.state = fs.existsSync(resultPath) ? JSON.parse(fs.readFileSync(resultPath, 'utf8')) : saved;
-      this.state.phase = 'completed';
-      this.checkpoint();
-      return;
-    }
-    if (saved.phase === 'partial' && saved.synthesisFailure) {
-      throw new Error('use resume-synthesis for a partial run whose synthesis failed');
-    }
-    const start = events.find((event) => event.type === 'run_started');
-    const plan = events.find((event) => event.type === 'plan_validated')?.payload;
-    const recovery = events.find((event) => event.type === 'recovery_plan_validated')?.payload;
-    if (!start || !plan) throw new Error('worker resume requires a recorded accepted plan');
-    this.documents = start.payload.documents.map((document) => {
-      const input = JSON.parse(
-        fs.readFileSync(path.join(this.ledger.artifactDir, `input-${document.id}.json`), 'utf8'),
-      );
-      // Resume uses the saved input bytes, even if the source repo has changed.
-      return { ...input, relativePath: input.path };
-    });
-    this.inputHash = contentHash({
-      objective: this.config.objective,
-      documents: this.documents.map((document) => ({ ...publicDocument(document), text: document.text })),
-    });
-    if (plan.hashes && (plan.hashes.inputHash !== this.inputHash || plan.hashes.planHash !== contentHash(plan.jobs))) {
-      throw new Error('saved plan/input content hash mismatch; refusing worker resume');
-    }
-    if (recovery?.hashes && recovery.hashes.planHash !== contentHash(recovery.jobs)) {
-      throw new Error('saved recovery plan content hash mismatch; refusing worker resume');
-    }
-    const policy = this.policy(this.documents);
-    validateJobs(plan.jobs, policy, 'plan');
-    if (recovery) {
-      validateJobs(
-        recovery.jobs,
-        {
-          ...policy,
-          exactJobs: undefined,
-          requireAllInputs: false,
-          failedJobIds: events
-            .filter((event) => event.type === 'job_failed' && event.payload.error.retryable)
-            .map((event) => event.payload.jobId),
-        },
-        'recovery',
-      );
-    }
-    const jobs = new Map([...plan.jobs, ...(recovery?.jobs || [])].map((job) => [job.id, job]));
-    const results = new Map();
-    for (const event of events) {
-      if (!['job_succeeded', 'job_failed'].includes(event.type)) continue;
-      const receipt = event.payload;
-      const job = jobs.get(receipt.jobId);
-      if (!job || results.has(job.id)) throw new Error('run ledger has an unknown or duplicate terminal job receipt');
-      if (event.type === 'job_succeeded') {
-        const artifactPath = path.resolve(this.ledger.runDir, receipt.artifact);
-        if (!artifactPath.startsWith(this.ledger.artifactDir + path.sep))
-          throw new Error('worker artifact escapes run artifacts');
-        const output = parseWorkerOutput(fs.readFileSync(artifactPath, 'utf8'));
-        results.set(job.id, {
-          ok: true,
-          job,
-          attempt: receipt.attempt,
-          artifact: receipt.artifact,
-          output,
-          usage: receipt.usage,
-          costUsd: receipt.costUsd,
-        });
-      } else {
-        results.set(job.id, {
-          ok: false,
-          job,
-          attempt: receipt.attempt,
-          error: receipt.error,
-          charged: receipt.charged,
-        });
-      }
-    }
-    // Hashes are an integrity check, not a replacement for validateJobs.
-    // Recovery's inputs include the initial failure records as well as files.
-    const failures = plan.jobs
-      .map((job) => results.get(job.id))
-      .filter((result) => result && !result.ok)
-      .map((result) => ({
-        job_id: result.job.id,
-        worker: result.job.worker,
-        task: result.job.task,
-        input_ids: result.job.input_ids,
-        retryable: result.error.retryable,
-        code: result.error.code,
-      }));
-    for (const [label, accepted, phaseFailures] of [
-      ['plan', plan, null],
-      ['recover', recovery, failures],
-    ]) {
-      if (!accepted?.hashes) continue; // Older pre-hash evidence is still resumable.
-      const program =
-        this.planSource === 'host_json'
-          ? null
-          : JSON.parse(fs.readFileSync(path.join(this.ledger.artifactDir, `${label}-source-accepted.json`), 'utf8'))
-              .source;
-      if (contentHash(accepted.hashes) !== contentHash(this.acceptedHashes(accepted.jobs, program, phaseFailures))) {
-        throw new Error('saved accepted program/input content hash mismatch; refusing worker resume');
-      }
-    }
-    this.activePlannerModel = recovery?.metrics?.model || plan.metrics?.model || this.plannerModel;
-    if (this.activePlannerModel === 'host_json') this.activePlannerModel = this.plannerModel;
-    this.ladderIndex = Math.max(0, this.plannerLadder.indexOf(this.activePlannerModel));
-    this.resumeData = { plan, recovery, results };
-  }
-
   acceptedHashes(jobs, program = null, failures = null) {
-    return {
-      algorithm: 'sha256-canonical-json-v1',
-      planHash: contentHash(jobs),
-      // Host JSON's accepted program IS the descriptor list. Starlark's hash
-      // covers the accepted, possibly lint-repaired source string instead.
-      programHash: contentHash(program === null ? jobs : program),
-      inputHash: failures ? contentHash({ inputHash: this.inputHash, failures }) : this.inputHash,
-    };
+    return acceptedPlanHashes({ jobs, program, failures, inputHash: this.inputHash });
   }
 
   policy(documents) {
@@ -779,38 +719,6 @@ class PhasedCoordinator {
   }
 }
 
-function loadDocuments(config) {
-  return config.documents.map((document) => {
-    const absolutePath = path.resolve(config.targetRoot, document.path);
-    const relativePath = path.relative(config.targetRoot, absolutePath);
-    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
-      throw new Error(`document escapes target root: ${document.path}`);
-    }
-    const buffer = fs.readFileSync(absolutePath);
-    if (buffer.length > config.maxDocumentBytes) {
-      throw new Error(`document exceeds ${config.maxDocumentBytes} bytes: ${document.path}`);
-    }
-    return {
-      id: document.id,
-      relativePath,
-      bytes: buffer.length,
-      sha256: crypto.createHash('sha256').update(buffer).digest('hex'),
-      text: buffer.toString('utf8'),
-    };
-  });
-}
-
-function publicDocument({ id, kind, relativePath, bytes, sha256, metadata }) {
-  return {
-    id,
-    kind: kind || 'document',
-    path: relativePath,
-    bytes,
-    sha256,
-    ...(metadata ? { metadata } : {}),
-  };
-}
-
 // R5: both prompts render their policy sections from descriptor-policy.js, so
 // the bounds the model reads are the bounds the validator enforces — always.
 function buildPlanPrompt(config, documents, workerName = config.workerName || 'code_analyst', policy) {
@@ -863,44 +771,6 @@ function buildWorkerPrompt(objective, job, documents, feedback = null) {
       'Correct exactly this problem in your response. All other contract rules still apply.'
     : '';
   return `OBJECTIVE:\n${objective}\n\nASSIGNED TASK:\n${job.task}${feedbackSection}\n\n${sections.join('\n\n')}`;
-}
-
-function parseWorkerOutput(text) {
-  const limits = WORKER_OUTPUT_LIMITS;
-  const cleaned = text
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/```\s*$/i, '')
-    .trim();
-  const output = JSON.parse(cleaned);
-  const keys = Object.keys(output).sort();
-  if (JSON.stringify(keys) !== JSON.stringify(['claims', 'confidence', 'evidence', 'summary'])) {
-    throw new Error('worker JSON must contain exactly summary, claims, evidence, confidence');
-  }
-  if (typeof output.summary !== 'string' || !output.summary.trim() || output.summary.length > limits.summaryMaxChars) {
-    throw new Error(`summary must be 1..${limits.summaryMaxChars} characters`);
-  }
-  if (
-    !Array.isArray(output.claims) ||
-    output.claims.length > limits.claimsMax ||
-    output.claims.some((value) => typeof value !== 'string' || value.length > limits.claimMaxChars)
-  ) {
-    throw new Error(
-      `claims must contain at most ${limits.claimsMax} strings of at most ${limits.claimMaxChars} characters`,
-    );
-  }
-  if (
-    !Array.isArray(output.evidence) ||
-    output.evidence.length > limits.evidenceMax ||
-    output.evidence.some((value) => typeof value !== 'string' || value.length > limits.evidenceMaxChars)
-  ) {
-    throw new Error(
-      `evidence must contain at most ${limits.evidenceMax} strings of at most ${limits.evidenceMaxChars} characters`,
-    );
-  }
-  if (typeof output.confidence !== 'number' || output.confidence < 0 || output.confidence > 1) {
-    throw new Error('confidence must be between 0 and 1');
-  }
-  return output;
 }
 
 async function mapConcurrent(items, limit, fn, signal) {

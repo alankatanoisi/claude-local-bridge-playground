@@ -566,3 +566,134 @@ test('R11 recovery-phase interruption reuses failures, successes, and original i
     },
   });
 });
+
+// Medium #4: resume dispatches on what the ledger says is left. A run aborted
+// DURING synthesis has every worker receipt on disk, so resume must go straight
+// to synthesis — no planning or workers checkpoint, no job_started, one
+// synthesis purchase — and the ledger must say so in worker_resume_started.
+test('R11 abort during synthesis resumes into synthesis only, without replaying earlier phases', async (t) => {
+  const f = fixture();
+  t.after(() => fs.rmSync(f.root, { recursive: true, force: true }));
+  const real = createDeterministicProvider();
+  const registry = { publicProfiles: () => [], execute: (request) => real.execute(request) };
+  const controller = new AbortController();
+  const mock = new MockBridge({ budget: new CostBudget(0) });
+  const blockingBridge = {
+    budget: mock.budget,
+    async call(request) {
+      if (request.label.startsWith('synthesize')) {
+        // The synthesis request is in flight; interrupt the run here.
+        controller.abort(new Error('abort during synthesis'));
+        await delay(1000, undefined, { signal: request.signal });
+      }
+      return mock.call(request);
+    },
+  };
+  const aborted = await coordinator(f, blockingBridge, controller, registry).run();
+  const before = eventsAt(f.runDir);
+  predicates({
+    'run is aborted with synthesis as the interrupted phase': () => {
+      assert.equal(aborted.phase, 'aborted');
+      assert.equal(before.find((event) => event.type === 'run_aborted').payload.interruptedPhase, 'synthesis');
+    },
+    'every planned job already has a success receipt': () =>
+      assert.equal(before.filter((event) => event.type === 'job_succeeded').length, 6),
+  });
+
+  const synthesisCalls = [];
+  const phases = [];
+  const resumeBridge = {
+    budget: new CostBudget(0),
+    async call(request) {
+      synthesisCalls.push(request.label);
+      return mock.call(request);
+    },
+  };
+  const resumed = coordinator(f, resumeBridge, new AbortController(), {
+    publicProfiles: () => [],
+    async execute() {
+      throw new Error('no worker may run when every receipt is recorded');
+    },
+  });
+  const originalCheckpoint = resumed.checkpoint.bind(resumed);
+  resumed.checkpoint = () => {
+    phases.push(resumed.state.phase);
+    originalCheckpoint();
+  };
+  const state = await resumed.run({ resume: true });
+  const events = eventsAt(f.runDir);
+  const resumeStart = events.find((event) => event.type === 'worker_resume_started');
+  predicates({
+    'resume completed': () => assert.equal(state.phase, 'completed'),
+    'ledger records that nothing but synthesis was left': () =>
+      assert.deepEqual(resumeStart.payload.remaining, { plan: 0, recovery: null, synthesis: true }),
+    'checkpoints went synthesis -> completed only (no planning/workers replay)': () =>
+      assert.deepEqual(phases, ['synthesis', 'completed']),
+    'no job started after resume': () =>
+      assert.ok(!events.some((event) => event.seq > resumeStart.seq && event.type === 'job_started')),
+    'exactly one synthesis call was made on resume': () =>
+      assert.deepEqual(synthesisCalls, ['synthesize:claude-sonnet-5']),
+    'result carries all six worker results': () => assert.equal(state.results.filter((result) => result.ok).length, 6),
+  });
+});
+
+// Codex's 2026-09-16 handoff (§6) warned that run_completed is ALSO written
+// with synthesisOk: false when synthesis FAILED after every worker was paid
+// for. A stale checkpoint must not let that event name promote the run to
+// "completed": the right answer is a repaired PARTIAL checkpoint that
+// resume-synthesis.js can act on, with no bridge call and no worker re-run.
+test('R11 resume keeps a run partial when run_completed says synthesisOk:false behind a stale checkpoint', async (t) => {
+  const f = fixture();
+  t.after(() => fs.rmSync(f.root, { recursive: true, force: true }));
+  const real = createDeterministicProvider();
+  const registry = { publicProfiles: () => [], execute: (request) => real.execute(request) };
+  // The usual mock, except the synthesis call comes back truncated.
+  class TruncatedSynthesisBridge extends MockBridge {
+    async call(request) {
+      const response = await super.call(request);
+      return request.label.startsWith('synthesize:') ? { ...response, rawStopReason: 'max_tokens' } : response;
+    }
+  }
+  const first = await coordinator(
+    f,
+    new TruncatedSynthesisBridge({ budget: new CostBudget(0) }),
+    new AbortController(),
+    registry,
+  ).run();
+  assert.equal(first.phase, 'partial');
+  assert.equal(first.synthesisFailure?.code, 'truncated_synthesis');
+  const statePath = path.join(f.runDir, 'state.json');
+  const partial = read(statePath);
+  // Lose the final checkpoint: state.json says we are mid-synthesis while
+  // events.jsonl (fsync'd per line) ends with run_completed { synthesisOk: false }.
+  fs.writeFileSync(
+    statePath,
+    JSON.stringify({ ...partial, phase: 'synthesis', synthesis: null, synthesisFailure: null }),
+  );
+  const before = fs.readFileSync(path.join(f.runDir, 'events.jsonl'), 'utf8');
+  const forbidden = {
+    budget: new CostBudget(0),
+    async call() {
+      throw new Error('resume of a partial run must not call the bridge');
+    },
+  };
+  const forbiddenRegistry = {
+    publicProfiles: () => [],
+    async execute() {
+      throw new Error('resume of a partial run must not execute workers');
+    },
+  };
+  await assert.rejects(
+    coordinator(f, forbidden, new AbortController(), forbiddenRegistry).run({ resume: true }),
+    /use resume-synthesis/,
+  );
+  const repaired = read(statePath);
+  predicates({
+    'checkpoint was repaired to partial, not completed': () => assert.equal(repaired.phase, 'partial'),
+    'synthesis failure survived via result.json': () =>
+      assert.deepEqual(repaired.synthesisFailure, partial.synthesisFailure),
+    'worker results survived': () => assert.equal(repaired.results.length, partial.results.length),
+    'event log is byte-identical': () =>
+      assert.equal(fs.readFileSync(path.join(f.runDir, 'events.jsonl'), 'utf8'), before),
+  });
+});
