@@ -1,0 +1,907 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Starlark abort-commit — next-agent handoff</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #203043;
+        --muted: #54667a;
+        --accent: #126b70;
+        --line: #d9e3e8;
+        --paper: #fff;
+        --bg: #eef3f6;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          16px/1.7 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+      a {
+        color: #075f77;
+        text-underline-offset: 3px;
+      }
+      a:focus-visible {
+        outline: 3px solid #c17800;
+        outline-offset: 3px;
+      }
+      .masthead {
+        padding: 26px max(24px, calc((100vw - 1400px) / 2));
+        background: #123846;
+        color: white;
+        letter-spacing: 0.06em;
+        font-size: 13px;
+        text-transform: uppercase;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 260px minmax(0, 1fr);
+        gap: 30px;
+        max-width: 1400px;
+        margin: 32px auto;
+        padding: 0 24px;
+      }
+      nav {
+        position: sticky;
+        top: 20px;
+        align-self: start;
+        max-height: 94vh;
+        overflow: auto;
+        font-size: 13px;
+      }
+      nav strong {
+        display: block;
+        padding: 12px;
+        color: var(--muted);
+      }
+      nav a {
+        display: block;
+        padding: 8px 12px;
+        border-left: 2px solid var(--line);
+        text-decoration: none;
+      }
+      nav a:hover {
+        background: #ddebef;
+        border-color: var(--accent);
+      }
+      main {
+        min-width: 0;
+        padding: 42px 50px;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: 0 8px 40px #12384608;
+      }
+      h1 {
+        font-size: clamp(28px, 3vw, 42px);
+        line-height: 1.15;
+        letter-spacing: -0.025em;
+        margin: 0 0 24px;
+      }
+      h2 {
+        font-size: 25px;
+        line-height: 1.3;
+        margin-top: 48px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+        scroll-margin-top: 24px;
+      }
+      h3 {
+        font-size: 19px;
+        line-height: 1.4;
+        margin-top: 30px;
+      }
+      blockquote {
+        margin: 24px 0;
+        padding: 12px 22px;
+        background: #fff5df;
+        border-left: 5px solid #b97806;
+        border-radius: 0 8px 8px 0;
+      }
+      blockquote p {
+        margin: 8px 0;
+      }
+      p,
+      li {
+        overflow-wrap: anywhere;
+      }
+      li {
+        margin: 8px 0;
+      }
+      code {
+        font:
+          0.87em/1.5 ui-monospace,
+          SFMono-Regular,
+          Consolas,
+          monospace;
+        background: #edf3f5;
+        padding: 2px 5px;
+        border-radius: 4px;
+      }
+      pre {
+        padding: 20px;
+        background: #142c39;
+        color: #e3f2f6;
+        border-radius: 8px;
+        overflow: auto;
+      }
+      pre code {
+        background: none;
+        padding: 0;
+        color: inherit;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 14px;
+        line-height: 1.55;
+      }
+      .table-wrap {
+        overflow: auto;
+        margin: 22px 0;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 13px;
+        border: 1px solid var(--line);
+        min-width: 130px;
+      }
+      th {
+        background: #e5eff1;
+      }
+      tr:nth-child(even) td {
+        background: #f8fafb;
+      }
+      footer {
+        max-width: 1100px;
+        margin: 24px auto 50px;
+        padding: 0 24px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      @media (max-width: 900px) {
+        .layout {
+          display: block;
+          margin: 18px auto;
+          padding: 0 14px;
+        }
+        nav {
+          position: static;
+          max-height: none;
+          margin-bottom: 20px;
+          columns: 2;
+        }
+        nav strong {
+          column-span: all;
+        }
+        nav a {
+          break-inside: avoid;
+        }
+        main {
+          padding: 28px 22px;
+        }
+      }
+      @media (max-width: 520px) {
+        nav {
+          columns: 1;
+        }
+        main {
+          padding: 24px 18px;
+        }
+        h2 {
+          font-size: 23px;
+        }
+      }
+      @media print {
+        body {
+          background: white;
+          font-size: 11pt;
+        }
+        .masthead,
+        nav {
+          display: none;
+        }
+        .layout {
+          display: block;
+          margin: 0;
+          padding: 0;
+        }
+        main {
+          border: 0;
+          box-shadow: none;
+          padding: 0;
+        }
+        h2,
+        h3 {
+          break-after: avoid;
+        }
+        pre,
+        blockquote,
+        tr {
+          break-inside: avoid;
+        }
+        a {
+          color: inherit;
+        }
+        footer {
+          margin: 20px 0;
+          padding: 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="masthead">Research laboratory · Agent handoff · September 16, 2026</div>
+    <div class="layout">
+      <nav aria-label="Report sections">
+        <strong>Contents</strong><a href="#section-1">1. Decision in one paragraph</a>
+        <a href="#section-2">2. Location, concurrency, authority, and version identity</a>
+        <a href="#section-3">3. Read these records in this order</a>
+        <a href="#section-4">4. What GitHub and history established</a>
+        <a href="#section-5">5. Already landed: preserve these capabilities</a>
+        <a href="#section-6">6. Current findings and evidence strength</a>
+        <a href="#section-7">7. Investigation results, including the failed first probe</a>
+        <a href="#section-8">8. Reproduction recipe for the implementing agent</a>
+        <a href="#section-9">9. Smallest credible implementation contract</a>
+        <a href="#section-10">10. Follow-on slices and closure limits</a>
+        <a href="#section-11">11. Not bugs and scope exclusions</a>
+        <a href="#section-12">12. Next-agent execution and verification sequence</a>
+        <a href="#section-13">13. Handoff fields and documentation-only disposition</a>
+      </nav>
+      <main>
+        <h1>Starlark abort-commit protocol: evidence and next-agent handoff</h1>
+        <blockquote>
+          <p>
+            <strong>OPEN FINDINGS — DOCUMENTATION ONLY.</strong> R11 is landed; its completed-worker cancellation gap
+            remains open at the source baseline below. This report does not close the September 6 review or authorize
+            runtime changes. Alan requested this handoff and its publication while other agents were working. Recheck
+            current source and coordinate ownership before implementation.
+          </p>
+        </blockquote>
+        <p>
+          <strong>Prepared:</strong> September 16, 2026 (America/Los_Angeles). <strong>Author:</strong> Codex.
+          <strong>Audience:</strong> next implementing agent and subsequent invariant reviewer.
+          <strong>Provider spend for this investigation:</strong> $0.
+        </p>
+        <p><a href="HANDOFF-starlark-abort-commit-next-slice-2026-09-16.html">Browser companion</a></p>
+        <h2 id="section-1">1. Decision in one paragraph</h2>
+        <p>
+          Implement review Medium #1 and #2 together as the smallest credible next slice: cooperative cancellation must
+          stop new work, let already-completed and successfully settled worker outcomes reach a terminal receipt, drain
+          active workers, and only then record final abort. A terminal receipt is the event saying a job succeeded or
+          failed. Preserve charged failures as well as successes. Add a deterministic regression at the settlement
+          boundary before changing runtime code. Follow with separately tested storage durability work (Medium #3);
+          defer the larger resume extraction/phase dispatcher (Medium #4) unless a small structural change is essential
+          to make the first protocol correct. Do not claim exactly-once provider execution or universal protection
+          against repeated spending.
+        </p>
+        <h2 id="section-2">2. Location, concurrency, authority, and version identity</h2>
+        <ul>
+          <li>
+            Shared owner checkout: <code>/Users/alanman/Developer/claude-local-bridge-playground</code>, branch
+            <code>main</code>, remote <code>https://github.com/alankatanoisi/claude-local-bridge-playground.git</code>.
+          </li>
+          <li>
+            Initial investigation baseline: <code>7d8d4f68088b6d64567077a958a053d3893f78c3</code>. Local
+            <code>HEAD</code>, local <code>origin/main</code>, remote <code>refs/heads/main</code>, and GitHub&#39;s
+            commit lookup matched.
+          </li>
+          <li>
+            Handoff preparation baseline: <code>8bac1d4f5817f251fec53b1d758dd6e190980edf</code>. The shared checkout was
+            clean and matched GitHub. The only intervening change was <code>package-lock.json</code>; the Starlark files
+            examined in this report were unchanged.
+          </li>
+          <li>
+            Intentional documentation worktree:
+            <code>/Users/alanman/.codex/worktrees/starlark-abort-handoff-2026-09-16/claude-local-bridge-playground</code
+            >, branch <code>codex/starlark-abort-handoff-2026-09-16</code>. A worktree is a separate working folder
+            sharing repository history. It was created from freshly fetched <code>origin/main</code>; an explicit
+            fast-forward-only pull there reported already up to date.
+          </li>
+          <li>
+            Alan authorized drafting, committing, and pushing this handoff. This author has not implemented the
+            recommended runtime changes. Other agents were active; their files, index, and checkout were not used for
+            report edits or staging.
+          </li>
+          <li>
+            Publication scope is this new Markdown report and its standalone HTML companion only. Do not add unrelated
+            dirty files, update old handoff banners, or close findings as part of this documentation commit.
+          </li>
+          <li>
+            The canonical <code>claude-local-bridge</code> repository is reference-only. This work belongs to the
+            playground.
+          </li>
+        </ul>
+        <p>
+          The shared checkout should be synchronized only when its active agent can safely do so. A documentation push
+          does not mean that another agent&#39;s local <code>main</code> has been advanced. Inspect fresh refs before
+          any later publication; never force-push around concurrent work.
+        </p>
+        <h2 id="section-3">3. Read these records in this order</h2>
+        <ol>
+          <li>
+            <a href="HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md">September 6 Starlark review</a>: detailed
+            findings, original fix order, and the “not bugs” boundaries. This remains the review record to close after a
+            verified implementation.
+          </li>
+          <li>
+            <a href="HANDOFF-starlark-r11-2026-09-06.md">Original R11 implementation handoff</a>: implementation and
+            original test evidence for <code>84dd73a</code> plus handoff <code>406423b</code>.
+          </li>
+          <li>
+            <a href="HANDOFF-starlark-r11-live-verification-2026-09-07.md">September 7 live verification</a>: later real
+            interruption/resume and Go evaluator evidence. Its historical no-publication wording describes that session,
+            not current Git ancestry.
+          </li>
+          <li>
+            <a href="HANDOFF-context-layer-mediums-closed-2026-09-10.md">September 10 context-layer closure</a>: closes
+            a different set of findings and explicitly leaves Starlark Item 2 open with the “may double-spend” warning.
+          </li>
+          <li>
+            <a href="SECURITY.md">SECURITY.md</a> and <a href="AGENTS.md">AGENTS.md</a>: current scope and working rules
+            before implementation.
+          </li>
+        </ol>
+        <p>
+          This handoff supplements those records. It does not replace their historical results or silently revise
+          earlier failures and limitations.
+        </p>
+        <h2 id="section-4">4. What GitHub and history established</h2>
+        <p>
+          At the initial inspection, both <code>84dd73a</code> (abortable worker resume and golden-plan evidence) and
+          <code>406423b</code> (implementation handoff) were ancestors of <code>main</code>. No subsequent commit under
+          <code>starlark-host/</code> appeared after <code>84dd73a</code>. The September 16 baseline comparison
+          confirmed no intervening Starlark source changes.
+        </p>
+        <p>
+          R11 landed in repository history directly; no R11 pull request is missing. A pull request is a GitHub proposal
+          to merge changes. The initially observed open requests were #28 (dependencies), #26 (case-variant path safety
+          and records), and #21 (orchestration study), with no abort-commit fix among them. The latest merged request in
+          that initial listing was #27, the permission-cache fix, which is unrelated to this Starlark protocol. Open
+          issues in that snapshot were unrelated test issues.
+        </p>
+        <p>
+          These pull-request/issue listings are point-in-time evidence from the initial investigation, not a promise
+          about their state at implementation time. The handoff-preparation refresh checked branch identity and
+          intervening source changes, not a new full pull-request inventory.
+        </p>
+        <h2 id="section-5">5. Already landed: preserve these capabilities</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Capability</th>
+                <th>What exists</th>
+                <th>Boundary of the evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Cooperative cancellation</td>
+                <td>Per-run stop signal, request cancellation, orderly interrupt handling</td>
+                <td>Does not guarantee a completed response is saved before cancellation is honored</td>
+              </tr>
+              <tr>
+                <td>Worker-pool cleanup</td>
+                <td><code>Promise.allSettled</code> waits for active worker promises</td>
+                <td>An early abort event currently precedes that drain</td>
+              </tr>
+              <tr>
+                <td>Worker resume</td>
+                <td>Reuses saved terminal receipts, runs unfinished jobs, replays accepted plans</td>
+                <td>A started job without a terminal receipt is deliberately eligible to run again</td>
+              </tr>
+              <tr>
+                <td>Saved inputs and integrity</td>
+                <td>Saved inputs, accepted-plan validation, content hashes</td>
+                <td>Missing historical hashes remain compatible by design</td>
+              </tr>
+              <tr>
+                <td>Completed-run no-op</td>
+                <td>A saved completed checkpoint allows resume to return without calls</td>
+                <td>Stale completion checkpoints are a separate gap</td>
+              </tr>
+              <tr>
+                <td>Event persistence</td>
+                <td>Event appends explicitly flush the file with <code>fsync</code></td>
+                <td>Artifact/checkpoint atomic writes do not have the same flush discipline</td>
+              </tr>
+              <tr>
+                <td>R14 evidence</td>
+                <td>Content hashing and golden-plan tests</td>
+                <td>These do not test the settlement-to-receipt cancellation boundary</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The later live report records a real Go evaluator run with 104/104 tests and no skips, superseding older
+          statements that Go/live verification were absent. Three real <code>repo_fanout</code> trials resumed after
+          SIGTERM or SIGKILL. SIGTERM requests orderly termination; SIGKILL stops the process immediately and cannot be
+          handled. Each trial was interrupted after one success had already been saved while two jobs remained
+          unfinished.
+        </p>
+        <p>
+          Those trials showed reuse of recorded successes. They did not deliberately inject cancellation between cost
+          settlement and saving a worker outcome. Six interrupted requests had unknown provider billing. Their
+          uncertainty must not be erased or treated as free capacity. Historical results were read from the report;
+          private raw live artifacts were not re-audited during this investigation.
+        </p>
+        <h2 id="section-6">6. Current findings and evidence strength</h2>
+        <h3>Medium #1: completed and settled output can be discarded</h3>
+        <p>Source anchors at the inspected baseline:</p>
+        <ul>
+          <li>
+            <code>starlark-host/src/bridge.js</code>, <code>ClaudeBridge.call</code>, approximately lines 168–181: await
+            budget settlement, then <code>checkAbort(signal)</code>, then return the response.
+          </li>
+          <li>
+            <code>starlark-host/src/coordinator.js</code>, <code>runJobs</code>, approximately lines 643–704: await
+            provider execution, check abort before processing output, then write artifact and
+            <code>job_succeeded</code>; failure recording also checks abort.
+          </li>
+          <li>
+            The same file, <code>runJobs</code>, approximately lines 627–630: reuse an existing terminal receipt;
+            otherwise execute the job.
+          </li>
+        </ul>
+        <p>
+          Observed sequence: response completes → campaign records usage-based cost → cancellation throws → no terminal
+          job receipt → resume executes the same job again. “Settlement” here means local accounting based on response
+          usage, not independently confirmed provider billing.
+        </p>
+        <p>
+          <strong>Evidence strength:</strong> source-confirmed and reproduced with simulated network responses, the
+          actual <code>ClaudeBridge</code>, actual <code>PhasedCoordinator</code>, and actual durable campaign budget.
+          This is not a live provider double-charge observation.
+        </p>
+        <h3>Medium #2: final abort is recorded before worker drain</h3>
+        <p>
+          <code>coordinator.js</code>, approximately lines 103–127, registers an abort listener that immediately calls
+          <code>recordAbort()</code>, appends <code>run_aborted</code>, and checkpoints. The catch path also calls it
+          after the worker-pool drain; idempotence prevents a second final event. The early write conflicts with
+          allowing settled work to commit before final abort.
+        </p>
+        <p>
+          The old review describes a possible result-after-abort ordering race. This investigation verified the
+          premature finalization path but did not independently reproduce every interleaving claimed there. JavaScript
+          synchronous stretches cannot be interrupted arbitrarily; write adversarial tests around real asynchronous
+          boundaries rather than assuming an operating-system signal can land between any two synchronous statements.
+        </p>
+        <p>
+          There is also a summary mismatch risk: <code>state.results</code> is populated only after
+          <code>runJobs</code> returns (approximately lines 210–212 and 283–285), while the pool&#39;s abort check can
+          prevent that return. Saved receipts must remain authoritative, and the final aborted summary should agree with
+          them.
+        </p>
+        <h3>Medium #3: uneven durability and stale completion state</h3>
+        <p>
+          <code>starlark-host/src/ledger.js</code>, <code>atomicWrite</code>, approximately lines 56–60, writes a
+          temporary file then renames it, without explicitly flushing the temporary file or parent directory. This
+          helper also writes artifacts and run context, not only checkpoints.
+        </p>
+        <p>
+          <code>restoreWorkerPhase</code> in <code>coordinator.js</code>, approximately lines 332–347, uses the
+          checkpoint&#39;s phase for completed-run early return. It does not independently reconcile completion events
+          with output artifacts to establish a completed run. A stale checkpoint can therefore lead back to synthesis.
+        </p>
+        <p>
+          <strong>Evidence strength:</strong> current source inspection; no new power-loss or stale-checkpoint
+          reproduction was run. Process death is different from loss of storage durability. A SIGKILL test does not by
+          itself prove power-loss safety, and file flushing does not make several separate writes one indivisible
+          transaction. The existing <code>run_completed</code> event is written before <code>result.json</code> and the
+          final checkpoint, and is also emitted with <code>synthesisOk: false</code> for partial synthesis. Do not treat
+          the event name alone as proof of reusable completion.
+        </p>
+        <h3>Medium #4 and Low #5–#8: retain as follow-ups</h3>
+        <p>
+          The review&#39;s larger worker-resume extraction and explicit phase dispatch remain separate work. The lows
+          concern preserving interrupt exit codes, consistent artifact-name sanitization, a named error for a torn last
+          event line, and forwarding cancellation to the evaluator child. This inspection did not add independent
+          reproductions for those findings. Preserve their review status; do not close or expand them opportunistically
+          in the worker-commit slice.
+        </p>
+        <h2 id="section-7">7. Investigation results, including the failed first probe</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Check</th>
+                <th>Observed result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Focused bridge, R11 recovery, and plan-hash suites at <code>7d8d4f6</code></td>
+                <td>12 passed, 0 failed, 0 skipped; approximately 1.69 seconds</td>
+              </tr>
+              <tr>
+                <td>First ad hoc boundary probe</td>
+                <td>
+                  Failed before settlement: simulated response omitted the headers interface used by the bridge;
+                  assertion saw 0 settlements instead of 1
+                </td>
+              </tr>
+              <tr>
+                <td>Corrected boundary probe</td>
+                <td>
+                  Same job started twice across interruption/resume; 2 local campaign settlements; 0 success receipts;
+                  simulated recorded cost $0.0008; 0 provider calls
+                </td>
+              </tr>
+              <tr>
+                <td>Working tree after investigation</td>
+                <td>Clean; no source/test/report edits</td>
+              </tr>
+              <tr>
+                <td>September 16 source comparison</td>
+                <td>Only dependency lockfile changed since inspection; relevant Starlark source unchanged</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The first probe failure was a probe defect, not a runtime regression and not evidence that settlement was
+          safe. The corrected probe used Node&#39;s complete <code>Response</code> object. Neither result should be
+          rewritten as an initially passing investigation.
+        </p>
+        <p>
+          The existing cooperative-abort test expects late deterministic results to be suppressed. All 12 passing tests
+          therefore coexist with the reproduced gap; a green suite does not close it. The corrected experiment
+          interrupted both the original execution and its resume at the same boundary. It proves repeated local
+          settlement of the same job, not a successful final resume.
+        </p>
+        <p>
+          The temporary fixtures were removed, so there is no retained raw run directory to cite. The result above is
+          the recorded tool output from this conversation. The next agent should promote this setup into a repository
+          regression test and preserve its first failing output before applying the fix.
+        </p>
+        <h2 id="section-8">8. Reproduction recipe for the implementing agent</h2>
+        <p>
+          Use a new automated test in the Starlark suite, based on <code>test/helpers/r11-fixture.js</code>; do not
+          modify real run directories or call the live bridge.
+        </p>
+        <ol>
+          <li>
+            Create the existing six-document temporary fixture, use <code>host_json</code> planning, set maximum
+            concurrency to one, and open a temporary durable campaign budget with a $1 simulated cap.
+          </li>
+          <li>
+            Replace network fetch within the isolated test with a complete successful <code>Response</code>: one text
+            block, usage of 100 input tokens and 20 output tokens, <code>end_turn</code>, and ordinary response headers.
+            Return contract-valid worker text such as summary <code>test</code>, empty evidence, confidence 0.5.
+          </li>
+          <li>
+            Construct the real <code>ClaudeBridge</code> with that budget and the real
+            <code>PhasedCoordinator</code> with the fixture. Use the baseline&#39;s <code>claude-sonnet-5</code> model
+            identifier so pricing follows the same catalog.
+          </li>
+          <li>
+            Wrap budget settlement: await the original settlement, then abort the run controller before the bridge
+            returns its answer. This injects the exact boundary reliably instead of hoping a timer hits it.
+          </li>
+          <li>
+            Run once. Confirm one campaign settlement and no terminal success on unfixed source. Resume from the same
+            run directory and budget with a fresh controller. The original probe injected the same abort again and
+            observed two starts for the same job and two settlements.
+          </li>
+          <li>
+            For the permanent regression, inject only on the first execution and allow resume to complete. Assert the
+            fixed code records the original outcome and does not request that worker again. Count by worker job label;
+            resume may legitimately call synthesis or process other jobs.
+          </li>
+          <li>
+            Restore the fetch stub and remove only the fixture created by the test. Keep the test isolated from other
+            tests that might use global fetch.
+          </li>
+        </ol>
+        <p>
+          This reproduces a completed local response and usage accounting. It makes no claim about provider-side
+          cancellation, billing, or idempotency.
+        </p>
+        <h2 id="section-9">9. Smallest credible implementation contract</h2>
+        <p>
+          <strong>Recommended slice A: cooperative worker abort-commit, Medium #1 plus #2.</strong> “Commit” in this
+          protocol means saving the worker outcome and receipt, distinct from a Git commit that saves source history.
+        </p>
+        <p>Required behavior:</p>
+        <ul>
+          <li>
+            Cancellation immediately prevents new queue items and new calls from starting; pending network operations
+            still receive cancellation.
+          </li>
+          <li>
+            An already-completed response whose settlement succeeded can reach outcome validation and persistence
+            despite a subsequently observed cancellation.
+          </li>
+          <li>
+            Valid output produces its artifact and one <code>job_succeeded</code> receipt. Invalid completed output
+            produces one charged <code>job_failed</code> receipt under existing recovery rules. A charged failure does
+            not promise zero future calls: a deliberate recovery retry can still be appropriate.
+          </li>
+          <li>
+            Wait for all active workers to finish cleanup and outcome recording. Only then append one final
+            <code>run_aborted</code> event for that interrupted segment. Across multiple resumes there can be multiple
+            abort events, one per segment.
+          </li>
+          <li>
+            Final summary/checkpoint includes the outcomes actually saved. Preserve the accurate interrupted phase and
+            final accounting.
+          </li>
+          <li>
+            Storage errors and settlement errors remain visible. Do not misclassify a failed artifact write as merely
+            invalid model output or suppress an unrelated failure just because cancellation also occurred.
+          </li>
+        </ul>
+        <p>
+          Likely files: <code>starlark-host/src/bridge.js</code>, <code>starlark-host/src/coordinator.js</code>,
+          <code>starlark-host/test/bridge.test.js</code>, and <code>starlark-host/test/r11-recovery.test.js</code>. Add
+          another narrow test file only if it improves separation. No runner integration or bridge/authentication/proxy
+          changes are needed.
+        </p>
+        <p>
+          Deleting the bridge&#39;s post-settlement check alone is insufficient: the coordinator&#39;s success and
+          failure paths also check cancellation. Conversely, removing every cancellation check is wrong. Keep checks
+          guarding new work; distinguish outcome recording from permission to start more work. If a charged/settled
+          marker is introduced, keep it host-owned and out of model authority.
+        </p>
+        <p>
+          Review two nearby edges while implementing: <code>postMessage</code> checks cancellation after receiving the
+          body, before returning it; and campaign settlement can record accounting before throwing on a cap overrun.
+          These were not reproduced in this investigation. Do not silently claim them covered by a test that only
+          injects after successful settlement. Either handle them explicitly with bounded tests or document them as
+          remaining boundaries.
+        </p>
+        <h3>Acceptance matrix for slice A</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>Required assertion</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Abort immediately after successful settlement</td>
+                <td>Completed worker outcome is saved once and reused on resume</td>
+              </tr>
+              <tr>
+                <td>Completed but invalid worker output</td>
+                <td>
+                  One charged failure receipt; no replay of original job due merely to missing receipt; recovery remains
+                  explicit
+                </td>
+              </tr>
+              <tr>
+                <td>Mixed concurrency: completed call plus pending requests</td>
+                <td>Completed outcome persists; unfinished requests cancel and clean up; queued work does not start</td>
+              </tr>
+              <tr>
+                <td>Final abort ordering</td>
+                <td>
+                  Terminal receipts and cleanup precede final abort; no new worker start/result after final abort within
+                  that segment
+                </td>
+              </tr>
+              <tr>
+                <td>Aborted summary</td>
+                <td>Saved outcomes, cost, and interrupted phase agree with evidence</td>
+              </tr>
+              <tr>
+                <td>Repeated cancellation observation</td>
+                <td>One final abort record per segment, no duplicate terminal receipts</td>
+              </tr>
+              <tr>
+                <td>Injected persistence/accounting failure</td>
+                <td>Failure remains observable; no false success or silently clean abort</td>
+              </tr>
+              <tr>
+                <td>Existing process/socket/resume tests</td>
+                <td>Continue to pass with original integrity and accounting assertions preserved</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Use explicit promises/barriers to control the boundary. Do not replace the existing tests with a weaker “run
+          did not crash” assertion. Update the late-deterministic-completion test to distinguish a genuinely unfinished
+          cancelled operation from a completed outcome awaiting persistence.
+        </p>
+        <h2 id="section-10">10. Follow-on slices and closure limits</h2>
+        <p>
+          <strong>Slice B — Medium #3, storage durability.</strong> Flush the temporary file before rename and the
+          containing directory afterward, with cleanup on errors. Test the actual ordering and error propagation.
+          Consider authoritative completion reconstruction from validated events and artifacts when a checkpoint is
+          stale. Test successful completion separately from <code>synthesisOk: false</code> and absent/corrupt final
+          artifacts. Do not blindly reuse an event named <code>run_completed</code>.
+        </p>
+        <p>
+          <strong>Slice C — Medium #4, resume structure.</strong> Extract restoration/hash verification into
+          <code>worker-resume.js</code> and consider explicit phase dispatch, including synthesis-only continuation.
+          Keep this separate if it would delay the proven worker fix. A phase dispatcher does not by itself prevent a
+          completed synthesis call from being dropped; map-reduce synthesis has multiple calls and needs its own
+          evidence model.
+        </p>
+        <p>
+          The original review suggested Medium #1–#3 could fit one commit. This handoff recommends separating worker
+          cancellation semantics from storage durability because their acceptance criteria differ. Combining them is
+          reasonable only if both receive independent regression evidence and the change stays small. Do not mark all of
+          Item 2 closed after slice A.
+        </p>
+        <p>Still outside slice A&#39;s guarantee:</p>
+        <ul>
+          <li>Unfinished requests may have unknown upstream billing and may run again on resume.</li>
+          <li>
+            SIGKILL can terminate between settlement and receipt; there is no handler that can guarantee a flush
+            afterward.
+          </li>
+          <li>
+            Planner, synthesis, and map-reduce partial-output persistence are not proven by a worker-only regression.
+          </li>
+          <li>Multiple writers to one run directory remain unsupported.</li>
+          <li>Releasing a local reservation is not proof a provider did not charge the request.</li>
+        </ul>
+        <h2 id="section-11">11. Not bugs and scope exclusions</h2>
+        <p>Preserve the September 6 review&#39;s boundaries:</p>
+        <ul>
+          <li>
+            Started work without a terminal receipt is deliberately at-least-once: it may execute again. Fix the
+            completed-then-discarded enlargement of that window, not the entire documented retry model.
+          </li>
+          <li>
+            Do not skip torn event lines. A truncated success receipt could otherwise be mistaken for unfinished work. A
+            clearer diagnostic is a separate improvement.
+          </li>
+          <li>
+            Do not reject older saved plans solely because historical hashes are absent; existing plan validation still
+            applies.
+          </li>
+          <li>
+            Keep orderly signal handling rather than immediate <code>process.exit()</code>; active cleanup must drain.
+          </li>
+          <li>Preserve live resume guards against mode, cap, campaign, or missing-campaign drift.</li>
+          <li>Preserve fetch-failure reservation release. Do not equate release with confirmed zero provider spend.</li>
+          <li>
+            Keep Starlark as a separate lab. No <code>run_workflow</code> tool or other new edge in
+            <code>src/runner/**</code>.
+          </li>
+          <li>
+            Do not edit <code>src/credentials.js</code>, <code>src/proxy.js</code>, <code>src/server.js</code>,
+            authentication settings, or unrelated agents&#39; work.
+          </li>
+          <li>
+            Do not weaken evaluator assertions because a compiled evaluator is missing. Report skips or build with the
+            supported toolchain when appropriate.
+          </li>
+        </ul>
+        <h2 id="section-12">12. Next-agent execution and verification sequence</h2>
+        <p>
+          These are instructions for the implementing agent, not commands Alan needs to paste. Use a shell in the
+          confirmed playground checkout or an intentionally isolated worktree. Before implementation, reread local
+          instructions, inspect folder/root/branch/remotes/status/worktrees, coordinate ownership, and update safely
+          from the intended baseline. Other agents are active: do not assume an apparently clean tree grants exclusive
+          ownership.
+        </p>
+        <ol>
+          <li>
+            Recheck this report against current <code>bridge.js</code>, <code>coordinator.js</code>, and
+            <code>ledger.js</code>; another agent may already have changed them. Read the latest review banners and
+            history.
+          </li>
+          <li>
+            Add the controlled settlement-boundary regression and record its failure on unfixed source. Preserve setup
+            failures separately from product failures.
+          </li>
+          <li>
+            Implement only slice A and its direct tests. Add beginner-friendly comments explaining why completed-outcome
+            recording is allowed during shutdown.
+          </li>
+          <li>In the repository root, run the focused suite directly:</li>
+        </ol>
+        <pre><code class="language-bash"># Run in the confirmed playground repository root or the approved worktree root.
+# These tests cover the adapter, worker cancellation/resume, and saved-plan integrity.
+node --test starlark-host/test/r11-recovery.test.js starlark-host/test/plan-hash.test.js starlark-host/test/bridge.test.js
+</code></pre>
+        <p>
+          Success means zero failures and the newly added boundary assertions actually executed. The earlier 12-test
+          count is historical; expect more after adding regression cases. A direct Node invocation avoids relying on
+          extra arguments appended to the package&#39;s existing wildcard test command.
+        </p>
+        <ol start="5">
+          <li>Run the full Starlark suite, then relevant repository gates from that same root:</li>
+        </ol>
+        <pre><code class="language-bash"># Check the entire separate Starlark lab, including resume and synthesis interactions.
+npm --prefix starlark-host test
+# Check for regressions elsewhere and for source/document consistency.
+npm test
+npm run lint
+npm run check:docs
+npm run format:check
+</code></pre>
+        <p>
+          If the evaluator is absent, report the exact skips. The September 7 report records Homebrew Go 1.26 at
+          <code>/opt/homebrew/opt/go@1.26/bin/go</code>; verify availability rather than assuming it remains installed.
+          A build in another worktree does not supply a binary here. Missing test tools are environment failures; do not
+          weaken assertions or silently repair unrelated files to obtain a green result.
+        </p>
+        <ol start="6">
+          <li>
+            Compare changed files and final refs, update the original review&#39;s closure status only for findings
+            actually fixed, and write a dated implementation handoff with its HTML companion. Report first-run failures,
+            skips, residual risks, and exact validation scope.
+          </li>
+          <li>
+            Arrange the repository&#39;s subsequent Cursor invariant review after runtime work lands. Commit/push
+            authority for this documentation task is not blanket authority for a later implementation session; follow
+            that session&#39;s owner request.
+          </li>
+        </ol>
+        <p>
+          No paid calls are needed to prove the deterministic worker boundary. Any later live trial must preserve
+          uncertainty for interrupted requests and must not substitute for the regression test.
+        </p>
+        <h2 id="section-13">13. Handoff fields and documentation-only disposition</h2>
+        <ul>
+          <li>
+            <strong>Folder/branch:</strong> isolated documentation worktree and branch in section 2; shared
+            <code>main</code> was inspected but not edited for this report.
+          </li>
+          <li>
+            <strong>Files changed:</strong> <code>HANDOFF-starlark-abort-commit-next-slice-2026-09-16.md</code> and
+            <code>.html</code> only.
+          </li>
+          <li>
+            <strong>Investigation checks:</strong> exact prior results and limits in section 7; current baseline/source
+            comparison in section 2.
+          </li>
+          <li>
+            <strong>Document validation:</strong> <code>npm run check:docs</code> passed both documentation-default and
+            runner-manifest checks. Prettier passed for both new files. Structural HTML validation confirmed identical
+            report-body text to rendered Markdown, 20 valid links including 13 section anchors, and no external assets
+            or scripts. Git whitespace checks passed. Browser rendering was not inspected; these are structural checks,
+            not visual acceptance.
+          </li>
+          <li>
+            <strong>Skipped:</strong> no new live experiment, full runtime suite, evaluator build, or power-loss test in
+            this documentation turn; no runtime edits require those here. Browser rendering is separate from structural
+            HTML checks.
+          </li>
+          <li>
+            <strong>Risks/follow-up:</strong> concurrent work may supersede these anchors; runtime findings remain open;
+            implement and verify slice A before claiming any closure, then address durability and broader phase-resume
+            gaps.
+          </li>
+          <li>
+            <strong>Publication:</strong> owner authorized commit and push of this report pair. The final response
+            supplies the actual commit and verified remote state; this file cannot embed its own final commit identifier
+            without changing it.
+          </li>
+        </ul>
+      </main>
+    </div>
+    <footer>
+      Standalone browser companion. Same report content as the adjacent Markdown file. No external assets or scripts.
+    </footer>
+  </body>
+</html>
