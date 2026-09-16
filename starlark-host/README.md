@@ -239,15 +239,22 @@ worker artifacts, `events.jsonl` (one JSON event per line), and `state.json`
 
 Pressing Control–C in the Terminal window sends **SIGINT**, a cooperative stop
 request. **SIGTERM** is another cooperative stop request, usually sent by a
-parent process. Both stop the queue, cancel outstanding bridge requests, append
-`run_aborted` with a reason, and checkpoint `phase: aborted`. The process waits
-for outstanding budget cleanup before exiting with code 130 or 143 respectively.
-A small deterministic run may finish before you can interrupt it.
+parent process. Both stop the queue from taking new jobs and cancel bridge
+requests that are still in flight. A request whose response has already
+arrived is **paid for**, so it is allowed to finish and record its receipt
+(`job_succeeded` or `job_failed`) before the stop is honored; resume reuses
+that receipt instead of buying the same answer again. `run_aborted` is appended
+only after every in-flight worker has settled, so it is always the last event in
+`events.jsonl`, and the `phase: aborted` checkpoint lists the successes that
+landed. The process waits for outstanding budget cleanup before exiting with
+code 130 or 143 respectively. A small deterministic run may finish before you
+can interrupt it.
 
 **SIGKILL** stops the process immediately, so it cannot write an abort checkpoint.
-Worker success events are saved synchronously to disk; resume reads those events
-even when the checkpoint predates them. The process-kill tests target only child
-processes the tests created.
+Every ledger write — event lines, artifacts, and `state.json` checkpoints — is
+flushed to disk (`fsync`) before the host moves on, and resume treats a recorded
+`run_completed` event as final even if the checkpoint file is one step behind.
+The process-kill tests target only child processes the tests created.
 
 In the same Terminal window and repository folder, replace the quoted example
 below with the exact `runDir` printed by your mock run:

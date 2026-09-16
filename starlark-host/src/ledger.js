@@ -53,10 +53,42 @@ class RunLedger {
   }
 }
 
+// Write-then-rename so a reader never sees a half-written file, AND fsync so
+// the bytes survive a kill (thermo-nuclear Medium #3). Before this, events
+// were fsync'd per line but checkpoints and artifacts were not, so after a
+// SIGKILL events.jsonl could be ahead of state.json; if the lost checkpoint
+// was the `completed` one, resume would buy the synthesis a second time.
+//   1. fsync the temp file: its contents are on disk before the rename.
+//   2. rename: atomic replacement of the visible path.
+//   3. fsync the directory: the rename itself (the directory entry) is on
+//      disk. Without this a crash can leave the OLD file visible even though
+//      rename() returned.
 function atomicWrite(file, value) {
   const temp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(temp, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 });
+  const fd = fs.openSync(temp, 'w', 0o600);
+  try {
+    fs.writeFileSync(fd, JSON.stringify(value, null, 2) + '\n');
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
   fs.renameSync(temp, file);
+  fsyncDirectory(path.dirname(file));
+}
+
+function fsyncDirectory(dir) {
+  // Opening a directory read-only for fsync works on macOS and Linux; some
+  // platforms (Windows) refuse it. Durability of the rename is best-effort
+  // there, but the file contents above were already fsync'd.
+  let fd;
+  try {
+    fd = fs.openSync(dir, 'r');
+    fs.fsyncSync(fd);
+  } catch {
+    // best effort: platform cannot fsync a directory handle
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
 }
 
 module.exports = { RunLedger, atomicWrite };

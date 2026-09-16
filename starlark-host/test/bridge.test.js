@@ -22,7 +22,10 @@ test('Claude adapter sends concurrent Messages requests and settles reservations
     request.on('data', (chunk) => chunks.push(chunk));
     request.on('end', () => {
       const raw = Buffer.concat(chunks).toString('utf8');
-      assert.ok(raw.length, `mock bridge received empty ${request.method} ${request.url}; headers=${JSON.stringify({ host: request.headers.host, length: request.headers['content-length'], agent: request.headers['user-agent'] })}`);
+      assert.ok(
+        raw.length,
+        `mock bridge received empty ${request.method} ${request.url}; headers=${JSON.stringify({ host: request.headers.host, length: request.headers['content-length'], agent: request.headers['user-agent'] })}`,
+      );
       const body = JSON.parse(raw);
       bodies.push(body);
       setTimeout(() => {
@@ -77,4 +80,64 @@ test('Claude adapter sends concurrent Messages requests and settles reservations
   const haikuBody = bodies.find((body) => body.model === 'claude-haiku-4-5');
   assert.equal(haikuBody.output_config, undefined);
   assert.equal(haikuBody.thinking, undefined);
+});
+
+// Thermo-nuclear Medium #1: an abort that lands after the reservation settled
+// must not throw away the charged response. The signal is honored before a
+// call starts, never after it has been paid for.
+test('Claude adapter returns a settled response even when the signal aborts inside settle', async (t) => {
+  const server = http.createServer((request, response) => {
+    request.resume();
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(
+      JSON.stringify({
+        type: 'message',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'paid answer' }],
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 10, output_tokens: 5 },
+      }),
+    );
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => server.close());
+  const controller = new AbortController();
+  class AbortOnSettle extends CostBudget {
+    settle(id, entry) {
+      super.settle(id, entry);
+      controller.abort(new Error('aborted after settle'));
+    }
+  }
+  const budget = new AbortOnSettle(1);
+  const bridge = new ClaudeBridge({
+    runnerRepo: RUNNER_REPO,
+    bridgeUrl: `http://127.0.0.1:${server.address().port}/v1/messages`,
+    budget,
+  });
+  const response = await bridge.call({
+    model: 'claude-sonnet-5',
+    system: 'Return text.',
+    prompt: 'Answer.',
+    maxTokens: 50,
+    label: 'settled-then-aborted',
+    signal: controller.signal,
+  });
+  assert.equal(response.text, 'paid answer');
+  assert.equal(budget.calls.length, 1);
+  assert.equal(budget.reservedUsd, 0);
+  assert.ok(controller.signal.aborted);
+  // The NEXT call on the same aborted signal must not start (no reservation, no request).
+  await assert.rejects(
+    bridge.call({
+      model: 'claude-sonnet-5',
+      system: 'Return text.',
+      prompt: 'Answer.',
+      maxTokens: 50,
+      label: 'after-abort',
+      signal: controller.signal,
+    }),
+    (error) => error.name === 'AbortError' || /abort/i.test(error.message),
+  );
+  assert.equal(budget.calls.length, 1);
+  assert.equal(budget.reservedUsd, 0);
 });

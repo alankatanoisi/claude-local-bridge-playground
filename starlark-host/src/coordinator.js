@@ -100,20 +100,24 @@ class PhasedCoordinator {
         executionContext: this.executionContext,
       });
     }
-    const onAbort = () => this.recordAbort();
-    this.signal.addEventListener('abort', onAbort, { once: true });
+    // Abort-commit protocol (thermo-nuclear Medium #2). The abort signal is
+    // NOT wired to a ledger write here on purpose. An earlier version appended
+    // `run_aborted` from the signal listener, i.e. while worker promises were
+    // still in flight, so a worker that had already been charged could land
+    // its `job_succeeded` AFTER the abort receipt (or, worse, be thrown away).
+    // Now the only path to `run_aborted` is the catch below, which runs after
+    // mapConcurrent's Promise.allSettled has drained every in-flight worker.
+    // That makes "no job start or result after run_aborted" a mechanical
+    // property of the ledger instead of a race. SIGKILL right after SIGINT
+    // loses the abort receipt but not the job receipts; resume rebuilds from
+    // events, which are the truth, not from state.json.
     try {
       checkAbort(this.signal);
       return await this.runPhases();
     } catch (error) {
       if (!this.signal.aborted) throw error;
       this.recordAbort();
-      // All worker promises have drained before this final checkpoint.
-      this.state.cost = this.bridge.budget.toJSON();
-      this.checkpoint();
       return this.state;
-    } finally {
-      this.signal.removeEventListener('abort', onAbort);
     }
   }
 
@@ -122,7 +126,10 @@ class PhasedCoordinator {
     const interruptedPhase = this.state.phase;
     this.state.phase = 'aborted';
     this.state.abortReason = String(this.signal.reason?.message || this.signal.reason || 'cancelled');
+    this.state.cost = this.bridge.budget.toJSON();
     this.ledger.append('run_aborted', { reason: this.state.abortReason, interruptedPhase });
+    // Every in-flight worker has settled by the time we get here, so this
+    // checkpoint carries the results that actually landed (see runJobs).
     this.checkpoint();
   }
 
@@ -301,7 +308,9 @@ class PhasedCoordinator {
       options: this.config.synthesis,
       signal: this.signal,
     });
-    checkAbort(this.signal);
+    // No abort check here (Medium #1): if runSynthesis returned, its bridge
+    // calls settled and the text is paid for. Record run_completed so resume
+    // is a no-op instead of buying the synthesis again.
     const synthesisFailure = synthesis.ok ? null : synthesis.failure;
     this.state.phase = synthesisFailure ? 'partial' : 'completed';
     this.state.synthesis = synthesis.text;
@@ -343,6 +352,20 @@ class PhasedCoordinator {
     }
     this.state = saved;
     if (saved.phase === 'completed') return;
+    // Events are fsync'd per line; the checkpoint is fsync'd too (Medium #3)
+    // but a kill between run_completed and the final checkpoint still leaves
+    // state.json one step behind. The event log is the truth: a recorded
+    // run_completed means every worker AND the synthesis were paid for, so
+    // resume must be a no-op rather than a second synthesis purchase.
+    if (events.some((event) => event.type === 'run_completed')) {
+      const resultPath = path.join(this.ledger.runDir, 'result.json');
+      // result.json is written (atomically) right before the checkpoint, so it
+      // normally exists; fall back to the saved state marked completed if not.
+      this.state = fs.existsSync(resultPath) ? JSON.parse(fs.readFileSync(resultPath, 'utf8')) : saved;
+      this.state.phase = 'completed';
+      this.checkpoint();
+      return;
+    }
     if (saved.phase === 'partial' && saved.synthesisFailure) {
       throw new Error('use resume-synthesis for a partial run whose synthesis failed');
     }
@@ -559,7 +582,10 @@ class PhasedCoordinator {
         label: `${phaseLabel}:${model}:attempt:${attempt}`,
         signal: this.signal,
       });
-      checkAbort(this.signal);
+      // Abort-commit protocol (Medium #1, planner leg): the planner response
+      // above is paid for. Finish this attempt (lint, evaluate, validate) and
+      // record its outcome before the abort is honored at the loop top, so a
+      // resume reuses the accepted plan instead of buying a new one.
       // Artifact numbering is global across ladder tiers so an escalated
       // phase never overwrites the cheap tier's rejected source.
       const globalAttempt = attemptOffset + attempt;
@@ -589,7 +615,6 @@ class PhasedCoordinator {
           maxSteps: this.config.maxStarlarkSteps,
           timeoutMs: this.config.starlarkTimeoutMs,
         });
-        checkAbort(this.signal);
         const jobs = validateJobs(evaluated.result, policy, validationPhase);
         const metrics = {
           attempts: globalAttempt,
@@ -604,7 +629,9 @@ class PhasedCoordinator {
         this.ledger.append(acceptedEvent, { jobs, starlarkSteps: evaluated.steps, metrics, hashes });
         return { jobs, metrics, hashes };
       } catch (error) {
-        checkAbort(this.signal);
+        // A rejection is honest evidence about a paid attempt; record it even
+        // when an abort is pending. The next attempt's loop-top check stops
+        // the retry from starting.
         rejection = { source, error: error.message };
         this.ledger.append(`${phaseLabel}_rejected`, {
           attempt: globalAttempt,
@@ -620,6 +647,26 @@ class PhasedCoordinator {
 
   async runJobs(jobs, documents, attempt, priorFailures = null) {
     const byId = new Map(documents.map((document) => [document.id, document]));
+    // Receipts that landed, in completion order. On abort mapConcurrent throws
+    // and its ordered result array is lost, so this list is what lets the
+    // abort checkpoint (and the CLI summary) report the successes that really
+    // happened instead of showing zero while events.jsonl says otherwise.
+    const landed = [];
+    let results;
+    try {
+      results = await this.runJobsConcurrently(jobs, byId, attempt, priorFailures, landed);
+    } catch (error) {
+      if (this.signal.aborted) this.state.results.push(...landed);
+      throw error;
+    }
+    return results;
+  }
+
+  runJobsConcurrently(jobs, byId, attempt, priorFailures, landed) {
+    const record = (result) => {
+      landed.push(result);
+      return result;
+    };
     return mapConcurrent(
       jobs,
       this.config.maxConcurrency,
@@ -627,7 +674,7 @@ class PhasedCoordinator {
         // A recorded terminal receipt wins over a possibly older checkpoint.
         // Reuse failures too: the existing recovery planner owns retry policy.
         const previous = this.resumeData?.results.get(job.id);
-        if (previous) return previous;
+        if (previous) return record(previous);
         // D-F1: a retry learns why its predecessor was rejected.
         const feedback = job.retry_of && priorFailures ? priorFailures.get(job.retry_of) || null : null;
         this.ledger.append('job_started', {
@@ -637,7 +684,7 @@ class PhasedCoordinator {
           ...(feedback ? { retryFeedback: feedback } : {}),
         });
         const before = this.faults.beforeCall(index, attempt);
-        if (before) return this.recordFailure(job, attempt, before);
+        if (before) return record(this.recordFailure(job, attempt, before));
 
         const supplied = job.input_ids.map((id) => byId.get(id));
         let response;
@@ -661,20 +708,33 @@ class PhasedCoordinator {
             });
           }
         } catch (error) {
+          // The ONLY place abort may drop a job without a terminal receipt: the
+          // call itself was cut off (fetch destroyed, reservation released, no
+          // usage settled). Resume treats "started, no receipt" as re-execute,
+          // which is the documented at-least-once rule for genuinely
+          // interrupted work.
           checkAbort(this.signal);
-          return this.recordFailure(job, attempt, {
-            error: {
-              code: error.retryable ? 'bridge_transient' : 'bridge_error',
-              retryable: Boolean(error.retryable),
-              message: error.message,
-            },
-            charged: false,
-          });
+          return record(
+            this.recordFailure(job, attempt, {
+              error: {
+                code: error.retryable ? 'bridge_transient' : 'bridge_error',
+                retryable: Boolean(error.retryable),
+                message: error.message,
+              },
+              charged: false,
+            }),
+          );
         }
 
-        checkAbort(this.signal);
+        // Abort-commit protocol (Medium #1): from here on the provider has
+        // RETURNED and the budget has settled, so this job is paid for. There
+        // is deliberately no abort check between this line and the terminal
+        // receipt: whatever the response turned out to be (valid output,
+        // injected failure, unparseable text) it gets persisted, so `--resume`
+        // reuses it instead of buying it again. The queue stops taking new
+        // jobs at the top of mapConcurrent's loop.
         const altered = this.faults.afterCall(index, attempt, response);
-        if (altered.injectedFailure) return this.recordFailure(job, attempt, altered);
+        if (altered.injectedFailure) return record(this.recordFailure(job, attempt, altered));
         try {
           const output = parseWorkerOutput(altered.text);
           const artifact = this.ledger.writeArtifact(`${job.id}-attempt-${attempt}`, output);
@@ -687,13 +747,14 @@ class PhasedCoordinator {
             usage: altered.usage,
             costUsd: altered.costUsd,
           });
-          return result;
+          return record(result);
         } catch (error) {
-          checkAbort(this.signal);
-          return this.recordFailure(job, attempt, {
-            error: { code: 'invalid_worker_output', retryable: true, message: error.message },
-            charged: true,
-          });
+          return record(
+            this.recordFailure(job, attempt, {
+              error: { code: 'invalid_worker_output', retryable: true, message: error.message },
+              charged: true,
+            }),
+          );
         }
       },
       this.signal,
@@ -701,7 +762,8 @@ class PhasedCoordinator {
   }
 
   recordFailure(job, attempt, failure) {
-    checkAbort(this.signal);
+    // No abort check: a failure receipt is terminal evidence about work that
+    // already happened (or was deliberately skipped by fault injection).
     const result = { ok: false, job, attempt, error: failure.error, charged: Boolean(failure.charged) };
     this.ledger.append('job_failed', {
       jobId: job.id,

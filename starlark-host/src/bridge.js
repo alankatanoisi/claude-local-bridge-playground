@@ -178,7 +178,13 @@ class ClaudeBridge {
       traceId: this.traceId,
       traceTurn,
     });
-    checkAbort(signal);
+    // Abort-commit protocol (thermo-nuclear Medium #1): the reservation above
+    // was just SETTLED, so this response is paid for. Do not check the abort
+    // signal here. Throwing now would discard a charged result, and the
+    // coordinator would re-run the job on resume and pay twice. The signal is
+    // checked before a call starts (top of this method, and again right
+    // before fetch); an abort that lands after the body is in memory simply
+    // lets this one paid call return so its receipt can be persisted.
     return {
       text,
       usage: response.usage || {},
@@ -219,8 +225,12 @@ async function postMessage(bridgeUrl, body, callerToken, trace = {}, timeoutMs =
     throw error;
   }
 
+  // If the signal fires while the body is still streaming, fetch destroys the
+  // request and text() rejects on its own; that is the genuine in-flight case
+  // and the caller releases the reservation. Once text() has RESOLVED the
+  // whole body is in memory and the provider has already done the billed
+  // work, so no abort check belongs after this line (Medium #1).
   const raw = await response.text();
-  checkAbort(signal);
   if (!response.ok) {
     const error = new Error(`bridge returned HTTP ${response.status}: ${raw.slice(0, 500)}`);
     error.statusCode = response.status;
@@ -302,7 +312,7 @@ class MockBridge {
     }
     const call = { label, model: 'mock', usage: {}, costUsd: 0, durationMs: 1, requestId: null };
     await this.budget.record(call);
-    checkAbort(signal);
+    // Same abort-commit ordering as ClaudeBridge: recorded means returned.
     return { text, usage: {}, costUsd: 0, rawStopReason: 'end_turn' };
   }
 }
