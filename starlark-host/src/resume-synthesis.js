@@ -18,6 +18,7 @@ const path = require('path');
 
 const { RunLedger, atomicWrite } = require('./ledger');
 const { runSynthesis } = require('./synthesis');
+const { restoreSynthesisResume } = require('./worker-resume');
 
 function loadRunState(runDir) {
   const statePath = path.join(runDir, 'state.json');
@@ -27,15 +28,17 @@ function loadRunState(runDir) {
   return JSON.parse(fs.readFileSync(statePath, 'utf8'));
 }
 
-async function resumeSynthesis({
-  runDir,
-  bridge,
-  model,
-  objective,
-  strategy = 'map_reduce',
-  synthesisOptions = {},
-}) {
+async function resumeSynthesis({ runDir, bridge, model, objective, strategy = 'map_reduce', synthesisOptions = {} }) {
   const state = loadRunState(runDir);
+  const ledger = new RunLedger(runDir); // seq continues after existing events
+  // The receipt can survive even when BOTH later summary writes are lost.
+  // Repair those summaries without asking the model for text we already own.
+  const restored = restoreSynthesisResume(ledger, state);
+  if (restored) {
+    ledger.checkpoint(restored);
+    atomicWrite(path.join(runDir, 'result.json'), restored);
+    return { runDir, ok: true, phase: 'completed', strategy: restored.synthesisStrategy, calls: 0, failure: null };
+  }
   if (state.phase !== 'partial' || !state.synthesisFailure) {
     throw new Error(
       `run is '${state.phase}' with synthesisFailure=${JSON.stringify(state.synthesisFailure || null)}; ` +
@@ -46,7 +49,6 @@ async function resumeSynthesis({
     throw new Error('run has no recorded worker results to synthesize');
   }
 
-  const ledger = new RunLedger(runDir); // seq continues after existing events
   const resumeModel = model || state.plannerModel;
   const resolvedObjective = objective || state.objective || null;
 

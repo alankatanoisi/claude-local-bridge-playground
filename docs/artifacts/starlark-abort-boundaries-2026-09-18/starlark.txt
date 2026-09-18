@@ -1,0 +1,790 @@
+
+> starlark-phased-hybrid-prototype@0.1.0 verify
+> npm run build:evaluator && npm test
+
+
+> starlark-phased-hybrid-prototype@0.1.0 build:evaluator
+> go build -o bin/starlark-eval ./cmd/starlark-eval
+
+
+> starlark-phased-hybrid-prototype@0.1.0 test
+> node --test test/*.test.js
+
+TAP version 13
+# Subtest: abort-commit: settled invalid output records one charged failure and resume uses explicit recovery
+ok 1 - abort-commit: settled invalid output records one charged failure and resume uses explicit recovery
+  ---
+  duration_ms: 3570.866833
+  type: 'test'
+  ...
+# Subtest: abort-commit: artifact failure remains visible during cancellation
+ok 2 - abort-commit: artifact failure remains visible during cancellation
+  ---
+  duration_ms: 1407.32375
+  type: 'test'
+  ...
+# Subtest: abort-commit: checkpoint failure remains visible during cancellation
+ok 3 - abort-commit: checkpoint failure remains visible during cancellation
+  ---
+  duration_ms: 773.724875
+  type: 'test'
+  ...
+# Subtest: abort-commit: settlement failure remains visible during cancellation
+ok 4 - abort-commit: settlement failure remains visible during cancellation
+  ---
+  duration_ms: 873.303625
+  type: 'test'
+  ...
+# Subtest: abort-commit: sibling cancellation cannot mask a drained worker persistence failure
+ok 5 - abort-commit: sibling cancellation cannot mask a drained worker persistence failure
+  ---
+  duration_ms: 859.05
+  type: 'test'
+  ...
+# Subtest: abort-commit: phase checkpoint error is not replaced by clean cancellation
+ok 6 - abort-commit: phase checkpoint error is not replaced by clean cancellation
+  ---
+  duration_ms: 773.59
+  type: 'test'
+  ...
+# Subtest: comprehension bomb trips the deterministic step ceiling
+ok 7 - comprehension bomb trips the deterministic step ceiling
+  ---
+  duration_ms: 22.1955
+  type: 'test'
+  ...
+# Subtest: while loop is rejected at parse/resolve time
+ok 8 - while loop is rejected at parse/resolve time
+  ---
+  duration_ms: 112.262708
+  type: 'test'
+  ...
+# Subtest: recursion is rejected by the evaluator
+ok 9 - recursion is rejected by the evaluator
+  ---
+  duration_ms: 81.8495
+  type: 'test'
+  ...
+# Subtest: load() is disabled
+ok 10 - load() is disabled
+  ---
+  duration_ms: 30.007625
+  type: 'test'
+  ...
+# Subtest: homoglyph function names do not satisfy the required entry point
+ok 11 - homoglyph function names do not satisfy the required entry point
+  ---
+  duration_ms: 11.087375
+  type: 'test'
+  ...
+# Subtest: giant string output is stopped by the host stdout ceiling
+ok 12 - giant string output is stopped by the host stdout ceiling
+  ---
+  duration_ms: 560.471375
+  type: 'test'
+  ...
+# Subtest: deeply nested results fail closed at the validator, not with a crash
+ok 13 - deeply nested results fail closed at the validator, not with a crash
+  ---
+  duration_ms: 30.686875
+  type: 'test'
+  ...
+# Subtest: oversized job counts are rejected by the phase limit
+ok 14 - oversized job counts are rejected by the phase limit
+  ---
+  duration_ms: 29.562167
+  type: 'test'
+  ...
+# Subtest: descriptor smuggling: authority-shaped and alias fields are rejected
+ok 15 - descriptor smuggling: authority-shaped and alias fields are rejected
+  ---
+  duration_ms: 0.4835
+  type: 'test'
+  ...
+# Subtest: infinite-loop-shaped compute is stopped by the wall-clock timeout as second guard
+ok 16 - infinite-loop-shaped compute is stopped by the wall-clock timeout as second guard
+  ---
+  duration_ms: 29.238375
+  type: 'test'
+  ...
+# Subtest: Claude adapter sends concurrent Messages requests and settles reservations
+ok 17 - Claude adapter sends concurrent Messages requests and settles reservations
+  ---
+  duration_ms: 896.813292
+  type: 'test'
+  ...
+# Subtest: Claude adapter returns a settled response even when the signal aborts inside settle
+ok 18 - Claude adapter returns a settled response even when the signal aborts inside settle
+  ---
+  duration_ms: 30.440334
+  type: 'test'
+  ...
+# Subtest: concurrent reservations cannot overbook the experiment cap
+ok 19 - concurrent reservations cannot overbook the experiment cap
+  ---
+  duration_ms: 1.545958
+  type: 'test'
+  ...
+# Subtest: settlement replaces a reservation with actual estimated cost
+ok 20 - settlement replaces a reservation with actual estimated cost
+  ---
+  duration_ms: 0.40375
+  type: 'test'
+  ...
+# Subtest: balanced concurrent reservations do not leave floating-point residue
+ok 21 - balanced concurrent reservations do not leave floating-point residue
+  ---
+  duration_ms: 0.109083
+  type: 'test'
+  ...
+# Subtest: direct bridge requests use the conventional full-trace correlation headers
+ok 22 - direct bridge requests use the conventional full-trace correlation headers
+  ---
+  duration_ms: 219.346166
+  type: 'test'
+  ...
+# Subtest: spend survives the process: a second instance sees prior settle
+ok 23 - spend survives the process: a second instance sees prior settle
+  ---
+  duration_ms: 609.028209
+  type: 'test'
+  ...
+# Subtest: a campaign cap can never be changed by rejoining with a different number
+ok 24 - a campaign cap can never be changed by rejoining with a different number
+  ---
+  duration_ms: 178.5475
+  type: 'test'
+  ...
+# Subtest: concurrent reservations in one process cannot overbook the cap
+ok 25 - concurrent reservations in one process cannot overbook the cap
+  ---
+  duration_ms: 384.651958
+  type: 'test'
+  ...
+# Subtest: two separate processes reserving concurrently: exactly one wins
+ok 26 - two separate processes reserving concurrently: exactly one wins
+  ---
+  duration_ms: 1853.93
+  type: 'test'
+  ...
+# Subtest: a reservation from a crashed process is swept, with the correction on the ledger
+ok 27 - a reservation from a crashed process is swept, with the correction on the ledger
+  ---
+  duration_ms: 567.368708
+  type: 'test'
+  ...
+# Subtest: R2 regression: a cache-heavy reconciliation moves the remaining budget
+ok 28 - R2 regression: a cache-heavy reconciliation moves the remaining budget
+  ---
+  duration_ms: 490.877416
+  type: 'test'
+  ...
+# Subtest: planner and recovery prompts disclose the host policy they must satisfy
+ok 29 - planner and recovery prompts disclose the host policy they must satisfy
+  ---
+  duration_ms: 2.338
+  type: 'test'
+  ...
+# Subtest: worker response limits are enforced by the host parser
+ok 30 - worker response limits are enforced by the host parser
+  ---
+  duration_ms: 3.193208
+  type: 'test'
+  ...
+# Subtest: a refusal or empty final response cannot be recorded as successful synthesis
+ok 31 - a refusal or empty final response cannot be recorded as successful synthesis
+  ---
+  duration_ms: 2.976583
+  type: 'test'
+  ...
+# Subtest: phased hybrid records mixed failures and retries only retryable work
+ok 32 - phased hybrid records mixed failures and retries only retryable work
+  ---
+  duration_ms: 2357.027416
+  type: 'test'
+  ...
+# Subtest: planner gets one measured repair turn after a rejected Starlark plan
+ok 33 - planner gets one measured repair turn after a rejected Starlark plan
+  ---
+  duration_ms: 1364.54975
+  type: 'test'
+  ...
+# Subtest: concordance: every accepted descriptor field documents its enforcement point
+ok 34 - concordance: every accepted descriptor field documents its enforcement point
+  ---
+  duration_ms: 1.71625
+  type: 'test'
+  ...
+# Subtest: concordance: the prompt discloses exactly the bounds the validator enforces
+ok 35 - concordance: the prompt discloses exactly the bounds the validator enforces
+  ---
+  duration_ms: 0.873833
+  type: 'test'
+  ...
+# Subtest: concordance: prompt builders render disclosure from the run policy, not hardcoded text
+ok 36 - concordance: prompt builders render disclosure from the run policy, not hardcoded text
+  ---
+  duration_ms: 0.22475
+  type: 'test'
+  ...
+# Subtest: concordance probe: validated timeout_ms and max_output_tokens reach the worker call
+ok 37 - concordance probe: validated timeout_ms and max_output_tokens reach the worker call
+  ---
+  duration_ms: 400.589834
+  type: 'test'
+  ...
+# Subtest: unknown and smuggled descriptor fields are rejected, including __proto__
+ok 38 - unknown and smuggled descriptor fields are rejected, including __proto__
+  ---
+  duration_ms: 15.994417
+  type: 'test'
+  ...
+# Subtest: rejection classification is deterministic and flags authority fields
+ok 39 - rejection classification is deterministic and flags authority fields
+  ---
+  duration_ms: 396.204125
+  type: 'test'
+  ...
+# Subtest: scoreRun reads the rubric from durable state and events
+ok 40 - scoreRun reads the rubric from durable state and events
+  ---
+  duration_ms: 92.102417
+  type: 'test'
+  ...
+# Subtest: mock repeated trials run the full loop and aggregate per model
+ok 41 - mock repeated trials run the full loop and aggregate per model
+  ---
+  duration_ms: 5076.786542
+  type: 'test'
+  ...
+# Subtest: Starlark expands the bounded eight-case evaluation matrix
+ok 42 - Starlark expands the bounded eight-case evaluation matrix
+  ---
+  duration_ms: 25.373125
+  type: 'test'
+  ...
+# Subtest: host rejects an evaluation case that adds provider authority
+ok 43 - host rejects an evaluation case that adds provider authority
+  ---
+  duration_ms: 0.296833
+  type: 'test'
+  ...
+# Subtest: R14a golden accepted descriptors: experiment
+ok 44 - R14a golden accepted descriptors: experiment
+  ---
+  duration_ms: 10.0335
+  type: 'test'
+  ...
+# Subtest: R14a golden accepted descriptors: repo_fanout
+ok 45 - R14a golden accepted descriptors: repo_fanout
+  ---
+  duration_ms: 1.982417
+  type: 'test'
+  ...
+# Subtest: R14a golden accepted descriptors: test_triage
+ok 46 - R14a golden accepted descriptors: test_triage
+  ---
+  duration_ms: 3.219375
+  type: 'test'
+  ...
+# Subtest: host-JSON plans pass the same validator as model plans
+ok 47 - host-JSON plans pass the same validator as model plans
+  ---
+  duration_ms: 5.660166
+  type: 'test'
+  ...
+# Subtest: host-JSON recovery retries retryable failures only
+ok 48 - host-JSON recovery retries retryable failures only
+  ---
+  duration_ms: 0.320833
+  type: 'test'
+  ...
+# Subtest: R14c + R9: the full pipeline runs with ZERO model calls (host plan, deterministic workers)
+ok 49 - R14c + R9: the full pipeline runs with ZERO model calls (host plan, deterministic workers)
+  ---
+  duration_ms: 3436.557792
+  type: 'test'
+  ...
+# Subtest: atomicWrite fsyncs the temp file and the directory, then leaves only the final file
+ok 50 - atomicWrite fsyncs the temp file and the directory, then leaves only the final file
+  ---
+  duration_ms: 360.166166
+  type: 'test'
+  ...
+# Subtest: RunLedger.checkpoint and writeArtifact both go through the fsync'd atomic write
+ok 51 - RunLedger.checkpoint and writeArtifact both go through the fsync'd atomic write
+  ---
+  duration_ms: 367.489458
+  type: 'test'
+  ...
+# Subtest: R14b hashes ignore object key order, preserve array order, and cover program bytes
+ok 52 - R14b hashes ignore object key order, preserve array order, and cover program bytes
+  ---
+  duration_ms: 3.435167
+  type: 'test'
+  ...
+# Subtest: R14b accepted host plans record reproducible plan/program/input hashes
+ok 53 - R14b accepted host plans record reproducible plan/program/input hashes
+  ---
+  duration_ms: 6921.923875
+  type: 'test'
+  ...
+# Subtest: R14b resume refuses changed saved input bytes without adding job receipts
+ok 54 - R14b resume refuses changed saved input bytes without adding job receipts
+  ---
+  duration_ms: 724.072459
+  type: 'test'
+  ...
+# Subtest: R11 live resume refuses mode/cap/campaign changes before any network or ledger mutation
+ok 55 - R11 live resume refuses mode/cap/campaign changes before any network or ledger mutation
+  ---
+  duration_ms: 693.593041
+  type: 'test'
+  ...
+# Subtest: R13: planning escalates one tier after the cheap tier exhausts repairs
+ok 56 - R13: planning escalates one tier after the cheap tier exhausts repairs
+  ---
+  duration_ms: 1843.7385
+  type: 'test'
+  ...
+# Subtest: R13: a ladder that exhausts every tier fails with the last error
+ok 57 - R13: a ladder that exhausts every tier fails with the last error
+  ---
+  duration_ms: 941.402542
+  type: 'test'
+  ...
+# Subtest: R11 cooperative abort: in-flight completions land receipts, run_aborted follows the drain, resume reuses them
+ok 58 - R11 cooperative abort: in-flight completions land receipts, run_aborted follows the drain, resume reuses them
+  ---
+  duration_ms: 2628.424542
+  type: 'test'
+  ...
+# Subtest: R11 settled-then-aborted bridge call persists its receipt and is not re-bought on resume
+ok 59 - R11 settled-then-aborted bridge call persists its receipt and is not re-bought on resume
+  ---
+  duration_ms: 2015.092042
+  type: 'test'
+  ...
+# Subtest: R11 resume treats run_completed in the event log as authoritative over a stale checkpoint
+ok 60 - R11 resume treats run_completed in the event log as authoritative over a stale checkpoint
+  ---
+  duration_ms: 1141.419666
+  type: 'test'
+  ...
+# Subtest: R11 cancel under concurrency: HTTP requests are destroyed and budgets drain
+ok 61 - R11 cancel under concurrency: HTTP requests are destroyed and budgets drain
+  ---
+  duration_ms: 980.760917
+  type: 'test'
+  ...
+# Subtest: R11 process kill SIGTERM + resume
+ok 62 - R11 process kill SIGTERM + resume
+  ---
+  duration_ms: 1746.102084
+  type: 'test'
+  ...
+# Subtest: R11 process interrupt SIGINT + resume
+ok 63 - R11 process interrupt SIGINT + resume
+  ---
+  duration_ms: 1307.893917
+  type: 'test'
+  ...
+# Subtest: R11 process kill SIGKILL + resume
+ok 64 - R11 process kill SIGKILL + resume
+  ---
+  duration_ms: 1359.392
+  type: 'test'
+  ...
+# Subtest: R11 resume is idempotent through both command-line entry points
+ok 65 - R11 resume is idempotent through both command-line entry points
+  ---
+  duration_ms: 1169.738834
+  type: 'test'
+  ...
+# Subtest: R11 recovery-phase interruption reuses failures, successes, and original input bytes
+ok 66 - R11 recovery-phase interruption reuses failures, successes, and original input bytes
+  ---
+  duration_ms: 549.143417
+  type: 'test'
+  ...
+# Subtest: R11 abort during synthesis resumes into synthesis only, without replaying earlier phases
+ok 67 - R11 abort during synthesis resumes into synthesis only, without replaying earlier phases
+  ---
+  duration_ms: 341.179167
+  type: 'test'
+  ...
+# Subtest: R11 resume keeps a run partial when run_completed says synthesisOk:false behind a stale checkpoint
+ok 68 - R11 resume keeps a run partial when run_completed says synthesisOk:false behind a stale checkpoint
+  ---
+  duration_ms: 285.149292
+  type: 'test'
+  ...
+# Subtest: repository discovery is bounded, deterministic, and excludes secret paths
+ok 69 - repository discovery is bounded, deterministic, and excludes secret paths
+  ---
+  duration_ms: 309.637667
+  type: 'test'
+  ...
+# Subtest: repository discovery rejects include roots outside the target
+ok 70 - repository discovery rejects include roots outside the target
+  ---
+  duration_ms: 17.940875
+  type: 'test'
+  ...
+# Subtest: buildWorkerPrompt appends host feedback only when provided
+ok 71 - buildWorkerPrompt appends host feedback only when provided
+  ---
+  duration_ms: 4.576792
+  type: 'test'
+  ...
+# Subtest: a worker rejected for a real contract violation retries WITH the reason
+ok 72 - a worker rejected for a real contract violation retries WITH the reason
+  ---
+  duration_ms: 1313.874792
+  type: 'test'
+  ...
+# Subtest: host-JSON recovery retries also carry the feedback (R14c path)
+ok 73 - host-JSON recovery retries also carry the feedback (R14c path)
+  ---
+  duration_ms: 875.51475
+  type: 'test'
+  ...
+# Subtest: auto-repairs adjacent string literals on one line
+ok 74 - auto-repairs adjacent string literals on one line
+  ---
+  duration_ms: 3.760709
+  type: 'test'
+  ...
+# Subtest: auto-repairs adjacent string literals across lines inside brackets
+ok 75 - auto-repairs adjacent string literals across lines inside brackets
+  ---
+  duration_ms: 0.3935
+  type: 'test'
+  ...
+# Subtest: auto-repairs zero-gap adjacency
+ok 76 - auto-repairs zero-gap adjacency
+  ---
+  duration_ms: 0.196542
+  type: 'test'
+  ...
+# Subtest: does NOT join comma-separated or statement-separated strings
+ok 77 - does NOT join comma-separated or statement-separated strings
+  ---
+  duration_ms: 0.072584
+  type: 'test'
+  ...
+# Subtest: keywords inside strings and comments never trigger rules
+ok 78 - keywords inside strings and comments never trigger rules
+  ---
+  duration_ms: 0.130792
+  type: 'test'
+  ...
+# Subtest: f-strings are diagnosed with a line number, not auto-repaired
+ok 79 - f-strings are diagnosed with a line number, not auto-repaired
+  ---
+  duration_ms: 0.067375
+  type: 'test'
+  ...
+# Subtest: while, import, try/except, class, load, and yield-family are diagnosed
+ok 80 - while, import, try/except, class, load, and yield-family are diagnosed
+  ---
+  duration_ms: 0.230666
+  type: 'test'
+  ...
+# Subtest: triple-quoted strings are handled as single literals
+ok 81 - triple-quoted strings are handled as single literals
+  ---
+  duration_ms: 0.060542
+  type: 'test'
+  ...
+# Subtest: coordinator: adjacent-string plan is auto-repaired and accepted first-pass
+ok 82 - coordinator: adjacent-string plan is auto-repaired and accepted first-pass
+  ---
+  duration_ms: 1050.494292
+  type: 'test'
+  ...
+# Subtest: coordinator: f-string plan is rejected with lint guidance in the repair prompt
+ok 83 - coordinator: f-string plan is rejected with lint guidance in the repair prompt
+  ---
+  duration_ms: 938.761
+  type: 'test'
+  ...
+# Subtest: a realistic broken plan is repaired into evaluable form
+ok 84 - a realistic broken plan is repaired into evaluable form
+  ---
+  duration_ms: 0.340375
+  type: 'test'
+  ...
+# Subtest: extracts fenced Starlark without surrounding prose
+ok 85 - extracts fenced Starlark without surrounding prose
+  ---
+  duration_ms: 2.83825
+  type: 'test'
+  ...
+# Subtest: evaluates pure JSON-shaped Starlark
+ok 86 - evaluates pure JSON-shaped Starlark
+  ---
+  duration_ms: 22.585209
+  type: 'test'
+  ...
+# Subtest: rejects module loads
+ok 87 - rejects module loads
+  ---
+  duration_ms: 30.142
+  type: 'test'
+  ...
+# Subtest: stops a generated program at the execution-step ceiling
+ok 88 - stops a generated program at the execution-step ceiling
+  ---
+  duration_ms: 73.737041
+  type: 'test'
+  ...
+# Subtest: auto strategy: small result sets stay single-call, large ones map-reduce
+ok 89 - auto strategy: small result sets stay single-call, large ones map-reduce
+  ---
+  duration_ms: 1.617292
+  type: 'test'
+  ...
+# Subtest: map-reduce chunks the results and combines part summaries
+ok 90 - map-reduce chunks the results and combines part summaries
+  ---
+  duration_ms: 2.392166
+  type: 'test'
+  ...
+# Subtest: a truncated map call fails closed with stage and chunk recorded
+ok 91 - a truncated map call fails closed with stage and chunk recorded
+  ---
+  duration_ms: 0.837958
+  type: 'test'
+  ...
+# Subtest: RunLedger reopening continues sequence numbers instead of restarting
+ok 92 - RunLedger reopening continues sequence numbers instead of restarting
+  ---
+  duration_ms: 126.715125
+  type: 'test'
+  ...
+# Subtest: resume-synthesis completes a partial run without re-running workers
+ok 93 - resume-synthesis completes a partial run without re-running workers
+  ---
+  duration_ms: 481.282208
+  type: 'test'
+  ...
+# Subtest: resume-synthesis records a repeat failure and keeps the run partial
+ok 94 - resume-synthesis records a repeat failure and keeps the run partial
+  ---
+  duration_ms: 303.957833
+  type: 'test'
+  ...
+# Subtest: resume-synthesis refuses completed runs and runs without results
+ok 95 - resume-synthesis refuses completed runs and runs without results
+  ---
+  duration_ms: 159.484416
+  type: 'test'
+  ...
+# Subtest: durable synthesis resume survives lost checkpoint via synthesis with missing result
+ok 96 - durable synthesis resume survives lost checkpoint via synthesis with missing result
+  ---
+  duration_ms: 661.543667
+  type: 'test'
+  ...
+# Subtest: durable synthesis resume survives lost checkpoint via synthesis with stale result
+ok 97 - durable synthesis resume survives lost checkpoint via synthesis with stale result
+  ---
+  duration_ms: 797.530458
+  type: 'test'
+  ...
+# Subtest: durable synthesis resume survives lost checkpoint via workers with missing result
+ok 98 - durable synthesis resume survives lost checkpoint via workers with missing result
+  ---
+  duration_ms: 323.906292
+  type: 'test'
+  ...
+# Subtest: durable synthesis resume survives lost checkpoint via workers with stale result
+ok 99 - durable synthesis resume survives lost checkpoint via workers with stale result
+  ---
+  duration_ms: 336.611667
+  type: 'test'
+  ...
+# Subtest: synthesis resume refuses missing completion evidence without calling model
+ok 100 - synthesis resume refuses missing completion evidence without calling model
+  ---
+  duration_ms: 238.694125
+  type: 'test'
+  ...
+# Subtest: synthesis resume refuses invalid-json completion evidence without calling model
+ok 101 - synthesis resume refuses invalid-json completion evidence without calling model
+  ---
+  duration_ms: 303.267833
+  type: 'test'
+  ...
+# Subtest: synthesis resume refuses empty-text completion evidence without calling model
+ok 102 - synthesis resume refuses empty-text completion evidence without calling model
+  ---
+  duration_ms: 364.388416
+  type: 'test'
+  ...
+# Subtest: synthesis resume refuses escape completion evidence without calling model
+ok 103 - synthesis resume refuses escape completion evidence without calling model
+  ---
+  duration_ms: 263.443542
+  type: 'test'
+  ...
+# Subtest: synthesis resume refuses symlink completion evidence without calling model
+ok 104 - synthesis resume refuses symlink completion evidence without calling model
+  ---
+  duration_ms: 368.900083
+  type: 'test'
+  ...
+# Subtest: synthesis resume refuses torn-event completion evidence without calling model
+ok 105 - synthesis resume refuses torn-event completion evidence without calling model
+  ---
+  duration_ms: 300.067125
+  type: 'test'
+  ...
+# Subtest: synthesis resume repairs a missing result after the completed checkpoint without double counting
+ok 106 - synthesis resume repairs a missing result after the completed checkpoint without double counting
+  ---
+  duration_ms: 187.900792
+  type: 'test'
+  ...
+# Subtest: TAP failures become bounded virtual documents
+ok 107 - TAP failures become bounded virtual documents
+  ---
+  duration_ms: 304.792625
+  type: 'test'
+  ...
+# Subtest: test execution rejects non-allowlisted executables
+ok 108 - test execution rejects non-allowlisted executables
+  ---
+  duration_ms: 0.379875
+  type: 'test'
+  ...
+# Subtest: TAP parser deduplicates repeated failure names
+ok 109 - TAP parser deduplicates repeated failure names
+  ---
+  duration_ms: 0.238708
+  type: 'test'
+  ...
+# Subtest: test subprocess environment removes likely credentials
+ok 110 - test subprocess environment removes likely credentials
+  ---
+  duration_ms: 0.136625
+  type: 'test'
+  ...
+# Subtest: accepts a bounded initial job
+ok 111 - accepts a bounded initial job
+  ---
+  duration_ms: 1.021583
+  type: 'test'
+  ...
+# Subtest: rejects model selection and unknown authority fields
+ok 112 - rejects model selection and unknown authority fields
+  ---
+  duration_ms: 0.237333
+  type: 'test'
+  ...
+# Subtest: recovery can retry only a retryable failed identifier supplied by the host
+ok 113 - recovery can retry only a retryable failed identifier supplied by the host
+  ---
+  duration_ms: 0.180625
+  type: 'test'
+  ...
+# Subtest: controlled trial requires one job per input when enabled
+ok 114 - controlled trial requires one job per input when enabled
+  ---
+  duration_ms: 0.08175
+  type: 'test'
+  ...
+# Subtest: controlled trial rejects dependency edges that its dispatcher does not execute
+ok 115 - controlled trial rejects dependency edges that its dispatcher does not execute
+  ---
+  duration_ms: 0.09375
+  type: 'test'
+  ...
+# Subtest: both providers satisfy the same execute() contract for the same request
+ok 116 - both providers satisfy the same execute() contract for the same request
+  ---
+  duration_ms: 2.131041
+  type: 'test'
+  ...
+# Subtest: deterministic provider is byte-for-byte reproducible and costs nothing
+ok 117 - deterministic provider is byte-for-byte reproducible and costs nothing
+  ---
+  duration_ms: 0.259917
+  type: 'test'
+  ...
+# Subtest: the full repo_fanout workflow completes on the deterministic provider at $0
+ok 118 - the full repo_fanout workflow completes on the deterministic provider at $0
+  ---
+  duration_ms: 1742.894417
+  type: 'test'
+  ...
+# Subtest: a route naming an unregistered provider fails closed at construction
+ok 119 - a route naming an unregistered provider fails closed at construction
+  ---
+  duration_ms: 1.30075
+  type: 'test'
+  ...
+# Subtest: every worker system prompt discloses the enforced summary ceiling
+ok 120 - every worker system prompt discloses the enforced summary ceiling
+  ---
+  duration_ms: 0.755291
+  type: 'test'
+  ...
+# Subtest: the parser enforces exactly the contract constants (boundary probes)
+ok 121 - the parser enforces exactly the contract constants (boundary probes)
+  ---
+  duration_ms: 2.686625
+  type: 'test'
+  ...
+# Subtest: the owner decision is in force: ceiling is 1200, not the tuned-on-Sonnet 700
+ok 122 - the owner decision is in force: ceiling is 1200, not the tuned-on-Sonnet 700
+  ---
+  duration_ms: 0.527959
+  type: 'test'
+  ...
+# Subtest: symbolic workers resolve through host-owned provider routes
+ok 123 - symbolic workers resolve through host-owned provider routes
+  ---
+  duration_ms: 1.204167
+  type: 'test'
+  ...
+# Subtest: worker profiles cannot smuggle provider or model authority
+ok 124 - worker profiles cannot smuggle provider or model authority
+  ---
+  duration_ms: 0.2495
+  type: 'test'
+  ...
+# Subtest: repository workflow performs bounded host discovery
+ok 125 - repository workflow performs bounded host discovery
+  ---
+  duration_ms: 146.672084
+  type: 'test'
+  ...
+# Subtest: test-triage workflow collects the two intentional failures
+ok 126 - test-triage workflow collects the two intentional failures
+  ---
+  duration_ms: 290.80425
+  type: 'test'
+  ...
+# Subtest: provider-neutral registry executes repository fan-out in mock mode
+ok 127 - provider-neutral registry executes repository fan-out in mock mode
+  ---
+  duration_ms: 1454.367083
+  type: 'test'
+  ...
+# Subtest: test failure triage records deliberate failures and bounded recovery
+ok 128 - test failure triage records deliberate failures and bounded recovery
+  ---
+  duration_ms: 1681.274917
+  type: 'test'
+  ...
+1..128
+# tests 128
+# suites 0
+# pass 128
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 18441.865667

@@ -1,0 +1,268 @@
+TAP version 13
+# Subtest: abort-commit: settled invalid output records one charged failure and resume uses explicit recovery
+ok 1 - abort-commit: settled invalid output records one charged failure and resume uses explicit recovery
+  ---
+  duration_ms: 1073.089958
+  type: 'test'
+  ...
+# Subtest: abort-commit: artifact failure remains visible during cancellation
+ok 2 - abort-commit: artifact failure remains visible during cancellation
+  ---
+  duration_ms: 439.612292
+  type: 'test'
+  ...
+# Subtest: abort-commit: checkpoint failure remains visible during cancellation
+ok 3 - abort-commit: checkpoint failure remains visible during cancellation
+  ---
+  duration_ms: 394.144542
+  type: 'test'
+  ...
+# Subtest: abort-commit: settlement failure remains visible during cancellation
+ok 4 - abort-commit: settlement failure remains visible during cancellation
+  ---
+  duration_ms: 517.049542
+  type: 'test'
+  ...
+# Subtest: abort-commit: sibling cancellation cannot mask a drained worker persistence failure
+ok 5 - abort-commit: sibling cancellation cannot mask a drained worker persistence failure
+  ---
+  duration_ms: 484.34375
+  type: 'test'
+  ...
+# Subtest: abort-commit: phase checkpoint error is not replaced by clean cancellation
+ok 6 - abort-commit: phase checkpoint error is not replaced by clean cancellation
+  ---
+  duration_ms: 395.245042
+  type: 'test'
+  ...
+# Subtest: Claude adapter sends concurrent Messages requests and settles reservations
+ok 7 - Claude adapter sends concurrent Messages requests and settles reservations
+  ---
+  duration_ms: 195.049125
+  type: 'test'
+  ...
+# Subtest: Claude adapter returns a settled response even when the signal aborts inside settle
+ok 8 - Claude adapter returns a settled response even when the signal aborts inside settle
+  ---
+  duration_ms: 11.750125
+  type: 'test'
+  ...
+# Subtest: atomicWrite fsyncs the temp file and the directory, then leaves only the final file
+ok 9 - atomicWrite fsyncs the temp file and the directory, then leaves only the final file
+  ---
+  duration_ms: 16.528708
+  type: 'test'
+  ...
+# Subtest: RunLedger.checkpoint and writeArtifact both go through the fsync'd atomic write
+ok 10 - RunLedger.checkpoint and writeArtifact both go through the fsync'd atomic write
+  ---
+  duration_ms: 44.694333
+  type: 'test'
+  ...
+# Subtest: R14b hashes ignore object key order, preserve array order, and cover program bytes
+ok 11 - R14b hashes ignore object key order, preserve array order, and cover program bytes
+  ---
+  duration_ms: 1.789875
+  type: 'test'
+  ...
+# Subtest: R14b accepted host plans record reproducible plan/program/input hashes
+ok 12 - R14b accepted host plans record reproducible plan/program/input hashes
+  ---
+  duration_ms: 2982.205833
+  type: 'test'
+  ...
+# Subtest: R14b resume refuses changed saved input bytes without adding job receipts
+ok 13 - R14b resume refuses changed saved input bytes without adding job receipts
+  ---
+  duration_ms: 470.124333
+  type: 'test'
+  ...
+# Subtest: R11 live resume refuses mode/cap/campaign changes before any network or ledger mutation
+ok 14 - R11 live resume refuses mode/cap/campaign changes before any network or ledger mutation
+  ---
+  duration_ms: 273.27075
+  type: 'test'
+  ...
+# Subtest: R11 cooperative abort: in-flight completions land receipts, run_aborted follows the drain, resume reuses them
+ok 15 - R11 cooperative abort: in-flight completions land receipts, run_aborted follows the drain, resume reuses them
+  ---
+  duration_ms: 1104.299459
+  type: 'test'
+  ...
+# Subtest: R11 settled-then-aborted bridge call persists its receipt and is not re-bought on resume
+ok 16 - R11 settled-then-aborted bridge call persists its receipt and is not re-bought on resume
+  ---
+  duration_ms: 1165.385625
+  type: 'test'
+  ...
+# Subtest: R11 resume treats run_completed in the event log as authoritative over a stale checkpoint
+ok 17 - R11 resume treats run_completed in the event log as authoritative over a stale checkpoint
+  ---
+  duration_ms: 1024.353584
+  type: 'test'
+  ...
+# Subtest: R11 cancel under concurrency: HTTP requests are destroyed and budgets drain
+ok 18 - R11 cancel under concurrency: HTTP requests are destroyed and budgets drain
+  ---
+  duration_ms: 489.265417
+  type: 'test'
+  ...
+# Subtest: R11 process kill SIGTERM + resume
+ok 19 - R11 process kill SIGTERM + resume
+  ---
+  duration_ms: 811.959542
+  type: 'test'
+  ...
+# Subtest: R11 process interrupt SIGINT + resume
+ok 20 - R11 process interrupt SIGINT + resume
+  ---
+  duration_ms: 730.748959
+  type: 'test'
+  ...
+# Subtest: R11 process kill SIGKILL + resume
+ok 21 - R11 process kill SIGKILL + resume
+  ---
+  duration_ms: 636.971083
+  type: 'test'
+  ...
+# Subtest: R11 resume is idempotent through both command-line entry points
+ok 22 - R11 resume is idempotent through both command-line entry points
+  ---
+  duration_ms: 931.410375
+  type: 'test'
+  ...
+# Subtest: R11 recovery-phase interruption reuses failures, successes, and original input bytes
+ok 23 - R11 recovery-phase interruption reuses failures, successes, and original input bytes
+  ---
+  duration_ms: 551.025042
+  type: 'test'
+  ...
+# Subtest: R11 abort during synthesis resumes into synthesis only, without replaying earlier phases
+ok 24 - R11 abort during synthesis resumes into synthesis only, without replaying earlier phases
+  ---
+  duration_ms: 340.943584
+  type: 'test'
+  ...
+# Subtest: R11 resume keeps a run partial when run_completed says synthesisOk:false behind a stale checkpoint
+ok 25 - R11 resume keeps a run partial when run_completed says synthesisOk:false behind a stale checkpoint
+  ---
+  duration_ms: 322.825667
+  type: 'test'
+  ...
+# Subtest: auto strategy: small result sets stay single-call, large ones map-reduce
+ok 26 - auto strategy: small result sets stay single-call, large ones map-reduce
+  ---
+  duration_ms: 1.309333
+  type: 'test'
+  ...
+# Subtest: map-reduce chunks the results and combines part summaries
+ok 27 - map-reduce chunks the results and combines part summaries
+  ---
+  duration_ms: 1.799875
+  type: 'test'
+  ...
+# Subtest: a truncated map call fails closed with stage and chunk recorded
+ok 28 - a truncated map call fails closed with stage and chunk recorded
+  ---
+  duration_ms: 0.785125
+  type: 'test'
+  ...
+# Subtest: RunLedger reopening continues sequence numbers instead of restarting
+ok 29 - RunLedger reopening continues sequence numbers instead of restarting
+  ---
+  duration_ms: 27.687875
+  type: 'test'
+  ...
+# Subtest: resume-synthesis completes a partial run without re-running workers
+ok 30 - resume-synthesis completes a partial run without re-running workers
+  ---
+  duration_ms: 143.150792
+  type: 'test'
+  ...
+# Subtest: resume-synthesis records a repeat failure and keeps the run partial
+ok 31 - resume-synthesis records a repeat failure and keeps the run partial
+  ---
+  duration_ms: 193.216458
+  type: 'test'
+  ...
+# Subtest: resume-synthesis refuses completed runs and runs without results
+ok 32 - resume-synthesis refuses completed runs and runs without results
+  ---
+  duration_ms: 65.324458
+  type: 'test'
+  ...
+# Subtest: durable synthesis resume survives lost checkpoint via synthesis with missing result
+ok 33 - durable synthesis resume survives lost checkpoint via synthesis with missing result
+  ---
+  duration_ms: 483.851958
+  type: 'test'
+  ...
+# Subtest: durable synthesis resume survives lost checkpoint via synthesis with stale result
+ok 34 - durable synthesis resume survives lost checkpoint via synthesis with stale result
+  ---
+  duration_ms: 371.442833
+  type: 'test'
+  ...
+# Subtest: durable synthesis resume survives lost checkpoint via workers with missing result
+ok 35 - durable synthesis resume survives lost checkpoint via workers with missing result
+  ---
+  duration_ms: 214.280958
+  type: 'test'
+  ...
+# Subtest: durable synthesis resume survives lost checkpoint via workers with stale result
+ok 36 - durable synthesis resume survives lost checkpoint via workers with stale result
+  ---
+  duration_ms: 247.5365
+  type: 'test'
+  ...
+# Subtest: synthesis resume refuses missing completion evidence without calling model
+ok 37 - synthesis resume refuses missing completion evidence without calling model
+  ---
+  duration_ms: 155.511917
+  type: 'test'
+  ...
+# Subtest: synthesis resume refuses invalid-json completion evidence without calling model
+ok 38 - synthesis resume refuses invalid-json completion evidence without calling model
+  ---
+  duration_ms: 208.129083
+  type: 'test'
+  ...
+# Subtest: synthesis resume refuses empty-text completion evidence without calling model
+ok 39 - synthesis resume refuses empty-text completion evidence without calling model
+  ---
+  duration_ms: 233.653416
+  type: 'test'
+  ...
+# Subtest: synthesis resume refuses escape completion evidence without calling model
+ok 40 - synthesis resume refuses escape completion evidence without calling model
+  ---
+  duration_ms: 273.887542
+  type: 'test'
+  ...
+# Subtest: synthesis resume refuses symlink completion evidence without calling model
+ok 41 - synthesis resume refuses symlink completion evidence without calling model
+  ---
+  duration_ms: 281.778833
+  type: 'test'
+  ...
+# Subtest: synthesis resume refuses torn-event completion evidence without calling model
+ok 42 - synthesis resume refuses torn-event completion evidence without calling model
+  ---
+  duration_ms: 264.038583
+  type: 'test'
+  ...
+# Subtest: synthesis resume repairs a missing result after the completed checkpoint without double counting
+ok 43 - synthesis resume repairs a missing result after the completed checkpoint without double counting
+  ---
+  duration_ms: 246.744875
+  type: 'test'
+  ...
+1..43
+# tests 43
+# suites 0
+# pass 43
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8341.479584

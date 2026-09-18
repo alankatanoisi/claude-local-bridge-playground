@@ -50,11 +50,51 @@ function readEvents(ledger) {
   return events;
 }
 
+// A retry's success receipt is newer evidence than the original failed run.
+// Read the text it points to; result.json and state.json may both be stale.
+function restoreSynthesisResume(ledger, saved, events = readEvents(ledger)) {
+  const completed = events.filter((event) => event.type === 'synthesis_resume_completed').pop();
+  if (!completed) return null;
+  const receipt = completed.payload;
+  if (
+    typeof receipt?.artifact !== 'string' ||
+    !['single', 'map_reduce'].includes(receipt.strategy) ||
+    !Number.isInteger(receipt.calls) ||
+    receipt.calls < 1
+  )
+    throw new Error('invalid synthesis resume completion receipt');
+  const artifactPath = path.resolve(ledger.runDir, receipt.artifact);
+  const artifactRoot = fs.realpathSync(ledger.artifactDir) + path.sep;
+  // Check the real path too, so a symbolic link cannot point outside artifacts.
+  if (
+    !artifactPath.startsWith(path.resolve(ledger.artifactDir) + path.sep) ||
+    !fs.realpathSync(artifactPath).startsWith(artifactRoot)
+  ) {
+    throw new Error('synthesis resume artifact escapes run artifacts');
+  }
+  const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
+  if (typeof artifact.text !== 'string' || !artifact.text.trim()) {
+    throw new Error('invalid synthesis resume artifact text');
+  }
+  return {
+    ...saved,
+    phase: 'completed',
+    synthesis: artifact.text,
+    synthesisFailure: null,
+    synthesisStrategy: receipt.strategy,
+    // lastSeq tells us whether this checkpoint already counted the retry.
+    synthesisCalls: (saved.synthesisCalls || 0) + (saved.lastSeq >= completed.seq ? 0 : receipt.calls),
+    synthesisResumedAt: completed.at,
+  };
+}
+
 function restoreWorkerRun({ ledger, objective, planSource, plannerModel, plannerLadder, policyFor }) {
   const saved = JSON.parse(fs.readFileSync(ledger.statePath, 'utf8'));
   const events = readEvents(ledger);
 
   if (saved.phase === 'completed') return { kind: 'completed', state: saved, staleCheckpoint: false };
+  const resumed = restoreSynthesisResume(ledger, saved, events);
+  if (resumed) return { kind: 'completed', state: resumed, staleCheckpoint: true };
   const completed = events.find((event) => event.type === 'run_completed');
   if (completed) {
     // Medium #3 companion: the final checkpoint was lost after run_completed
@@ -198,4 +238,4 @@ function restoreWorkerRun({ ledger, objective, planSource, plannerModel, planner
   };
 }
 
-module.exports = { restoreWorkerRun };
+module.exports = { restoreWorkerRun, restoreSynthesisResume };

@@ -1,0 +1,6 @@
+{
+  "starlark-host/src/coordinator.js": "50b4b44479e36d64c3c8512a95edb208266a9f89defd9ddac91c0d88a6c50eba",
+  "starlark-host/test/abort-commit-boundaries.test.js": "f9ad4bcd0d2180eba0ca9f5fc14f13e421a6a75c51f665f3407dae7eab83016b",
+  "HANDOFF-starlark-abort-boundaries-2026-09-18.md": "4b9b44c82aa7d60a4bce3b1c2ca4e6c65231ab0fec89f3beb6edde8716a66c79",
+  "HANDOFF-starlark-abort-boundaries-2026-09-18.html": "df01b120f4aa2553753159ffbccd8feb41621834c1f71d95aa34a79f636097b0"
+}
