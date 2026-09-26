@@ -268,6 +268,9 @@ describe('FG-M assertion oracles can still fail', () => {
       'test/runner/private-fs.test.js': 4,
       // Persistent-shell fast path is opt-in and not exercised by default.
       'test/runner/persistent-shell.test.js': 1,
+      // bin/t3-cursor-shim.sh is a POSIX shell script (T3 Code launches it
+      // directly, without a shell); Windows loses the whole suite.
+      'test/runner/acp-t3-shim.test.js': 1,
     };
 
     const actual = {};
