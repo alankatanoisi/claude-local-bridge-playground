@@ -1,0 +1,2118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Command Builder V2 — Local Bridge Runner</title>
+    <!--
+      Command Builder V2 — a re-imagining of docs/command-builder.html.
+
+      Design in one sentence: ONE state object, ONE pure core, MANY projections.
+
+        state  ──▶  Core.derive(state)  ──▶  { command, chips, errors, warnings,
+                                               contract, matrix, tools, ui }
+                                              │
+              DOM binder paints every panel from that one result.
+
+      Why this shape:
+        * The page's rules live in the script block whose id is builder-core
+          and never touch the DOM, so test/runner/command-builder-v2.test.js loads that script
+          alone and checks every generated command against the REAL runner CLI
+          (its option table, its chaos gate, its model validator).
+        * Mutually exclusive choices are radios, not checkboxes, so conflicting
+          states cannot be expressed in the first place (session start mode,
+          startup context, file authority, shell authority).
+        * Dependencies are nested visually and enforced in one place
+          (Core.derive), never by ad-hoc "if this then uncheck that" code, so
+          nothing you set is ever silently erased — inactive choices are greyed
+          and explained, and come back when their parent is re-enabled.
+        * Every emitted flag carries its own "why", so the command panel can
+          show the command as annotated chips and a plain-language contract.
+
+      Beginner notes are inline throughout; nothing here needs a build step.
+    -->
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f5f2;
+        --panel: #ffffff;
+        --panel-2: #faf9f6;
+        --ink: #1f2328;
+        --ink-2: #57606a;
+        --ink-3: #8c959f;
+        --line: #d9d5cc;
+        --line-2: #ebe8e1;
+        --accent: #4f46e5;
+        --accent-ink: #ffffff;
+        --read: #1a7f37;
+        --write: #b45309;
+        --shell: #c2410c;
+        --danger: #b91c1c;
+        --orch: #7c3aed;
+        --info: #0969da;
+        --code-bg: #14161a;
+        --code-ink: #e6edf3;
+        --chip-read: #dcfce7;
+        --chip-write: #fef3c7;
+        --chip-shell: #fee2e2;
+        --chip-orch: #ede9fe;
+        --chip-info: #e5e7eb;
+        --radius: 10px;
+        --shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1115;
+          --panel: #171a21;
+          --panel-2: #1c2029;
+          --ink: #e6e8ec;
+          --ink-2: #a3a9b5;
+          --ink-3: #6b7280;
+          --line: #2a2f3a;
+          --line-2: #222630;
+          --accent: #8b85ff;
+          --accent-ink: #0f1115;
+          --read: #4ade80;
+          --write: #fbbf24;
+          --shell: #fb923c;
+          --danger: #f87171;
+          --orch: #c4b5fd;
+          --info: #7dd3fc;
+          --code-bg: #0b0d11;
+          --code-ink: #e6edf3;
+          --chip-read: #14532d;
+          --chip-write: #78350f;
+          --chip-shell: #7f1d1d;
+          --chip-orch: #4c1d95;
+          --chip-info: #374151;
+          --shadow: none;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          'Segoe UI',
+          sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.5;
+        font-size: 15px;
+      }
+      code,
+      pre,
+      .mono {
+        font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+        font-size: 0.9em;
+      }
+      a {
+        color: var(--accent);
+      }
+      .wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px 20px 60px;
+      }
+      header.top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+      }
+      header.top h1 {
+        font-size: 1.35rem;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      header.top h1 small {
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: var(--ink-2);
+        margin-left: 8px;
+      }
+      header.top nav a {
+        font-size: 0.85rem;
+        margin-left: 14px;
+        color: var(--ink-2);
+        text-decoration: none;
+      }
+      header.top nav a:hover {
+        color: var(--accent);
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 440px;
+        gap: 20px;
+        align-items: start;
+      }
+      @media (max-width: 960px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .side {
+          position: static !important;
+        }
+      }
+
+      section.card,
+      details.card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 14px;
+        padding: 16px 18px;
+      }
+      details.card > summary {
+        cursor: pointer;
+        list-style: none;
+        margin: -16px -18px;
+        padding: 14px 18px;
+      }
+      details.card[open] > summary {
+        margin-bottom: 10px;
+        border-bottom: 1px solid var(--line-2);
+      }
+      details.card > summary::-webkit-details-marker {
+        display: none;
+      }
+      .step {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 650;
+        font-size: 0.98rem;
+      }
+      .step .n {
+        display: inline-grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: var(--accent-ink);
+        font-size: 0.75rem;
+        font-weight: 700;
+      }
+      .step .hint {
+        font-weight: 400;
+        color: var(--ink-2);
+        font-size: 0.82rem;
+        margin-left: auto;
+      }
+      .lede {
+        color: var(--ink-2);
+        font-size: 0.86rem;
+        margin: 6px 0 12px;
+      }
+
+      label.field {
+        display: block;
+        margin-bottom: 12px;
+      }
+      label.field > span.lab,
+      .lab {
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--ink-2);
+        margin-bottom: 4px;
+      }
+      input[type='text'],
+      input[type='number'],
+      select,
+      textarea {
+        width: 100%;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--ink);
+        font: inherit;
+        font-size: 0.92rem;
+        padding: 8px 10px;
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+        outline-offset: 1px;
+        border-color: var(--accent);
+      }
+      textarea {
+        min-height: 84px;
+        resize: vertical;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 10px 14px;
+      }
+      .help {
+        font-size: 0.78rem;
+        color: var(--ink-2);
+        margin: 4px 0 0;
+      }
+      .help code {
+        background: var(--line-2);
+        padding: 0 4px;
+        border-radius: 4px;
+      }
+
+      /* Segmented radio controls */
+      .seg {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 4px 0 8px;
+      }
+      .seg label {
+        position: relative;
+      }
+      .seg input {
+        position: absolute;
+        opacity: 0;
+        inset: 0;
+        pointer-events: none;
+      }
+      .seg span {
+        display: inline-block;
+        border: 1px solid var(--line);
+        background: var(--panel-2);
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        user-select: none;
+        transition: 0.12s;
+      }
+      .seg span small {
+        display: block;
+        font-size: 0.7rem;
+        color: var(--ink-2);
+        font-weight: 400;
+      }
+      .seg input:checked + span {
+        border-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+        color: var(--ink);
+        font-weight: 600;
+      }
+      .seg input:focus-visible + span {
+        outline: 2px solid var(--accent);
+      }
+      .seg label.inactive span,
+      .opt.inactive {
+        opacity: 0.45;
+      }
+      .seg input:disabled + span {
+        cursor: not-allowed;
+      }
+
+      /* Option rows (checkbox + description) */
+      .opts {
+        display: grid;
+        gap: 6px;
+      }
+      .opt {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 10px;
+        align-items: start;
+        padding: 6px 8px;
+        border-radius: 8px;
+        transition: background 0.12s;
+      }
+      .opt:hover {
+        background: var(--panel-2);
+      }
+      .opt input[type='checkbox'] {
+        margin-top: 4px;
+        accent-color: var(--accent);
+        width: 15px;
+        height: 15px;
+      }
+      .opt .t {
+        font-size: 0.9rem;
+      }
+      .opt .t code {
+        color: var(--ink-2);
+        font-size: 0.78em;
+        margin-left: 4px;
+      }
+      .opt .d {
+        font-size: 0.78rem;
+        color: var(--ink-2);
+      }
+      .opt .note {
+        font-size: 0.76rem;
+        color: var(--info);
+        margin-top: 2px;
+      }
+      .opt .note:empty {
+        display: none;
+      }
+      .nest {
+        margin-left: 26px;
+        border-left: 2px solid var(--line-2);
+        padding-left: 10px;
+      }
+
+      /* Capability groups */
+      .groups {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 8px;
+      }
+      .group {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+        background: var(--panel-2);
+      }
+      .group.inactive {
+        opacity: 0.5;
+      }
+      .group .head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+      .group .head input {
+        accent-color: var(--accent);
+      }
+      .group .head .tag {
+        margin-left: auto;
+        font-size: 0.68rem;
+        font-weight: 600;
+        padding: 1px 7px;
+        border-radius: 999px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+      .tag.read {
+        background: var(--chip-read);
+        color: var(--read);
+      }
+      .tag.write {
+        background: var(--chip-write);
+        color: var(--write);
+      }
+      .tag.shell {
+        background: var(--chip-shell);
+        color: var(--shell);
+      }
+      .tag.orch {
+        background: var(--chip-orch);
+        color: var(--orch);
+      }
+      .tag.info {
+        background: var(--chip-info);
+        color: var(--ink-2);
+      }
+      .group .d {
+        font-size: 0.76rem;
+        color: var(--ink-2);
+        margin: 4px 0 0;
+      }
+      .group .tools {
+        margin: 6px 0 0;
+        padding: 0;
+        list-style: none;
+        font-size: 0.76rem;
+      }
+      .group .tools li {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .group .tools li input {
+        accent-color: var(--accent);
+        width: 12px;
+        height: 12px;
+      }
+      .group .tools .verdict {
+        margin-left: auto;
+        color: var(--ink-3);
+      }
+      .group .tools .verdict.asks {
+        color: var(--write);
+      }
+      .group .tools .verdict.runs {
+        color: var(--read);
+      }
+      .group .tools .verdict.proposal {
+        color: var(--info);
+      }
+      .group .tools .verdict.hidden {
+        color: var(--ink-3);
+      }
+
+      /* Side panel */
+      .side {
+        position: sticky;
+        top: 14px;
+      }
+      .cmdbox {
+        background: var(--code-bg);
+        color: var(--code-ink);
+        border-radius: 8px;
+        padding: 12px 12px 10px;
+        min-height: 72px;
+        line-height: 1.9;
+        overflow-wrap: anywhere;
+      }
+      .cmdbox .prefix {
+        color: #8b949e;
+      }
+      .chip {
+        display: inline-block;
+        padding: 0 7px;
+        margin: 1px 2px;
+        border-radius: 6px;
+        font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+        font-size: 0.8rem;
+        background: #262b33;
+        color: #e6edf3;
+        border: 1px solid #30363d;
+        cursor: help;
+      }
+      .chip.read {
+        border-color: #2ea043;
+        color: #7ee787;
+      }
+      .chip.write {
+        border-color: #d29922;
+        color: #f2cc60;
+      }
+      .chip.shell {
+        border-color: #f0883e;
+        color: #ffa657;
+      }
+      .chip.danger {
+        border-color: #f85149;
+        color: #ff7b72;
+        background: #3a1417;
+      }
+      .chip.orch {
+        border-color: #a371f7;
+        color: #d2a8ff;
+      }
+      .chip.positional {
+        border-color: #58a6ff;
+        color: #a5d6ff;
+        white-space: pre-wrap;
+      }
+      .chip.bin {
+        background: transparent;
+        border-color: transparent;
+        color: #8b949e;
+        padding-left: 0;
+      }
+      .btns {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 10px 0 6px;
+      }
+      button.b {
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border-radius: 8px;
+        border: 1px solid var(--line);
+        background: var(--panel-2);
+        color: var(--ink);
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+      button.b.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-ink);
+      }
+      button.b:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .feedback {
+        font-size: 0.78rem;
+        color: var(--ink-2);
+        min-height: 1.2em;
+      }
+      .msgs {
+        margin: 8px 0 0;
+        padding: 0;
+        list-style: none;
+        font-size: 0.82rem;
+      }
+      .msgs li {
+        padding: 6px 9px;
+        border-radius: 7px;
+        margin-bottom: 5px;
+        border: 1px solid;
+      }
+      .msgs li.error {
+        color: var(--danger);
+        border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+        background: color-mix(in srgb, var(--danger) 8%, transparent);
+      }
+      .msgs li.warn {
+        color: var(--write);
+        border-color: color-mix(in srgb, var(--write) 45%, transparent);
+        background: color-mix(in srgb, var(--write) 8%, transparent);
+      }
+      .msgs li.info {
+        color: var(--info);
+        border-color: color-mix(in srgb, var(--info) 40%, transparent);
+        background: color-mix(in srgb, var(--info) 7%, transparent);
+      }
+      .contract {
+        font-size: 0.88rem;
+        line-height: 1.55;
+        margin: 10px 0 0;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: var(--panel-2);
+        border: 1px solid var(--line-2);
+      }
+      .contract b {
+        font-weight: 650;
+      }
+      table.matrix {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+        margin-top: 8px;
+      }
+      table.matrix th,
+      table.matrix td {
+        text-align: left;
+        padding: 4px 6px;
+        border-bottom: 1px solid var(--line-2);
+      }
+      table.matrix th {
+        color: var(--ink-2);
+        font-weight: 600;
+      }
+      .v-runs {
+        color: var(--read);
+        font-weight: 600;
+      }
+      .v-asks {
+        color: var(--write);
+        font-weight: 600;
+      }
+      .v-proposal {
+        color: var(--info);
+        font-weight: 600;
+      }
+      .v-hidden {
+        color: var(--ink-3);
+      }
+      .why {
+        font-size: 0.78rem;
+        margin: 6px 0 0;
+        padding-left: 18px;
+      }
+      .why li {
+        margin-bottom: 3px;
+      }
+      .why code {
+        color: var(--ink);
+      }
+      dl.gloss dt {
+        font-weight: 600;
+        margin-top: 8px;
+        font-size: 0.86rem;
+      }
+      dl.gloss dd {
+        margin: 0;
+        font-size: 0.8rem;
+        color: var(--ink-2);
+      }
+      .side pre {
+        background: var(--code-bg);
+        color: var(--code-ink);
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-size: 0.76rem;
+        overflow-x: auto;
+        white-space: pre-wrap;
+      }
+      .recipes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .recipes button {
+        font: inherit;
+        font-size: 0.8rem;
+        border: 1px solid var(--line);
+        background: var(--panel-2);
+        color: var(--ink);
+        border-radius: 999px;
+        padding: 5px 11px;
+        cursor: pointer;
+      }
+      .recipes button:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .recipes button.danger {
+        border-color: color-mix(in srgb, var(--danger) 50%, transparent);
+        color: var(--danger);
+      }
+      .ack {
+        border: 1px solid color-mix(in srgb, var(--danger) 50%, transparent);
+        background: color-mix(in srgb, var(--danger) 7%, transparent);
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin-top: 6px;
+        font-size: 0.84rem;
+      }
+      .ack input {
+        accent-color: var(--danger);
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .kbd {
+        font-size: 0.72rem;
+        border: 1px solid var(--line);
+        border-bottom-width: 2px;
+        border-radius: 4px;
+        padding: 0 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <h1>
+          Command Builder <small>V2 — the same runner, a calmer form</small>
+        </h1>
+        <nav aria-label="Runner docs">
+          <a href="command-builder.html">V1 builder</a>
+          <a href="command-builder-coherence-check-2026-09-26.html">Coherence check</a>
+          <a href="runner-quickstart.html">Quick Start</a>
+        </nav>
+      </header>
+
+      <div class="layout">
+        <!-- ─────────────────────────── LEFT: the form ─────────────────────────── -->
+        <div>
+          <!-- 1. Where & what -->
+          <section class="card" id="sec-what">
+            <div class="step"><span class="n">1</span> What should happen, and where?</div>
+            <p class="lede">
+              A <b>runner</b> is one agent loop. A <b>coordinator</b> runs phases (research → synthesize → execute →
+              verify) and may fan out to read-only child agents. Start with the runner.
+            </p>
+            <div class="seg" role="radiogroup" aria-label="Engine">
+              <label><input type="radio" name="engine" data-bind="engine" value="runner" /><span>Runner<small>one agent loop</small></span></label>
+              <label><input type="radio" name="engine" data-bind="engine" value="coordinator" /><span>Coordinator<small>phased, with workers</small></span></label>
+            </div>
+            <label class="field">
+              <span class="lab" data-label-for="prompt">Prompt (what the runner should do)</span>
+              <textarea data-bind="prompt" placeholder="e.g. Explain how src/server.js works, read-only.&#10;or: Add JSDoc to every exported function in src/runner/tool-catalog.js"></textarea>
+              <p class="help">Say what may change. "Do not edit files" in the prompt is a request; the Authority step below is the rule.</p>
+            </label>
+            <div class="row">
+              <label class="field">
+                <span class="lab">Target project folder <code>--cwd</code></span>
+                <input type="text" data-bind="cwd" placeholder="/Users/alanman/path/to/project" />
+                <p class="help">The folder the tools read and write inside. Not necessarily where the runner code lives.</p>
+              </label>
+              <label class="field">
+                <span class="lab">Runner repo folder (where you paste the command)</span>
+                <input type="text" data-bind="runnerPath" placeholder="/Users/alanman/Developer/claude-local-bridge-playground" />
+                <p class="help">Added as <code>cd … &amp;&amp;</code> in front of the command. Leave blank if Terminal is already there.</p>
+              </label>
+            </div>
+            <div class="lab">Recipes (starting points — they never touch the two folders above)</div>
+            <div class="recipes" id="recipes"></div>
+          </section>
+
+          <!-- 2. Authority -->
+          <section class="card" id="sec-authority">
+            <div class="step"><span class="n">2</span> Authority <span class="hint">what the model is allowed to do</span></div>
+            <p class="lede">
+              Two independent dials. <b>Files</b> decides whether writes are hidden, recorded as proposals, confirmed by
+              you, or automatic. <b>Shell</b> decides whether the model can run commands and whether it asks first.
+            </p>
+            <div class="lab" data-label-for="files">Files</div>
+            <div class="seg" role="radiogroup" aria-label="File authority">
+              <label><input type="radio" name="files" data-bind="files" value="look" /><span>Look only<small>write tools hidden</small></span></label>
+              <label><input type="radio" name="files" data-bind="files" value="propose" /><span>Propose<small>plan mode: reads real, writes recorded</small></span></label>
+              <label><input type="radio" name="files" data-bind="files" value="ask" /><span>Edit, ask first<small>you confirm each write</small></span></label>
+              <label><input type="radio" name="files" data-bind="files" value="auto" /><span>Edit, auto-approve<small>--accept-edits</small></span></label>
+            </div>
+            <div class="lab">Shell</div>
+            <div class="seg" role="radiogroup" aria-label="Shell authority">
+              <label><input type="radio" name="shell" data-bind="shell" value="off" /><span>Off<small>bash hidden (default)</small></span></label>
+              <label><input type="radio" name="shell" data-bind="shell" value="ask" /><span>On, ask each command<small>--allow-shell</small></span></label>
+              <label><input type="radio" name="shell" data-bind="shell" value="unattended" /><span>On, unattended<small>--allow-shell --dont-ask</small></span></label>
+            </div>
+            <p class="help">
+              Shell is <b>unsandboxed local-account authority</b>: commands start in the target folder but are not
+              confined to it. History-changing git commands (commit, push, checkout…) and destructive worktree cleanup
+              always ask, in every mode.
+            </p>
+            <div class="opts">
+              <label class="opt" data-opt="orchUnattended">
+                <input type="checkbox" data-bind="orchUnattended" />
+                <span><span class="t">Let agents and worktree tools run without asking <code>--dont-ask</code></span>
+                  <span class="d">Only matters when the Agents or Worktrees group is on. Unattended shell already implies it.</span>
+                  <span class="note" data-note="orchUnattended"></span></span>
+              </label>
+              <label class="opt" data-opt="worktree">
+                <input type="checkbox" data-bind="worktree" />
+                <span><span class="t">Start inside a fresh git worktree <code>--worktree</code></span>
+                  <span class="d">Harness-enforced isolation: the run happens on a new branch in a separate folder and your checkout is never touched. Needs a git repo with at least one commit. The worktree is kept for review.</span>
+                  <span class="note" data-note="worktree"></span></span>
+              </label>
+              <label class="opt" data-opt="noNetwork">
+                <input type="checkbox" data-bind="noNetwork" />
+                <span><span class="t">Best-effort network guard for shell <code>--no-network</code></span>
+                  <span class="d">Points the shell's proxy variables at a dead address so most curl/npm traffic fails. Not isolation: a command can unset them.</span>
+                  <span class="note" data-note="noNetwork"></span></span>
+              </label>
+              <label class="opt" data-opt="testWatch">
+                <input type="checkbox" data-bind="testWatch" />
+                <span><span class="t">Run detected tests after each successful write <code>--test-watch</code></span>
+                  <span class="d">npm test, pytest, or BRIDGE_RUNNER_TEST_CMD. Requires shell because tests run through the shell path.</span>
+                  <span class="note" data-note="testWatch"></span></span>
+              </label>
+            </div>
+            <div class="ack" data-opt="ack" hidden>
+              <label><input type="checkbox" data-bind="ack" />
+                <b>I understand:</b> auto-approved edits <i>and</i> unattended shell together let the model change files and
+                run commands with no human review. Emits <code>--chaos-ok</code>, which the runner requires for this combination.</label>
+            </div>
+          </section>
+
+          <!-- 3. Capabilities -->
+          <section class="card" id="sec-capabilities">
+            <div class="step"><span class="n">3</span> Capabilities <span class="hint">which tools the model may call</span></div>
+            <p class="lede">
+              The core read tools are always on. Each group below is an explicit opt-in (<code>--capabilities</code>).
+              A checked tool is <i>available</i>, not <i>required</i>. The verdict next to each tool comes from the
+              runtime permission table for the authority you chose above.
+            </p>
+            <div class="groups" id="groups"></div>
+            <p class="help" id="tools-note"></p>
+          </section>
+
+          <!-- 4. Session -->
+          <section class="card" id="sec-session">
+            <div class="step"><span class="n">4</span> Session <span class="hint">start fresh or pick up where you left off</span></div>
+            <div class="seg" role="radiogroup" aria-label="Session start">
+              <label><input type="radio" name="sessionMode" data-bind="session.mode" value="fresh" /><span>Fresh<small>new checkpoint</small></span></label>
+              <label><input type="radio" name="sessionMode" data-bind="session.mode" value="continue" /><span>Continue latest<small>--continue</small></span></label>
+              <label><input type="radio" name="sessionMode" data-bind="session.mode" value="resume" /><span>Resume a named session<small>--resume-session</small></span></label>
+              <label><input type="radio" name="sessionMode" data-bind="session.mode" value="fork" /><span>Fork a session<small>--fork-from + resume</small></span></label>
+              <label><input type="radio" name="sessionMode" data-bind="session.mode" value="restart" /><span>Restart a named session<small>--new-session</small></span></label>
+            </div>
+            <p class="help" data-note="session.mode"></p>
+            <div class="row">
+              <label class="field" data-opt="session.id">
+                <span class="lab">Session id <code>--session-id</code></span>
+                <input type="text" data-bind="session.id" placeholder="my-run-1" />
+                <p class="help">A checkpoint under <code>~/.bridge-runner/sessions/</code>. Optional for Fresh and Restart; one of id/path is required to Resume.</p>
+              </label>
+              <label class="field" data-opt="session.path">
+                <span class="lab">Session path (instead of an id) <code>--session-path</code></span>
+                <input type="text" data-bind="session.path" placeholder="~/.bridge-runner/sessions/my-run-1.state.json" />
+              </label>
+              <label class="field" data-opt="session.forkFrom">
+                <span class="lab">Parent session to fork <code>--fork-from</code></span>
+                <input type="text" data-bind="session.forkFrom" placeholder="parent-session-id" />
+                <p class="help">Copies the parent, then resumes the copy under the id above (auto-generated if blank).</p>
+              </label>
+            </div>
+            <div class="opts">
+              <label class="opt" data-opt="session.ackRisk">
+                <input type="checkbox" data-bind="session.ackRisk" />
+                <span><span class="t">Resume even if the session is marked degraded <code>--ack-resume-risk</code></span>
+                  <span class="d">Overrides the health gate. Only when you accept possibly poisoned context.</span></span>
+              </label>
+              <label class="opt" data-opt="session.persist">
+                <input type="checkbox" data-bind="session.persist" />
+                <span><span class="t">Save a resumable checkpoint (default on)</span>
+                  <span class="d">Off emits <code>--no-session-persistence</code>: the run still works, but nothing can be resumed later.</span></span>
+              </label>
+              <label class="opt" data-opt="session.archive">
+                <input type="checkbox" data-bind="session.archive" />
+                <span><span class="t">Write the per-turn archive (default on)</span>
+                  <span class="d">Off emits <code>--no-archive</code> and keeps <code>~/.bridge-runner/archive/</code> smaller.</span></span>
+              </label>
+              <label class="opt" data-opt="session.extract">
+                <input type="checkbox" data-bind="session.extract" />
+                <span><span class="t">Queue a run-summary memory proposal <code>--session-extract</code></span>
+                  <span class="d">After a successful run with a saved checkpoint, a small proposal waits for <code>--review-memory</code> approval. Needs a session id or path.</span>
+                  <span class="note" data-note="session.extract"></span></span>
+              </label>
+            </div>
+          </section>
+
+          <!-- 5. Startup context -->
+          <details class="card" id="sec-context">
+            <summary><div class="step"><span class="n">5</span> Startup context <span class="hint">what the model knows before it reads anything</span></div></summary>
+            <p class="lede">The runner starts minimal: no AGENTS.md, no repo map. Opt in deliberately; every addition costs tokens on every turn.</p>
+            <div class="seg" role="radiogroup" aria-label="Startup context">
+              <label><input type="radio" name="ctxMode" data-bind="context.mode" value="minimal" /><span>Minimal<small>default prompt only</small></span></label>
+              <label><input type="radio" name="ctxMode" data-bind="context.mode" value="project" /><span>Project-aware<small>opt-ins below</small></span></label>
+              <label><input type="radio" name="ctxMode" data-bind="context.mode" value="bare" /><span>Bare<small>--bare: strips even the defaults</small></span></label>
+            </div>
+            <div class="opts">
+              <label class="opt" data-opt="context.instructionDocs">
+                <input type="checkbox" data-bind="context.instructionDocs" />
+                <span><span class="t">Load AGENTS.md / CLAUDE.md instruction hierarchy <code>--include-instruction-docs</code></span>
+                  <span class="d">Project rules and conventions in the system prompt.</span></span>
+              </label>
+              <label class="opt" data-opt="context.repoContext">
+                <input type="checkbox" data-bind="context.repoContext" />
+                <span><span class="t">Add the repo-context block (folder + git fingerprint) <code>--include-repo-context</code></span></span>
+              </label>
+              <div class="nest">
+                <label class="opt" data-opt="context.claudeMd">
+                  <input type="checkbox" data-bind="context.claudeMd" />
+                  <span><span class="t">…including CLAUDE.md <code>--include-claude-md</code></span></span>
+                </label>
+                <label class="opt" data-opt="context.repoMap">
+                  <input type="checkbox" data-bind="context.repoMap" />
+                  <span><span class="t">…including a file tree <code>--include-repo-map</code></span></span>
+                </label>
+              </div>
+              <label class="opt" data-opt="context.skills">
+                <input type="checkbox" data-bind="context.skills" />
+                <span><span class="t">List project skills so <code>run_skill</code> knows the names <code>--include-skills</code></span></span>
+              </label>
+              <label class="opt" data-opt="context.memory">
+                <input type="checkbox" data-bind="context.memory" />
+                <span><span class="t">Load approved runner memory <code>--auto-memory</code></span>
+                  <span class="d">Only previously approved topics; nothing new is promoted.</span></span>
+              </label>
+              <label class="opt" data-opt="context.excludeDynamic">
+                <input type="checkbox" data-bind="context.excludeDynamic" />
+                <span><span class="t">Move the cwd/git fingerprint into the first user message <code>--exclude-dynamic-system-prompt-sections</code></span>
+                  <span class="d">Keeps the system prompt byte-stable for prompt caching.</span></span>
+              </label>
+            </div>
+            <p class="help" data-note="context.mode"></p>
+          </details>
+
+          <!-- 6. Model -->
+          <details class="card" id="sec-model">
+            <summary><div class="step"><span class="n">6</span> Model &amp; thinking <span class="hint" data-note="model.summary"></span></div></summary>
+            <div class="row">
+              <label class="field">
+                <span class="lab">Model <code>--model</code></span>
+                <select data-bind="model.id" id="model-select"></select>
+                <p class="help" data-note="model.id"></p>
+              </label>
+              <label class="field">
+                <span class="lab">Custom or future model id (overrides the picker)</span>
+                <input type="text" data-bind="model.custom" placeholder="leave blank to use the picker" />
+                <p class="help">Unknown ids pass through; the runner cannot validate effort/thinking or price them locally.</p>
+              </label>
+            </div>
+            <div class="lab">Effort <code>--effort</code></div>
+            <div class="seg" role="radiogroup" aria-label="Effort" id="effort-seg">
+              <label><input type="radio" name="effort" data-bind="model.effort" value="" /><span>default<small>omit the field</small></span></label>
+              <label><input type="radio" name="effort" data-bind="model.effort" value="low" /><span>low</span></label>
+              <label><input type="radio" name="effort" data-bind="model.effort" value="medium" /><span>medium</span></label>
+              <label><input type="radio" name="effort" data-bind="model.effort" value="high" /><span>high</span></label>
+              <label><input type="radio" name="effort" data-bind="model.effort" value="xhigh" /><span>xhigh</span></label>
+              <label><input type="radio" name="effort" data-bind="model.effort" value="max" /><span>max</span></label>
+            </div>
+            <div class="lab">Adaptive thinking <code>--thinking</code></div>
+            <div class="seg" role="radiogroup" aria-label="Thinking" id="thinking-seg">
+              <label><input type="radio" name="thinking" data-bind="model.thinking" value="auto" /><span>auto<small>follow the model's rules</small></span></label>
+              <label><input type="radio" name="thinking" data-bind="model.thinking" value="adaptive" /><span>adaptive</span></label>
+              <label><input type="radio" name="thinking" data-bind="model.thinking" value="off" /><span>off</span></label>
+            </div>
+            <p class="help" data-note="model.thinking"></p>
+            <div class="row">
+              <label class="field" data-opt="model.temperature">
+                <span class="lab">Temperature <code>--temperature</code></span>
+                <input type="number" data-bind="model.temperature" min="0" max="1" step="0.1" placeholder="model default" />
+                <p class="help" data-note="model.temperature"></p>
+              </label>
+              <label class="field">
+                <span class="lab">Response output tokens per request <code>--max-tokens</code></span>
+                <input type="number" data-bind="model.maxTokens" min="100" step="100" />
+                <p class="help" data-note="model.maxTokens"></p>
+              </label>
+            </div>
+          </details>
+
+          <!-- 7. Limits -->
+          <details class="card" id="sec-limits">
+            <summary><div class="step"><span class="n">7</span> Limits &amp; stops <span class="hint">how the run ends if it does not finish</span></div></summary>
+            <div class="row">
+              <label class="field"><span class="lab">Max steps <code>--max-steps</code></span>
+                <input type="number" data-bind="limits.maxSteps" min="1" max="200" />
+                <p class="help" data-note="limits.maxSteps">One step is one model response, possibly with tool calls.</p></label>
+              <label class="field"><span class="lab">Max tool calls per turn <code>--max-tool-calls-per-turn</code></span>
+                <input type="number" data-bind="limits.maxToolCalls" min="1" placeholder="optional" /></label>
+              <label class="field"><span class="lab">Wall clock ceiling (ms) <code>--max-wall-clock-ms</code></span>
+                <input type="number" data-bind="limits.wallClockMs" min="1" placeholder="600000 = 10 min" /></label>
+              <label class="field"><span class="lab">Cost ceiling (USD) <code>--max-cost-usd</code></span>
+                <input type="number" data-bind="limits.costUsd" min="0.01" step="0.01" placeholder="2.00" /></label>
+              <label class="field"><span class="lab">Input-token budget <code>--budget-input-tokens</code></span>
+                <input type="number" data-bind="limits.budgetIn" min="0" placeholder="200000" /></label>
+              <label class="field"><span class="lab">Output-token budget <code>--budget-output-tokens</code></span>
+                <input type="number" data-bind="limits.budgetOut" min="0" placeholder="32000" /></label>
+              <label class="field"><span class="lab">Whole-run token guardrail <code>--max-run-tokens</code></span>
+                <input type="number" data-bind="limits.maxRunTokens" min="1000" step="1000" placeholder="optional" /></label>
+              <label class="field"><span class="lab">Compact old evidence at (tokens) <code>--compact-at-tokens</code></span>
+                <input type="number" data-bind="limits.compactAt" min="1000" step="1000" placeholder="derived from model" /></label>
+              <label class="field" data-opt="limits.confirmTimeout"><span class="lab">Approval timeout (ms) <code>--confirm-timeout</code></span>
+                <input type="number" data-bind="limits.confirmTimeout" min="1000" step="1000" placeholder="wait forever" />
+                <p class="help" data-note="limits.confirmTimeout"></p></label>
+              <label class="field" data-opt="shellTimeout"><span class="lab">Shell command timeout (ms) <code>--shell-timeout</code></span>
+                <input type="number" data-bind="shellTimeout" min="100" max="900000" step="1000" />
+                <p class="help" data-note="shellTimeout"></p></label>
+            </div>
+            <div class="opts">
+              <label class="opt" data-opt="limits.taskScope">
+                <input type="checkbox" data-bind="limits.taskScope" />
+                <span><span class="t">Task-scoped preset <code>--task-scope</code></span>
+                  <span class="d">Step limit becomes 8 unless Max steps is not the default, and old evidence compacts at about 40k tokens.</span>
+                  <span class="note" data-note="limits.taskScope"></span></span>
+              </label>
+              <label class="opt" data-opt="limits.compactEachTurn">
+                <input type="checkbox" data-bind="limits.compactEachTurn" />
+                <span><span class="t">Aggressive compaction preset <code>--compact-each-turn</code></span>
+                  <span class="d">Compacts at about 20k tokens. Despite the name it does not summarize every turn. An explicit compact-at value wins.</span>
+                  <span class="note" data-note="limits.compactEachTurn"></span></span>
+              </label>
+            </div>
+          </details>
+
+          <!-- 8. Output & records -->
+          <details class="card" id="sec-output">
+            <summary><div class="step"><span class="n">8</span> Output &amp; records <span class="hint">what you see and what is saved</span></div></summary>
+            <div class="row">
+              <label class="field"><span class="lab">Output format <code>--output-format</code></span>
+                <select data-bind="output.format">
+                  <option value="text">text — normal terminal output</option>
+                  <option value="json">json — one final JSON object</option>
+                  <option value="stream-json">stream-json — one JSON line per event</option>
+                </select></label>
+              <label class="field"><span class="lab">Runner messages <code>--log-level</code></span>
+                <select data-bind="output.logLevel">
+                  <option value="normal">normal</option>
+                  <option value="verbose">verbose — step-by-step progress</option>
+                  <option value="quiet">quiet — tips and warnings off</option>
+                </select></label>
+              <label class="field"><span class="lab">Flight-recorder trace <code>--trace-level</code></span>
+                <select data-bind="output.traceLevel">
+                  <option value="off">off</option>
+                  <option value="summary">summary — metadata only</option>
+                  <option value="redacted">redacted — scrubbed payloads</option>
+                  <option value="full">full — can include prompts and source</option>
+                </select></label>
+            </div>
+            <div class="opts">
+              <label class="opt" data-opt="output.stream">
+                <input type="checkbox" data-bind="output.stream" />
+                <span><span class="t">Stream the model's text live <code>--stream</code></span>
+                  <span class="d">Only paints with the text output format.</span>
+                  <span class="note" data-note="output.stream"></span></span>
+              </label>
+            </div>
+            <div class="row">
+              <label class="field"><span class="lab">Transcript path <code>--transcript</code></span>
+                <input type="text" data-bind="output.transcript" placeholder="~/.bridge-runner/logs/<timestamp>.jsonl" /></label>
+              <label class="field"><span class="lab">Human-readable log <code>--human-log</code></span>
+                <input type="text" data-bind="output.humanLog" placeholder="~/.bridge-runner/logs/run-notes.md" /></label>
+              <label class="field" data-opt="output.tracePath"><span class="lab">Trace path <code>--trace-path</code></span>
+                <input type="text" data-bind="output.tracePath" placeholder="~/.bridge-runner/traces/run.jsonl" /></label>
+            </div>
+          </details>
+
+          <!-- 9. Prompt tools -->
+          <details class="card" id="sec-prompt-tools">
+            <summary><div class="step"><span class="n">9</span> Prompt templates, attachments, system prompt</div></summary>
+            <div class="row">
+              <label class="field"><span class="lab">Built-in template <code>--prompt-template</code></span>
+                <select data-bind="promptTools.template" id="template-select"></select>
+                <p class="help" data-note="promptTools.template"></p></label>
+              <label class="field"><span class="lab">Custom template name or path</span>
+                <input type="text" data-bind="promptTools.customTemplate" placeholder=".bridge-runner/prompts/mine.md" /></label>
+            </div>
+            <label class="field"><span class="lab">Template arguments, one <code>key=value</code> per line <code>--prompt-arg</code></span>
+              <textarea data-bind="promptTools.args" placeholder="focus=error handling"></textarea></label>
+            <div class="row">
+              <label class="field"><span class="lab">Attach files</span>
+                <select data-bind="promptTools.attachMode">
+                  <option value="read">ask the model to read these paths</option>
+                  <option value="include">embed contents with --include-file (≤ 50 KB each)</option>
+                  <option value="stdin">pipe contents through stdin (cat … |)</option>
+                </select></label>
+              <label class="field"><span class="lab">Relative paths, one per line</span>
+                <textarea data-bind="promptTools.attachPaths" placeholder="README.md&#10;src/server.js"></textarea></label>
+            </div>
+            <div class="row">
+              <label class="field"><span class="lab">Append to the system prompt <code>--append-system-prompt</code></span>
+                <input type="text" data-bind="system.appendText" placeholder="extra rules after the default prompt" /></label>
+              <label class="field"><span class="lab">Append from a file <code>--append-system-prompt-file</code></span>
+                <input type="text" data-bind="system.appendFile" placeholder=".bridge-runner/APPEND_SYSTEM.md" /></label>
+              <label class="field"><span class="lab">Replace the system prompt from a file <code>--system-prompt-file</code></span>
+                <input type="text" data-bind="system.replaceFile" placeholder=".bridge-runner/SYSTEM.md" /></label>
+              <label class="field"><span class="lab">Replace the system prompt inline <code>--system-prompt</code></span>
+                <input type="text" data-bind="system.replaceText" placeholder="advanced — drops the built-in prompt" /></label>
+            </div>
+          </details>
+
+          <!-- 10. Connection & trust -->
+          <details class="card" id="sec-connection">
+            <summary><div class="step"><span class="n">10</span> Connection &amp; trust</div></summary>
+            <div class="row">
+              <label class="field"><span class="lab">Bridge URL <code>--bridge-url</code></span>
+                <input type="text" data-bind="bridge.url" placeholder="http://127.0.0.1:11437 (default)" /></label>
+              <label class="field"><span class="lab">Caller auth token <code>--caller-token</code></span>
+                <input type="text" data-bind="bridge.token" autocomplete="off" spellcheck="false" placeholder="$BRIDGE_CALLER_TOKEN (preferred)" />
+                <p class="help">Never saved in this browser and never put in the share link. Prefer the environment-variable form.</p></label>
+            </div>
+            <div class="opts">
+              <label class="opt" data-opt="trust.recordConsent">
+                <input type="checkbox" data-bind="trust.recordConsent" />
+                <span><span class="t">Record folder consent up front <code>--trust-workspace</code></span>
+                  <span class="d">Answers the first-run "do you trust this folder" prompt. Required in non-interactive shells. Consent is to the path, not a scan of its contents.</span></span>
+              </label>
+              <label class="opt" data-opt="trust.hooks">
+                <input type="checkbox" data-bind="trust.hooks" />
+                <span><span class="t">Enable project hooks <code>--trusted-workspace</code></span>
+                  <span class="d">Runs <code>.bridge-runner/hooks.json</code> in the target folder; exec hooks also need <code>"trusted": true</code> inside that file.</span></span>
+              </label>
+            </div>
+          </details>
+
+          <!-- Coordinator-only -->
+          <section class="card" id="sec-coordinator" data-engine="coordinator">
+            <div class="step"><span class="n">C</span> Coordinator phases &amp; workers</div>
+            <p class="lede">Phases run in this fixed order. Research and verify use read-only child agents. The Authority step applies to the <b>execute</b> agent only.</p>
+            <div class="opts">
+              <label class="opt"><input type="checkbox" data-bind="coordinator.phases.research" /><span><span class="t">Research</span><span class="d">One read-only worker (or the fan-out plan) inspects relevant files.</span></span></label>
+              <label class="opt"><input type="checkbox" data-bind="coordinator.phases.synthesize" /><span><span class="t">Synthesize</span><span class="d">Compiles objective + evidence into a specification locally; no model call.</span></span></label>
+              <label class="opt"><input type="checkbox" data-bind="coordinator.phases.execute" /><span><span class="t">Execute</span><span class="d">Runs the main agent loop with the authority above.</span></span></label>
+              <label class="opt" data-opt="coordinator.phases.verify"><input type="checkbox" data-bind="coordinator.phases.verify" /><span><span class="t">Verify</span><span class="d">A final read-only worker checks whether the objective looks satisfied. Needs Execute.</span><span class="note" data-note="coordinator.phases.verify"></span></span></label>
+              <label class="opt"><input type="checkbox" data-bind="coordinator.workers" /><span><span class="t">Use read-only research/verify workers (default on)</span><span class="d">Off emits <code>--no-workers</code>; research and verify then do no model work.</span></span></label>
+            </div>
+            <div class="row">
+              <label class="field" data-opt="coordinator.researchPlan"><span class="lab">Research fan-out plan (JSON file) <code>--research-plan</code></span>
+                <input type="text" data-bind="coordinator.researchPlan" placeholder=".bridge-runner/research-plan.json" />
+                <p class="help" data-note="coordinator.researchPlan"></p></label>
+              <label class="field" data-opt="coordinator.maxSteps"><span class="lab">Execute max steps <code>--max-steps</code></span>
+                <input type="number" data-bind="coordinator.maxSteps" min="1" max="200" /></label>
+            </div>
+            <p class="help">The coordinator has a smaller flag surface than the runner. Anything from the other steps that it cannot accept is listed under <b>Not emitted</b> in the command panel.</p>
+          </section>
+        </div>
+
+        <!-- ─────────────────────────── RIGHT: the command ─────────────────────────── -->
+        <aside class="side">
+          <section class="card">
+            <div class="step">Generated command <span class="hint" id="engine-badge"></span></div>
+            <div class="cmdbox" id="cmd" aria-live="polite"></div>
+            <div class="btns">
+              <button class="b primary" id="copy">Copy</button>
+              <button class="b" id="copy-multi" title="Same command, one flag per line with backslash continuations">Copy multi-line</button>
+              <button class="b" id="share" title="Puts this setup in the page address so you can bookmark or send it (token excluded)">Share link</button>
+              <button class="b" id="reset">Reset</button>
+            </div>
+            <div class="feedback" id="feedback">&nbsp;</div>
+            <ul class="msgs" id="msgs"></ul>
+            <div class="contract" id="contract"></div>
+          </section>
+
+          <details class="card" open>
+            <summary><div class="step">Permission matrix <span class="hint">from the runtime's own table</span></div></summary>
+            <table class="matrix" id="matrix"></table>
+            <p class="help">Always asks regardless of mode: git commit / push / checkout / switch / merge through the shell, and deleting a worktree with <code>exit_worktree cleanup=true</code>.</p>
+          </details>
+
+          <details class="card">
+            <summary><div class="step">Why each flag is here</div></summary>
+            <ul class="why" id="why"></ul>
+            <div id="not-emitted"></div>
+          </details>
+
+          <details class="card">
+            <summary><div class="step">Before you run</div></summary>
+            <ol class="why">
+              <li><b>Bridge running?</b> In VS Code: <span class="kbd">Cmd</span>+<span class="kbd">Shift</span>+<span class="kbd">P</span> → <i>Claude Local Bridge: Show Status</i>.</li>
+              <li><b>Right folder?</b> Paste in Terminal from the runner repo folder (the <code>cd</code> prefix handles that when set).</li>
+              <li><b>First time in this target folder?</b> The runner asks for trust consent once; tick <i>Record folder consent</i> to pre-answer it.</li>
+              <li><b>New here?</b> Use the <i>Understand this repo</i> recipe first; it cannot change anything.</li>
+            </ol>
+          </details>
+
+          <details class="card">
+            <summary><div class="step">Maintenance commands</div></summary>
+            <p class="help">Run from the runner repo folder. These are separate from the generated command.</p>
+<pre># list runs that changed files (newest first), then preview / revert
+node bin/local-bridge-undo.js list-runs --cwd /path/to/project
+node bin/local-bridge-undo.js last-run --cwd /path/to/project --dry-run
+node bin/local-bridge-undo.js last-run --cwd /path/to/project
+
+# prompt templates: what exists, and a template's parameters
+node bin/local-bridge-prompts.js list
+node bin/local-bridge-prompts.js show review
+
+# memory proposals waiting for approval; orphan worktree folders
+node bin/local-bridge-runner.js --review-memory --cwd /path/to/project
+node bin/local-bridge-runner.js runner worktrees list
+
+# every flag, straight from the source of truth
+node bin/local-bridge-runner.js --help
+node bin/local-bridge-coordinator.js --help</pre>
+          </details>
+
+          <details class="card">
+            <summary><div class="step">Glossary</div></summary>
+            <dl class="gloss">
+              <dt>step</dt><dd>One model response. It may contain several tool calls; the runner executes them, then asks the model again.</dd>
+              <dt>capability group</dt><dd>A named bundle of tools (edits, recovery, agents, worktrees, skills, history, lsp, shell). Off by default except the core read tools.</dd>
+              <dt>plan mode</dt><dd>Reads run for real; every write, shell command, or orchestration call is recorded as a proposal instead of executed.</dd>
+              <dt>session / checkpoint</dt><dd>A saved conversation under <code>~/.bridge-runner/sessions/</code> that a later run can resume, fork, or restart.</dd>
+              <dt>worktree</dt><dd>A separate checkout of the same repo in another folder on its own branch. Edits there never touch your main checkout.</dd>
+              <dt>compaction</dt><dd>When the conversation grows, older tool evidence is shrunk so the model keeps room to think. Lossless history stays searchable with the history group.</dd>
+              <dt>chaos-ok</dt><dd>Your explicit acknowledgement of the one combination the runner refuses by default: auto-approved edits + shell + no confirmations.</dd>
+              <dt>LSP</dt><dd>Language Server Protocol: go-to-definition, references, hover, diagnostics. <code>lsp_query</code> uses a language server that must already be installed.</dd>
+            </dl>
+          </details>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         CORE — pure rules, no DOM. Loaded on its own by the test suite.
+         ══════════════════════════════════════════════════════════════════════ -->
+    <script id="builder-core">
+      // eslint-disable-next-line no-unused-vars
+      const Core = (() => {
+        'use strict';
+
+        // ── Facts mirrored from the runtime (each has a drift test) ──────────
+        // bin/local-bridge-runner.js and src/runner/model-catalog.js
+        const DEFAULTS = Object.freeze({ model: 'claude-sonnet-5', maxTokens: 2000, maxSteps: 16, shellTimeout: 30000 });
+        const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
+        const THINKING_MODES = ['auto', 'adaptive', 'off'];
+
+        // src/runner/model-catalog.js CATALOG_ENTRIES — effort: accepted levels
+        // or null (rejects --effort); thinking: always-on | default-on |
+        // explicit-adaptive | manual (adaptive rejected); offEffort: levels
+        // accepted with thinking off; sampling default-only rejects any
+        // temperature but 1; maxOutput: ceiling for --max-tokens.
+        const MODEL_RULES = [
+          { id: 'claude-sonnet-5', label: 'Claude Sonnet 5 (default)', effort: EFFORT_LEVELS, thinking: 'default-on', sampling: 'default-only', maxOutput: 128000 },
+          { id: 'claude-fable-5', label: 'Claude Fable 5', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
+          { id: 'claude-mythos-5', label: 'Claude Mythos 5 (limited availability)', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
+          { id: 'claude-mythos-preview', label: 'Claude Mythos Preview (limited availability)', effort: ['low', 'medium', 'high', 'max'], thinking: 'always-on', sampling: 'default-only', maxOutput: 64000 },
+          { id: 'claude-opus-5', label: 'Claude Opus 5', effort: EFFORT_LEVELS, thinking: 'default-on', offEffort: ['low', 'medium', 'high'], sampling: 'default-only', maxOutput: 128000 },
+          { id: 'claude-opus-4-8', label: 'Claude Opus 4.8', effort: EFFORT_LEVELS, thinking: 'explicit-adaptive', sampling: 'default-only', maxOutput: 128000 },
+          { id: 'claude-opus-4-7', label: 'Claude Opus 4.7', effort: EFFORT_LEVELS, thinking: 'explicit-adaptive', sampling: 'default-only', maxOutput: 128000 },
+          { id: 'claude-opus-4-6', label: 'Claude Opus 4.6', effort: ['low', 'medium', 'high', 'max'], thinking: 'explicit-adaptive', sampling: 'supported', maxOutput: 64000 },
+          { id: 'claude-opus-4-5', label: 'Claude Opus 4.5', effort: ['low', 'medium', 'high'], thinking: 'manual', sampling: 'supported', maxOutput: 64000 },
+          { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', effort: ['low', 'medium', 'high', 'max'], thinking: 'explicit-adaptive', sampling: 'supported', maxOutput: 64000 },
+          { id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5', effort: null, thinking: 'manual', sampling: 'supported', maxOutput: 64000 },
+          { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', effort: null, thinking: 'manual', sampling: 'supported', maxOutput: 64000 },
+        ];
+        function modelRulesFor(modelId) {
+          const id = String(modelId || '').trim().toLowerCase();
+          return MODEL_RULES.find((r) => id === r.id || id.startsWith(r.id + '-')) || null;
+        }
+
+        // src/runner/tool-catalog.js CAPABILITY_GROUPS + each tool's meta.category
+        const CORE_TOOLS = ['list_files', 'read_file', 'search_text', 'glob', 'git_status', 'manage_tasks', 'ask_user_question'];
+        const PATCH_TOOL = 'apply_patch'; // hidden member of edits; only an exact --tools list exposes it
+        const GROUPS = [
+          { id: 'edits', label: 'Edits', kind: 'write', tools: ['edit_file', 'write_file'], flag: '--capabilities edits', blurb: 'Exact text replacement and whole-file writes. Every write is backed up for undo.' },
+          { id: 'recovery', label: 'Recovery', kind: 'read', tools: ['undo', 'undo_edit'], flag: '--capabilities recovery', blurb: 'Restore a file from its backup, or undo one edit by id.' },
+          { id: 'agents', label: 'Agents', kind: 'orch', tools: ['spawn_agent'], flag: '--capabilities agents', blurb: 'Delegate a read-only subtask to a child with its own context window. Children cannot spawn children.' },
+          { id: 'worktrees', label: 'Worktrees', kind: 'orch', tools: ['enter_worktree', 'exit_worktree', 'list_worktrees'], flag: '--capabilities worktrees', blurb: 'Let the model move the run into an isolated git worktree and back.' },
+          { id: 'skills', label: 'Skills', kind: 'read', tools: ['run_skill'], flag: '--capabilities skills', blurb: 'Load a skill document from .bridge-runner/skills/ by name.' },
+          { id: 'history', label: 'History recall', kind: 'read', tools: ['search_history', 'expand_history'], flag: '--capabilities history', blurb: 'Search and recover this session\'s own lossless history, including clipped tool results.' },
+          { id: 'lsp', label: 'LSP', kind: 'read', tools: ['lsp_query'], flag: '--enable-lsp', blurb: 'Definition, references, hover, diagnostics. A language server for your project must be on PATH.' },
+          { id: 'shell', label: 'Shell', kind: 'shell', tools: ['bash', 'manage_shell_jobs'], flag: '--allow-shell', blurb: 'Bound to the Shell dial in Authority. Unsandboxed local-account authority.', bound: true },
+        ];
+        const TOOL_CATEGORY = {
+          list_files: 'read-only', read_file: 'read-only', search_text: 'read-only', glob: 'read-only', git_status: 'read-only',
+          manage_tasks: 'read-only', ask_user_question: 'read-only', lsp_query: 'read-only', run_skill: 'read-only',
+          search_history: 'read-only', expand_history: 'read-only', list_worktrees: 'read-only',
+          edit_file: 'write', write_file: 'write', apply_patch: 'write',
+          undo: 'recovery', undo_edit: 'recovery',
+          spawn_agent: 'orchestration',
+          enter_worktree: 'worktree', exit_worktree: 'worktree',
+          bash: 'shell', manage_shell_jobs: 'shell',
+        };
+        const TOOL_BLURB = {
+          list_files: 'folder entries', read_file: 'text, images, PDF', search_text: 'grep-like search', glob: 'find by name pattern',
+          git_status: 'changed files', manage_tasks: 'in-session checklist', ask_user_question: 'asks you in Terminal',
+          lsp_query: 'language-server query', run_skill: 'load a skill document', search_history: 'search own history',
+          expand_history: 'recover a clipped entry', list_worktrees: 'slots + orphan dirs', edit_file: 'exact replacement',
+          write_file: 'create / overwrite', apply_patch: 'unified diff (advanced)', undo: 'restore backup',
+          undo_edit: 'undo one edit', spawn_agent: 'read-only child agent', enter_worktree: 'isolate on a branch',
+          exit_worktree: 'leave (cleanup always asks)', bash: 'shell command', manage_shell_jobs: 'background jobs',
+        };
+
+        // src/runner/permissions.js MODES — verbatim.
+        const MODES = {
+          default: { 'read-only': 'allow', write: 'ask', shell: 'ask', recovery: 'allow', orchestration: 'ask', worktree: 'ask' },
+          acceptEdits: { 'read-only': 'allow', write: 'allow', shell: 'ask', recovery: 'allow', orchestration: 'ask', worktree: 'allow' },
+          dontAsk: { 'read-only': 'allow', write: 'ask', shell: 'allow', recovery: 'allow', orchestration: 'allow', worktree: 'allow' },
+          acceptEditsAndDontAsk: { 'read-only': 'allow', write: 'allow', shell: 'allow', recovery: 'allow', orchestration: 'allow', worktree: 'allow' },
+          plan: { 'read-only': 'allow', write: 'plan_only', shell: 'plan_only', recovery: 'plan_only', orchestration: 'plan_only', worktree: 'plan_only' },
+        };
+        const CATEGORY_ORDER = ['read-only', 'write', 'recovery', 'orchestration', 'worktree', 'shell'];
+
+        // src/runner/prompts/*.md frontmatter (names + recommended authority).
+        const TEMPLATES = [
+          { id: 'explore', label: 'explore — read-only orientation', files: 'look', shell: 'off', params: '' },
+          { id: 'review', label: 'review — findings-first code review', files: 'look', shell: 'off', params: 'focus (optional)' },
+          { id: 'grill', label: 'grill — question the user before finishing', files: 'look', shell: 'off', params: 'focus (optional)' },
+          { id: 'cleanup', label: 'cleanup — simplify while preserving behavior', files: 'ask', shell: 'off', params: '' },
+          { id: 'simplify', label: 'simplify — quality pass after edits', files: 'ask', shell: 'off', params: '' },
+          { id: 'verify', label: 'verify — run checks and fix failures', files: 'auto', shell: 'unattended', params: '' },
+        ];
+
+        // ── State ─────────────────────────────────────────────────────────────
+        function defaultState() {
+          return {
+            engine: 'runner',
+            prompt: '',
+            cwd: '',
+            runnerPath: '',
+            files: 'ask', // look | propose | ask | auto
+            shell: 'off', // off | ask | unattended
+            orchUnattended: false,
+            ack: false,
+            worktree: false,
+            noNetwork: false,
+            testWatch: false,
+            shellTimeout: DEFAULTS.shellTimeout,
+            groups: { edits: true, recovery: true, agents: false, worktrees: false, skills: false, history: false, lsp: false },
+            patch: false,
+            excluded: [],
+            session: { mode: 'fresh', id: '', path: '', forkFrom: '', ackRisk: false, persist: true, archive: true, extract: false },
+            context: { mode: 'minimal', instructionDocs: true, repoContext: true, claudeMd: false, repoMap: false, skills: false, memory: false, excludeDynamic: false },
+            model: { id: DEFAULTS.model, custom: '', effort: '', thinking: 'auto', temperature: '', maxTokens: DEFAULTS.maxTokens },
+            limits: { maxSteps: DEFAULTS.maxSteps, maxToolCalls: '', wallClockMs: '', costUsd: '', budgetIn: '', budgetOut: '', maxRunTokens: '', compactAt: '', confirmTimeout: '', taskScope: false, compactEachTurn: false },
+            output: { format: 'text', logLevel: 'normal', traceLevel: 'off', stream: false, transcript: '', humanLog: '', tracePath: '' },
+            promptTools: { template: '', customTemplate: '', args: '', attachMode: 'read', attachPaths: '' },
+            system: { appendText: '', appendFile: '', replaceFile: '', replaceText: '' },
+            bridge: { url: '', token: '' },
+            trust: { recordConsent: false, hooks: false },
+            coordinator: { phases: { research: true, synthesize: true, execute: true, verify: false }, workers: true, researchPlan: '', maxSteps: DEFAULTS.maxSteps },
+          };
+        }
+
+        // Deep-merge a saved/shared object onto defaults, keeping only known keys
+        // so a stale or hostile blob cannot inject fields. The token is dropped
+        // unless the caller is normalizing live form state (derive), because a
+        // token must never be accepted from storage or a share link.
+        function normalize(input, options = {}) {
+          const base = defaultState();
+          const merge = (target, source) => {
+            if (!source || typeof source !== 'object') return target;
+            for (const key of Object.keys(target)) {
+              if (!Object.prototype.hasOwnProperty.call(source, key)) continue;
+              const cur = target[key];
+              const val = source[key];
+              if (Array.isArray(cur)) target[key] = Array.isArray(val) ? val.filter((x) => typeof x === 'string') : cur;
+              else if (cur && typeof cur === 'object') merge(cur, val);
+              else if (typeof cur === 'boolean') target[key] = !!val;
+              else if (typeof cur === 'number') target[key] = typeof val === 'number' || (typeof val === 'string' && val.trim() !== '') ? val : cur;
+              else target[key] = val == null ? '' : String(val);
+            }
+            return target;
+          };
+          const out = merge(base, input || {});
+          if (!options.keepToken) out.bridge.token = '';
+          return out;
+        }
+
+        // Storage / share form: everything except the caller token.
+        function serialize(state) {
+          const copy = JSON.parse(JSON.stringify(state));
+          copy.bridge.token = '';
+          return copy;
+        }
+
+        // ── Small helpers ─────────────────────────────────────────────────────
+        const num = (v) => (v === '' || v === null || v === undefined ? null : Number(v));
+        const str = (v) => String(v == null ? '' : v).trim();
+        // POSIX single quoting: nothing inside is expanded by the shell.
+        function shellQuote(s) {
+          return "'" + String(s).replace(/'/g, "'\"'\"'") + "'";
+        }
+        // Argument quoting that stays readable and keeps `~` working:
+        //   * plain words and numbers are left bare (claude-opus-5, 24, high)
+        //   * a leading ~/ stays outside the quotes so the shell expands it —
+        //     the runner does NOT expand tildes itself, so a fully quoted
+        //     '~/x' would create a folder literally named "~"
+        //   * everything else is single-quoted
+        function shellArg(s) {
+          const value = String(s);
+          if (/^[A-Za-z0-9_.-]+$/.test(value)) return value;
+          if (value.startsWith('~/')) {
+            const rest = value.slice(2);
+            return '~/' + (/^[A-Za-z0-9_./-]+$/.test(rest) ? rest : shellQuote(rest));
+          }
+          return shellQuote(value);
+        }
+        function quoteOrEnv(s) {
+          return /^\$[A-Z_][A-Z0-9_]*$/.test(s) ? '"' + s + '"' : shellArg(s);
+        }
+        function lines(text) {
+          return str(text).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+        }
+
+        // ── Derived authority flags (the only place the dials become flags) ──
+        function authorityFlags(state) {
+          const plan = state.files === 'propose';
+          const acceptEdits = state.files === 'auto';
+          const allowShell = state.shell !== 'off';
+          const dontAsk = state.shell === 'unattended' || (!!state.orchUnattended && !plan);
+          const chaos = allowShell && acceptEdits && dontAsk;
+          return { plan, acceptEdits, allowShell, dontAsk, chaos, chaosOk: chaos && !!state.ack };
+        }
+        function modeFor(flags) {
+          if (flags.plan) return 'plan';
+          if (flags.acceptEdits && flags.dontAsk) return 'acceptEditsAndDontAsk';
+          if (flags.dontAsk) return 'dontAsk';
+          if (flags.acceptEdits) return 'acceptEdits';
+          return 'default';
+        }
+
+        // ── Effective tool surface ────────────────────────────────────────────
+        function toolSurface(state, flags) {
+          const groupsOn = {};
+          for (const g of GROUPS) {
+            if (g.id === 'shell') groupsOn.shell = flags.allowShell;
+            else if (g.id === 'edits' || g.id === 'recovery') groupsOn[g.id] = state.files !== 'look' && !!state.groups[g.id];
+            else groupsOn[g.id] = !!state.groups[g.id];
+          }
+          const patchOn = state.files !== 'look' && !!state.patch && groupsOn.edits;
+          const excluded = new Set(state.excluded || []);
+          const candidates = [...CORE_TOOLS];
+          for (const g of GROUPS) if (groupsOn[g.id]) candidates.push(...g.tools);
+          if (patchOn) candidates.push(PATCH_TOOL);
+          const exposed = candidates.filter((t) => !excluded.has(t));
+          const anyExcluded = candidates.some((t) => excluded.has(t));
+          const gatedDefault = [...CORE_TOOLS, ...(groupsOn.lsp ? ['lsp_query'] : []), ...(groupsOn.shell ? ['bash', 'manage_shell_jobs'] : [])];
+          const optionalOn = GROUPS.filter((g) => groupsOn[g.id] && !['lsp', 'shell'].includes(g.id)).map((g) => g.id);
+          // --tools is the exact allowlist; needed for apply_patch or any per-tool exclusion.
+          const needsToolsList = patchOn || anyExcluded;
+          return { groupsOn, patchOn, exposed, gatedDefault, optionalOn, needsToolsList, candidates };
+        }
+
+        function verdictFor(tool, mode, exposedSet) {
+          if (!exposedSet.has(tool)) return 'hidden';
+          const decision = MODES[mode][TOOL_CATEGORY[tool]];
+          return decision === 'allow' ? 'runs' : decision === 'plan_only' ? 'proposal' : 'asks';
+        }
+
+        // ── Command assembly ──────────────────────────────────────────────────
+        // Each part: { flag, value?, why, risk } — risk drives chip colour.
+        function runnerParts(state, flags, surface, model) {
+          const p = [];
+          const add = (flag, value, why, risk = 'info') => p.push({ flag, value, why, risk });
+          if (str(state.cwd)) add('--cwd', str(state.cwd), 'Tools operate inside this folder.', 'read');
+
+          if (flags.plan) add('--plan', null, 'Propose: reads run for real; writes, shell, and orchestration are recorded as proposals.', 'read');
+          if (flags.acceptEdits) add('--accept-edits', null, 'Auto-approve write tools (no confirmation per write).', 'write');
+          if (flags.dontAsk) add('--dont-ask', null, 'Skip confirmations for already-enabled shell / agents / worktree tools.', flags.allowShell ? 'shell' : 'orch');
+          if (flags.allowShell) add('--allow-shell', null, 'Expose bash and manage_shell_jobs (unsandboxed local-account authority).', 'shell');
+          if (flags.chaosOk) add('--chaos-ok', null, 'Your acknowledgement of auto-edits + shell + no confirmations.', 'danger');
+          if (flags.allowShell && num(state.shellTimeout) !== DEFAULTS.shellTimeout && str(state.shellTimeout)) add('--shell-timeout', str(state.shellTimeout), 'Kill a shell command after this many ms.', 'shell');
+          if (flags.allowShell && state.noNetwork) add('--no-network', null, 'Best-effort proxy guard for shell commands (not isolation).', 'shell');
+          if (flags.allowShell && state.testWatch) add('--test-watch', null, 'Run detected tests after each successful write.', 'shell');
+          if (state.worktree) add('--worktree', null, 'Start inside a fresh git worktree; the original checkout is never touched.', 'read');
+
+          if (surface.groupsOn.lsp) add('--enable-lsp', null, 'Expose lsp_query (needs a language server on PATH).', 'read');
+          if (surface.needsToolsList) {
+            add('--tools', surface.exposed.join(','), 'Exact tool allowlist (needed for apply_patch or per-tool exclusions). Tools outside it are hidden and denied.', 'write');
+          } else if (surface.optionalOn.length) {
+            add('--capabilities', surface.optionalOn.join(','), 'Opt-in tool groups beyond the core read tools.', surface.groupsOn.edits ? 'write' : 'orch');
+          }
+
+          const s = state.session;
+          const sid = str(s.id);
+          const spath = str(s.path);
+          if (s.mode === 'continue') add('--continue', null, 'Resume the newest checkpoint under ~/.bridge-runner/sessions/.', 'read');
+          if (s.mode === 'fork') add('--fork-from', str(s.forkFrom), 'Copy the parent session into a new child session.', 'read');
+          if (s.mode !== 'continue' && sid) add('--session-id', sid, s.mode === 'fork' ? 'Name for the forked child session.' : 'Name this checkpoint so it can be resumed later.', 'read');
+          if (s.mode !== 'continue' && spath) add('--session-path', spath, 'Explicit checkpoint file instead of an id.', 'read');
+          if (s.mode === 'resume' || s.mode === 'fork') add('--resume-session', null, 'Load the named checkpoint and continue its conversation.', 'read');
+          if (s.mode === 'restart') add('--new-session', null, 'Reset the named session: fresh conversation and health state.', 'read');
+          if ((s.mode === 'resume' || s.mode === 'fork') && s.ackRisk) add('--ack-resume-risk', null, 'Resume even if the checkpoint is marked degraded.', 'write');
+          if (!s.persist) add('--no-session-persistence', null, 'Do not write a resumable checkpoint.', 'info');
+          if (!s.archive) add('--no-archive', null, 'Skip the per-turn archive.', 'info');
+          if (s.extract && s.persist && (sid || spath)) add('--session-extract', null, 'Queue a run-summary memory proposal after success.', 'info');
+
+          const c = state.context;
+          if (c.mode === 'bare') add('--bare', null, 'Minimal context: no instruction docs, repo block, or skills.', 'info');
+          if (c.mode === 'project') {
+            if (c.instructionDocs) add('--include-instruction-docs', null, 'Load AGENTS.md / CLAUDE.md instruction hierarchy.', 'info');
+            if (c.repoContext) {
+              add('--include-repo-context', null, 'Add the repo-context block (folder + git fingerprint).', 'info');
+              if (c.claudeMd) add('--include-claude-md', null, 'Include CLAUDE.md inside the repo-context block.', 'info');
+              if (c.repoMap) add('--include-repo-map', null, 'Include a file tree inside the repo-context block.', 'info');
+            }
+            if (c.skills) add('--include-skills', null, 'List project skills in the system prompt.', 'info');
+          }
+          if (c.memory) add('--auto-memory', null, 'Load approved runner memory topics.', 'info');
+          if (c.excludeDynamic) add('--exclude-dynamic-system-prompt-sections', null, 'Move cwd/git fingerprint into the first user message.', 'info');
+
+          if (model.id !== DEFAULTS.model) add('--model', model.id, 'Model for every request.', 'info');
+          if (state.model.effort) add('--effort', state.model.effort, 'Model effort level.', 'info');
+          if (state.model.thinking !== 'auto') add('--thinking', state.model.thinking, 'Adaptive-thinking request setting.', 'info');
+          if (str(state.model.temperature)) add('--temperature', str(state.model.temperature), 'Sampling temperature.', 'info');
+          if (num(state.model.maxTokens) !== DEFAULTS.maxTokens && str(state.model.maxTokens)) add('--max-tokens', str(state.model.maxTokens), 'Response output tokens per request (reserved from the context window).', 'info');
+
+          const l = state.limits;
+          if (num(l.maxSteps) !== DEFAULTS.maxSteps && str(l.maxSteps)) add('--max-steps', str(l.maxSteps), 'Stop after this many model responses.', 'info');
+          if (l.taskScope) add('--task-scope', null, 'Task-scoped preset: 8 steps unless --max-steps is set, compaction at ~40k.', 'info');
+          if (l.compactEachTurn) add('--compact-each-turn', null, 'Aggressive compaction preset (~20k tokens).', 'info');
+          if (str(l.compactAt)) add('--compact-at-tokens', str(l.compactAt), 'Explicit compaction threshold (overrides presets).', 'info');
+          if (str(l.maxRunTokens)) add('--max-run-tokens', str(l.maxRunTokens), 'Whole-run cumulative token guardrail.', 'info');
+          if (str(l.maxToolCalls)) add('--max-tool-calls-per-turn', str(l.maxToolCalls), 'Halt if one response calls more tools than this.', 'info');
+          if (str(l.wallClockMs)) add('--max-wall-clock-ms', str(l.wallClockMs), 'Stop after this many milliseconds.', 'info');
+          if (str(l.costUsd)) add('--max-cost-usd', str(l.costUsd), 'Stop when the estimated cost exceeds this.', 'info');
+          if (str(l.budgetIn)) add('--budget-input-tokens', str(l.budgetIn), 'Hard cap on cumulative input tokens (warns at 80%).', 'info');
+          if (str(l.budgetOut)) add('--budget-output-tokens', str(l.budgetOut), 'Hard cap on cumulative output tokens (warns at 80%).', 'info');
+          if (str(l.confirmTimeout) && !flags.dontAsk) add('--confirm-timeout', str(l.confirmTimeout), 'Auto-deny a confirmation prompt after this many ms.', 'info');
+
+          const o = state.output;
+          if (o.format !== 'text') add('--output-format', o.format, 'Machine-readable output on stdout; tips stay on stderr.', 'info');
+          if (o.stream && o.format === 'text') add('--stream', null, 'Paint the model\'s text live as it arrives.', 'info');
+          if (o.logLevel !== 'normal') add('--log-level', o.logLevel, 'Runner message verbosity on stderr.', 'info');
+          if (str(o.transcript)) add('--transcript', str(o.transcript), 'JSONL transcript path.', 'info');
+          if (str(o.humanLog)) add('--human-log', str(o.humanLog), 'Plain-text readable log path.', 'info');
+          if (o.traceLevel !== 'off') add('--trace-level', o.traceLevel, 'Flight-recorder detail level (local files; redacted/full are sensitive).', o.traceLevel === 'full' ? 'write' : 'info');
+          if (o.traceLevel !== 'off' && str(o.tracePath)) add('--trace-path', str(o.tracePath), 'Where the trace JSONL is written.', 'info');
+
+          const pt = state.promptTools;
+          const templates = [pt.template, ...str(pt.customTemplate).split(',').map((x) => x.trim())].filter(Boolean);
+          for (const t of templates) add('--prompt-template', t, 'Prepend this reusable template before your prompt.', 'info');
+          if (templates.length) for (const a of lines(pt.args)) add('--prompt-arg', a, 'Fill a {{placeholder}} in the template.', 'info');
+          if (pt.attachMode === 'include') for (const f of lines(pt.attachPaths)) add('--include-file', f, 'Embed this file (≤ 50 KB, inside --cwd, secrets scrubbed).', 'read');
+
+          const sys = state.system;
+          if (str(sys.replaceFile)) add('--system-prompt-file', str(sys.replaceFile), 'Replace the built-in system prompt with this file.', 'write');
+          if (str(sys.replaceText)) add('--system-prompt', str(sys.replaceText), 'Replace the built-in system prompt inline.', 'write');
+          if (str(sys.appendText)) add('--append-system-prompt', str(sys.appendText), 'Append rules after the system prompt.', 'info');
+          if (str(sys.appendFile)) add('--append-system-prompt-file', str(sys.appendFile), 'Append this file after the system prompt.', 'info');
+
+          if (state.trust.recordConsent) add('--trust-workspace', null, 'Record consent for the target folder (skips the first-run prompt).', 'info');
+          if (state.trust.hooks) add('--trusted-workspace', null, 'Enable .bridge-runner/hooks.json in the target folder.', 'write');
+          if (str(state.bridge.url)) add('--bridge-url', str(state.bridge.url), 'Send model requests to this bridge endpoint.', 'info');
+          if (str(state.bridge.token)) add('--caller-token', str(state.bridge.token), 'Bridge caller-auth token.', 'info', true);
+          return p;
+        }
+
+        function coordinatorParts(state, flags, surface, model) {
+          const p = [];
+          const add = (flag, value, why, risk = 'info') => p.push({ flag, value, why, risk });
+          const co = state.coordinator;
+          const phases = ['research', 'synthesize', 'execute', 'verify'].filter((ph) => co.phases[ph]);
+          if (str(state.cwd)) add('--cwd', str(state.cwd), 'Project folder for every phase.', 'read');
+          if (str(state.session.id)) add('--session-id', str(state.session.id), 'Canonical session id for the coordinator state file.', 'read');
+          if (model.id !== DEFAULTS.model) add('--model', model.id, 'Model for workers and the execute agent.', 'info');
+          if (num(state.model.maxTokens) !== DEFAULTS.maxTokens && str(state.model.maxTokens)) add('--max-tokens', str(state.model.maxTokens), 'Output tokens per request, inherited by workers.', 'info');
+          if (co.phases.execute && num(co.maxSteps) !== DEFAULTS.maxSteps && str(co.maxSteps)) add('--max-steps', str(co.maxSteps), 'Execute-agent step limit.', 'info');
+          if (phases.join(',') !== 'research,synthesize,execute') add('--phases', phases.join(','), 'Phases to run, in fixed order.', 'info');
+          if (!co.workers) add('--no-workers', null, 'Skip read-only worker subprocesses.', 'info');
+          if (co.phases.research && co.workers && str(co.researchPlan)) add('--research-plan', str(co.researchPlan), 'JSON fan-out plan for concurrent research nodes.', 'info');
+          if (state.output.format !== 'text') add('--output-format', state.output.format, 'Passed to the execute phase.', 'info');
+          if (state.model.effort) add('--effort', state.model.effort, 'Inherited effort level.', 'info');
+          if (state.model.thinking !== 'auto') add('--thinking', state.model.thinking, 'Inherited thinking setting.', 'info');
+          if (str(state.model.temperature)) add('--temperature', str(state.model.temperature), 'Inherited temperature.', 'info');
+          if (str(state.bridge.url)) add('--bridge-url', str(state.bridge.url), 'Bridge endpoint for every agent.', 'info');
+          if (str(state.bridge.token)) add('--caller-token', str(state.bridge.token), 'Bridge caller-auth token.', 'info');
+          const l = state.limits;
+          if (str(l.wallClockMs)) add('--max-wall-clock-ms', str(l.wallClockMs), 'Shared wall-clock ceiling; execute gets the remainder.', 'info');
+          if (str(l.costUsd)) add('--max-cost-usd', str(l.costUsd), 'Per-agent estimated cost stop.', 'info');
+          if (str(l.budgetIn)) add('--budget-input-tokens', str(l.budgetIn), 'Shared input cap; worker use is subtracted first.', 'info');
+          if (str(l.budgetOut)) add('--budget-output-tokens', str(l.budgetOut), 'Shared output cap; worker use is subtracted first.', 'info');
+          if (state.noNetwork) add('--no-network', null, 'Best-effort network guard inherited by every agent.', 'shell');
+          if (state.trust.recordConsent) add('--trust-workspace', null, 'Record consent for the target folder.', 'info');
+          if (state.output.traceLevel !== 'off') add('--trace-level', state.output.traceLevel, 'Trace level inherited by every agent.', 'info');
+          if (co.phases.execute) {
+            if (surface.optionalOn.length) add('--capabilities', surface.optionalOn.join(','), 'Opt-in tool groups for the execute agent (workers stay read-only).', surface.groupsOn.edits ? 'write' : 'orch');
+            if (flags.plan) add('--plan', null, 'Execute agent records proposed writes as diffs.', 'read');
+            if (flags.acceptEdits) add('--accept-edits', null, 'Execute agent auto-approves writes.', 'write');
+            if (flags.dontAsk) add('--dont-ask', null, 'Execute agent skips confirmations for enabled risky tools.', flags.allowShell ? 'shell' : 'orch');
+            if (flags.allowShell) add('--allow-shell', null, 'Execute agent gets unsandboxed shell.', 'shell');
+            if (flags.allowShell && num(state.shellTimeout) !== DEFAULTS.shellTimeout && str(state.shellTimeout)) add('--shell-timeout', str(state.shellTimeout), 'Shell timeout for the execute agent.', 'shell');
+            if (flags.chaosOk) add('--chaos-ok', null, 'Acknowledged the risky combination for the execute agent.', 'danger');
+            if (surface.groupsOn.lsp) add('--enable-lsp', null, 'Expose lsp_query to the execute agent.', 'read');
+            if (flags.allowShell && state.testWatch) add('--test-watch', null, 'Run detected tests after execute writes.', 'shell');
+          }
+          return p;
+        }
+
+        // Things the coordinator CLI cannot accept; listed so nothing is silent.
+        function coordinatorOmissions(state, surface) {
+          const out = [];
+          if (state.worktree) out.push('--worktree (runner only)');
+          if (surface.needsToolsList) out.push('--tools / apply_patch / per-tool exclusions (the coordinator only takes whole groups)');
+          if (state.session.mode !== 'fresh') out.push('session start modes other than a fresh --session-id');
+          if (!state.session.persist || !state.session.archive || state.session.extract) out.push('persistence / archive / memory-extract switches');
+          if (state.context.mode !== 'minimal' || state.context.memory || state.context.excludeDynamic) out.push('startup-context flags');
+          if (state.promptTools.template || str(state.promptTools.customTemplate) || lines(state.promptTools.attachPaths).length) out.push('prompt templates and attachments');
+          if (str(state.system.appendText) || str(state.system.appendFile) || str(state.system.replaceFile) || str(state.system.replaceText)) out.push('system-prompt overrides');
+          if (state.output.stream || state.output.logLevel !== 'normal' || str(state.output.transcript) || str(state.output.humanLog) || str(state.output.tracePath)) out.push('--stream, --log-level, transcript / log / trace paths');
+          const l = state.limits;
+          if (str(l.maxToolCalls) || str(l.maxRunTokens) || str(l.compactAt) || str(l.confirmTimeout) || l.taskScope || l.compactEachTurn) out.push('per-turn tool cap, compaction presets, run-token guardrail, confirm timeout');
+          if (state.trust.hooks) out.push('--trusted-workspace (hooks)');
+          return out;
+        }
+
+        function partsToCommand(bin, parts, positional) {
+          const tokens = [bin];
+          for (const part of parts) {
+            tokens.push(part.value == null ? part.flag : part.flag + ' ' + (part.flag === '--caller-token' ? quoteOrEnv(part.value) : shellArg(part.value)));
+          }
+          // The prompt is always quoted: it is prose, and a bare word prompt
+          // would still be safe but reads oddly next to the flags.
+          if (positional) tokens.push(shellQuote(positional));
+          return tokens;
+        }
+
+        // ── Validation ────────────────────────────────────────────────────────
+        function validate(state, flags, surface, model, rules) {
+          const errors = [];
+          const warnings = [];
+          const infos = [];
+          const coord = state.engine === 'coordinator';
+          const s = state.session;
+          const sid = str(s.id);
+          const spath = str(s.path);
+
+          if (!str(state.prompt)) errors.push(coord ? 'Enter an objective; the coordinator refuses a run without one.' : 'Enter a prompt; the runner refuses a run without one.');
+          if (str(state.cwd) && !/^[/~]/.test(str(state.cwd))) warnings.push('Target folder should be an absolute path (start with / or ~).');
+          if (flags.chaos && !state.ack) errors.push('Auto-approved edits + unattended shell needs your acknowledgement (the checkbox under Authority emits --chaos-ok).');
+          if (flags.allowShell) {
+            const t = num(state.shellTimeout);
+            if (!Number.isInteger(t) || t < 100 || t > 900000) errors.push('Shell timeout must be a whole number between 100 and 900000 ms.');
+          }
+          if (state.worktree && !coord) infos.push('--worktree needs the target folder to be a git repository with a commit; otherwise the run refuses to start.');
+          if (state.worktree && surface.needsToolsList && !surface.exposed.includes('exit_worktree')) warnings.push('--worktree exposes the worktree tools, but your --tools allowlist hides exit_worktree / list_worktrees.');
+          if (!coord && flags.plan && state.orchUnattended) infos.push('Propose mode records orchestration as proposals, so "run without asking" has no effect until you leave plan mode.');
+          if (!coord && (flags.dontAsk || flags.plan) && surface.exposed.includes('ask_user_question')) infos.push('ask_user_question is offered but fails closed under --dont-ask and plan mode; the model then proceeds on its own assumption.');
+          if (!coord && flags.allowShell && flags.dontAsk) warnings.push('Unattended shell runs commands without asking; only history-changing git commands and destructive worktree cleanup still ask.');
+          if (!flags.allowShell && (state.testWatch || state.noNetwork)) infos.push('Test-watch and the network guard are saved but inactive while shell is off.');
+          if (!coord && surface.groupsOn.lsp) infos.push('--enable-lsp needs a matching language-server executable on PATH.');
+
+          if (!coord) {
+            if (s.mode === 'resume' && !sid && !spath) errors.push('Resume needs a Session id or Session path.');
+            if (s.mode === 'fork' && !str(s.forkFrom)) errors.push('Fork needs the parent session id.');
+            if (s.mode === 'continue' && (sid || spath || str(s.forkFrom))) infos.push('Continue latest ignores the session id / path / parent fields (the CLI picks the newest checkpoint).');
+            if (s.extract && !s.persist) errors.push('A run-summary memory proposal needs a saved checkpoint; turn session persistence back on.');
+            if (s.extract && s.persist && !sid && !spath) errors.push('A run-summary memory proposal needs a Session id or Session path.');
+            if (s.extract && s.mode === 'continue') errors.push('Memory extraction needs a named session; Continue latest does not name one.');
+            if (!s.persist && (s.mode === 'resume' || s.mode === 'fork')) infos.push('Resuming with persistence off loads the checkpoint but writes no new one.');
+          }
+
+          if (!coord && state.context.mode === 'project' && !state.context.instructionDocs && !state.context.repoContext && !state.context.skills) infos.push('Project-aware is selected but nothing is ticked, so the context is still minimal.');
+          if (!coord && state.context.mode !== 'project' && (state.context.claudeMd || state.context.repoMap)) infos.push('CLAUDE.md / file tree are saved but inactive: they need Project-aware with the repo-context block on.');
+          if (!coord && state.context.mode === 'project' && !state.context.repoContext && (state.context.claudeMd || state.context.repoMap)) infos.push('CLAUDE.md / file tree are saved but inactive until the repo-context block is on.');
+
+          const effort = state.model.effort;
+          if (effort && rules && !(Array.isArray(rules.effort) && rules.effort.includes(effort))) {
+            errors.push(rules.effort ? 'This model does not support --effort ' + effort + ' (supported: ' + rules.effort.join(', ') + ').' : 'This model does not accept --effort at all; choose default.');
+          }
+          if (state.model.thinking === 'off' && rules && rules.thinking === 'always-on') errors.push('This model keeps adaptive thinking on; --thinking off is rejected.');
+          if (state.model.thinking === 'off' && rules && rules.offEffort && effort && !rules.offEffort.includes(effort)) errors.push('With thinking off this model only accepts effort ' + rules.offEffort.join(', ') + '.');
+          if (state.model.thinking === 'adaptive' && rules && rules.thinking === 'manual') errors.push('This model does not support --thinking adaptive.');
+          const temp = str(state.model.temperature);
+          if (temp && rules && rules.sampling === 'default-only' && Number(temp) !== 1) errors.push('This model rejects non-default --temperature values; leave it blank.');
+          if (temp && (!Number.isFinite(Number(temp)) || Number(temp) < 0 || Number(temp) > 1)) errors.push('Temperature must be between 0 and 1.');
+          const mt = num(state.model.maxTokens);
+          if (!Number.isInteger(mt) || mt <= 0) errors.push('Response output tokens must be a positive whole number.');
+          else if (rules && mt > rules.maxOutput) errors.push('Response output tokens (' + mt + ') exceed this model\'s maximum of ' + rules.maxOutput + '.');
+          if (!rules) warnings.push('Model "' + model.id + '" is not in the local catalog; effort/thinking/temperature are forwarded without local validation.');
+
+          const l = state.limits;
+          const stepsField = coord ? state.coordinator.maxSteps : l.maxSteps;
+          const steps = num(stepsField);
+          if (!Number.isInteger(steps) || steps <= 0) errors.push('Max steps must be a positive whole number.');
+          for (const [label, v, min] of [['Wall clock ceiling', l.wallClockMs, 1], ['Cost ceiling', l.costUsd, 0.000001], ['Input-token budget', l.budgetIn, 0], ['Output-token budget', l.budgetOut, 0], ['Run-token guardrail', l.maxRunTokens, 1], ['Compact-at threshold', l.compactAt, 1], ['Max tool calls per turn', l.maxToolCalls, 1], ['Approval timeout', l.confirmTimeout, 1]]) {
+            if (str(v) && (!Number.isFinite(Number(v)) || Number(v) < min)) errors.push(label + ' must be a number ≥ ' + min + '.');
+          }
+          if (!coord && l.taskScope && num(l.maxSteps) === DEFAULTS.maxSteps) infos.push('--task-scope lowers the step limit to 8 because Max steps is at its default.');
+          if (!coord && str(l.compactAt) && (l.taskScope || l.compactEachTurn)) infos.push('Your explicit compact-at value overrides the preset thresholds.');
+          else if (!coord && l.taskScope && l.compactEachTurn) infos.push('Both compaction presets are set; --compact-each-turn (~20k) wins.');
+          if (!coord && str(l.confirmTimeout) && flags.dontAsk && !flags.plan) infos.push('Approval timeout is saved but inactive: unattended mode never prompts.');
+
+          if (!coord && state.output.stream && state.output.format !== 'text') infos.push('--stream only paints with the text output format, so it is not emitted.');
+          if (state.output.traceLevel === 'full') warnings.push('Full traces can write prompts and source snippets to disk. Prefer redacted.');
+          if (state.output.traceLevel === 'off' && str(state.output.tracePath)) infos.push('Trace path is saved but inactive while the trace level is off.');
+
+          const pt = state.promptTools;
+          const anyTemplate = !!pt.template || !!str(pt.customTemplate);
+          const badArgs = lines(pt.args).filter((a) => { const i = a.indexOf('='); return i <= 0 || !/^[A-Za-z_][A-Za-z0-9_-]*$/.test(a.slice(0, i).trim()); });
+          if (!coord && badArgs.length) errors.push('Each template argument must look like key=value on its own line.');
+          if (!coord && lines(pt.args).length && !anyTemplate) infos.push('Template arguments are saved but inactive until a template is selected.');
+          if (!coord && str(state.system.replaceFile) && str(state.system.replaceText)) warnings.push('Both a system-prompt file and inline text replace the prompt; the runner applies the file.');
+
+          if (coord) {
+            const ph = state.coordinator.phases;
+            if (!ph.research && !ph.synthesize && !ph.execute && !ph.verify) errors.push('Select at least one coordinator phase.');
+            if (ph.verify && !ph.execute) errors.push('Verify needs Execute; there is no execute result to verify otherwise.');
+            if (ph.research && !state.coordinator.workers) infos.push('Research is selected but workers are off, so that phase does no model work.');
+            if (str(state.coordinator.researchPlan) && (!ph.research || !state.coordinator.workers)) infos.push('The research plan is saved but inactive until Research runs with workers.');
+            if (!ph.execute && (state.files !== 'look' || flags.allowShell)) infos.push('Execute authority is saved but inactive because the Execute phase is off.');
+            if (state.testWatch && (!ph.execute || !flags.allowShell)) infos.push('Test-watch is saved but inactive until Execute runs with shell on.');
+          }
+          return { errors, warnings, infos };
+        }
+
+        // ── Plain-language contract ───────────────────────────────────────────
+        function contract(state, flags, surface, model, steps) {
+          const cwd = str(state.cwd) || 'the current folder';
+          const coord = state.engine === 'coordinator';
+          const mode = modeFor(flags);
+          const exposed = new Set(surface.exposed);
+          const verdict = (tool) => verdictFor(tool, mode, exposed);
+          const parts = [];
+          const say = (v) => (v === 'runs' ? 'without asking' : v === 'asks' ? 'asking first' : 'as recorded proposals');
+          if (exposed.has('edit_file') || exposed.has('write_file') || exposed.has('apply_patch')) parts.push('<b>edit files</b> ' + say(verdict('edit_file')));
+          if (exposed.has('bash')) parts.push('<b>run shell commands</b> ' + say(verdict('bash')));
+          if (exposed.has('spawn_agent')) parts.push('delegate to read-only child agents ' + say(verdict('spawn_agent')));
+          if (exposed.has('enter_worktree')) parts.push('move into git worktrees ' + say(verdict('enter_worktree')));
+          const limits = [];
+          if (!exposed.has('edit_file') && !exposed.has('write_file')) limits.push('no writes');
+          if (!exposed.has('bash')) limits.push('no shell');
+          const where = state.worktree && !coord ? 'inside a fresh git worktree of <code>' + esc(cwd) + '</code>' : 'in <code>' + esc(cwd) + '</code>';
+          const who = coord ? 'The coordinator\'s <b>execute agent</b>' : 'The runner';
+          let text = who + ' works ' + where + ' and may <b>read files</b>' + (parts.length ? ', ' + parts.join(', ') : '') + (limits.length ? ' — ' + limits.join(', ') : '') + '.';
+          const stops = ['after ' + steps + ' steps'];
+          if (str(state.limits.wallClockMs)) stops.push('after ' + str(state.limits.wallClockMs) + ' ms');
+          if (str(state.limits.costUsd)) stops.push('past $' + str(state.limits.costUsd));
+          text += ' It stops ' + stops.join(', or ') + '.';
+          if (!coord) {
+            const s = state.session;
+            const named = str(s.id) || str(s.path);
+            text += s.persist ? ' It saves a resumable checkpoint' + (named ? ' (<code>' + esc(named) + '</code>)' : '') + ' and a transcript under <code>~/.bridge-runner/</code>.' : ' It saves a transcript but no resumable checkpoint.';
+          } else {
+            const ph = state.coordinator.phases;
+            const list = ['research', 'synthesize', 'execute', 'verify'].filter((p) => ph[p]);
+            text += ' Phases: <b>' + (list.join(' → ') || 'none') + '</b>' + (state.coordinator.workers ? '; research/verify may launch read-only child agents.' : '; no child workers.');
+          }
+          text += ' Model: <code>' + esc(model.id) + '</code>.';
+          return text;
+        }
+        function esc(s) {
+          return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // ── The one derivation the DOM paints from ────────────────────────────
+        function derive(rawState) {
+          const state = normalize(rawState, { keepToken: true });
+          const flags = authorityFlags(state);
+          const surface = toolSurface(state, flags);
+          const model = { id: str(state.model.custom) || str(state.model.id) || DEFAULTS.model };
+          const rules = modelRulesFor(model.id);
+          const coord = state.engine === 'coordinator';
+          const mode = modeFor(flags);
+          const { errors, warnings, infos } = validate(state, flags, surface, model, rules);
+
+          const parts = coord ? coordinatorParts(state, flags, surface, model) : runnerParts(state, flags, surface, model);
+          const promptText = buildPrompt(state);
+          const bin = coord ? 'node bin/local-bridge-coordinator.js' : 'node bin/local-bridge-runner.js';
+          const tokens = partsToCommand(bin, parts, promptText);
+          let command = tokens.join(' ');
+          let multiline = tokens[0] + ' \\\n  ' + tokens.slice(1).join(' \\\n  ');
+          const cdPrefix = str(state.runnerPath) ? 'cd ' + shellArg(str(state.runnerPath)) + ' && ' : '';
+          const stdin = !coord && state.promptTools.attachMode === 'stdin' && lines(state.promptTools.attachPaths).length > 0;
+          if (stdin) {
+            const prefix = str(state.cwd) ? str(state.cwd).replace(/\/+$/, '') + '/' : '';
+            const cat = 'cat ' + lines(state.promptTools.attachPaths).map((f) => shellArg(prefix + f)).join(' ') + ' | ';
+            command = cat + (cdPrefix ? '(' + cdPrefix + command + ')' : command);
+            multiline = cat + (cdPrefix ? '(' + cdPrefix + multiline + ')' : multiline);
+          } else {
+            command = cdPrefix + command;
+            multiline = cdPrefix + multiline;
+          }
+
+          const explicitSteps = num(coord ? state.coordinator.maxSteps : state.limits.maxSteps) || DEFAULTS.maxSteps;
+          const steps = !coord && state.limits.taskScope && explicitSteps === DEFAULTS.maxSteps ? 8 : explicitSteps;
+
+          const exposedSet = new Set(surface.exposed);
+          const matrix = CATEGORY_ORDER.map((cat) => {
+            const tools = Object.keys(TOOL_CATEGORY).filter((t) => TOOL_CATEGORY[t] === cat && exposedSet.has(t));
+            const decision = tools.length ? MODES[mode][cat] : null;
+            return { category: cat, verdict: decision === null ? 'hidden' : decision === 'allow' ? 'runs' : decision === 'plan_only' ? 'proposal' : 'asks', tools };
+          });
+          const verdicts = {};
+          for (const t of Object.keys(TOOL_CATEGORY)) verdicts[t] = verdictFor(t, mode, exposedSet);
+
+          // UI hints: what to grey out and what to say next to it.
+          const ui = { disabled: {}, notes: {}, hidden: {} };
+          ui.disabled['groups.edits'] = state.files === 'look';
+          ui.disabled['groups.recovery'] = state.files === 'look';
+          ui.disabled['patch'] = state.files === 'look' || !state.groups.edits;
+          ui.disabled['orchUnattended'] = state.shell === 'unattended' || flags.plan;
+          ui.disabled['noNetwork'] = !flags.allowShell && !coord;
+          ui.disabled['testWatch'] = !flags.allowShell;
+          ui.disabled['shellTimeout'] = !flags.allowShell;
+          ui.disabled['worktree'] = coord;
+          ui.hidden['ack'] = !flags.chaos;
+          ui.disabled['session.id'] = state.session.mode === 'continue';
+          ui.disabled['session.path'] = state.session.mode === 'continue' || coord;
+          ui.disabled['session.forkFrom'] = state.session.mode !== 'fork';
+          ui.disabled['session.ackRisk'] = !(state.session.mode === 'resume' || state.session.mode === 'fork');
+          ui.disabled['session.extract'] = !state.session.persist || state.session.mode === 'continue';
+          ui.disabled['session.persist'] = coord;
+          ui.disabled['session.archive'] = coord;
+          for (const k of ['instructionDocs', 'repoContext', 'skills']) ui.disabled['context.' + k] = state.context.mode !== 'project';
+          ui.disabled['context.claudeMd'] = state.context.mode !== 'project' || !state.context.repoContext;
+          ui.disabled['context.repoMap'] = ui.disabled['context.claudeMd'];
+          ui.disabled['model.temperature'] = !!rules && rules.sampling === 'default-only';
+          ui.disabled['limits.confirmTimeout'] = flags.dontAsk && !flags.plan;
+          ui.disabled['output.stream'] = state.output.format !== 'text';
+          ui.disabled['output.tracePath'] = state.output.traceLevel === 'off';
+          ui.disabled['coordinator.phases.verify'] = !state.coordinator.phases.execute;
+          ui.disabled['coordinator.researchPlan'] = !state.coordinator.phases.research || !state.coordinator.workers;
+          ui.disabled['coordinator.maxSteps'] = !state.coordinator.phases.execute;
+          ui.effortDisabled = Object.fromEntries(EFFORT_LEVELS.map((l) => [l, !!rules && !(Array.isArray(rules.effort) && rules.effort.includes(l))]));
+          ui.thinkingDisabled = { adaptive: !!rules && rules.thinking === 'manual', off: !!rules && rules.thinking === 'always-on' };
+
+          ui.notes['orchUnattended'] = state.shell === 'unattended' ? 'Implied by unattended shell.' : flags.plan ? 'Inactive in plan mode (proposals only).' : '';
+          ui.notes['worktree'] = coord ? 'Runner only — the coordinator has no --worktree flag.' : '';
+          ui.notes['noNetwork'] = !flags.allowShell && !coord ? 'Inactive while shell is off.' : '';
+          ui.notes['testWatch'] = !flags.allowShell ? 'Inactive while shell is off.' : '';
+          ui.notes['session.mode'] = { fresh: 'A new checkpoint. Name it with a Session id to resume it later.', continue: 'Resumes the newest checkpoint on this machine; if there is none, the run starts fresh.', resume: 'Loads the named checkpoint and appends this prompt to its conversation.', fork: 'Copies the parent checkpoint into a new child (named by Session id, or auto-generated), then resumes the copy.', restart: 'Keeps the name but resets the conversation and health state.' }[state.session.mode];
+          ui.notes['session.extract'] = state.session.mode === 'continue' ? 'Needs a named session.' : !state.session.persist ? 'Needs persistence on.' : '';
+          ui.notes['context.mode'] = state.context.mode === 'bare' ? '--bare strips even the default instruction blocks; the opt-ins above are saved but inactive.' : state.context.mode === 'minimal' ? 'Default: the built-in prompt only. The opt-ins above are saved but inactive.' : '';
+          ui.notes['model.id'] = rules ? (rules.effort ? 'Effort: ' + rules.effort.join(', ') : 'Rejects --effort') + ' · thinking ' + rules.thinking + ' · temperature ' + (rules.sampling === 'default-only' ? 'must stay default' : 'adjustable') + ' · max output ' + rules.maxOutput : 'Unknown id: forwarded without local validation.';
+          ui.notes['model.thinking'] = rules ? { 'always-on': 'Adaptive thinking is always on for this model; off is unavailable.', 'default-on': 'On by default. Off sends an explicit disabled setting' + (rules.offEffort ? ' and then only ' + rules.offEffort.join('/') + ' effort is accepted.' : '.'), 'explicit-adaptive': 'Needs an explicit adaptive request field; auto adds it, off omits it.', manual: 'This older model has no adaptive thinking; leave auto or choose off.' }[rules.thinking] : 'Unknown model: auto omits the field, adaptive is forwarded as-is.';
+          ui.notes['model.temperature'] = rules && rules.sampling === 'default-only' ? 'This model rejects non-default sampling; leave blank.' : 'Leave blank unless you deliberately need non-default sampling.';
+          ui.notes['model.maxTokens'] = rules ? 'Ceiling for this model: ' + rules.maxOutput + '. This allowance reduces the input room.' : 'Unknown model: the runner uses conservative estimates.';
+          ui.notes['model.summary'] = model.id + (state.model.effort ? ' · ' + state.model.effort : '') + (state.model.thinking !== 'auto' ? ' · thinking ' + state.model.thinking : '');
+          ui.notes['limits.maxSteps'] = !coord && state.limits.taskScope && explicitSteps === DEFAULTS.maxSteps ? 'Effective limit is 8 because --task-scope is on and this is the default.' : 'One step is one model response, possibly with tool calls.';
+          ui.notes['limits.taskScope'] = '';
+          ui.notes['limits.compactEachTurn'] = '';
+          ui.notes['limits.confirmTimeout'] = flags.dontAsk && !flags.plan ? 'Inactive: unattended mode never prompts.' : '';
+          ui.notes['shellTimeout'] = flags.allowShell ? 'Default 30000; the runtime caps at 900000.' : 'Inactive while shell is off.';
+          ui.notes['output.stream'] = state.output.format !== 'text' ? 'Inactive: streaming only paints in text mode.' : '';
+          const tpl = TEMPLATES.find((t) => t.id === state.promptTools.template);
+          ui.notes['promptTools.template'] = tpl ? 'Recommended authority: files ' + tpl.files + ', shell ' + tpl.shell + (tpl.params ? ' · parameters: ' + tpl.params : '') : 'Templates prepend reusable instructions before your prompt.';
+          ui.notes['coordinator.phases.verify'] = !state.coordinator.phases.execute ? 'Needs Execute.' : '';
+          ui.notes['coordinator.researchPlan'] = ui.disabled['coordinator.researchPlan'] ? 'Inactive until Research runs with workers.' : 'Each node needs an id and may set deps, prompt, allowedTools, maxSteps, maxTokens.';
+
+          return {
+            state, flags, mode, surface, model, rules, parts, promptText, command, multiline, steps,
+            errors, warnings, infos, blocked: errors.length > 0,
+            contract: contract(state, flags, surface, model, steps),
+            matrix, verdicts,
+            omissions: coord ? coordinatorOmissions(state, surface) : [],
+            ui,
+          };
+        }
+
+        function buildPrompt(state) {
+          let text = str(state.prompt);
+          const paths = lines(state.promptTools.attachPaths);
+          if (state.engine === 'runner' && paths.length && state.promptTools.attachMode === 'read') {
+            text += '\n\nAttached project paths:\n' + paths.map((p) => '- ' + p).join('\n') + '\n\nPlease use read_file on these paths before answering.';
+          }
+          return text.trim();
+        }
+
+        // ── Recipes: intent-level patches. They never touch cwd, runnerPath,
+        //    bridge, or trust, so a recipe cannot clobber where you work. ──
+        const RECIPES = [
+          { id: 'understand', label: 'Understand this repo', patch: { prompt: 'List the top-level files and explain what this project does and how it is organized. Read-only.', files: 'look', shell: 'off', promptTools: { template: 'explore' }, limits: { maxSteps: 8 }, context: { mode: 'minimal' } } },
+          { id: 'plan', label: 'Plan a change (no writes)', patch: { prompt: 'Propose one small, safe improvement. Inspect for real, then describe the exact edits you would make.', files: 'propose', shell: 'off', promptTools: { template: 'review' }, limits: { maxSteps: 10 } } },
+          { id: 'edit', label: 'Small edit, ask first', patch: { prompt: 'Make one small, clearly scoped improvement. Show the exact change before applying it.', files: 'ask', shell: 'off', promptTools: { template: 'cleanup' }, limits: { maxSteps: 12 } } },
+          { id: 'edit-auto', label: 'Edit without prompts (no shell)', patch: { prompt: 'Fix a small typo or wording issue you find. Do not touch runner code.', files: 'auto', shell: 'off', promptTools: { template: 'cleanup' }, limits: { maxSteps: 16 }, model: { maxTokens: 4096 } } },
+          { id: 'verify', label: 'Edit, then run tests', patch: { prompt: 'Make a small, safe improvement, then let the test watcher surface results and fix any failure you introduced.', files: 'auto', shell: 'ask', testWatch: true, promptTools: { template: 'verify' }, limits: { maxSteps: 20 } } },
+          { id: 'delegate', label: 'Delegate a read-only review', patch: { prompt: 'Review the tool modules read-only. Delegate independent files to child agents, then synthesize the findings.', files: 'look', shell: 'off', groups: { agents: true }, limits: { maxSteps: 12 } } },
+          { id: 'worktree', label: 'Safe edit in a worktree', patch: { prompt: 'This run started inside a fresh git worktree. Make a small safe edit to README.md and report the branch name and path. Do not exit or delete the worktree.', files: 'ask', shell: 'off', worktree: true, groups: { worktrees: true }, limits: { maxSteps: 16 } } },
+          { id: 'continue', label: 'Continue where I left off', patch: { prompt: 'Continue where we left off. Summarize the state first, then proceed.', session: { mode: 'continue' } } },
+          { id: 'unattended', label: 'Unattended: tests + fixes', danger: true, patch: { prompt: 'Run the targeted runner tests, then fix any failure. Use npm test filtered to the relevant files.', files: 'auto', shell: 'unattended', ack: false, output: { stream: true, logLevel: 'verbose' }, limits: { maxSteps: 24 }, model: { maxTokens: 4096 } } },
+        ];
+        function applyRecipe(state, recipe) {
+          const next = normalize(state, { keepToken: true });
+          const deep = (t, s) => { for (const [k, v] of Object.entries(s)) { if (v && typeof v === 'object' && !Array.isArray(v)) deep(t[k], v); else t[k] = v; } };
+          // Run-shape flags a recipe does not mention are reset so one recipe cannot leak into the next.
+          next.testWatch = false; next.worktree = false; next.ack = false; next.orchUnattended = false;
+          next.groups = { ...next.groups, agents: false, worktrees: false, skills: false, history: false };
+          next.promptTools.template = '';
+          next.session.mode = 'fresh';
+          deep(next, recipe.patch);
+          return next;
+        }
+
+        return {
+          DEFAULTS, EFFORT_LEVELS, THINKING_MODES, MODEL_RULES, MODES, GROUPS, CORE_TOOLS, PATCH_TOOL, TOOL_CATEGORY, TOOL_BLURB, TEMPLATES, RECIPES,
+          defaultState, normalize, serialize, derive, applyRecipe, modelRulesFor, shellQuote, shellArg, quoteOrEnv, authorityFlags, toolSurface, modeFor, esc,
+        };
+      })();
+    </script>
+
+    <!-- ══════════════════════════════════════════════════════════════════════
+         DOM layer — binds inputs to the state and paints Core.derive().
+         ══════════════════════════════════════════════════════════════════════ -->
+    <script>
+      (() => {
+        'use strict';
+        const STORAGE_KEY = 'command-builder-v2-state';
+        const $ = (sel, root = document) => root.querySelector(sel);
+        const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+        // ── State plumbing ──
+        let state = Core.defaultState();
+        const getPath = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
+        const setPath = (obj, path, value) => {
+          const keys = path.split('.');
+          let cur = obj;
+          for (const k of keys.slice(0, -1)) cur = cur[k];
+          cur[keys.at(-1)] = value;
+        };
+
+        function loadInitial() {
+          // A share link wins over local storage; both are normalized (token dropped).
+          const hash = location.hash.match(/^#s=(.+)$/);
+          if (hash) {
+            try {
+              const json = decodeURIComponent(escape(atob(hash[1].replace(/-/g, '+').replace(/_/g, '/'))));
+              return Core.normalize(JSON.parse(json));
+            } catch (_) {
+              /* fall through to storage */
+            }
+          }
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) return Core.normalize(JSON.parse(raw));
+          } catch (_) {
+            /* ignore */
+          }
+          return Core.defaultState();
+        }
+        function save() {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(Core.serialize(state)));
+          } catch (_) {
+            /* storage may be unavailable */
+          }
+        }
+
+        // ── Static option lists generated from the core ──
+        function buildStatic() {
+          const modelSelect = $('#model-select');
+          modelSelect.innerHTML = Core.MODEL_RULES.map((m) => `<option value="${m.id}">${m.label}</option>`).join('');
+          const tpl = $('#template-select');
+          tpl.innerHTML = '<option value="">none</option>' + Core.TEMPLATES.map((t) => `<option value="${t.id}">${t.label}</option>`).join('');
+          const recipes = $('#recipes');
+          recipes.innerHTML = Core.RECIPES.map((r) => `<button type="button" data-recipe="${r.id}" class="${r.danger ? 'danger' : ''}">${r.label}</button>`).join('');
+          recipes.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-recipe]');
+            if (!btn) return;
+            state = Core.applyRecipe(state, Core.RECIPES.find((r) => r.id === btn.dataset.recipe));
+            paintInputs();
+            render();
+          });
+          const groups = $('#groups');
+          groups.innerHTML = Core.GROUPS.map((g) => {
+            const tools = g.tools.map((t) => `<li data-tool="${t}"><input type="checkbox" data-exclude="${t}" checked /> <code>${t}</code> <span class="d">${Core.TOOL_BLURB[t] || ''}</span><span class="verdict"></span></li>`).join('');
+            const patch = g.id === 'edits' ? `<li data-tool="apply_patch"><input type="checkbox" data-bind="patch" /> <code>apply_patch</code> <span class="d">${Core.TOOL_BLURB.apply_patch}</span><span class="verdict"></span></li>` : '';
+            const head = g.bound
+              ? `<span>${g.label}</span>`
+              : `<input type="checkbox" data-bind="groups.${g.id}" id="group-${g.id}" /><label for="group-${g.id}">${g.label}</label>`;
+            return `<div class="group" data-group="${g.id}"><div class="head">${head}<span class="tag ${g.kind}">${g.flag}</span></div><p class="d">${g.blurb}</p><ul class="tools">${tools}${patch}</ul></div>`;
+          }).join('') + `<div class="group" data-group="core"><div class="head"><span>Core (always on)</span><span class="tag read">default</span></div><p class="d">The seven read/session tools every run gets.</p><ul class="tools">${Core.CORE_TOOLS.map((t) => `<li data-tool="${t}"><input type="checkbox" data-exclude="${t}" checked /> <code>${t}</code> <span class="d">${Core.TOOL_BLURB[t]}</span><span class="verdict"></span></li>`).join('')}</ul></div>`;
+        }
+
+        // ── Bind inputs → state ──
+        function bindInputs() {
+          for (const el of $$('[data-bind]')) {
+            const path = el.dataset.bind;
+            const handler = () => {
+              if (el.type === 'checkbox') setPath(state, path, el.checked);
+              else if (el.type === 'radio') {
+                if (el.checked) setPath(state, path, el.value);
+              } else if (el.type === 'number') setPath(state, path, el.value === '' ? '' : el.value);
+              else setPath(state, path, el.value);
+              render();
+            };
+            el.addEventListener('input', handler);
+            el.addEventListener('change', handler);
+          }
+          for (const el of $$('[data-exclude]')) {
+            el.addEventListener('change', () => {
+              const name = el.dataset.exclude;
+              const set = new Set(state.excluded);
+              if (el.checked) set.delete(name);
+              else set.add(name);
+              state.excluded = [...set];
+              render();
+            });
+          }
+        }
+
+        // ── Paint state → inputs (after load, recipe, reset) ──
+        function paintInputs() {
+          for (const el of $$('[data-bind]')) {
+            const value = getPath(state, el.dataset.bind);
+            if (el.type === 'checkbox') el.checked = !!value;
+            else if (el.type === 'radio') el.checked = String(value) === el.value;
+            else el.value = value == null ? '' : value;
+          }
+          const excluded = new Set(state.excluded);
+          for (const el of $$('[data-exclude]')) el.checked = !excluded.has(el.dataset.exclude);
+        }
+
+        // ── Paint Core.derive() → panels ──
+        function render() {
+          const d = Core.derive(state);
+          state = d.state; // normalized copy
+          save();
+          const coord = state.engine === 'coordinator';
+
+          // Engine-specific sections and labels
+          for (const el of $$('[data-engine]')) el.hidden = el.dataset.engine !== state.engine;
+          $('[data-label-for="prompt"]').textContent = coord ? 'Objective (what the coordinator should accomplish)' : 'Prompt (what the runner should do)';
+          $('#engine-badge').textContent = coord ? 'coordinator' : 'runner';
+          $('[data-label-for="files"]').textContent = coord ? 'Files (execute agent)' : 'Files';
+
+          // Disabled / hidden / notes
+          for (const [path, off] of Object.entries(d.ui.disabled)) {
+            for (const el of $$(`[data-bind="${path}"]`)) {
+              el.disabled = !!off;
+              const host = el.closest('.opt, .field, label');
+              if (host) host.classList.toggle('inactive', !!off);
+            }
+            const opt = $(`[data-opt="${path}"]`);
+            if (opt) opt.classList.toggle('inactive', !!off);
+          }
+          for (const [path, hide] of Object.entries(d.ui.hidden)) {
+            const el = $(`[data-opt="${path}"]`);
+            if (el) el.hidden = !!hide;
+          }
+          for (const [path, text] of Object.entries(d.ui.notes)) {
+            for (const el of $$(`[data-note="${path}"]`)) el.textContent = text || '';
+          }
+          for (const [level, off] of Object.entries(d.ui.effortDisabled)) {
+            const input = $(`#effort-seg input[value="${level}"]`);
+            if (input) {
+              input.disabled = off;
+              input.closest('label').classList.toggle('inactive', off);
+            }
+          }
+          for (const [mode, off] of Object.entries(d.ui.thinkingDisabled)) {
+            const input = $(`#thinking-seg input[value="${mode}"]`);
+            if (input) {
+              input.disabled = off;
+              input.closest('label').classList.toggle('inactive', off);
+            }
+          }
+
+          // Capability groups: active state + per-tool verdicts
+          for (const g of Core.GROUPS) {
+            const box = $(`[data-group="${g.id}"]`);
+            box.classList.toggle('inactive', !d.surface.groupsOn[g.id]);
+          }
+          const patchRow = $('[data-tool="apply_patch"]');
+          if (patchRow) patchRow.style.opacity = d.surface.patchOn ? '' : '0.5';
+          for (const li of $$('[data-tool]')) {
+            const v = d.verdicts[li.dataset.tool] || 'hidden';
+            const span = $('.verdict', li);
+            span.textContent = v;
+            span.className = 'verdict ' + v;
+            const box = $('input[data-exclude]', li);
+            if (box) box.disabled = !d.surface.candidates.includes(li.dataset.tool);
+          }
+          $('#tools-note').textContent = d.surface.needsToolsList
+            ? 'Because apply_patch or a per-tool exclusion is set, the command uses an exact --tools allowlist. Tools outside it are hidden and denied for the whole run.'
+            : 'Whole groups are emitted as --capabilities. Untick a single tool to switch to an exact --tools allowlist.';
+
+          // Command chips
+          const cmd = $('#cmd');
+          const chips = [];
+          if (d.command.startsWith('cat ')) chips.push(`<span class="prefix">${Core.esc(d.command.slice(0, d.command.indexOf('|') + 1))}</span> `);
+          if (state.runnerPath.trim()) chips.push(`<span class="prefix">cd ${Core.esc(Core.shellArg(state.runnerPath.trim()))} &amp;&amp;</span> `);
+          chips.push(`<span class="chip bin">${coord ? 'node bin/local-bridge-coordinator.js' : 'node bin/local-bridge-runner.js'}</span>`);
+          for (const p of d.parts) {
+            const label = p.value == null ? p.flag : p.flag + ' ' + (p.flag === '--caller-token' ? Core.quoteOrEnv(p.value) : Core.shellArg(p.value));
+            chips.push(`<span class="chip ${p.risk}" title="${Core.esc(p.why)}">${Core.esc(label)}</span>`);
+          }
+          chips.push(d.promptText ? `<span class="chip positional" title="Your prompt (single-quoted so the shell leaves it alone)">${Core.esc(Core.shellQuote(d.promptText))}</span>` : '<span class="chip danger" title="A prompt is required">‹prompt missing›</span>');
+          cmd.innerHTML = chips.join(' ');
+
+          // Messages
+          const msgs = [];
+          for (const e of d.errors) msgs.push(`<li class="error">⛔ ${Core.esc(e)}</li>`);
+          for (const w of d.warnings) msgs.push(`<li class="warn">⚠ ${Core.esc(w)}</li>`);
+          for (const i of d.infos) msgs.push(`<li class="info">ℹ ${Core.esc(i)}</li>`);
+          $('#msgs').innerHTML = msgs.join('');
+          $('#copy').disabled = d.blocked;
+          $('#copy-multi').disabled = d.blocked;
+          $('#copy').title = d.blocked ? 'Resolve the blockers first' : '';
+
+          // Contract, matrix, why
+          $('#contract').innerHTML = '<b>What this run may do.</b> ' + d.contract;
+          $('#matrix').innerHTML = '<tr><th>Category</th><th>Verdict</th><th>Exposed tools</th></tr>' + d.matrix.map((row) => `<tr><td>${row.category}</td><td class="v-${row.verdict}">${row.verdict}</td><td class="mono">${row.tools.join(', ') || '—'}</td></tr>`).join('');
+          $('#why').innerHTML = d.parts.map((p) => `<li><code>${Core.esc(p.value == null ? p.flag : p.flag + ' …')}</code> — ${Core.esc(p.why)}</li>`).join('') || '<li>No flags: the defaults apply (core read tools, edits ask first, shell hidden).</li>';
+          $('#not-emitted').innerHTML = d.omissions.length ? `<p class="help"><b>Not emitted for the coordinator:</b> ${d.omissions.map(Core.esc).join('; ')}.</p>` : '';
+
+          window.__lastDerived = d; // handy in the browser console
+        }
+
+        // ── Buttons ──
+        function feedback(text) {
+          $('#feedback').textContent = text;
+          setTimeout(() => { if ($('#feedback').textContent === text) $('#feedback').innerHTML = '&nbsp;'; }, 2500);
+        }
+        function copyText(text, label) {
+          navigator.clipboard.writeText(text).then(() => feedback(label + ' — paste it in Terminal.')).catch(() => feedback('Could not copy; select the command and copy manually.'));
+        }
+        $('#copy').addEventListener('click', () => { const d = Core.derive(state); if (!d.blocked) copyText(d.command, 'Copied'); });
+        $('#copy-multi').addEventListener('click', () => { const d = Core.derive(state); if (!d.blocked) copyText(d.multiline, 'Copied multi-line'); });
+        $('#share').addEventListener('click', () => {
+          const json = JSON.stringify(Core.serialize(state));
+          const b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+          location.hash = 's=' + b64;
+          copyText(location.href, 'Share link copied (token excluded)');
+        });
+        $('#reset').addEventListener('click', () => {
+          localStorage.removeItem(STORAGE_KEY);
+          history.replaceState(null, '', location.pathname);
+          state = Core.defaultState();
+          paintInputs();
+          render();
+          feedback('Reset to defaults.');
+        });
+
+        // ── Boot ──
+        buildStatic();
+        bindInputs();
+        state = loadInitial();
+        paintInputs();
+        render();
+      })();
+    </script>
+  </body>
+</html>

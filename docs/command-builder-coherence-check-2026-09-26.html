@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Command Builder — Coherence Check and V2 (2026-09-26)</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f6f5f2;
+        --panel: #fff;
+        --ink: #1f2328;
+        --ink-2: #57606a;
+        --line: #d9d5cc;
+        --accent: #4f46e5;
+        --red: #b91c1c;
+        --amber: #b45309;
+        --green: #1a7f37;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1115;
+          --panel: #171a21;
+          --ink: #e6e8ec;
+          --ink-2: #a3a9b5;
+          --line: #2a2f3a;
+          --accent: #8b85ff;
+          --red: #f87171;
+          --amber: #fbbf24;
+          --green: #4ade80;
+        }
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+        font-size: 15px;
+      }
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 28px 22px 60px;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 1.15rem;
+        margin: 30px 0 8px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid var(--line);
+      }
+      h3 {
+        font-size: 0.98rem;
+        margin: 18px 0 6px;
+      }
+      .meta {
+        color: var(--ink-2);
+        font-size: 0.88rem;
+      }
+      code {
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        font-size: 0.86em;
+        background: color-mix(in srgb, var(--ink) 8%, transparent);
+        padding: 0 4px;
+        border-radius: 4px;
+      }
+      pre {
+        background: #14161a;
+        color: #e6edf3;
+        padding: 12px 14px;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-size: 0.82rem;
+      }
+      pre code {
+        background: none;
+        padding: 0;
+        color: inherit;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.86rem;
+        margin: 8px 0 14px;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 7px 8px;
+        border-bottom: 1px solid var(--line);
+      }
+      th {
+        color: var(--ink-2);
+        font-weight: 600;
+        background: color-mix(in srgb, var(--ink) 4%, transparent);
+      }
+      .sev {
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .sev.high {
+        color: var(--red);
+      }
+      .sev.med {
+        color: var(--amber);
+      }
+      .sev.low {
+        color: var(--green);
+      }
+      .callout {
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--accent);
+        background: var(--panel);
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin: 12px 0;
+        font-size: 0.9rem;
+      }
+      ul,
+      ol {
+        padding-left: 22px;
+      }
+      li {
+        margin-bottom: 4px;
+      }
+      dl dt {
+        font-weight: 600;
+        margin-top: 8px;
+      }
+      dl dd {
+        margin: 0 0 4px;
+        color: var(--ink-2);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Command Builder — Coherence Check and V2</h1>
+      <p class="meta">
+        Date: 2026-09-26 · Author: Fable (Claude Code) at Alan's request · Doc type: dated record (findings are
+        as-of this date; the living gates are the tests named below) · Scope:
+        <code>docs/command-builder.html</code> versus the runner and coordinator CLIs as they exist on playground
+        <code>main</code> at <code>90f50ce</code>.
+      </p>
+
+      <div class="callout">
+        <b>In one paragraph.</b> The V1 builder was structurally in sync with the runner (every flag it emits is a real
+        flag, capability groups and templates matched, the existing drift gates were green) but eighteen of its
+        <i>rules</i> had drifted from runtime behaviour, three of them safety-relevant: it told you that
+        <code>--dont-ask</code> with shell on "still asks" (the runtime runs shell commands without asking), it validated
+        model effort/thinking with hand-written regexes that disagreed with the model catalog in four families, and its
+        shell-tool checkboxes depended on click history so the same preset could emit a different command the second
+        time. All eighteen are fixed in V1. A combinatorial test suite now checks every generated command against the
+        <i>real</i> CLI (its option table, chaos gate, model validator, and a dead-bridge spawn), so this class of drift
+        fails loudly from now on. A V2 builder was written from scratch around one state object and one pure rule core;
+        it is covered by the same real-CLI checks plus drift tests that pin its mirrored runtime tables to their sources.
+      </div>
+
+      <h2>1. How the check was done</h2>
+      <ol>
+        <li>
+          Read the runner CLI (<code>bin/local-bridge-runner.js</code>: option table, help text, startup validation),
+          the coordinator CLI, and the runtime modules whose behaviour the builder describes: permission modes
+          (<code>src/runner/permissions.js</code>), tool visibility and capability groups, the chaos gate
+          (<code>shell-policy.js</code>), the model catalog and validator, the context policy, session start/resume
+          paths in <code>run.js</code>, trust evaluation, and the prompt registry.
+        </li>
+        <li>Read the builder's markup and script end to end and compared every rule, tooltip, caution, summary sentence, and preset against those sources.</li>
+        <li>
+          Wrote a combinatorial sweep that drives the real page script inside the existing fake DOM and feeds each
+          generated command back into the runner's own <code>parseArgs</code> table and startup validators. The sweep
+          found two of the defects below (<b>F5</b>, <b>F8</b>) that reading alone had missed.
+        </li>
+        <li>Ran the existing gates before and after: builder tests, <code>npm test</code>, <code>npm run lint</code>, <code>npm run check:docs</code>, <code>npm run format:check</code>.</li>
+      </ol>
+
+      <h2>2. Findings and fixes (V1)</h2>
+      <p class="meta">Severity: <span class="sev high">high</span> = the builder misstates authority or emits a command the CLI rejects/behaves differently from the summary; <span class="sev med">medium</span> = a valid choice is blocked or a real gotcha is unwarned; <span class="sev low">low</span> = cosmetic or redundancy.</p>
+      <table>
+        <tr><th>ID</th><th>Sev.</th><th>What was wrong</th><th>Runtime fact</th><th>Fix</th></tr>
+        <tr><td>F1</td><td class="sev high">high</td><td>The <code>--worktree</code> checkbox was not in the render listener list, not saved/restored, and not reset by presets: ticking it changed nothing until another control was touched, and it vanished on reload.</td><td><code>--worktree</code> is harness-enforced isolation (<code>run.js</code>); a silently dropped flag means an un-isolated run that looks isolated.</td><td>Wired into render, persisted, reset by presets, greyed with a note in coordinator mode (runner-only flag), label gets <code>check-label</code> styling (F18).</td></tr>
+        <tr><td>F2</td><td class="sev high">high</td><td>Caution text: "With shell on, --dont-ask still asks unless writes are auto-approved or chaos is acknowledged."</td><td><code>MODES.dontAsk.shell === 'allow'</code>: shell commands run <b>without asking</b>. Only history-changing git verbs and destructive worktree cleanup always ask.</td><td>Caution, style hint, tool-catalog paragraph, and the summary sentence now mirror the MODES table (each ability names its own confirmation rule).</td></tr>
+        <tr><td>F3</td><td class="sev high">high</td><td>Model rules were regexes: <code>xhigh</code> excluded <code>claude-mythos-5</code>; <code>max</code> allowed on <code>claude-opus-4-5</code>; any effort allowed on <code>claude-haiku-4-5</code>/<code>claude-sonnet-4-5</code>; <code>adaptive</code> allowed on <code>claude-opus-4-5</code>.</td><td><code>model-catalog.js</code>: mythos-5 supports xhigh; opus-4-5 is low/medium/high only; haiku-4-5 and sonnet-4-5 reject <code>--effort</code> entirely; opus-4-5 is manual-only thinking.</td><td>Regexes replaced by a <code>MODEL_RULES</code> table; every effort option is greyed per model; a test compares every offered model × effort × thinking × temperature against <code>resolveModelControls</code>.</td></tr>
+        <tr><td>F4</td><td class="sev med">med</td><td><code>--max-tokens</code> up to 128000 was accepted for every model.</td><td><code>deriveContextPolicy</code> rejects a value above the model's <code>maxOutputTokens</code> (64000 for several families).</td><td>Validated from the same table; test compares against <code>deriveContextPolicy</code>.</td></tr>
+        <tr><td>F5</td><td class="sev high">high</td><td>bash / manage_shell_jobs were auto-checked only the <i>first</i> time shell appeared (a <code>dataset</code> flag). Clicking Verify, then Minimal, then Verify again emitted a <code>--tools</code> list without <code>bash</code>.</td><td>The runtime exposes both shell tools whenever <code>--allow-shell</code> is set, unless a <code>--tools</code> allowlist hides them.</td><td>The two checkboxes now mirror <code>--allow-shell</code> deterministically (read-only indicators). Found by the sweep.</td></tr>
+        <tr><td>F6</td><td class="sev med">med</td><td>Presets inherited run-shape flags from earlier presets: Verify → Edit+shell emitted <code>--test-watch</code> that Edit+shell never asked for.</td><td>—</td><td>A preset is a whole recipe: <code>--test-watch</code> and <code>--worktree</code> are switched off unless the preset declares them (<code>--enable-lsp</code> is kept on purpose: it describes the machine).</td></tr>
+        <tr><td>F7</td><td class="sev med">med</td><td><code>--session-extract</code> was blocked unless <code>--trusted-workspace</code> (the <i>hooks</i> flag) was set.</td><td><code>run.js maybeRunSessionExtract</code> needs <code>ctx.trustedWorkspace</code>, which <code>bootstrap.js</code> sets from the recorded folder trust that every run must already have passed; the hooks flag is a separate consent.</td><td>Rule relaxed to "a session id/path and persistence on"; tooltip corrected.</td></tr>
+        <tr><td>F8</td><td class="sev med">med</td><td><code>--fork-from</code> + <code>--resume-session</code> was blocked without an explicit session id.</td><td>The CLI mints the child id itself when none is given.</td><td>Fork now satisfies the resume rule. Found by the sweep.</td></tr>
+        <tr><td>F9</td><td class="sev med">med</td><td><code>--fork-from</code> without <code>--resume-session</code> produced no warning.</td><td>The non-resume path in <code>run.js</code> replaces the copied conversation with the new prompt (only runner metadata is hydrated).</td><td>Warning added.</td></tr>
+        <tr><td>F10</td><td class="sev low">low</td><td><code>--continue</code> combined with a session id/path/fork produced no warning.</td><td>The CLI ignores <code>--continue</code> when a session is already selected (fork sets the path).</td><td>Warning added.</td></tr>
+        <tr><td>F11</td><td class="sev med">med</td><td>Summary said "stop after 16 steps" with <code>--task-scope</code>; tooltips described <code>--task-scope</code> as a prompt instruction and <code>--compact-each-turn</code> as per-turn summarizing.</td><td><code>--task-scope</code> sets max steps to 8 when <code>--max-steps</code> is absent and compacts at ~40k; <code>--compact-each-turn</code> compacts at ~20k; an explicit <code>--compact-at-tokens</code> wins.</td><td>Summary, labels, tooltips, and two new notes corrected.</td></tr>
+        <tr><td>F12</td><td class="sev low">low</td><td><code>--stream</code> with json output and <code>--verbose</code> with <code>--log-level quiet</code> had no note.</td><td>Streaming paints only in text mode; log-level overrides verbose.</td><td>Warnings added.</td></tr>
+        <tr><td>F13</td><td class="sev med">med</td><td>Changing the permission style wiped every opt-in group (agents, worktrees, skills, history).</td><td>Those groups are orthogonal to write/shell authority.</td><td>A manual style change preserves them; presets (whole recipes) still reset. This follows the recorded preference not to reset unrelated toggles.</td></tr>
+        <tr><td>F14</td><td class="sev low">low</td><td>Tool-set comparison was order-sensitive, so "exactly the gated defaults" could emit a redundant <code>--tools</code> allowlist when the DOM order differed.</td><td><code>--tools</code> order is irrelevant to the CLI.</td><td>Set comparison.</td></tr>
+        <tr><td>F15</td><td class="sev med">med</td><td>Every value was single-quoted, including paths like <code>~/.bridge-runner/sessions/x.state.json</code> that the placeholders suggest.</td><td>The runner does not expand <code>~</code>; a quoted tilde reaches it literally and creates a folder named <code>~</code>.</td><td>A leading <code>~/</code> is kept outside the quotes in both builders.</td></tr>
+        <tr><td>F16</td><td class="sev low">low</td><td>The worktree checkbox stayed active in coordinator mode with no explanation.</td><td>The coordinator CLI has no <code>--worktree</code>.</td><td>Greyed with a note; the choice is kept, not erased.</td></tr>
+        <tr><td>F17</td><td class="sev low">low</td><td><code>ask_user_question</code> offered under <code>--dont-ask</code> / <code>--plan</code> without a note.</td><td>The tool fails closed in those modes.</td><td>Caution added.</td></tr>
+        <tr><td>F18</td><td class="sev low">low</td><td>Worktree label lacked <code>class="check-label"</code>, so it rendered in the uppercase field-label style.</td><td>—</td><td>Fixed.</td></tr>
+      </table>
+
+      <h3>Verified coherent (no change needed)</h3>
+      <ul>
+        <li>Every flag the builder emits exists in the runner's <code>parseArgs</code> table with the right type; every coordinator flag is covered; retired flags (<code>--resume</code>, <code>--max-context-tokens</code>, <code>--permission-mode</code>, aliases) are never emitted.</li>
+        <li>Capability grouping (whole groups → <code>--capabilities</code>, partial or <code>apply_patch</code> → <code>--tools</code>), the seven-tool core, the hidden <code>apply_patch</code>, and <code>shell</code>/<code>lsp</code> riding their own flags.</li>
+        <li>The chaos gate (<code>--allow-shell --accept-edits --dont-ask</code> needs <code>--chaos-ok</code>) matches <code>validateChaosCombo</code> for all sixteen combinations.</li>
+        <li>Context dependencies (<code>--bare</code> discards opt-ins; CLAUDE.md / repo map need repo-context), template argument syntax, the <code>--test-watch</code> → <code>--allow-shell</code> dependency, coordinator phase ordering and the verify-needs-execute rule, and the caller token never reaching browser storage.</li>
+      </ul>
+
+      <h2>3. Tests added</h2>
+      <dl>
+        <dt><code>test/runner/helpers/command-builder-harness.js</code></dt>
+        <dd>The fake DOM that runs the V1 page script unchanged, factored out of the behavior test so several suites can drive the same page. Accepts a seeded saved state to prove restore-on-load.</dd>
+        <dt><code>test/runner/helpers/cli-contract.js</code></dt>
+        <dd>"Ask the real runner": reads the runner's real <code>parseArgs</code> option table from <code>bin/local-bridge-runner.js</code>, tokenizes a generated command the way zsh would, re-runs the CLI's startup validators (chaos gate, capability list, <code>resolveModelControls</code>, <code>deriveContextPolicy</code>), and spawns the real CLI against a dead bridge in a throwaway HOME and git repo so a command must survive every validation and fail only at transport (the FG-E7 tripwire).</dd>
+        <dt><code>test/runner/command-builder-combinatorics.test.js</code> (V1)</dt>
+        <dd>Sweeps 5 permission styles × shell / test-watch / network / LSP / worktree (160 states), then styles × 5 context states × 6 session states × 16 extras (2 400 states) through the real option table and invariants; checks 16 chaos combinations against the runtime; compares 13 models × 6 efforts × 3 thinking modes × 3 temperatures (702 cases) against <code>resolveModelControls</code>, greyed options against single-choice rejection, and five token allowances per model against <code>deriveContextPolicy</code>; sweeps 1 000+ coordinator states; and spawns every preset and every style through the real CLI.</dd>
+        <dt><code>test/runner/command-builder-behavior.test.js</code> (V1, extended)</dt>
+        <dd>Seven new cases: worktree wiring/persistence/coordinator muting, preset non-contamination, group preservation across style changes, fork/continue warnings, the corrected <code>--dont-ask</code> wording and task-scope steps, and the token ceiling. One expectation updated for F7.</dd>
+        <dt><code>test/runner/command-builder-v2.test.js</code> (V2)</dt>
+        <dd>Loads the V2 core script alone. Drift tests pin its mirrored tables to <code>permissions.MODES</code>, <code>CAPABILITY_GROUPS</code>, tool categories, the model catalog, the prompt registry, and both CLI option tables (every runner flag must be emitted or explicitly listed as not offered). Sweeps 4 × 3 × 2⁸ authority/group states and 4 × 10 × 4 × 5 × 6 session/context/model/extras states; blocks exactly the states the CLI refuses; matches the model validator and the token ceiling; proves inactive choices are never erased and recipes never touch folders, bridge, or trust; and spawns every recipe and every dial position through the real CLI.</dd>
+      </dl>
+      <pre><code># Terminal, from the playground folder
+node --require ./test/setup.js --test test/runner/command-builder-*.test.js
+npm run check:docs   # the manifest gate now also covers docs/command-builder-v2.html</code></pre>
+
+      <h2>4. V2 — what changed in the re-imagining and why</h2>
+      <p>
+        <a href="command-builder-v2.html">docs/command-builder-v2.html</a> is a fresh single-file page, not a restyle.
+        The one design decision everything else follows from: <b>one state object, one pure core, many projections</b>.
+        The form writes into the state; <code>Core.derive(state)</code> returns the command, the annotated flag list,
+        blockers, warnings, a plain-language contract, the permission matrix, the effective tool surface, and which
+        controls are inactive and why; the DOM only paints that result. Because the core never touches the DOM, the
+        test suite loads it alone and checks it against the real runner without a fake browser.
+      </p>
+      <h3>Visible differences for Alan</h3>
+      <ul>
+        <li><b>Two authority dials instead of one five-way style.</b> <i>Files</i> (Look · Propose · Edit-ask · Edit-auto) and <i>Shell</i> (Off · On-asks · On-unattended) are the runtime's real independent axes (<code>--plan</code>/<code>--accept-edits</code> versus <code>--allow-shell</code>/<code>--dont-ask</code>). V1 had no way to express "auto-approve edits, but ask for each shell command", which is the safest way to run tests; V2 makes it one click. The dangerous corner (auto + unattended) shows an explicit acknowledgement box that emits <code>--chaos-ok</code>.</li>
+        <li><b>A live permission matrix</b> derived from the runtime's MODES table: for the dials you picked, each tool category reads <i>runs</i>, <i>asks</i>, <i>proposal</i>, or <i>hidden</i>, with the always-ask exceptions spelled out.</li>
+        <li><b>Mutually exclusive choices are radios.</b> Session start (fresh / continue / resume / fork / restart) and startup context (minimal / project-aware / bare) cannot be put into a conflicting state, so the corresponding V1 conflict panels do not exist.</li>
+        <li><b>Nothing is erased.</b> A choice whose parent is off is greyed with a one-line reason and returns when the parent is re-enabled (edits under Look-only, CLAUDE.md under minimal context, test-watch under shell-off, worktree under the coordinator).</li>
+        <li><b>The command is annotated.</b> Each flag is a coloured chip (read / write / shell / danger / orchestration) whose hover text says why it is there; a "Why each flag is here" list and a contract sentence say the same thing in prose. The coordinator engine lists what it <i>cannot</i> accept instead of dropping it silently.</li>
+        <li><b>Recipes never touch where you work.</b> They patch intent-level fields only; target folder, runner folder, bridge, and trust fields are yours.</li>
+        <li><b>Share link.</b> The setup can be put in the page address (token excluded) for bookmarking or handing to another agent.</li>
+        <li>Light and dark themes follow the system; no dependencies; canonical <code>--log-level</code> instead of <code>--verbose</code>; tilde-aware quoting; the caller token is never stored.</li>
+      </ul>
+      <h3>Deliberately not offered in V2</h3>
+      <ul>
+        <li><code>--review-memory</code>, <code>--replay</code>, <code>--repair</code>: maintenance commands, shown as snippets in the side panel rather than as run switches.</li>
+        <li><code>--permission-mode</code>, <code>--allowed-tools</code>, <code>--template</code>, <code>--max-context-tokens</code>, <code>--resume</code>, <code>--inherit-workspace-trust</code>: aliases, deprecated, or internal. The test that lists them fails if a new runner flag appears that is neither emitted nor on this list.</li>
+        <li>Reverse parsing (paste a command to load the form): out of scope; the share link covers the round trip between people.</li>
+      </ul>
+      <h3>Known limits</h3>
+      <ul>
+        <li>
+          The V2 DOM layer (binding and painting) is not under an automated test; the rules it paints are. On
+          2026-09-26 it was walked through with a jsdom script (jsdom installed in a temporary folder, not added to the
+          repo): recipes, the acknowledgement box, both dials, greyed-but-kept groups, the engine switch and its
+          omissions list, tilde paths, per-tool exclusion, resume validation, model notes, save, share link, reload from
+          the link, and reset — zero page errors. The same walkthrough exercised V1's worktree checkbox, presets, model
+          greying, and token ceiling. Adding jsdom as a devDependency would let this become a real test; that is a
+          dependency decision for Alan.
+        </li>
+        <li>
+          V1 presets still carry <code>--max-tokens</code>, <code>--stream</code>, and <code>--verbose</code> forward
+          from an earlier preset when the new one does not declare them (display and budget preferences, not
+          authority). Left as is; V2 recipes reset the run-shape fields they own and leave the rest to you by design.
+        </li>
+        <li>Both builders mirror runtime tables by hand. The drift tests make a mismatch fail the suite; they do not make the copies unnecessary. Generating the mirrors from the runtime at build time would remove the duplication (a future slice).</li>
+      </ul>
+
+      <h2>5. Handoff</h2>
+      <ul>
+        <li><b>Folder / branch:</b> <code>/Users/alanman/Developer/claude-local-bridge-playground</code>, <code>main</code> (playground).</li>
+        <li><b>Files changed:</b> <code>docs/command-builder.html</code> (F1–F18); <code>docs/command-builder-v2.html</code> (new); this record; <code>test/runner/command-builder-behavior.test.js</code>; <code>test/runner/command-builder-combinatorics.test.js</code> (new); <code>test/runner/command-builder-v2.test.js</code> (new); <code>test/runner/helpers/command-builder-harness.js</code> and <code>cli-contract.js</code> (new); <code>scripts/check-runner-manifest.js</code> (covers V2); links in <code>README.md</code>, <code>docs/runner-quickstart.html</code>, <code>CLAUDE.md</code>, <code>AGENTS.md</code>.</li>
+        <li>
+          <b>Checks run (final state, 2026-09-26):</b> <code>npm test</code> 1137 tests, 1136 pass, 0 fail, 1 todo
+          (pre-existing); <code>npm run lint</code> clean; <code>npm run check:docs</code> passed with V2 included;
+          <code>npm run format:check</code> reports three pre-existing <code>HANDOFF-*-thermo-nuclear-*.md</code>
+          files that were already failing before this session and were not touched.
+        </li>
+        <li><b>Not done:</b> no commit or push (Alan decides); no live bridge run (the spawn tests use a dead bridge on purpose, $0 spent).</li>
+        <li><b>Next candidates:</b> generate the mirrored tables from the runtime instead of hand-copying; a DOM-level test for V2 (a small browser harness like V1's); decide whether V2 replaces V1 as the day-to-day builder named in the learned preferences.</li>
+      </ul>
+    </main>
+  </body>
+</html>

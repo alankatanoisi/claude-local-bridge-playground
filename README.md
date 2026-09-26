@@ -496,7 +496,9 @@ Useful runner options:
 | `--help`                                                 | Show CLI usage                                                                                                                                  |
 
 Open [docs/command-builder.html](./docs/command-builder.html) in your browser if you prefer a form that builds these
-commands for you. See [docs/runner-expansion-roadmap.md](./docs/runner-expansion-roadmap.md) for a categorized plan to
+commands for you, or [docs/command-builder-v2.html](./docs/command-builder-v2.html) for the re-imagined V2 (two
+authority dials, a live permission matrix, an annotated command). Both are checked against the real CLI by
+`test/runner/command-builder-*.test.js`. See [docs/runner-expansion-roadmap.md](./docs/runner-expansion-roadmap.md) for a categorized plan to
 expand runner tools and harness parity over time. A conservative first run is read-only or `--plan`; use
 `--accept-edits` only when file changes are intended, and add `--allow-shell` only when the runner needs commands such
 as tests.

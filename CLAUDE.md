@@ -377,7 +377,8 @@ When changing runner behavior or CLI options, update:
 
 - `README.md`
 - `docs/runner-quickstart.html`
-- `docs/command-builder.html`
+- `docs/command-builder.html` and `docs/command-builder-v2.html` (both mirror runtime tables by hand;
+  `test/runner/command-builder-*.test.js` fails on drift — run them after any flag, group, model, or template change)
 - `docs/threat-model.md` when safety behavior changes
 
 ## Learned User Preferences
