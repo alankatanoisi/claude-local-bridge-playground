@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bridge Runner inside T3 Code (Nightly) — setup and checklist</title>
+    <style>
+      :root {
+        --bg: #fafafa;
+        --fg: #1a1a1a;
+        --muted: #666;
+        --accent: #2563eb;
+        --accent-light: #dbeafe;
+        --code-bg: #f3f4f6;
+        --border: #e5e7eb;
+        --success: #059669;
+        --warn: #d97706;
+        --danger: #dc2626;
+        --radius: 8px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.65;
+        color: var(--fg);
+        background: var(--bg);
+        margin: 0;
+      }
+      header {
+        background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        color: #fff;
+        padding: 2.5rem 1.5rem 2rem;
+        text-align: center;
+      }
+      header h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.8rem;
+      }
+      header p {
+        margin: 0;
+        opacity: 0.85;
+        max-width: 640px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 1.5rem;
+      }
+      section {
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1.25rem;
+      }
+      h2 {
+        margin-top: 0;
+        font-size: 1.25rem;
+      }
+      h3 {
+        font-size: 1.05rem;
+        margin-bottom: 0.4rem;
+      }
+      code {
+        background: var(--code-bg);
+        padding: 0.1rem 0.35rem;
+        border-radius: 4px;
+        font-size: 0.92em;
+      }
+      pre {
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 0.9rem 1rem;
+        border-radius: var(--radius);
+        overflow-x: auto;
+        font-size: 0.88em;
+        line-height: 1.5;
+      }
+      pre code {
+        background: none;
+        padding: 0;
+        color: inherit;
+      }
+      .callout {
+        border-left: 4px solid var(--accent);
+        background: var(--accent-light);
+        padding: 0.75rem 1rem;
+        border-radius: 0 var(--radius) var(--radius) 0;
+        margin: 1rem 0;
+      }
+      .callout.warn {
+        border-color: var(--warn);
+        background: #fef3c7;
+      }
+      .callout.danger {
+        border-color: var(--danger);
+        background: #fee2e2;
+      }
+      .callout.success {
+        border-color: var(--success);
+        background: #d1fae5;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 0.95em;
+      }
+      th,
+      td {
+        border: 1px solid var(--border);
+        padding: 0.5rem 0.6rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: var(--code-bg);
+      }
+      .where {
+        color: var(--muted);
+        font-size: 0.9em;
+      }
+      footer {
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.85em;
+        padding: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Bridge Runner inside T3 Code (Nightly)</h1>
+      <p>
+        How to make your real T3 Code desktop app start the Bridge Runner as a provider, and a checklist to prove it
+        works. Written 2026-09-26. Replaces the deleted demo dev-stack setup.
+      </p>
+    </header>
+
+    <main>
+      <section>
+        <h2>1. What this is, in plain words</h2>
+        <p>
+          T3 Code is a desktop app for chatting with coding agents. It has several built-in "provider drivers"; one of
+          them is the <strong>Cursor</strong> driver. That driver does not know anything about Bridge Runner. It only
+          knows how to start a command-line program and talk to it in <strong>ACP</strong> (Agent Client Protocol: JSON
+          messages, one per line, over the program's standard input and output).
+        </p>
+        <p>The driver starts the program twice:</p>
+        <ol>
+          <li><code>&lt;program&gt; about --format json</code> — "who are you?" A version and identity check.</li>
+          <li><code>&lt;program&gt; acp</code> — the real session. It stays running for the whole thread.</li>
+        </ol>
+        <p>
+          The program you point T3 at is the small shell script <code>bin/t3-cursor-shim.sh</code> in this repository. It
+          answers "who are you?", removes a few Cursor-only launch flags, finds a <code>node</code> binary, and hands over
+          to the real ACP agent, <code>bin/local-bridge-acp.js</code>. That agent talks to the local bridge on
+          <code>127.0.0.1:11437</code>, so every turn spends real model calls through your Claude Code credentials.
+        </p>
+        <div class="callout">
+          <strong>Why a "shim" at all?</strong> The agent cannot answer "about" itself, and T3 adds flags
+          (<code>--auto-review</code>, <code>--force</code>) meant for the real Cursor command-line tool. The shim is the
+          adapter between what T3 sends and what our agent accepts. It used to live in a T3 fork checkout that has since
+          been deleted; it now lives here, next to the agent it launches.
+        </div>
+      </section>
+
+      <section>
+        <h2>2. Before you start</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Check</th>
+              <th>Where</th>
+              <th>What success looks like</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>T3 Code Nightly version</td>
+              <td>T3 Code → About</td>
+              <td><code>0.0.43-nightly.20260926.2282</code> or newer (the launch contract was verified against this).</td>
+            </tr>
+            <tr>
+              <td>The bridge is running</td>
+              <td>Terminal, any folder</td>
+              <td>
+                <code>curl -s http://127.0.0.1:11437/ping</code> prints a one-line JSON message containing
+                <code>"not_found"</code>. That is success: the bridge answered, it just does not know that path. If you
+                see "Connection refused", start the Claude Local Bridge extension (press F5 in Cursor or VS Code with the
+                playground folder open).
+              </td>
+            </tr>
+            <tr>
+              <td>The shim is executable</td>
+              <td>Terminal, playground folder</td>
+              <td><code>ls -l bin/t3-cursor-shim.sh</code> starts with <code>-rwxr-xr-x</code>.</td>
+            </tr>
+            <tr>
+              <td>Which node to use</td>
+              <td>Terminal, any folder</td>
+              <td>
+                <code>which node</code>. On this Mac it prints <code>/Users/alanman/.local/bin/node</code>. Copy that
+                path; you will paste it into T3 in the next section, because the desktop app does not share your
+                Terminal's search path.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>3. Add the provider in T3 (preferred way)</h2>
+        <p class="where">Where: the T3 Code app window.</p>
+        <ol>
+          <li>Open <strong>Settings → Providers</strong>.</li>
+          <li>Click <strong>Add provider instance</strong>.</li>
+          <li>Driver: <strong>Cursor</strong>.</li>
+          <li>
+            Label: <strong>Bridge Runner</strong>. T3 turns the label into the instance id
+            <code>cursor_bridge_runner</code>; you only need that id if you ever hand-edit the settings file.
+          </li>
+          <li>
+            Binary path: the <em>absolute</em> path of the shim:
+            <pre><code>/Users/alanman/Developer/claude-local-bridge-playground/bin/t3-cursor-shim.sh</code></pre>
+            Do not create a symlink to it: the shim finds the agent relative to its own location.
+          </li>
+          <li>API endpoint: leave <strong>empty</strong>.</li>
+          <li>
+            Environment variables (on the instance card):
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Value</th>
+                  <th>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>BRIDGE_RUNNER_NODE</code></td>
+                  <td><code>/Users/alanman/.local/bin/node</code></td>
+                  <td>The desktop app's search path may not include node; this tells the shim exactly which one.</td>
+                </tr>
+                <tr>
+                  <td><code>BRIDGE_RUNNER_CAPABILITIES</code></td>
+                  <td><code>edits</code></td>
+                  <td>
+                    Enables file writes. Every write still shows an approval card in T3's supervised mode. Leave this
+                    variable out for a read-only instance.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            Leave the "sensitive" checkbox <strong>off</strong> for both; sensitive values are stored blanked out.
+          </li>
+          <li>Save. The card should show the instance as ready, with four models: Sonnet 5, Fable 5, Opus 5, Haiku 4.5.</li>
+        </ol>
+        <div class="callout warn">
+          <strong>Shell stays off.</strong> Setting <code>BRIDGE_RUNNER_CAPABILITIES=shell</code> is refused by the shim
+          on purpose. The only way to let the runner execute commands is to edit the last line of
+          <code>bin/t3-cursor-shim.sh</code> and add <code>--allow-shell</code> by hand. That is deliberate: who may run
+          commands on this machine is decided in a file, not in a settings screen.
+        </div>
+      </section>
+
+      <section>
+        <h2>4. Hand-edit fallback (only if the UI route fails)</h2>
+        <p class="where">Where: Terminal, then a text editor. T3 re-reads this file automatically about 100 ms after you save.</p>
+        <div class="callout danger">
+          <strong>Back up first.</strong> If the file is not valid JSON after your edit, T3 silently drops
+          <em>every</em> provider instance until the file is fixed.
+        </div>
+        <pre><code>cp ~/.t3/userdata/settings.json ~/.t3/userdata/settings.json.bak-2026-09-26</code></pre>
+        <p>Add this block inside the existing <code>"providerInstances"</code> object:</p>
+        <pre><code>"cursor_bridge_runner": {
+  "driver": "cursor",
+  "enabled": true,
+  "displayName": "Bridge Runner",
+  "environment": [
+    { "name": "BRIDGE_RUNNER_NODE", "value": "/Users/alanman/.local/bin/node", "sensitive": false },
+    { "name": "BRIDGE_RUNNER_CAPABILITIES", "value": "edits", "sensitive": false }
+  ],
+  "config": {
+    "binaryPath": "/Users/alanman/Developer/claude-local-bridge-playground/bin/t3-cursor-shim.sh",
+    "apiEndpoint": "",
+    "customModels": []
+  }
+}</code></pre>
+        <p>Then check the file is still valid JSON before you trust it (Terminal, any folder):</p>
+        <pre><code>node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); console.log("valid JSON")' ~/.t3/userdata/settings.json</code></pre>
+        <p>Success: it prints <code>valid JSON</code>. If it prints an error, restore the backup and try again.</p>
+      </section>
+
+      <section>
+        <h2>5. Verification checklist</h2>
+        <p>
+          Start a <strong>new thread</strong> in T3, pick the <strong>Bridge Runner</strong> provider, and keep the
+          thread in <strong>supervised</strong> mode. (T3's "full access" mode approves writes automatically on the
+          client side, which would hide the approval card you want to see.)
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Prompt</th>
+              <th>What you should see</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td>
+              <td><em>Count from 1 to 30, one number per line.</em></td>
+              <td>
+                Lines appear progressively (streaming). If the whole answer paints at once, turn on T3's "Stream token by
+                token (legacy)" setting.
+              </td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>Same prompt, then press <strong>Stop</strong> half-way.</td>
+              <td>The turn ends promptly, the thread is still usable, and the next prompt answers normally.</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td><em>Create a file named hello-from-t3.txt containing the word hi.</em></td>
+              <td>
+                An approval card appears. Approve once. The file exists in the thread's folder. Delete it afterwards.
+                (Needs <code>BRIDGE_RUNNER_CAPABILITIES=edits</code>.)
+              </td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td>
+                In a scratch folder containing <code>util-a.js</code> and <code>util-b.js</code> (both with a
+                <code>// VERSION 1</code> header):<br />
+                <em>Update the version header comment in the util file.</em>
+              </td>
+              <td>
+                A question card asks which file (the prompt is deliberately ambiguous). Answer it; the chosen file is
+                edited after an approval card. Repeat and press <strong>Stop</strong> on the card instead: the model
+                reports that no answer was given and does not guess.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>6. Health check from Terminal (no T3 needed)</h2>
+        <p class="where">Where: Terminal, from the playground folder. Real spend: two tiny prompts, the first cancelled early.</p>
+        <pre><code>cd /Users/alanman/Developer/claude-local-bridge-playground
+node scripts/acp-live-probe.js</code></pre>
+        <p>
+          It launches the shim exactly as T3 does, runs the ACP handshake, streams a long answer, cancels it mid-way,
+          checks the bridge is still alive, and asks a second question on the same session. A passing run ends with
+          <code>RESULT: PASS</code>, for example:
+        </p>
+        <pre><code>[   0.009s] about     ok — cliVersion 2026.09.26-bridge-runner-nightly, userEmail bridge-runner@localhost
+[   0.100s] baseline  bridge alive at http://127.0.0.1:11437 (pid 25888)
+[   0.251s] handshake ok — session ses_…, 4 models
+[   2.9xxs] stream    first chunk after 2xxx ms; session/cancel sent
+[   3.1xxs] cancel    stopReason cancelled 2xx ms after session/cancel
+[   3.2xxs] survive   bridge alive at http://127.0.0.1:11437 (pid 25888)
+[   5.xxxs] session   second prompt answered on the same session (end_turn, "alive")
+[   5.xxxs] exit      agent exited 0 after stdin closed
+RESULT: PASS</code></pre>
+        <div class="callout warn">
+          <strong>Run it from your own Terminal, not from inside a coding-agent session.</strong> Agent sessions (Claude
+          Code, Cursor) run commands in a sandbox that child processes inherit; the runner then cannot write under
+          <code>~/.bridge-runner</code> and the probe fails with <code>EPERM</code>. The probe prints a hint when it sees
+          that.
+        </div>
+      </section>
+
+      <section>
+        <h2>7. Troubleshooting</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Symptom</th>
+              <th>Likely cause</th>
+              <th>What to do</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>The thread fails to start; T3 logs show a line beginning <code>t3-cursor-shim:</code></td>
+              <td>The shim stopped on purpose. The line says why (node not found, unexpected launch argument, refused posture).</td>
+              <td>
+                Node not found → set <code>BRIDGE_RUNNER_NODE</code> on the instance. Unexpected argument → T3 changed its
+                launch contract; the shim's comment block lists the tokens it knows.
+              </td>
+            </tr>
+            <tr>
+              <td>Every turn fails with "Bridge returned HTTP 500 … proxies: PROXY 127.0.0.1:…"</td>
+              <td>
+                The <em>bridge</em> (inside the Cursor or VS Code window that runs the extension) inherited a proxy
+                address that nothing is listening on. A running process cannot change its environment.
+              </td>
+              <td>
+                Close the window titled <strong>[Extension Development Host]</strong> and press F5 again from a normal
+                editor window with the playground open. If it persists, quit and reopen the editor itself.
+              </td>
+            </tr>
+            <tr>
+              <td>The model list looks stale after you changed something</td>
+              <td>T3 caches the model list for 30 minutes, keyed by the shim's <code>cliVersion</code>.</td>
+              <td>Wait, restart T3, or bump the date in the shim's <code>cliVersion</code>.</td>
+            </tr>
+            <tr>
+              <td>"A turn is already running"</td>
+              <td>The agent handles one turn per process at a time.</td>
+              <td>Press Stop and wait for the turn to end.</td>
+            </tr>
+            <tr>
+              <td>All provider instances vanished from Settings</td>
+              <td><code>settings.json</code> is no longer valid JSON.</td>
+              <td>Restore the backup from section 4.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>8. Known limits (accepted for now)</h2>
+        <ul>
+          <li>
+            <strong>Auto effort</strong> does not appear in T3's reasoning dropdown: the packaged app drops any value
+            other than low/medium/high/xhigh/max. The fork commit that fixed this (<code>100b3890a</code>) cannot apply
+            to a packaged build. Pick a level, or leave the dropdown alone and the runner's default applies.
+          </li>
+          <li><strong>Reopened threads</strong> start with empty scrollback; the session state itself is restored.</li>
+          <li><strong>Shell</strong> is off and can only be enabled by hand-editing the shim (see section 3).</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>9. Removing it</h2>
+        <p>Delete the instance in Settings → Providers, or remove the JSON block from section 4. The shim and the agent stay in the repository; nothing else was installed.</p>
+      </section>
+    </main>
+    <footer>Companion records: <code>HANDOFF-acp-nightly-graduation-2026-09-26.md</code> (agent-facing) and <code>bin/t3-cursor-shim.sh</code> (the launcher, with its own comments).</footer>
+  </body>
+</html>

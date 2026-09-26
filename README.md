@@ -275,6 +275,14 @@ Project-local prompt primitives live under `.bridge-runner/`:
 Matching global files under `~/.bridge-runner/` are also loaded. Project files win over global replacement prompts;
 append files are applied global first, then project, then CLI flags.
 
+**Chat with the runner inside T3 Code (desktop app).** T3's Cursor provider driver can launch any program that
+speaks ACP (Agent Client Protocol) over standard input/output. `bin/t3-cursor-shim.sh` is that program for this repo: it
+answers T3's identity probe, drops T3's Cursor-only launch flags, finds `node`, and starts `bin/local-bridge-acp.js`
+with the read-only tool set. Setting `BRIDGE_RUNNER_CAPABILITIES=edits` on the T3 provider instance adds approval-gated
+file edits; shell stays a hand edit of the script. Setup and the verification checklist:
+`docs/t3-code-nightly-setup-2026-09-26.html`. Live health check from this folder (tiny real model spend):
+`node scripts/acp-live-probe.js`.
+
 ### Prompt-template registry
 
 Prompt templates are reusable instruction snippets prepended to your request with `--prompt-template <name>`. They live

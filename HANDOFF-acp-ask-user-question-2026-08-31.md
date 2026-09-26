@@ -1,5 +1,12 @@
 # Handoff — ask_user_question live over ACP + effort=auto in T3 (2026-08-31)
 
+> **Updated 2026-09-26 — current thread entry is now
+> `HANDOFF-acp-nightly-graduation-2026-09-26.md`.** The fork worktree that held the T3-side shim
+> is gone from disk; the launcher now lives in this repo (`bin/t3-cursor-shim.sh`) and targets the
+> packaged T3 Code Nightly app, whose launch contract changed on 2026-09-02 (`--auto-review` /
+> `--force` before `acp`). §4 items 1–2 (Terminal and T3 eyeballs) and item 3 (fork commit
+> `100b3890a`, unpushed) remain open; item 4 residuals unchanged. Text below preserved unchanged.
+
 > **Thermo-nuclear review 2026-08-31 — CLOSED same day:**
 > `HANDOFF-acp-ask-user-question-thermo-nuclear-2026-08-31.md`. Live-verify
 > claims in this file are not contradicted. All four findings (catch-all

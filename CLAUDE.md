@@ -348,7 +348,12 @@ items rather than starting a parallel tracker.
   review is `HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md`.
 
 - **ACP thread (Bridge Runner → T3 Code) — Slices A–D built; current entry
-  `HANDOFF-acp-ask-user-question-2026-08-31.md`.** Design record for A–C:
+  `HANDOFF-acp-nightly-graduation-2026-09-26.md`.** 2026-09-26 (Fable, Alan-directed): graduated
+  to the packaged T3 Code Nightly app through the playground-owned launcher
+  `bin/t3-cursor-shim.sh` (no fork, demo dev stack retired); `scripts/acp-live-probe.js` is the
+  committed cancel-survival probe — its first full pass is pending a bridge relaunch (the live
+  bridge lost upstream network at 11:16 that day via a phantom proxy; see the handoff §5). Question
+  card record: `HANDOFF-acp-ask-user-question-2026-08-31.md`. Design record for A–C:
   `HANDOFF-acp-slices-b-c-2026-08-22.md` (the 08-11 handoff is superseded). Slice D:
   `HANDOFF-acp-slice-d-2026-08-24.md`; status pass: `HANDOFF-acp-status-and-recommendations-2026-08-25.md`.
   Surface: `bin/local-bridge-acp.js` + `src/runner/acp/**`. Live: Slice C acceptance,
