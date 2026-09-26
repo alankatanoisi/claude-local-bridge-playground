@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Starlark abort-commit boundary hardening — September 18, 2026</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #182b3d;
+        --muted: #536675;
+        --accent: #16645f;
+        --line: #d9e3e7;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #edf2f4;
+        color: var(--ink);
+        font:
+          17px/1.7 system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+      header {
+        background: #123e46;
+        color: #fff;
+        padding: 42px max(24px, calc((100vw - 1160px) / 2));
+        border-bottom: 6px solid #80d1b8;
+      }
+      header p {
+        margin: 0;
+        font-size: 14px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      header strong {
+        display: block;
+        font-size: 32px;
+        line-height: 1.25;
+        margin-top: 8px;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 240px minmax(0, 900px);
+        gap: 28px;
+        max-width: 1200px;
+        margin: 36px auto;
+        padding: 0 20px;
+      }
+      nav {
+        position: sticky;
+        top: 22px;
+        align-self: start;
+      }
+      nav b {
+        display: block;
+        color: var(--muted);
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 12px;
+      }
+      nav a {
+        display: block;
+        padding: 7px 12px;
+        margin: 3px 0;
+        border-left: 2px solid var(--line);
+        font-size: 14px;
+        color: var(--accent);
+        text-decoration: none;
+      }
+      nav a:hover {
+        border-color: var(--accent);
+        background: #dfece8;
+      }
+      main {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 36px 42px;
+        min-width: 0;
+        box-shadow: 0 8px 30px #182b3d08;
+      }
+      h1 {
+        font-size: 35px;
+        line-height: 1.2;
+        margin: 0 0 24px;
+        letter-spacing: -0.025em;
+      }
+      h2 {
+        font-size: 25px;
+        line-height: 1.3;
+        margin: 42px 0 16px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        scroll-margin-top: 25px;
+      }
+      p,
+      li {
+        overflow-wrap: anywhere;
+      }
+      a {
+        color: var(--accent);
+        text-underline-offset: 3px;
+      }
+      li {
+        margin: 10px 0;
+      }
+      code {
+        font:
+          0.87em ui-monospace,
+          SFMono-Regular,
+          Consolas,
+          monospace;
+        background: #f0f4f6;
+        border-radius: 4px;
+        padding: 2px 5px;
+        overflow-wrap: anywhere;
+      }
+      table {
+        display: block;
+        overflow: auto;
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        line-height: 1.55;
+        margin: 24px 0;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 12px 14px;
+        text-align: left;
+        vertical-align: top;
+        min-width: 150px;
+      }
+      th {
+        background: #e6f1ef;
+        color: #124c47;
+      }
+      td:last-child {
+        min-width: 260px;
+      }
+      tbody tr:nth-child(even) {
+        background: #f7f9fa;
+      }
+      main > p:nth-of-type(2) {
+        background: #e8f4ee;
+        border-left: 4px solid #238065;
+        padding: 18px 20px;
+        border-radius: 0 8px 8px 0;
+      }
+      footer {
+        max-width: 1200px;
+        margin: 0 auto 35px;
+        padding: 0 20px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      @media (max-width: 900px) {
+        .layout {
+          display: block;
+          margin-top: 20px;
+        }
+        nav {
+          position: static;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-bottom: 18px;
+        }
+        nav b {
+          width: 100%;
+        }
+        nav a {
+          font-size: 12px;
+          padding: 4px 8px;
+        }
+        main {
+          padding: 24px;
+        }
+        h1 {
+          font-size: 28px;
+        }
+        header strong {
+          font-size: 26px;
+        }
+      }
+      @media print {
+        body {
+          background: #fff;
+          font-size: 11pt;
+        }
+        header,
+        nav,
+        footer {
+          display: none;
+        }
+        .layout {
+          display: block;
+          margin: 0;
+          padding: 0;
+          max-width: none;
+        }
+        main {
+          border: 0;
+          padding: 0;
+          box-shadow: none;
+        }
+        table {
+          display: table;
+          font-size: 9pt;
+        }
+        th,
+        td,
+        td:last-child {
+          min-width: 0;
+        }
+        h2 {
+          break-after: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p>Local research laboratory · Evidence handoff · 2026-09-18</p>
+      <strong>Cancellation must not erase a real failure</strong>
+    </header>
+    <div class="layout">
+      <nav aria-label="Report sections">
+        <b>In this report</b><a href="#location-baseline-and-concurrent-work">Location, baseline, and concurrent work</a
+        ><a href="#what-the-tests-now-prove">What the tests now prove</a
+        ><a href="#source-change-and-why-it-is-small">Source change and why it is small</a
+        ><a href="#preserved-red-before-green-evidence">Preserved red-before-green evidence</a
+        ><a href="#verification">Verification</a><a href="#limits-and-remaining-work">Limits and remaining work</a
+        ><a href="#handoff-inventory">Handoff inventory</a>
+      </nav>
+      <main>
+        <aside>
+          <p>
+            Publication update — September 18, 2026: Alan subsequently authorized the synthesis-resume session to own
+            both tasks, review and verify them together, and commit/push/synchronize the combined work. Implementation
+            and preserved evidence are committed as 3bacab37924ed5739fb7663d796d8068c60a331a. Final combined checks
+            passed: focused 43/43; full Starlark 128/128; repository 1,105 passed, zero failures or skips, one existing
+            TODO. The original no-commit wording below describes the earlier session’s stop point, not the final
+            combined disposition. See HANDOFF-synthesis-resume-evidence-2026-09-18.html for the combined handoff. Raw
+            evidence whitespace warnings are preserved; source and report whitespace checks pass.
+          </p>
+        </aside>
+        <h1 id="starlark-abort-commit-two-acceptance-boundaries-hardened">
+          Starlark abort-commit: two acceptance boundaries hardened
+        </h1>
+        <p>
+          Date: September 18, 2026. Scope: the two explicitly untested acceptance rows in
+          <a href="HANDOFF-starlark-mediums-closed-2026-09-16.md">the September 16 closure handoff</a>. No live provider
+          calls were made. All response usage and dollar costs below are simulated locally.
+        </p>
+        <p>
+          <strong>Result:</strong> settled invalid worker output already obeyed the required recovery rules. New
+          coverage proves that behavior. Four additional regressions exposed cancellation masking persistence or
+          accounting failures. A narrow coordinator change makes those errors reach the caller without turning them into
+          invalid model output or a successful cancellation return.
+        </p>
+        <h2 id="location-baseline-and-concurrent-work">Location, baseline, and concurrent work</h2>
+        <ul>
+          <li>Folder and repository root: <code>/Users/alanman/Developer/claude-local-bridge-playground</code>.</li>
+          <li>Branch: <code>main</code>. Baseline commit: <code>912cc6e4cc9dc63031c2c16c5b157eefeb52c9ee</code>.</li>
+          <li>Remote: <code>https://github.com/alankatanoisi/claude-local-bridge-playground.git</code>.</li>
+          <li>
+            Startup status was clean. <code>git pull --ff-only origin main</code> succeeded with “Already up to date.”
+            The other registered worktrees were inspected through Git metadata and were not edited.
+          </li>
+          <li>
+            During this work, another session introduced changes in <code>starlark-host/src/resume-synthesis.js</code>,
+            <code>starlark-host/src/worker-resume.js</code>, and <code>starlark-host/test/synthesis.test.js</code>.
+            Those files were left untouched. Broader verification describes the shared working tree, including those
+            concurrent changes, rather than an isolated patch applied to the baseline.
+          </li>
+          <li>
+            This task did not commit, push, merge, reset, stash, or remove another agent's files. A commit is a saved
+            source-history snapshot; the changes in this handoff remain local working-tree edits.
+          </li>
+        </ul>
+        <h2 id="what-the-tests-now-prove">What the tests now prove</h2>
+        <p>
+          A terminal receipt is a saved event saying that one worker job succeeded or failed. Settlement is local budget
+          accounting for a completed response. A checkpoint is the saved snapshot of the run's state.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Boundary</th>
+              <th>Baseline</th>
+              <th>Proven result after the change</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Settled invalid response observed after cancellation</td>
+              <td>Passed</td>
+              <td>
+                One actual loopback request, one local settlement, one charged <code>job_failed</code> with
+                <code>invalid_worker_output</code>, no success receipt, and one final <code>run_aborted</code>. The
+                saved checkpoint includes the failure and agrees with local budget accounting.
+              </td>
+            </tr>
+            <tr>
+              <td>Resume after that invalid response</td>
+              <td>Passed</td>
+              <td>
+                The original failed job is not requested again. The real recovery planner creates an explicit new job
+                linked by <code>retry_of</code>; that retry executes once. Resume completes, the original ledger prefix
+                is unchanged, and no job gets duplicate terminal receipts.
+              </td>
+            </tr>
+            <tr>
+              <td>Worker artifact failure while cancellation is pending</td>
+              <td>Failed: missing expected rejection</td>
+              <td>
+                The exact injected error reaches the caller. No success or invalid-output failure receipt is
+                manufactured for that job.
+              </td>
+            </tr>
+            <tr>
+              <td>Failure writing the final aborted checkpoint</td>
+              <td>Passed</td>
+              <td>
+                The exact checkpoint error reaches the caller. The prior successful worker receipt remains recorded; no
+                invalid-output failure receipt is added.
+              </td>
+            </tr>
+            <tr>
+              <td>Budget settlement callback records accounting, cancels, then throws</td>
+              <td>Failed: missing expected rejection</td>
+              <td>
+                The exact settlement error reaches the caller, with one locally recorded call and no stranded
+                reservation. It is not converted into a clean abort or a false worker receipt.
+              </td>
+            </tr>
+            <tr>
+              <td>Earlier pool slot cancels; another active worker fails persistence</td>
+              <td>Failed: missing expected rejection</td>
+              <td>
+                The pool waits for both workers, exposes the persistence error, and starts no queued third job.
+                Cancellation in the first slot cannot win merely because its array position is earlier.
+              </td>
+            </tr>
+            <tr>
+              <td>Phase checkpoint callback cancels and throws before workers start</td>
+              <td>Failed: missing expected rejection</td>
+              <td>
+                The exact checkpoint error reaches the caller and no worker starts. The outer run catch cannot erase it.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          The invalid-response test uses the real <code>ClaudeBridge</code>, pricing calculation,
+          <code>CostBudget</code>, <code>PhasedCoordinator</code>, worker-output validator, <code>RunLedger</code>,
+          checkpoint files, resume reconstruction, and host JSON recovery planning. JSON (JavaScript Object Notation) is
+          the structured text format used for responses and saved state. A temporary HTTP (Hypertext Transfer Protocol)
+          server bound to <code>127.0.0.1</code> supplies the response; no request goes to a provider.
+        </p>
+        <p>
+          The persistence and accounting tests inject failures at methods on those real component instances. The
+          additional concurrency test uses an explicit promise barrier and a small controlled worker provider so the
+          order is deterministic. It is evidence about pool error selection and draining, not about provider networking
+          or billing. Temporary fixtures are created per test and only those fixtures are removed.
+        </p>
+        <h2 id="source-change-and-why-it-is-small">Source change and why it is small</h2>
+        <p>Only <code>starlark-host/src/coordinator.js</code> changes runtime behavior:</p>
+        <ol>
+          <li>
+            Limit the invalid-output catch to parsing and validation. Artifact writes and success-receipt writes occur
+            outside that catch, so storage failures cannot be mislabeled <code>invalid_worker_output</code>.
+          </li>
+          <li>
+            Preserve the actual worker-call error when cancellation is pending. Replacing it immediately with the
+            cancellation reason was losing settlement failures.
+          </li>
+          <li>
+            After every active worker has settled, inspect non-cancellation failures before honoring cancellation.
+            “Settled” here means each JavaScript promise finished, either successfully or with an error; it does not
+            imply a budget charge succeeded.
+          </li>
+          <li>
+            The outer run catch recognizes cancellation by its actual reason, or Node's <code>AbortError</code> wrapping
+            that reason as its cause. The signal being marked cancelled is insufficient by itself to classify an
+            unrelated error as cancellation.
+          </li>
+        </ol>
+        <p>
+          The queue's cancellation checks remain in place. Ordinary cancellation still drains active work and records
+          <code>run_aborted</code>. When an unrelated infrastructure error wins, <code>run()</code> rejects with that
+          original error instead of returning an aborted state. This change does not add a new durable error-event
+          protocol. Previously saved receipts remain available for existing resume rules.
+        </p>
+        <p>
+          No runtime edits were needed for the already-correct invalid-output or final abort-checkpoint behavior. No
+          budget implementation, bridge transport, authentication, runner integration, recovery policy, or
+          storage-format changes were made by this task.
+        </p>
+        <h2 id="preserved-red-before-green-evidence">Preserved red-before-green evidence</h2>
+        <p>
+          “Red” means a regression test fails before the fix; “green” means it passes afterward. The evidence directory
+          is
+          <a href="docs/artifacts/starlark-abort-boundaries-2026-09-18/"
+            >docs/artifacts/starlark-abort-boundaries-2026-09-18</a
+          >.
+        </p>
+        <ul>
+          <li>
+            <a href="docs/artifacts/starlark-abort-boundaries-2026-09-18/initial-fixture-error.txt"
+              >Initial fixture error</a
+            >: the first attempt omitted required <code>claims</code> from the supposedly valid worker response. Its 1
+            pass / 4 fail output is retained as a test-setup error, not valid proof of artifact failure.
+          </li>
+          <li>
+            <a href="docs/artifacts/starlark-abort-boundaries-2026-09-18/red.txt">Corrected baseline</a>: rerun against
+            unchanged coordinator source at the baseline above, after correcting the fixture and adding the
+            phase-checkpoint case. <strong>2 passed, 4 failed, 0 skipped</strong>. All four product failures were
+            “Missing expected rejection.”
+          </li>
+          <li>
+            <a href="docs/artifacts/starlark-abort-boundaries-2026-09-18/green.txt">First green run</a>: same six
+            behavioral cases after the narrow source change. <strong>6 passed, 0 failed, 0 skipped</strong>.
+          </li>
+          <li>
+            <a href="docs/artifacts/starlark-abort-boundaries-2026-09-18/focused.txt">Focused regression suite</a>: new
+            boundary tests plus existing bridge, R11 recovery, and plan-hash tests.
+            <strong>23 passed, 0 failed, 0 skipped</strong>.
+          </li>
+        </ul>
+        <p>
+          The new tests were formatted afterward, so historical stack line numbers refer to the pre-format file. The
+          test names and assertions identify the preserved cases. Already-passing cases are explicitly reported as
+          baseline passes; no artificial red result is claimed for them.
+        </p>
+        <h2 id="verification">Verification</h2>
+        <p>
+          All commands were run by the agent in the repository root above. Alan does not need to paste them anywhere.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Check</th>
+              <th>Result and retained output</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Focused suite</td>
+              <td>
+                23 passed, no failures or skips;
+                <a href="docs/artifacts/starlark-abort-boundaries-2026-09-18/focused.txt">focused.txt</a>
+              </td>
+            </tr>
+            <tr>
+              <td><code>PATH=/opt/homebrew/opt/go@1.26/bin:$PATH npm --prefix starlark-host run verify</code></td>
+              <td>
+                Go 1.26.8 rebuilt the evaluator; 128 passed, no failures or skips;
+                <a href="docs/artifacts/starlark-abort-boundaries-2026-09-18/starlark.txt">starlark.txt</a>
+              </td>
+            </tr>
+            <tr>
+              <td>Root <code>npm test</code></td>
+              <td>
+                1,105 passed, 0 failed, 0 skipped, 1 existing TODO; 1,106 tests total; approximately 150 seconds;
+                <a href="docs/artifacts/starlark-abort-boundaries-2026-09-18/root-tests.txt">root-tests.txt</a>
+              </td>
+            </tr>
+            <tr>
+              <td><code>npm run lint</code></td>
+              <td>Passed; <a href="docs/artifacts/starlark-abort-boundaries-2026-09-18/lint.txt">lint.txt</a></td>
+            </tr>
+            <tr>
+              <td>Direct lint of the changed coordinator and new test</td>
+              <td>
+                Passed. The root lint command does not include <code>starlark-host</code>, so these files were checked
+                separately.
+              </td>
+            </tr>
+            <tr>
+              <td><code>npm run check:docs</code></td>
+              <td>Passed; <a href="docs/artifacts/starlark-abort-boundaries-2026-09-18/docs.txt">docs.txt</a></td>
+            </tr>
+            <tr>
+              <td>Root <code>npm run format:check</code></td>
+              <td>
+                Failed on three pre-existing handoffs only;
+                <a href="docs/artifacts/starlark-abort-boundaries-2026-09-18/format.txt">format.txt</a>
+              </td>
+            </tr>
+            <tr>
+              <td>Formatting of this task's source, test, Markdown and HTML</td>
+              <td>Passed for all four files.</td>
+            </tr>
+            <tr>
+              <td>Whitespace and report structure</td>
+              <td>
+                Git whitespace check passed. Both report formats have matching report-body text; all local report links
+                resolve; HTML has no external assets or scripts. Browser rendering was not inspected.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          The three root formatting failures are <code>HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md</code>,
+          <code>HANDOFF-permission-cache-thermo-nuclear-2026-09-07.md</code>, and
+          <code>HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md</code>. They were already documented in the September
+          16 handoff and were not reformatted here.
+        </p>
+        <h2 id="limits-and-remaining-work">Limits and remaining work</h2>
+        <ul>
+          <li>
+            These tests prove host behavior with deterministic local responses and injected component-method failures.
+            They do not simulate physical disk failure, power loss, or every operating-system write error. No claim is
+            made about directory-flush support on every filesystem.
+          </li>
+          <li>
+            The budget failure is injected after local accounting succeeds. Actual campaign-file persistence failures
+            before or midway through settlement, a real budget cap overrun, and their reservation-repair requirements
+            are not established by this test.
+          </li>
+          <li>
+            A visible error means the caller receives the original rejection. It does not guarantee that the failure
+            itself has been durably recorded, particularly when writing the checkpoint is what failed. A
+            <code>run_aborted</code> event may already exist when its following checkpoint fails.
+          </li>
+          <li>
+            After an artifact or settlement error, a started job can still lack a terminal receipt. Existing resume
+            rules may execute that job again. This work does not make settlement plus artifact plus receipt one atomic
+            transaction, and does not promise zero repeat charges after infrastructure failure.
+          </li>
+          <li>
+            The concurrency test proves that one unrelated failure outranks cancellation after draining. It does not
+            promise aggregation of every error if several active workers fail independently.
+          </li>
+          <li>
+            Requests interrupted before completing retain unknown provider-side billing. Releasing a local reservation
+            is not evidence that a provider charged nothing.
+          </li>
+          <li>
+            SIGKILL (an immediate process termination) and power loss between settlement and receipt remain outside the
+            guarantee. Existing process-interruption tests passed; that is not proof of transactional crash safety.
+          </li>
+          <li>
+            Planner failures, multi-call synthesis partial-output persistence, and synthesis-resume checkpoint
+            reconstruction are outside this task's two acceptance rows. Concurrent synthesis edits belong to the other
+            session and are not claimed as this task's work.
+          </li>
+          <li>
+            Multiple writers to the same run directory remain unsupported. No live provider checks were run, as
+            requested. Browser rendering of this report is not claimed by structural HTML checks.
+          </li>
+          <li>
+            Follow-up: the repository's normal Cursor invariant review should inspect this narrow change once Alan
+            chooses to save it in source history. Preserve the already documented “not bugs” boundaries and do not infer
+            closure of unrelated findings.
+          </li>
+        </ul>
+        <h2 id="handoff-inventory">Handoff inventory</h2>
+        <p>Files authored or changed by this task:</p>
+        <ul>
+          <li><code>starlark-host/src/coordinator.js</code> — the only runtime source edit.</li>
+          <li><code>starlark-host/test/abort-commit-boundaries.test.js</code> — six deterministic regression tests.</li>
+          <li>
+            <code>HANDOFF-starlark-abort-boundaries-2026-09-18.md</code> and its adjacent <code>.html</code> companion —
+            this report in both formats.
+          </li>
+          <li>
+            <code>docs/artifacts/starlark-abort-boundaries-2026-09-18/</code> — preserved test output and final
+            verification evidence.
+          </li>
+        </ul>
+        <p>
+          Folder and branch are recorded above. Checks, skips, and limitations are explicit. Other agents' files remain
+          untouched; no commit or push was performed by this task.
+        </p>
+      </main>
+    </div>
+    <footer>
+      Standalone browser companion · <a href="HANDOFF-starlark-abort-boundaries-2026-09-18.md">Markdown report</a> ·
+      Local deterministic verification; no live provider calls.
+    </footer>
+  </body>
+</html>

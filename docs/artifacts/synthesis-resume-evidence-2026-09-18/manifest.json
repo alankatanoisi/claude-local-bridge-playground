@@ -1,0 +1,66 @@
+{
+  "baseline_commit": "912cc6e4cc9dc63031c2c16c5b157eefeb52c9ee",
+  "branch": "codex/synthesis-resume-evidence-2026-09-18",
+  "source_sha256": {
+    "starlark-host/src/resume-synthesis.js": "2ffa07c70a453f645e4fa790f9214f825f7d93c4465a4bd468dd412fdc77616c",
+    "starlark-host/src/worker-resume.js": "b67e41d42fc2978bc67559ae0cdf6fd2b2d22b63f2cd87b11d0bccc553b351c0",
+    "starlark-host/test/synthesis.test.js": "51fe9bc9f55a0ac7889ac7f6aa98d4a7d0b288c61f8f89df44d36d2fa8b78b31"
+  },
+  "red": {
+    "tests": 11,
+    "pass": 7,
+    "fail": 4,
+    "skipped": 0,
+    "note": "Captured before runtime fix in the original checkout; new regression only."
+  },
+  "isolated_focused": {
+    "tests": 31,
+    "pass": 31,
+    "fail": 0,
+    "skipped": 0
+  },
+  "isolated_starlark": {
+    "tests": 122,
+    "pass": 122,
+    "fail": 0,
+    "skipped": 0
+  },
+  "live_model_calls": 0,
+  "isolated_repository": {
+    "tests": 1106,
+    "pass": 1105,
+    "fail": 0,
+    "skipped": 0,
+    "todo": 1,
+    "duration_ms": 176368.753708
+  },
+  "combined_starlark": {
+    "tests": 128,
+    "pass": 128,
+    "fail": 0,
+    "skipped": 0,
+    "duration_ms": 8444.553834
+  },
+  "combined_source_sha256": {
+    "starlark-host/src/resume-synthesis.js": "2ffa07c70a453f645e4fa790f9214f825f7d93c4465a4bd468dd412fdc77616c",
+    "starlark-host/src/worker-resume.js": "b67e41d42fc2978bc67559ae0cdf6fd2b2d22b63f2cd87b11d0bccc553b351c0",
+    "starlark-host/test/synthesis.test.js": "51fe9bc9f55a0ac7889ac7f6aa98d4a7d0b288c61f8f89df44d36d2fa8b78b31",
+    "starlark-host/src/coordinator.js": "50b4b44479e36d64c3c8512a95edb208266a9f89defd9ddac91c0d88a6c50eba",
+    "starlark-host/test/abort-commit-boundaries.test.js": "f9ad4bcd0d2180eba0ca9f5fc14f13e421a6a75c51f665f3407dae7eab83016b"
+  },
+  "combined_focused": {
+    "tests": 43,
+    "pass": 43,
+    "fail": 0,
+    "skipped": 0,
+    "duration_ms": 8341.479584
+  },
+  "combined_repository": {
+    "tests": 1106,
+    "pass": 1105,
+    "fail": 0,
+    "skipped": 0,
+    "todo": 1,
+    "duration_ms": 135355.234334
+  }
+}

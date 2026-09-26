@@ -3,245 +3,16 @@
 /**
  * Behavioral regression tests for docs/command-builder.html.
  *
- * The builder is a self-contained local HTML page, so its JavaScript normally
- * runs only in a browser. Pulling a full browser framework into this small
- * project would be heavy. This tiny fake DOM supplies only the browser pieces
- * the builder actually uses, then executes the real inline script unchanged.
- *
- * That distinction matters: these tests do not copy the command-building
- * rules into a second implementation. They click/change the same controls and
- * call the same functions that Alan's browser runs.
+ * The fake DOM lives in helpers/command-builder-harness.js so the
+ * combinatorial sweep (command-builder-combinatorics.test.js) can drive the
+ * very same page script. Nothing here re-implements the builder's rules: every
+ * assertion clicks the real controls and reads the real generated command.
  */
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('fs');
-const path = require('path');
-const vm = require('node:vm');
 
-const { TOOLS } = require('../../src/runner/tool-catalog');
-
-const BUILDER_PATH = path.join(__dirname, '..', '..', 'docs', 'command-builder.html');
-const BUILDER_HTML = fs.readFileSync(BUILDER_PATH, 'utf8');
-
-class FakeClassList {
-  constructor(initial = '') {
-    this.names = new Set(String(initial).split(/\s+/).filter(Boolean));
-  }
-
-  add(name) {
-    this.names.add(name);
-  }
-
-  remove(name) {
-    this.names.delete(name);
-  }
-
-  toggle(name, force) {
-    const shouldAdd = force === undefined ? !this.names.has(name) : !!force;
-    if (shouldAdd) this.names.add(name);
-    else this.names.delete(name);
-    return shouldAdd;
-  }
-
-  contains(name) {
-    return this.names.has(name);
-  }
-}
-
-class FakeElement {
-  constructor({ id = '', type = '', value = '', checked = false, disabled = false, className = '' } = {}) {
-    this.id = id;
-    this.type = type;
-    this.value = value;
-    this.checked = checked;
-    this.disabled = disabled;
-    this.textContent = '';
-    this.innerHTML = '';
-    this.title = '';
-    this.dataset = {};
-    this.style = {};
-    this.classList = new FakeClassList(className);
-    this.listeners = new Map();
-    this.options = new Map();
-
-    // Checkbox inputs live inside a label in the real document. The builder
-    // asks for that label to grey out inactive choices, so give each fake input
-    // a small parent element that can hold the CSS class.
-    this.parentChoice = new FakeElementParent();
-  }
-
-  addEventListener(type, callback) {
-    if (!this.listeners.has(type)) this.listeners.set(type, []);
-    this.listeners.get(type).push(callback);
-  }
-
-  dispatch(type) {
-    for (const callback of this.listeners.get(type) || []) {
-      callback({ target: this });
-    }
-  }
-
-  closest(selector) {
-    if (selector === '.tool-choice' || selector === '.check-label') return this.parentChoice;
-    if (selector === '.preset-btn' && this.classList.contains('preset-btn')) return this;
-    return null;
-  }
-
-  querySelector(selector) {
-    const match = selector.match(/^option\[value="([^"]+)"\]$/);
-    return match ? this.options.get(match[1]) || null : null;
-  }
-}
-
-class FakeElementParent {
-  constructor() {
-    this.classList = new FakeClassList();
-  }
-}
-
-function attributes(source) {
-  const result = {};
-  for (const match of source.matchAll(/([:\w-]+)(?:="([^"]*)")?/g)) {
-    result[match[1]] = match[2] === undefined ? true : match[2];
-  }
-  return result;
-}
-
-function createHarness() {
-  const elements = new Map();
-
-  // Inputs and buttons carry most defaults directly in their opening tag.
-  for (const match of BUILDER_HTML.matchAll(/<(input|button)([^>]*)>/g)) {
-    const attrs = attributes(match[2]);
-    if (!attrs.id) continue;
-    elements.set(
-      attrs.id,
-      new FakeElement({
-        id: attrs.id,
-        type: attrs.type || match[1],
-        value: attrs.value || '',
-        checked: !!attrs.checked,
-        disabled: !!attrs.disabled,
-        className: attrs.class || '',
-      }),
-    );
-  }
-
-  // A select's initial value comes from its selected option (or its first
-  // option). Store option objects too because model compatibility logic greys
-  // out individual choices such as xhigh effort.
-  for (const match of BUILDER_HTML.matchAll(/<select([^>]*)>([\s\S]*?)<\/select>/g)) {
-    const attrs = attributes(match[1]);
-    if (!attrs.id) continue;
-    const select = new FakeElement({ id: attrs.id, type: 'select-one', className: attrs.class || '' });
-    let firstValue = '';
-    let selectedValue = '';
-    for (const optionMatch of match[2].matchAll(/<option([^>]*)>/g)) {
-      const optionAttrs = attributes(optionMatch[1]);
-      const optionValue = optionAttrs.value || '';
-      if (select.options.size === 0) firstValue = optionValue;
-      if (optionAttrs.selected) selectedValue = optionValue;
-      select.options.set(optionValue, new FakeElement({ value: optionValue, disabled: !!optionAttrs.disabled }));
-    }
-    select.value = selectedValue || firstValue;
-    elements.set(attrs.id, select);
-  }
-
-  for (const match of BUILDER_HTML.matchAll(/<textarea([^>]*)>([\s\S]*?)<\/textarea>/g)) {
-    const attrs = attributes(match[1]);
-    if (!attrs.id) continue;
-    elements.set(
-      attrs.id,
-      new FakeElement({ id: attrs.id, type: 'textarea', value: match[2].trim(), className: attrs.class || '' }),
-    );
-  }
-
-  // Add non-form elements such as warning panels and the generated command.
-  for (const match of BUILDER_HTML.matchAll(/<([a-z][\w-]*)([^>]*)>/gi)) {
-    const attrs = attributes(match[2]);
-    if (attrs.id && !elements.has(attrs.id)) {
-      elements.set(attrs.id, new FakeElement({ id: attrs.id, type: match[1], className: attrs.class || '' }));
-    }
-  }
-
-  // Tool checkboxes deliberately have no ids. Their values are the runtime
-  // tool names, which lets this harness select exactly the same catalog.
-  const toolChoices = Object.keys(TOOLS).map((name) => {
-    const tag = BUILDER_HTML.match(new RegExp('<input[^>]*value="' + name + '"[^>]*>'))?.[0] || '';
-    assert.ok(tag, 'Builder is missing tool checkbox: ' + name);
-    const attrs = attributes(tag);
-    return new FakeElement({ type: 'checkbox', value: name, checked: !!attrs.checked });
-  });
-
-  const presetButtons = [];
-  for (const match of BUILDER_HTML.matchAll(/<button([^>]*class="[^"]*preset-btn[^"]*"[^>]*)>/g)) {
-    const attrs = attributes(match[1]);
-    const button = new FakeElement({ type: 'button', className: attrs.class || '' });
-    button.dataset.preset = attrs['data-preset'];
-    presetButtons.push(button);
-  }
-
-  const document = {
-    getElementById(id) {
-      assert.ok(elements.has(id), 'Builder script references missing element id: ' + id);
-      return elements.get(id);
-    },
-    querySelectorAll(selector) {
-      if (selector === '#toolChoices input[type="checkbox"]') return toolChoices;
-      if (selector === '.preset-btn') return presetButtons;
-      return [];
-    },
-    querySelector(selector) {
-      const match = selector.match(/^\[data-preset="([^"]+)"\]$/);
-      return match ? presetButtons.find((button) => button.dataset.preset === match[1]) || null : null;
-    },
-  };
-
-  const storage = new Map();
-  const clipboard = { text: '' };
-  const localStorage = {
-    getItem(key) {
-      return storage.has(key) ? storage.get(key) : null;
-    },
-    setItem(key, value) {
-      storage.set(key, String(value));
-    },
-    removeItem(key) {
-      storage.delete(key);
-    },
-  };
-
-  const context = vm.createContext({
-    document,
-    localStorage,
-    navigator: {
-      clipboard: {
-        writeText(text) {
-          clipboard.text = text;
-          return Promise.resolve();
-        },
-      },
-    },
-    window: { location: { reload() {} } },
-    console,
-  });
-
-  const scripts = [...BUILDER_HTML.matchAll(/<script(?:[^>]*)>([\s\S]*?)<\/script>/g)];
-  assert.ok(scripts.length, 'Builder has no inline JavaScript');
-  vm.runInContext(scripts.at(-1)[1], context, { filename: BUILDER_PATH });
-
-  return {
-    context,
-    elements,
-    toolChoices,
-    storage,
-    clipboard,
-    evaluate(source) {
-      return vm.runInContext(source, context);
-    },
-  };
-}
+const { createHarness } = require('./helpers/command-builder-harness');
 
 describe('command-builder behavior', () => {
   it('reacts to the LSP checkbox and copies exactly the visible raw command', async () => {
@@ -295,7 +66,7 @@ describe('command-builder behavior', () => {
     page.evaluate('render()');
 
     assert.equal(page.elements.get('copyBtn').disabled, true);
-    assert.match(page.elements.get('validationWarnings').innerHTML, /Session id or Session path/);
+    assert.match(page.elements.get('validationWarnings').innerHTML, /Session id, Session path, or Fork from/);
 
     page.elements.get('sessionId').value = 'review-42';
     page.evaluate('render()');
@@ -305,9 +76,138 @@ describe('command-builder behavior', () => {
     page.elements.get('resumeSession').checked = false;
     page.elements.get('sessionExtract').checked = true;
     page.evaluate('render()');
-    assert.equal(page.elements.get('copyBtn').disabled, true, 'extract also needs trusted workspace');
+    // Runtime rule (run.js maybeRunSessionExtract): a saved session path plus a
+    // successful run. The hooks flag (--trusted-workspace) is a separate
+    // consent and must not be demanded here.
+    assert.equal(page.elements.get('copyBtn').disabled, false, 'extract needs only a saved session');
+    assert.match(page.evaluate('buildRawCommand()'), /--session-extract/);
 
-    page.elements.get('trustedWorkspace').checked = true;
+    page.elements.get('noSessionPersistence').checked = true;
+    page.evaluate('render()');
+    assert.equal(page.elements.get('copyBtn').disabled, true, 'extract cannot combine with disabled persistence');
+
+    page.elements.get('noSessionPersistence').checked = false;
+    page.elements.get('sessionId').value = '';
+    page.evaluate('render()');
+    assert.equal(page.elements.get('copyBtn').disabled, true, 'extract still needs a session id or path');
+  });
+
+  it('wires --worktree into live render, saved state, and restore-on-load', () => {
+    const page = createHarness();
+    page.elements.get('prompt').value = 'Make a small safe edit.';
+    const worktreeStart = page.elements.get('worktreeStart');
+    worktreeStart.checked = true;
+    worktreeStart.dispatch('change');
+
+    assert.match(page.evaluate('buildRawCommand()'), /--worktree/, 'checkbox must re-render the command by itself');
+    assert.match(page.elements.get('summaryText').innerHTML, /inside a fresh git worktree/);
+    assert.equal(JSON.parse(page.storage.get('command-builder-state')).worktreeStart, true);
+
+    const reloaded = createHarness({ savedState: { prompt: 'Again.', worktreeStart: true } });
+    assert.equal(reloaded.elements.get('worktreeStart').checked, true, 'saved --worktree choice must survive reload');
+    assert.match(reloaded.evaluate('buildRawCommand()'), /--worktree/);
+
+    // Runner-only flag: greyed out and not emitted while the coordinator is selected.
+    reloaded.elements.get('commandMode').value = 'coordinator';
+    reloaded.evaluate('render()');
+    assert.doesNotMatch(reloaded.evaluate('buildRawCommand()'), /--worktree/);
+    assert.equal(reloaded.elements.get('worktreeCoordinatorNote').classList.contains('show'), true);
+    assert.equal(reloaded.elements.get('worktreeStart').checked, true, 'the choice is kept, not erased');
+  });
+
+  it('keeps presets whole recipes: --test-watch and --worktree never leak between them', () => {
+    const page = createHarness();
+    page.evaluate("applyPreset('verify', PRESETS.verify)");
+    assert.match(page.evaluate('buildRawCommand()'), /--test-watch/);
+
+    page.evaluate("applyPreset('full', PRESETS.full)");
+    assert.doesNotMatch(page.evaluate('buildRawCommand()'), /--test-watch/, 'full did not ask for test-watch');
+
+    page.evaluate("applyPreset('worktree', PRESETS.worktree)");
+    const worktreeCommand = page.evaluate('buildRawCommand()');
+    assert.match(worktreeCommand, /--worktree/);
+    assert.match(worktreeCommand, /--capabilities edits,recovery,worktrees/);
+    assert.doesNotMatch(worktreeCommand, /--accept-edits|--allow-shell/, 'worktree preset stays edit-ask');
+
+    page.evaluate("applyPreset('minimal', PRESETS.minimal)");
+    assert.doesNotMatch(page.evaluate('buildRawCommand()'), /--worktree/, 'minimal did not ask for a worktree');
+  });
+
+  it('preserves orthogonal capability groups across a manual permission-style change', () => {
+    const page = createHarness();
+    page.elements.get('prompt').value = 'Recall what we read earlier.';
+    for (const choice of page.toolChoices) {
+      if (choice.value === 'search_history' || choice.value === 'expand_history') choice.checked = true;
+    }
+    page.evaluate('render()');
+    assert.match(page.evaluate('buildRawCommand()'), /--capabilities edits,recovery,history/);
+
+    const style = page.elements.get('permissionStyle');
+    style.value = 'look-only';
+    style.dispatch('change');
+    const readOnly = page.evaluate('buildRawCommand()');
+    assert.match(readOnly, /--tools '[^']*search_history[^']*'/, 'history stays selected in look-only');
+    assert.doesNotMatch(readOnly, /edit_file|write_file/);
+
+    style.value = 'edit-auto';
+    style.dispatch('change');
+    assert.match(page.evaluate('buildRawCommand()'), /--accept-edits[\s\S]*--capabilities edits,recovery,history/);
+
+    // Presets are whole recipes and do reset the group.
+    page.evaluate("applyPreset('minimal', PRESETS.minimal)");
+    assert.doesNotMatch(page.evaluate('buildRawCommand()'), /history/);
+  });
+
+  it('warns about session flags the CLI would ignore or silently discard', () => {
+    const page = createHarness();
+    page.elements.get('prompt').value = 'Continue.';
+    page.elements.get('forkFrom').value = 'parent-1';
+    page.evaluate('render()');
+    assert.match(page.elements.get('validationWarnings').innerHTML, /copied conversation is replaced/);
+    assert.equal(page.elements.get('copyBtn').disabled, false, 'a warning must not block copying');
+
+    page.elements.get('resumeSession').checked = true;
+    page.evaluate('render()');
+    assert.doesNotMatch(page.elements.get('validationWarnings').innerHTML, /copied conversation is replaced/);
+
+    page.elements.get('resumeSession').checked = false;
+    page.elements.get('forkFrom').value = '';
+    page.elements.get('continueFromLatest').checked = true;
+    page.elements.get('sessionId').value = 'review-7';
+    page.evaluate('render()');
+    assert.match(page.elements.get('validationWarnings').innerHTML, /--continue is ignored/);
+  });
+
+  it('tells the truth about --dont-ask with shell and about task-scope step limits', () => {
+    const page = createHarness();
+    page.elements.get('prompt').value = 'Run the tests and fix them.';
+    page.evaluate("applyPermissionStyle('edit-shell')");
+    page.evaluate('render()');
+    assert.match(page.elements.get('permissionCautions').innerHTML, /runs shell commands without asking/);
+    assert.match(page.elements.get('summaryText').innerHTML, /run shell commands<\/strong> \(without asking\)/);
+    assert.match(page.elements.get('permissionCautions').innerHTML, /ask_user_question is offered but fails closed/);
+
+    page.evaluate("applyPermissionStyle('edit-ask')");
+    page.elements.get('taskScope').checked = true;
+    page.evaluate('render()');
+    assert.match(page.elements.get('summaryText').innerHTML, /stop after 8 steps/);
+    assert.match(page.elements.get('validationWarnings').innerHTML, /lowers the step limit to 8/);
+    page.elements.get('maxSteps').value = '12';
+    page.evaluate('render()');
+    assert.match(page.elements.get('summaryText').innerHTML, /stop after 12 steps/);
+    assert.match(page.evaluate('buildRawCommand()'), /--max-steps 12 [\s\S]*--task-scope/);
+  });
+
+  it('blocks a response-token allowance above the selected model ceiling', () => {
+    const page = createHarness();
+    page.elements.get('prompt').value = 'Summarize.';
+    page.elements.get('model').value = 'claude-haiku-4-5';
+    page.elements.get('maxTokens').value = '100000';
+    page.evaluate('render()');
+    assert.equal(page.elements.get('copyBtn').disabled, true);
+    assert.match(page.elements.get('validationWarnings').innerHTML, /exceed the maximum of 64000/);
+
+    page.elements.get('maxTokens').value = '64000';
     page.evaluate('render()');
     assert.equal(page.elements.get('copyBtn').disabled, false);
   });

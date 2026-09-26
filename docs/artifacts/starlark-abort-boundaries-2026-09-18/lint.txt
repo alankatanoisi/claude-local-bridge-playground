@@ -1,0 +1,4 @@
+
+> claude-local-bridge@1.0.0 lint
+> eslint --config eslint.config.cjs src/ test/ scripts/claude-code-fingerprint.js
+

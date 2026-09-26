@@ -1,0 +1,136 @@
+TAP version 13
+# Subtest: auto strategy: small result sets stay single-call, large ones map-reduce
+ok 1 - auto strategy: small result sets stay single-call, large ones map-reduce
+  ---
+  duration_ms: 0.603625
+  type: 'test'
+  ...
+# Subtest: map-reduce chunks the results and combines part summaries
+ok 2 - map-reduce chunks the results and combines part summaries
+  ---
+  duration_ms: 1.837125
+  type: 'test'
+  ...
+# Subtest: a truncated map call fails closed with stage and chunk recorded
+ok 3 - a truncated map call fails closed with stage and chunk recorded
+  ---
+  duration_ms: 0.194834
+  type: 'test'
+  ...
+# Subtest: RunLedger reopening continues sequence numbers instead of restarting
+ok 4 - RunLedger reopening continues sequence numbers instead of restarting
+  ---
+  duration_ms: 21.62675
+  type: 'test'
+  ...
+# Subtest: resume-synthesis completes a partial run without re-running workers
+ok 5 - resume-synthesis completes a partial run without re-running workers
+  ---
+  duration_ms: 43.394
+  type: 'test'
+  ...
+# Subtest: resume-synthesis records a repeat failure and keeps the run partial
+ok 6 - resume-synthesis records a repeat failure and keeps the run partial
+  ---
+  duration_ms: 42.934333
+  type: 'test'
+  ...
+# Subtest: resume-synthesis refuses completed runs and runs without results
+ok 7 - resume-synthesis refuses completed runs and runs without results
+  ---
+  duration_ms: 17.280166
+  type: 'test'
+  ...
+# Subtest: durable synthesis resume survives lost checkpoint via synthesis with missing result
+not ok 8 - durable synthesis resume survives lost checkpoint via synthesis with missing result
+  ---
+  duration_ms: 62.706459
+  type: 'test'
+  location: '/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/synthesis.test.js:194:5'
+  failureType: 'testCodeFailure'
+  error: 'must not buy synthesis again'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    /Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/synthesis.test.js:209:47
+    Object.call (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/synthesis.test.js:29:14)
+    runSynthesis (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/src/synthesis.js:107:35)
+    resumeSynthesis (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/src/resume-synthesis.js:59:27)
+    TestContext.<anonymous> (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/synthesis.test.js:212:31)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: durable synthesis resume survives lost checkpoint via synthesis with stale result
+not ok 9 - durable synthesis resume survives lost checkpoint via synthesis with stale result
+  ---
+  duration_ms: 61.913208
+  type: 'test'
+  location: '/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/synthesis.test.js:194:5'
+  failureType: 'testCodeFailure'
+  error: 'must not buy synthesis again'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    /Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/synthesis.test.js:209:47
+    Object.call (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/synthesis.test.js:29:14)
+    runSynthesis (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/src/synthesis.js:107:35)
+    resumeSynthesis (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/src/resume-synthesis.js:59:27)
+    TestContext.<anonymous> (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/synthesis.test.js:212:31)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: durable synthesis resume survives lost checkpoint via workers with missing result
+not ok 10 - durable synthesis resume survives lost checkpoint via workers with missing result
+  ---
+  duration_ms: 67.172375
+  type: 'test'
+  location: '/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/synthesis.test.js:194:5'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'partial'
+    - 'completed'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'completed'
+  actual: 'partial'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/synthesis.test.js:219:16)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: durable synthesis resume survives lost checkpoint via workers with stale result
+not ok 11 - durable synthesis resume survives lost checkpoint via workers with stale result
+  ---
+  duration_ms: 71.768208
+  type: 'test'
+  location: '/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/synthesis.test.js:194:5'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'partial'
+    - 'completed'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'completed'
+  actual: 'partial'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/synthesis.test.js:219:16)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 7
+# fail 4
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 480.982167

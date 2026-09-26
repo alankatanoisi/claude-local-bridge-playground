@@ -1,0 +1,103 @@
+diff --git a/starlark-host/src/coordinator.js b/starlark-host/src/coordinator.js
+index ba35891..a756af9 100644
+--- a/starlark-host/src/coordinator.js
++++ b/starlark-host/src/coordinator.js
+@@ -143,7 +143,7 @@ class PhasedCoordinator {
+       checkAbort(this.signal);
+       return await (resume ? this.resumePhases() : this.runPhases());
+     } catch (error) {
+-      if (!this.signal.aborted) throw error;
++      if (!isRunCancellation(error, this.signal)) throw error;
+       this.recordAbort();
+       return this.state;
+     }
+@@ -648,12 +648,13 @@ class PhasedCoordinator {
+             });
+           }
+         } catch (error) {
+-          // The ONLY place abort may drop a job without a terminal receipt: the
+-          // call itself was cut off (fetch destroyed, reservation released, no
+-          // usage settled). Resume treats "started, no receipt" as re-execute,
+-          // which is the documented at-least-once rule for genuinely
+-          // interrupted work.
+-          checkAbort(this.signal);
++          // A cancelled request may have no terminal receipt. Resume treats
++          // "started, no receipt" as eligible to execute again; an interrupted
++          // network request still has no guaranteed provider billing outcome.
++          // Preserve the actual error: settlement/storage may have failed at
++          // the same time as cancellation. The pool distinguishes that failure
++          // from the signal's own cancellation reason after all workers drain.
++          if (this.signal.aborted) throw error;
+           return record(
+             this.recordFailure(job, attempt, {
+               error: {
+@@ -675,19 +676,9 @@ class PhasedCoordinator {
+         // jobs at the top of mapConcurrent's loop.
+         const altered = this.faults.afterCall(index, attempt, response);
+         if (altered.injectedFailure) return record(this.recordFailure(job, attempt, altered));
++        let output;
+         try {
+-          const output = parseWorkerOutput(altered.text);
+-          const artifact = this.ledger.writeArtifact(`${job.id}-attempt-${attempt}`, output);
+-          const result = { ok: true, job, attempt, artifact, output, usage: altered.usage, costUsd: altered.costUsd };
+-          this.ledger.append('job_succeeded', {
+-            jobId: job.id,
+-            attempt,
+-            artifact,
+-            confidence: output.confidence,
+-            usage: altered.usage,
+-            costUsd: altered.costUsd,
+-          });
+-          return record(result);
++          output = parseWorkerOutput(altered.text);
+         } catch (error) {
+           return record(
+             this.recordFailure(job, attempt, {
+@@ -696,6 +687,20 @@ class PhasedCoordinator {
+             }),
+           );
+         }
++        // Only parsing above can reject model output. A failed disk write is
++        // a host failure, so let it reach the caller instead of recording a
++        // misleading job_failed receipt and inviting a model recovery retry.
++        const artifact = this.ledger.writeArtifact(`${job.id}-attempt-${attempt}`, output);
++        const result = { ok: true, job, attempt, artifact, output, usage: altered.usage, costUsd: altered.costUsd };
++        this.ledger.append('job_succeeded', {
++          jobId: job.id,
++          attempt,
++          artifact,
++          confidence: output.confidence,
++          usage: altered.usage,
++          costUsd: altered.costUsd,
++        });
++        return record(result);
+       },
+       this.signal,
+     );
+@@ -773,6 +778,15 @@ function buildWorkerPrompt(objective, job, documents, feedback = null) {
+   return `OBJECTIVE:\n${objective}\n\nASSIGNED TASK:\n${job.task}${feedbackSection}\n\n${sections.join('\n\n')}`;
+ }
+ 
++// A cancelled flag alone says nothing about why an operation failed. Match
++// the actual reason (or Node's AbortError wrapping that reason), so a disk or
++// accounting error cannot disappear merely because Ctrl-C also occurred.
++function isRunCancellation(error, signal) {
++  return Boolean(
++    signal?.aborted && (error === signal.reason || (error?.name === 'AbortError' && error.cause === signal.reason)),
++  );
++}
++
+ async function mapConcurrent(items, limit, fn, signal) {
+   const results = new Array(items.length);
+   let cursor = 0;
+@@ -787,6 +801,10 @@ async function mapConcurrent(items, limit, fn, signal) {
+   // Wait for EVERY worker, including rejected calls, before finalizing the
+   // run. Promise.all would return early and leave budget cleanup in flight.
+   const settled = await Promise.allSettled(Array.from({ length: Math.min(limit, items.length) }, worker));
++  // Inspect real failures before honoring cancellation. A cancelled sibling
++  // may occupy an earlier pool slot than the worker whose persistence failed.
++  const failure = settled.find((entry) => entry.status === 'rejected' && !isRunCancellation(entry.reason, signal));
++  if (failure) throw failure.reason;
+   checkAbort(signal);
+   const rejected = settled.find((entry) => entry.status === 'rejected');
+   if (rejected) throw rejected.reason;

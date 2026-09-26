@@ -47,6 +47,10 @@ const promptRegistry = require(path.join(root, 'src/runner/prompts/registry.js')
 
 const readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8');
 const builderHtml = fs.readFileSync(path.join(root, 'docs', 'command-builder.html'), 'utf8');
+// V2 (docs/command-builder-v2.html) generates its form from a registry, so
+// its deeper checks live in test/runner/command-builder-v2.test.js. The gate
+// still requires every tool name and the default model to appear in it.
+const builderV2Html = fs.readFileSync(path.join(root, 'docs', 'command-builder-v2.html'), 'utf8');
 const quickstartHtml = fs.readFileSync(path.join(root, 'docs', 'runner-quickstart.html'), 'utf8');
 const binSource = fs.readFileSync(path.join(root, 'bin', 'local-bridge-runner.js'), 'utf8');
 
@@ -77,6 +81,29 @@ for (const name of toolNames) {
   }
   if (!builderHtml.includes(name)) {
     errors.push('docs/command-builder.html does not mention tool "' + name + '"');
+  }
+  if (!builderV2Html.includes(name)) {
+    errors.push('docs/command-builder-v2.html does not mention tool "' + name + '"');
+  }
+}
+
+// V2 model rules: every `id: 'claude-…'` in its MODEL_RULES must be known to
+// the runtime catalog, and the first entry (the default-selected option) must
+// be the shared DEFAULT_MODEL.
+const v2Rules = builderV2Html.match(/const\s+MODEL_RULES\s*=\s*\[([\s\S]*?)\n\s*\];/);
+if (!v2Rules) {
+  errors.push('docs/command-builder-v2.html no longer defines MODEL_RULES');
+} else {
+  const ids = [...v2Rules[1].matchAll(/id:\s*'([^']+)'/g)].map((m) => m[1]);
+  for (const id of ids) {
+    if (!catalogEntryForModel(id)) {
+      errors.push('command-builder-v2 offers model "' + id + '" that is unknown to the runtime catalog');
+    }
+  }
+  if (ids[0] !== DEFAULT_MODEL) {
+    errors.push(
+      'command-builder-v2 first MODEL_RULES entry "' + ids[0] + '" != runtime DEFAULT_MODEL "' + DEFAULT_MODEL + '"',
+    );
   }
 }
 

@@ -7,6 +7,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const { RunLedger } = require('../src/ledger');
+const { restoreWorkerRun } = require('../src/worker-resume');
 const { resumeSynthesis } = require('../src/resume-synthesis');
 const { resolveSynthesisOptions, runSynthesis } = require('../src/synthesis');
 
@@ -151,8 +152,16 @@ test('resume-synthesis completes a partial run without re-running workers', asyn
     .split('\n')
     .map((line) => JSON.parse(line));
   const types = events.map((event) => event.type);
-  assert.deepEqual(types, ['run_started', 'synthesis_failed', 'synthesis_resume_started', 'synthesis_resume_completed']);
-  assert.deepEqual(events.map((event) => event.seq), [1, 2, 3, 4]);
+  assert.deepEqual(types, [
+    'run_started',
+    'synthesis_failed',
+    'synthesis_resume_started',
+    'synthesis_resume_completed',
+  ]);
+  assert.deepEqual(
+    events.map((event) => event.seq),
+    [1, 2, 3, 4],
+  );
   assert.ok(fs.existsSync(path.join(runDir, 'artifacts', 'synthesis-resume.json')));
   assert.ok(fs.existsSync(path.join(runDir, 'result.json')));
 });
@@ -184,4 +193,107 @@ test('resume-synthesis refuses completed runs and runs without results', async (
     resumeSynthesis({ runDir, bridge: stubBridge(() => okResponse('x')) }),
     /only applies to partial runs/,
   );
+});
+
+// Recreate the exact crash window without timers or a paid model: the success
+// receipt survives, but the later state/result writes do not.
+for (const entry of ['synthesis', 'workers']) {
+  for (const resultMode of ['missing', 'stale']) {
+    test(`durable synthesis resume survives lost checkpoint via ${entry} with ${resultMode} result`, async () => {
+      const { runDir, state: partial } = partialRunFixture();
+      const ledger = new RunLedger(runDir);
+      // A failed original synthesis is still partial, despite this event's name.
+      ledger.append('run_completed', { synthesisOk: false });
+      ledger.checkpoint(partial);
+      const oldCheckpoint = fs.readFileSync(ledger.statePath);
+      await resumeSynthesis({ runDir, bridge: stubBridge(() => okResponse('PAID SYNTHESIS')) });
+      const expected = JSON.parse(fs.readFileSync(ledger.statePath, 'utf8'));
+      const receipts = fs.readFileSync(ledger.eventsPath, 'utf8');
+      fs.writeFileSync(ledger.statePath, oldCheckpoint);
+      const resultPath = path.join(runDir, 'result.json');
+      if (resultMode === 'missing') fs.unlinkSync(resultPath);
+      else fs.writeFileSync(resultPath, JSON.stringify(partial));
+
+      const bridge = stubBridge(() => {
+        throw new Error('must not buy synthesis again');
+      });
+      let restored;
+      if (entry === 'synthesis') {
+        const summary = await resumeSynthesis({ runDir, bridge });
+        assert.equal(summary.ok, true);
+        assert.equal(summary.calls, 0);
+        restored = JSON.parse(fs.readFileSync(ledger.statePath, 'utf8'));
+        assert.equal(JSON.parse(fs.readFileSync(resultPath, 'utf8')).synthesis, 'PAID SYNTHESIS');
+      } else {
+        const outcome = restoreWorkerRun({ ledger: new RunLedger(runDir) });
+        assert.equal(outcome.kind, 'completed');
+        assert.equal(outcome.staleCheckpoint, true);
+        restored = outcome.state;
+      }
+      assert.equal(restored.phase, 'completed');
+      assert.equal(restored.synthesis, 'PAID SYNTHESIS');
+      assert.equal(restored.synthesisFailure, null);
+      assert.equal(restored.synthesisCalls, expected.synthesisCalls);
+      assert.equal(restored.synthesisStrategy, expected.synthesisStrategy);
+      assert.deepEqual(restored.results, partial.results);
+      // Repeating recovery must neither add calls to the total nor append events.
+      if (entry === 'synthesis') {
+        assert.equal((await resumeSynthesis({ runDir, bridge })).calls, 0);
+        assert.equal(JSON.parse(fs.readFileSync(ledger.statePath, 'utf8')).synthesisCalls, expected.synthesisCalls);
+      }
+      assert.equal(bridge.calls.length, 0);
+      assert.equal(fs.readFileSync(ledger.eventsPath, 'utf8'), receipts);
+      fs.rmSync(runDir, { recursive: true, force: true });
+    });
+  }
+}
+
+for (const damage of ['missing', 'invalid-json', 'empty-text', 'escape', 'symlink', 'torn-event']) {
+  test(`synthesis resume refuses ${damage} completion evidence without calling model`, async (t) => {
+    const { runDir } = partialRunFixture();
+    t.after(() => fs.rmSync(runDir, { recursive: true, force: true }));
+    const ledger = new RunLedger(runDir);
+    const oldCheckpoint = fs.readFileSync(ledger.statePath);
+    await resumeSynthesis({ runDir, bridge: stubBridge(() => okResponse('PAID SYNTHESIS')) });
+    fs.writeFileSync(ledger.statePath, oldCheckpoint);
+    const artifactPath = path.join(ledger.artifactDir, 'synthesis-resume.json');
+    if (damage === 'missing') fs.unlinkSync(artifactPath);
+    if (damage === 'invalid-json') fs.writeFileSync(artifactPath, '{');
+    if (damage === 'empty-text') fs.writeFileSync(artifactPath, JSON.stringify({ text: ' ' }));
+    if (damage === 'escape') {
+      const events = fs.readFileSync(ledger.eventsPath, 'utf8').trim().split('\n').map(JSON.parse);
+      events.at(-1).payload.artifact = 'state.json';
+      fs.writeFileSync(ledger.eventsPath, events.map(JSON.stringify).join('\n') + '\n');
+    }
+    if (damage === 'symlink') {
+      fs.unlinkSync(artifactPath);
+      fs.symlinkSync(ledger.statePath, artifactPath);
+    }
+    if (damage === 'torn-event') fs.appendFileSync(ledger.eventsPath, '{');
+    const bridge = stubBridge(() => {
+      throw new Error('must not call model');
+    });
+    await assert.rejects(resumeSynthesis({ runDir, bridge }));
+    assert.throws(() => restoreWorkerRun({ ledger: new RunLedger(runDir) }));
+    assert.equal(bridge.calls.length, 0);
+    assert.deepEqual(fs.readFileSync(ledger.statePath), oldCheckpoint);
+  });
+}
+
+test('synthesis resume repairs a missing result after the completed checkpoint without double counting', async (t) => {
+  const { runDir } = partialRunFixture();
+  t.after(() => fs.rmSync(runDir, { recursive: true, force: true }));
+  await resumeSynthesis({ runDir, bridge: stubBridge(() => okResponse('PAID SYNTHESIS')) });
+  const statePath = path.join(runDir, 'state.json');
+  const expected = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  const resultPath = path.join(runDir, 'result.json');
+  fs.unlinkSync(resultPath);
+  const bridge = stubBridge(() => {
+    throw new Error('must not call model');
+  });
+  assert.equal((await resumeSynthesis({ runDir, bridge })).calls, 0);
+  const repaired = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
+  assert.equal(repaired.synthesis, expected.synthesis);
+  assert.equal(repaired.synthesisCalls, expected.synthesisCalls);
+  assert.equal(bridge.calls.length, 0);
 });

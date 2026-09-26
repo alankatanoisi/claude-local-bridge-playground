@@ -136,7 +136,7 @@ Runner work should usually stay in:
 - `src/runner/**`
 - `test/runner/**`
 - `docs/runner-quickstart.html`
-- `docs/command-builder.html`
+- `docs/command-builder.html` and `docs/command-builder-v2.html` (drift-tested by `test/runner/command-builder-*.test.js`)
 - `docs/threat-model.md`
 - `README.md`
 

@@ -1,0 +1,148 @@
+TAP version 13
+# Subtest: abort-commit: settled invalid output records one charged failure and resume uses explicit recovery
+ok 1 - abort-commit: settled invalid output records one charged failure and resume uses explicit recovery
+  ---
+  duration_ms: 798.787417
+  type: 'test'
+  ...
+# Subtest: abort-commit: artifact failure remains visible during cancellation
+ok 2 - abort-commit: artifact failure remains visible during cancellation
+  ---
+  duration_ms: 268.688791
+  type: 'test'
+  ...
+# Subtest: abort-commit: checkpoint failure remains visible during cancellation
+ok 3 - abort-commit: checkpoint failure remains visible during cancellation
+  ---
+  duration_ms: 314.169958
+  type: 'test'
+  ...
+# Subtest: abort-commit: settlement failure remains visible during cancellation
+ok 4 - abort-commit: settlement failure remains visible during cancellation
+  ---
+  duration_ms: 290.434375
+  type: 'test'
+  ...
+# Subtest: abort-commit: sibling cancellation cannot mask a drained worker persistence failure
+ok 5 - abort-commit: sibling cancellation cannot mask a drained worker persistence failure
+  ---
+  duration_ms: 296.979125
+  type: 'test'
+  ...
+# Subtest: abort-commit: phase checkpoint error is not replaced by clean cancellation
+ok 6 - abort-commit: phase checkpoint error is not replaced by clean cancellation
+  ---
+  duration_ms: 304.525541
+  type: 'test'
+  ...
+# Subtest: Claude adapter sends concurrent Messages requests and settles reservations
+ok 7 - Claude adapter sends concurrent Messages requests and settles reservations
+  ---
+  duration_ms: 184.219833
+  type: 'test'
+  ...
+# Subtest: Claude adapter returns a settled response even when the signal aborts inside settle
+ok 8 - Claude adapter returns a settled response even when the signal aborts inside settle
+  ---
+  duration_ms: 7.689625
+  type: 'test'
+  ...
+# Subtest: R14b hashes ignore object key order, preserve array order, and cover program bytes
+ok 9 - R14b hashes ignore object key order, preserve array order, and cover program bytes
+  ---
+  duration_ms: 2.98
+  type: 'test'
+  ...
+# Subtest: R14b accepted host plans record reproducible plan/program/input hashes
+ok 10 - R14b accepted host plans record reproducible plan/program/input hashes
+  ---
+  duration_ms: 2018.70775
+  type: 'test'
+  ...
+# Subtest: R14b resume refuses changed saved input bytes without adding job receipts
+ok 11 - R14b resume refuses changed saved input bytes without adding job receipts
+  ---
+  duration_ms: 368.758583
+  type: 'test'
+  ...
+# Subtest: R11 live resume refuses mode/cap/campaign changes before any network or ledger mutation
+ok 12 - R11 live resume refuses mode/cap/campaign changes before any network or ledger mutation
+  ---
+  duration_ms: 209.894458
+  type: 'test'
+  ...
+# Subtest: R11 cooperative abort: in-flight completions land receipts, run_aborted follows the drain, resume reuses them
+ok 13 - R11 cooperative abort: in-flight completions land receipts, run_aborted follows the drain, resume reuses them
+  ---
+  duration_ms: 789.249334
+  type: 'test'
+  ...
+# Subtest: R11 settled-then-aborted bridge call persists its receipt and is not re-bought on resume
+ok 14 - R11 settled-then-aborted bridge call persists its receipt and is not re-bought on resume
+  ---
+  duration_ms: 819.563042
+  type: 'test'
+  ...
+# Subtest: R11 resume treats run_completed in the event log as authoritative over a stale checkpoint
+ok 15 - R11 resume treats run_completed in the event log as authoritative over a stale checkpoint
+  ---
+  duration_ms: 683.565333
+  type: 'test'
+  ...
+# Subtest: R11 cancel under concurrency: HTTP requests are destroyed and budgets drain
+ok 16 - R11 cancel under concurrency: HTTP requests are destroyed and budgets drain
+  ---
+  duration_ms: 326.508417
+  type: 'test'
+  ...
+# Subtest: R11 process kill SIGTERM + resume
+ok 17 - R11 process kill SIGTERM + resume
+  ---
+  duration_ms: 452.327084
+  type: 'test'
+  ...
+# Subtest: R11 process interrupt SIGINT + resume
+ok 18 - R11 process interrupt SIGINT + resume
+  ---
+  duration_ms: 458.442417
+  type: 'test'
+  ...
+# Subtest: R11 process kill SIGKILL + resume
+ok 19 - R11 process kill SIGKILL + resume
+  ---
+  duration_ms: 392.756375
+  type: 'test'
+  ...
+# Subtest: R11 resume is idempotent through both command-line entry points
+ok 20 - R11 resume is idempotent through both command-line entry points
+  ---
+  duration_ms: 524.11725
+  type: 'test'
+  ...
+# Subtest: R11 recovery-phase interruption reuses failures, successes, and original input bytes
+ok 21 - R11 recovery-phase interruption reuses failures, successes, and original input bytes
+  ---
+  duration_ms: 313.963666
+  type: 'test'
+  ...
+# Subtest: R11 abort during synthesis resumes into synthesis only, without replaying earlier phases
+ok 22 - R11 abort during synthesis resumes into synthesis only, without replaying earlier phases
+  ---
+  duration_ms: 254.582666
+  type: 'test'
+  ...
+# Subtest: R11 resume keeps a run partial when run_completed says synthesisOk:false behind a stale checkpoint
+ok 23 - R11 resume keeps a run partial when run_completed says synthesisOk:false behind a stale checkpoint
+  ---
+  duration_ms: 256.701708
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5403.533083

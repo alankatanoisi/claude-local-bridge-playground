@@ -1,0 +1,86 @@
+TAP version 13
+# Subtest: abort-commit: settled invalid output records one charged failure and resume uses explicit recovery
+ok 1 - abort-commit: settled invalid output records one charged failure and resume uses explicit recovery
+  ---
+  duration_ms: 372.500958
+  type: 'test'
+  ...
+# Subtest: abort-commit: artifact failure remains visible during cancellation
+not ok 2 - abort-commit: artifact failure remains visible during cancellation
+  ---
+  duration_ms: 145.154958
+  type: 'test'
+  location: '/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/abort-commit-boundaries.test.js:101:3'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/abort-commit-boundaries.test.js:122:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: abort-commit: checkpoint failure remains visible during cancellation
+ok 3 - abort-commit: checkpoint failure remains visible during cancellation
+  ---
+  duration_ms: 134.474375
+  type: 'test'
+  ...
+# Subtest: abort-commit: settlement failure remains visible during cancellation
+not ok 4 - abort-commit: settlement failure remains visible during cancellation
+  ---
+  duration_ms: 108.700292
+  type: 'test'
+  location: '/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/abort-commit-boundaries.test.js:101:3'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/abort-commit-boundaries.test.js:122:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: abort-commit: sibling cancellation cannot mask a drained worker persistence failure
+not ok 5 - abort-commit: sibling cancellation cannot mask a drained worker persistence failure
+  ---
+  duration_ms: 107.201625
+  type: 'test'
+  location: '/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/abort-commit-boundaries.test.js:135:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/abort-commit-boundaries.test.js:164:3)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: abort-commit: phase checkpoint error is not replaced by clean cancellation
+not ok 6 - abort-commit: phase checkpoint error is not replaced by clean cancellation
+  ---
+  duration_ms: 92.015167
+  type: 'test'
+  location: '/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/abort-commit-boundaries.test.js:172:1'
+  failureType: 'testCodeFailure'
+  error: 'Missing expected rejection.'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  stack: |-
+    process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    async TestContext.<anonymous> (/Users/alanman/Developer/claude-local-bridge-playground/starlark-host/test/abort-commit-boundaries.test.js:186:3)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 2
+# fail 4
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1044.366834

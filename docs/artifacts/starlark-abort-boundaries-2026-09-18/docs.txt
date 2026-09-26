@@ -1,0 +1,16 @@
+
+> claude-local-bridge@1.0.0 check:docs
+> node scripts/check-doc-defaults.js && node scripts/check-runner-manifest.js
+
+Documentation defaults check passed.
+- port: 11437
+- defaultModel: claude-sonnet-5
+- requireCallerAuth: false
+Runner manifest check passed.
+- tools: 22 (hidden by default: apply_patch)
+- CLI flags: 78
+- models offered: 12 (default: claude-sonnet-5)
+- effort levels: low, medium, high, xhigh, max
+- thinking modes: auto, adaptive, off
+- built-in prompt templates: cleanup, explore, grill, review, simplify, verify
+- quickstart non-hidden tool coverage: 21

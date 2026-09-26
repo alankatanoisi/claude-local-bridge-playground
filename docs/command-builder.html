@@ -534,6 +534,8 @@
       <header>
         <h1>Command Builder</h1>
         <nav class="header-links" aria-label="Runner docs">
+          <a href="command-builder-v2.html">V2 builder &rarr;</a>
+          <a href="command-builder-coherence-check-2026-09-26.html">Coherence check</a>
           <a href="runner-expansion-roadmap.md">Expansion roadmap</a>
           <a href="runner-quickstart.html">&larr; Quick Start</a>
         </nav>
@@ -636,7 +638,7 @@
               <button
                 class="preset-btn"
                 data-preset="worktree"
-                title="Edit inside an isolated git worktree branch so your main branch stays clean. The worktree is preserved for review after the run."
+                title="Start the whole run inside a fresh git worktree (--worktree) so your checkout is never touched. Edits still ask for confirmation. The worktree is preserved for review after the run. 16 steps."
               >
                 Safe edits in a worktree
               </button>
@@ -702,7 +704,9 @@
             </div>
             <div class="field checks">
               <label
-                title="Start the runner INSIDE a fresh git worktree, before it does anything. Deterministic: the runner is confined to the worktree and your original checkout is never touched — you do not need to prompt it. Requires the target folder to be a git repo. Also makes git commit/push/checkout/switch/merge always ask, and blocks shell from reaching the original checkout."
+                class="check-label"
+                id="worktreeStartRow"
+                title="Start the runner INSIDE a fresh git worktree, before it does anything. Deterministic: the runner is confined to the worktree and your original checkout is never touched — you do not need to prompt it. Requires the target folder to be a git repo with a commit to branch from. Also makes git commit/push/checkout/switch/merge always ask, and blocks shell from reaching the original checkout. Runner only: the coordinator has no --worktree flag."
               >
                 <input type="checkbox" id="worktreeStart" /> Start inside a fresh worktree
                 <code>--worktree</code>
@@ -711,6 +715,10 @@
                 Harness-enforced isolation. Unlike asking the model to "work in a worktree" (which it can drift out of
                 via shell), this confines the whole run. Fails fast if the target folder is not a git repo.
               </p>
+              <div id="worktreeCoordinatorNote" class="warn-panel info">
+                &#8505; <code>--worktree</code> is a runner-only flag. The coordinator CLI does not accept it, so it is
+                saved here but not emitted while the coordinator is selected.
+              </div>
             </div>
             <div class="field">
               <label
@@ -1388,17 +1396,18 @@
                 <div class="checks">
                   <label
                     class="check-label"
-                    title="Tell the model to stay narrowly focused on the specific task in your prompt. Prevents scope creep where the model wanders off to 'improve' unrelated things."
+                    title="Task-scoped preset. Lowers the step limit to 8 unless you set Max steps yourself, and compacts old request evidence earlier (about 40k tokens). The runner also prints a tip recommending --plan for the first pass. It does not add instructions to the prompt."
                   >
-                    <input type="checkbox" id="taskScope" /> Narrow focus to one task <code>--task-scope</code>
+                    <input type="checkbox" id="taskScope" /> Task-scoped run (8 steps, early compaction)
+                    <code>--task-scope</code>
                   </label>
                   <label class="check-label">
                     <input
                       type="checkbox"
                       id="compactEachTurn"
-                      title="After every model turn, summarize older conversation history to save context window space. Useful for long runs that might hit token limits. Trades precision for longevity."
+                      title="Aggressive compaction preset: compacts old request evidence at about 20k tokens instead of the model-derived threshold. Despite the name it does not summarize after every turn. An explicit 'Compact old evidence at' value overrides it."
                     />
-                    Summarize history every turn <code>--compact-each-turn</code>
+                    Compact aggressively (about 20k tokens) <code>--compact-each-turn</code>
                   </label>
                   <label
                     class="check-label"
@@ -1518,7 +1527,7 @@
                     <input
                       type="checkbox"
                       id="sessionExtract"
-                      title="After a successful persisted run, queue a small run-summary proposal for later --review-memory approval. Requires --trusted-workspace and a Session id or Session path. It does not run a second model extraction pass."
+                      title="After a successful run that saved a session checkpoint, queue a small run-summary proposal for later --review-memory approval. Needs a Session id or Session path and session persistence left on. Any run that passes the folder-trust gate counts as trusted; the hooks flag is not required. It does not run a second model pass."
                     />
                     Queue run-summary memory proposal <code>--session-extract</code>
                   </label>
@@ -1672,7 +1681,8 @@
                   discretionary use—it is not forced to call the tool. Permission is a separate layer: ordinary reads
                   run immediately, while orchestration and worktree actions ask by default. <code>--dont-ask</code>
                   lets already-enabled orchestration/worktree tools run unattended, but does not expose shell or approve
-                  file writes.
+                  file writes. When shell is also enabled, <code>--dont-ask</code> lets shell commands run unattended
+                  too; only history-changing git commands and destructive worktree cleanup still ask.
                 </p>
                 <div class="checks" id="toolChoices">
                   <div class="capability-group">Read</div>
@@ -2084,6 +2094,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       const outputFormat = document.getElementById('outputFormat');
       const allowShell = document.getElementById('allowShell');
       const worktreeStart = document.getElementById('worktreeStart');
+      const worktreeStartRow = document.getElementById('worktreeStartRow');
+      const worktreeCoordinatorNote = document.getElementById('worktreeCoordinatorNote');
       const shellTimeout = document.getElementById('shellTimeout');
       const confirmTimeout = document.getElementById('confirmTimeout');
       const logLevel = document.getElementById('logLevel');
@@ -2231,13 +2243,61 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         skills: ['run_skill'],
         history: ['search_history', 'expand_history'],
       };
+      // Groups that are orthogonal to write/shell authority. A manual change of
+      // the permission style keeps these exactly as the user left them instead
+      // of silently unchecking them (presets, being whole recipes, still reset).
+      const ORTHOGONAL_TOOL_NAMES = [
+        ...CAPABILITY_GROUPS.agents,
+        ...CAPABILITY_GROUPS.worktrees,
+        ...CAPABILITY_GROUPS.skills,
+        ...CAPABILITY_GROUPS.history,
+      ];
+
+      // Runtime effort vocabulary (src/runner/model-catalog.js EFFORT_LEVELS).
+      const EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'max'];
+
+      // Model rules mirrored from src/runner/model-catalog.js CATALOG_ENTRIES.
+      // test/runner/command-builder-combinatorics.test.js compares every
+      // offered model, effort, thinking, and temperature choice against the
+      // runtime's own validator, so this table cannot drift silently.
+      //   effort:    accepted --effort levels, or null when the model rejects
+      //              --effort entirely (older Sonnet/Haiku)
+      //   thinking:  'always-on' (off rejected) | 'default-on' |
+      //              'explicit-adaptive' | 'manual' (adaptive rejected)
+      //   offEffort: with thinking off, only these effort levels are accepted
+      //   sampling:  'default-only' rejects any --temperature other than 1
+      //   maxOutput: hard ceiling for --max-tokens
+      // Ids match on the whole id or on a dash boundary, so date-suffixed ids
+      // such as claude-opus-4-6-20260115 resolve to their family.
+      const MODEL_RULES = [
+        { prefix: 'claude-fable-5', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
+        { prefix: 'claude-mythos-5', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
+        { prefix: 'claude-mythos-preview', effort: ['low', 'medium', 'high', 'max'], thinking: 'always-on', sampling: 'default-only', maxOutput: 64000 },
+        { prefix: 'claude-opus-5', effort: EFFORT_LEVELS, thinking: 'default-on', offEffort: ['low', 'medium', 'high'], sampling: 'default-only', maxOutput: 128000 },
+        { prefix: 'claude-sonnet-5', effort: EFFORT_LEVELS, thinking: 'default-on', sampling: 'default-only', maxOutput: 128000 },
+        { prefix: 'claude-opus-4-8', effort: EFFORT_LEVELS, thinking: 'explicit-adaptive', sampling: 'default-only', maxOutput: 128000 },
+        { prefix: 'claude-opus-4-7', effort: EFFORT_LEVELS, thinking: 'explicit-adaptive', sampling: 'default-only', maxOutput: 128000 },
+        { prefix: 'claude-opus-4-6', effort: ['low', 'medium', 'high', 'max'], thinking: 'explicit-adaptive', sampling: 'supported', maxOutput: 64000 },
+        { prefix: 'claude-sonnet-4-6', effort: ['low', 'medium', 'high', 'max'], thinking: 'explicit-adaptive', sampling: 'supported', maxOutput: 64000 },
+        { prefix: 'claude-opus-4-5', effort: ['low', 'medium', 'high'], thinking: 'manual', sampling: 'supported', maxOutput: 64000 },
+        { prefix: 'claude-haiku-4-5', effort: null, thinking: 'manual', sampling: 'supported', maxOutput: 64000 },
+        { prefix: 'claude-sonnet-4-5', effort: null, thinking: 'manual', sampling: 'supported', maxOutput: 64000 },
+      ];
+
+      function modelRulesFor(modelId) {
+        const id = String(modelId || '')
+          .trim()
+          .toLowerCase();
+        return MODEL_RULES.find((rule) => id === rule.prefix || id.startsWith(rule.prefix + '-')) || null;
+      }
 
       const PERMISSION_STYLE_HINTS = {
         'look-only': 'Read-only tools only. Safest way to explore a repo.',
         'plan-first': 'Reads run for real; proposed writes are recorded as diffs, never executed.',
         'edit-ask': 'Default — you confirm each file change in Terminal.',
         'edit-auto': 'Skips write confirmations. Shell stays off.',
-        'edit-shell': 'Auto-edits plus bash. Enables --chaos-ok. Use only when you need tests or npm.',
+        'edit-shell':
+          'Auto-edits plus bash with no confirmation prompts (--chaos-ok acknowledges the combo). Only history-changing git commands and destructive worktree cleanup still ask.',
       };
 
       const PERMISSION_STYLES = {
@@ -2317,8 +2377,17 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         chaosOk.checked = !!style.chaosOk;
         noNetwork.checked = !!style.noNetwork;
         if (style.applyTools && style.tools) {
+          // A manual style change (options.preserveGroups) keeps the opt-in
+          // groups that are orthogonal to write/shell authority — agents,
+          // worktrees, skills, history — exactly as the user left them.
+          // Presets pass no such option because a preset is a whole recipe.
+          const preserved = new Set(
+            options.preserveGroups
+              ? ORTHOGONAL_TOOL_NAMES.filter((name) => toolChoices.some((c) => c.value === name && c.checked))
+              : [],
+          );
           toolChoices.forEach((choice) => {
-            choice.checked = style.tools.includes(choice.value);
+            choice.checked = style.tools.includes(choice.value) || preserved.has(choice.value);
           });
         } else if (!options.keepTools && styleKey !== 'look-only') {
           toolChoices.forEach((choice) => {
@@ -2647,8 +2716,14 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         promptTemplateHint.style.display = '';
       }
 
+      // Order-insensitive: the DOM order of the tool checkboxes is not the
+      // order of DEFAULT_TOOL_NAMES once gated tools (lsp_query, bash) join the
+      // list, and the CLI does not care about --tools order either.
       function sameTools(left, right) {
-        return left.length === right.length && left.every((name, index) => name === right[index]);
+        if (left.length !== right.length) return false;
+        const sortedLeft = [...left].sort();
+        const sortedRight = [...right].sort();
+        return sortedLeft.every((name, index) => name === sortedRight[index]);
       }
 
       function buildCommandString(groupedForPipe = false) {
@@ -2720,24 +2795,23 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           'is-muted-control',
           !coordinatorResearch.checked || !coordinatorUseWorkers.checked,
         );
+        // --worktree is runner-only. Keep the saved choice, grey it out, and say
+        // why it is not in the coordinator command.
+        worktreeStartRow.classList.toggle('is-muted-control', coordinatorOn);
+        worktreeCoordinatorNote.classList.toggle('show', coordinatorOn && worktreeStart.checked);
 
-        const bashChoice = toolChoices.find((c) => c.value === 'bash');
-        const manageShellChoice = toolChoices.find((c) => c.value === 'manage_shell_jobs');
-        if (bashChoice) {
-          const bashLabel = bashChoice.closest('.tool-choice');
-          if (bashLabel) bashLabel.classList.toggle('is-muted-control', !shellOn);
-          if (shellOn && !bashChoice.dataset.shellWasShown) {
-            bashChoice.checked = true;
-            bashChoice.dataset.shellWasShown = '1';
-          }
-        }
-        if (manageShellChoice) {
-          const manageLabel = manageShellChoice.closest('.tool-choice');
-          if (manageLabel) manageLabel.classList.toggle('is-muted-control', !shellOn);
-          if (shellOn && !manageShellChoice.dataset.shellWasShown) {
-            manageShellChoice.checked = true;
-            manageShellChoice.dataset.shellWasShown = '1';
-          }
+        // Shell tools mirror --allow-shell deterministically: the runtime
+        // exposes both bash and manage_shell_jobs whenever shell is on, so the
+        // two checkboxes are read-only indicators of that state. (They used to
+        // auto-check only the first time shell appeared, which made a second
+        // click of the same preset emit a --tools list without bash.)
+        for (const name of ['bash', 'manage_shell_jobs']) {
+          const choice = toolChoices.find((c) => c.value === name);
+          if (!choice) continue;
+          const label = choice.closest('.tool-choice');
+          if (label) label.classList.toggle('is-muted-control', !shellOn);
+          choice.checked = shellOn;
+          choice.disabled = true;
         }
         const lspChoice = toolChoices.find((c) => c.value === 'lsp_query');
         if (lspChoice) {
@@ -2777,10 +2851,11 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           (!bareOn && !includeRepoContext.checked && (includeClaudeMd.checked || includeRepoMap.checked));
         contextDependencyNote.classList.toggle('show', hasInactiveContextChoice);
 
+        // Runtime rule (run.js maybeRunSessionExtract): a saved session path
+        // plus a successful run. Every run that passes the folder-trust gate
+        // counts as trusted, so the hooks flag is not part of the rule.
         const sessionExtractReady =
-          trustedWorkspace.checked &&
-          !!(sessionId.value.trim() || sessionPath.value.trim()) &&
-          !noSessionPersistence.checked;
+          !!(sessionId.value.trim() || sessionPath.value.trim()) && !noSessionPersistence.checked;
         sessionExtractRow.classList.toggle('is-muted-control', sessionExtract.checked && !sessionExtractReady);
 
         const chaosBlocked = hasChaosConflict() && (!coordinatorOn || coordinatorExecute.checked);
@@ -2801,9 +2876,21 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           cautions.push('--accept-edits skips write confirmations.');
         if (dontAsk.checked && !allowShell.checked)
           cautions.push('--dont-ask does not enable bash; add --allow-shell only when you need shell.');
-        if (dontAsk.checked && allowShell.checked && !chaosOk.checked && !(acceptEdits.checked && chaosBlocked))
+        if (dontAsk.checked && allowShell.checked && (!coordinatorOn || coordinatorExecute.checked))
           cautions.push(
-            'With shell on, --dont-ask still asks unless writes are auto-approved or chaos is acknowledged.',
+            '--dont-ask with shell on runs shell commands without asking; only history-changing git commands and destructive worktree cleanup still ask.',
+          );
+        if (
+          !coordinatorOn &&
+          (dontAsk.checked || plan.checked) &&
+          toolChoices.find((c) => c.value === 'ask_user_question')?.checked
+        )
+          cautions.push(
+            'ask_user_question is offered but fails closed under --dont-ask and --plan; the model then proceeds on its own assumption.',
+          );
+        if (!coordinatorOn && worktreeStart.checked)
+          cautions.push(
+            '--worktree needs the target folder to be a git repository with a commit to branch from; otherwise the run refuses to start.',
           );
         if (plan.checked && (acceptEdits.checked || allowShell.checked))
           cautions.push('--plan dry-runs tools; accept-edits/shell flags still shape what the model sees.');
@@ -2866,32 +2953,43 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         const selectedEffort = coordinatorOn ? coordinatorEffort : effort;
         const selectedThinking = coordinatorOn ? coordinatorThinking : thinking;
         const selectedTemperature = coordinatorOn ? coordinatorTemperature : temperature;
-        const xhighSupported = /claude-(?:fable-5|sonnet-5|opus-(?:5|4-(?:8|7)))/.test(selectedModel);
-        const thinkingAlwaysOn = /claude-(?:fable-5|mythos-5|mythos-preview)/.test(selectedModel);
-        const adaptiveUnsupported = /claude-(?:sonnet-4-5|haiku-4-5|3-)/.test(selectedModel);
-        const defaultOnlySampling = /claude-(?:fable-5|mythos-(?:5|preview)|sonnet-5|opus-(?:5|4-(?:8|7)))/.test(
-          selectedModel,
-        );
-        const xhighOption = selectedEffort.querySelector('option[value="xhigh"]');
+        const selectedMaxTokens = coordinatorOn ? coordinatorMaxTokens : maxTokens;
+        // Rules come from the MODEL_RULES mirror of the runtime catalog. An
+        // unknown or future id has no rules: every control stays enabled and the
+        // runtime forwards the values with a warning instead of a local error.
+        const modelRules = modelRulesFor(selectedModel);
+        const effortAllowed = (level) =>
+          !modelRules || (Array.isArray(modelRules.effort) && modelRules.effort.includes(level));
+        const thinkingAlwaysOn = !!modelRules && modelRules.thinking === 'always-on';
+        const adaptiveUnsupported = !!modelRules && modelRules.thinking === 'manual';
+        const defaultOnlySampling = !!modelRules && modelRules.sampling === 'default-only';
+        for (const level of EFFORT_LEVELS) {
+          const option = selectedEffort.querySelector('option[value="' + level + '"]');
+          if (option) option.disabled = !effortAllowed(level);
+        }
         const adaptiveOption = selectedThinking.querySelector('option[value="adaptive"]');
         const thinkingOffOption = selectedThinking.querySelector('option[value="off"]');
-        if (xhighOption) xhighOption.disabled = !xhighSupported;
         if (adaptiveOption) adaptiveOption.disabled = adaptiveUnsupported;
         if (thinkingOffOption) thinkingOffOption.disabled = thinkingAlwaysOn;
 
         if (thinkingNote && !coordinatorOn) {
-          if (thinkingAlwaysOn) {
+          const thinkingKind = modelRules ? modelRules.thinking : null;
+          if (thinkingKind === 'always-on') {
             thinkingNote.textContent =
               'This model keeps adaptive thinking on automatically. Auto omits the redundant API field; off is unavailable.';
-          } else if (/claude-(?:sonnet|opus)-5/.test(selectedModel)) {
+          } else if (thinkingKind === 'default-on') {
             thinkingNote.textContent =
-              'This model enables adaptive thinking by default. Auto and adaptive leave that default intact; off sends an explicit disabled setting. Opus 5 requires low, medium, or high effort when thinking is off.';
-          } else if (/claude-(?:sonnet-4-6|opus-4-(?:8|7|6))/.test(selectedModel)) {
+              'This model enables adaptive thinking by default. Auto and adaptive leave that default intact; off sends an explicit disabled setting.' +
+              (modelRules.offEffort
+                ? ' With thinking off, only ' + modelRules.offEffort.join(', ') + ' effort is accepted.'
+                : '');
+          } else if (thinkingKind === 'explicit-adaptive') {
             thinkingNote.textContent =
               'This model needs an adaptive-thinking request field. Auto adds it; off deliberately omits it.';
-          } else if (adaptiveUnsupported) {
+          } else if (thinkingKind === 'manual') {
             thinkingNote.textContent =
-              'This older model does not support adaptive thinking. Leave auto selected, or choose off.';
+              'This older model does not support adaptive thinking. Leave auto selected, or choose off.' +
+              (modelRules.effort ? '' : ' It also rejects --effort entirely; leave Model effort at (default).');
           } else {
             thinkingNote.textContent =
               "Auto uses the runner's known model rules. Explicit adaptive is forwarded for unknown future model IDs.";
@@ -2981,16 +3079,46 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           if (countResumeModes() > 1)
             validationErrors.push('Pick only one session start mode: fresh, resume specified, or resume latest.');
 
-          if (resumeSession.checked && !sessionId.value.trim() && !sessionPath.value.trim())
-            validationErrors.push('Resume specified session needs a Session id or Session path.');
+          // --fork-from mints the child session id itself, so resume is valid
+          // with only a Fork from value (bin/local-bridge-runner.js forkFrom).
+          if (resumeSession.checked && !sessionId.value.trim() && !sessionPath.value.trim() && !forkFrom.value.trim())
+            validationErrors.push('Resume specified session needs a Session id, Session path, or Fork from.');
+
+          if (sessionExtract.checked && !sessionId.value.trim() && !sessionPath.value.trim())
+            validationErrors.push(
+              'Run-summary memory proposal needs a Session id or Session path (a saved checkpoint to summarize).',
+            );
 
           if (
-            sessionExtract.checked &&
-            (!trustedWorkspace.checked || (!sessionId.value.trim() && !sessionPath.value.trim()))
+            continueFromLatest.checked &&
+            (sessionId.value.trim() || sessionPath.value.trim() || forkFrom.value.trim())
           )
-            validationErrors.push(
-              'Run-summary memory proposal needs Enable project hooks plus a Session id or Session path.',
+            validationWarnings.push('--continue is ignored because a Session id, Session path, or Fork from is set.');
+
+          if (forkFrom.value.trim() && !resumeSession.checked)
+            validationWarnings.push(
+              'Fork from copies the parent checkpoint, but without Resume specified session the copied conversation is replaced by this prompt.',
             );
+
+          if (stream.checked && outputFormat.value !== 'text')
+            validationWarnings.push(
+              '--stream only paints live text with output format text; with json or stream-json it has no visible effect.',
+            );
+
+          if (verbose.checked && logLevel.value === 'quiet')
+            validationWarnings.push('--log-level quiet overrides --verbose.');
+
+          if (taskScope.checked && +maxSteps.value === DEFAULTS.maxSteps)
+            validationWarnings.push(
+              '--task-scope lowers the step limit to 8 because Max steps is at its default; choose another Max steps value to override.',
+            );
+
+          if (compactAtTokens.value.trim() && (taskScope.checked || compactEachTurn.checked))
+            validationWarnings.push(
+              'Your explicit Compact old evidence value overrides the --task-scope / --compact-each-turn thresholds.',
+            );
+          else if (taskScope.checked && compactEachTurn.checked)
+            validationWarnings.push('Both compaction presets are set; --compact-each-turn (about 20k tokens) wins.');
 
           if (sessionExtract.checked && noSessionPersistence.checked)
             validationErrors.push('Run-summary memory proposal cannot be combined with disabled session persistence.');
@@ -3011,24 +3139,45 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         )
           validationErrors.push('Shell timeout must be between 100 and 900000 milliseconds.');
 
-        if (selectedEffort.value === 'xhigh' && !xhighSupported)
-          validationErrors.push('The selected model does not support --effort xhigh.');
+        if (selectedEffort.value && !effortAllowed(selectedEffort.value))
+          validationErrors.push(
+            modelRules && !modelRules.effort
+              ? 'The selected model does not accept --effort at all; leave Model effort at (default).'
+              : 'The selected model does not support --effort ' +
+                  selectedEffort.value +
+                  '. Supported: ' +
+                  modelRules.effort.join(', ') +
+                  '.',
+          );
 
         if (selectedThinking.value === 'off' && thinkingAlwaysOn)
           validationErrors.push('The selected model keeps adaptive thinking on and cannot use --thinking off.');
 
         if (
           selectedThinking.value === 'off' &&
-          selectedModel === 'claude-opus-5' &&
-          (selectedEffort.value === 'xhigh' || selectedEffort.value === 'max')
+          modelRules &&
+          modelRules.offEffort &&
+          selectedEffort.value &&
+          !modelRules.offEffort.includes(selectedEffort.value)
         )
-          validationErrors.push('Claude Opus 5 cannot use --thinking off with xhigh or max effort.');
+          validationErrors.push(
+            'With --thinking off this model only accepts effort ' + modelRules.offEffort.join(', ') + '.',
+          );
 
         if (selectedThinking.value === 'adaptive' && adaptiveUnsupported)
           validationErrors.push('The selected model does not support --thinking adaptive.');
 
         if (selectedTemperature.value.trim() && Number(selectedTemperature.value) !== 1 && defaultOnlySampling)
           validationErrors.push('The selected model rejects non-default --temperature values; leave it blank.');
+
+        if (modelRules && modelRules.maxOutput && Number(selectedMaxTokens.value) > modelRules.maxOutput)
+          validationErrors.push(
+            'Response output tokens (' +
+              selectedMaxTokens.value +
+              ') exceed the maximum of ' +
+              modelRules.maxOutput +
+              ' for the selected model.',
+          );
 
         const validationEl = document.getElementById('validationWarnings');
         if ((coordinatorOn ? coordinatorCustomModel : customModel).value.trim()) {
@@ -3106,7 +3255,11 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           return;
         }
 
-        const steps = +maxSteps.value || DEFAULTS.maxSteps;
+        const explicitSteps = +maxSteps.value || DEFAULTS.maxSteps;
+        // --task-scope lowers the runtime default to 8 whenever --max-steps is
+        // not on the command line, and the builder only emits --max-steps for
+        // non-default values — so the summary must report 8 in that case.
+        const steps = taskScope.checked && explicitSteps === DEFAULTS.maxSteps ? 8 : explicitSteps;
         const shellOn = allowShell.checked;
         const planOn = plan.checked;
         const selectedToolNames = getSelectedTools();
@@ -3116,40 +3269,41 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         const orchestrationOn = selectedToolNames.some((name) =>
           ['spawn_agent', 'enter_worktree', 'exit_worktree'].includes(name),
         );
-        const editAuto = acceptEdits.checked && !dontAsk.checked;
-        const editAsk = writeToolsOn && !acceptEdits.checked && !planOn;
-        const fullAuto = acceptEdits.checked && dontAsk.checked;
 
+        // Mirror the runtime MODES table (src/runner/permissions.js): writes
+        // ask unless --accept-edits; shell and orchestration ask unless
+        // --dont-ask. Each ability names its own confirmation rule so the
+        // sentence cannot understate what --dont-ask unlocks.
         let permissionText;
-        if (planOn)
+        if (planOn) {
           permissionText =
             'may <strong>inspect files for real</strong>, while proposed effects are recorded instead of executed';
-        else if (shellOn && fullAuto)
-          permissionText = 'may <strong>read, write files, and run shell commands</strong> without asking';
-        else if (shellOn && editAuto)
-          permissionText = 'may <strong>read, write files, and run shell commands</strong> (writes are auto-approved)';
-        else if (shellOn && editAsk)
-          permissionText = 'may <strong>read and write files, and run shell commands</strong> — asks before each write';
-        else if (writeToolsOn && editAuto)
-          permissionText = 'may <strong>read and edit files</strong> without asking (shell is off)';
-        else if (editAsk)
-          permissionText = 'may <strong>read and edit files</strong> — asks in Terminal before each change';
-        else if (orchestrationOn && dontAsk.checked)
-          permissionText =
-            'may <strong>read files and use enabled orchestration</strong> without asking — no writes, no shell';
-        else if (orchestrationOn)
-          permissionText =
-            'may <strong>read files</strong>; enabled orchestration asks in Terminal — no writes, no shell';
-        else permissionText = 'may <strong>only read files</strong> — no writes, no shell';
+        } else {
+          const abilities = ['read files'];
+          if (writeToolsOn)
+            abilities.push('<strong>edit files</strong>' + (acceptEdits.checked ? ' (auto-approved)' : ' (asks first)'));
+          if (shellOn)
+            abilities.push('<strong>run shell commands</strong>' + (dontAsk.checked ? ' (without asking)' : ' (asks first)'));
+          if (orchestrationOn)
+            abilities.push('use enabled orchestration' + (dontAsk.checked ? ' (without asking)' : ' (asks first)'));
+          const limits = [];
+          if (!writeToolsOn) limits.push('no writes');
+          if (!shellOn) limits.push('no shell');
+          permissionText = 'may ' + abilities.join(', ') + (limits.length ? ' — ' + limits.join(', ') : '');
+        }
+
+        const whereText = worktreeStart.checked
+          ? 'inside a fresh git worktree of <code>' + esc(cwdText) + '</code>'
+          : 'in <code>' + esc(cwdText) + '</code>';
 
         const transcriptText = transcript.value.trim()
           ? 'saves a transcript to <code>' + esc(transcript.value.trim()) + '</code>'
           : 'saves a transcript to <code>~/.bridge-runner/logs/</code>';
 
         summaryEl.innerHTML =
-          'The runner will work in <code>' +
-          esc(cwdText) +
-          '</code>, ' +
+          'The runner will work ' +
+          whereText +
+          ', ' +
           permissionText +
           ', ' +
           'will stop after ' +
@@ -3162,7 +3316,13 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       function shellQuote(s) {
         // POSIX-safe single quoting: nothing inside single quotes is expanded
         // by the shell. Embedded single quotes become the '"'"' pattern.
-        return "'" + s.replace(/'/g, "'\"'\"'") + "'";
+        // A leading ~/ is kept OUTSIDE the quotes so the shell still expands it:
+        // the runner does not expand tildes itself, so a fully quoted '~/x'
+        // would make it create a folder literally named "~" (coherence check
+        // 2026-09-26).
+        const quote = (text) => "'" + text.replace(/'/g, "'\"'\"'") + "'";
+        if (s.startsWith('~/')) return '~/' + quote(s.slice(2));
+        return quote(s);
       }
 
       function shellQuoteOrEnv(s) {
@@ -3204,6 +3364,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         maxToolCalls,
         cwd,
         runnerPath,
+        worktreeStart,
         acceptEdits,
         dontAsk,
         stream,
@@ -3296,7 +3457,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       });
 
       permissionStyle.addEventListener('change', () => {
-        applyPermissionStyle(permissionStyle.value);
+        applyPermissionStyle(permissionStyle.value, { preserveGroups: true });
         render();
       });
 
@@ -3392,6 +3553,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           sessionExtract: sessionExtract.checked,
           reviewMemory: reviewMemory.checked,
           allowShell: allowShell.checked,
+          worktreeStart: worktreeStart.checked,
           enableLsp: enableLsp.checked,
           plan: plan.checked,
           noNetwork: noNetwork.checked,
@@ -3589,6 +3751,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           testWatch,
           acceptEdits,
           dontAsk,
+          worktreeStart,
           coordinatorResearch,
           coordinatorSynthesize,
           coordinatorExecute,
@@ -3710,24 +3873,13 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           cwd: PLAYGROUND,
         },
         worktree: {
+          // Harness-enforced isolation (--worktree) rather than asking the
+          // model to call enter_worktree: the run cannot drift out of it.
           prompt:
-            'Enter a worktree with enter_worktree, make a small safe edit to README.md, then exit_worktree with cleanup=false so the work is preserved for review. Summarize the branch name and path.',
+            'This run already started inside a fresh git worktree (--worktree). Make a small safe edit to README.md, then summarize the worktree branch name and path. Do not exit or delete the worktree; it is preserved for review.',
           permissionStyle: 'edit-ask',
-          tools: [
-            'list_files',
-            'read_file',
-            'search_text',
-            'glob',
-            'git_status',
-            'manage_tasks',
-            'ask_user_question',
-            'enter_worktree',
-            'exit_worktree',
-            'edit_file',
-            'write_file',
-            'undo',
-            'undo_edit',
-          ],
+          worktreeStart: true,
+          tools: [...EDIT_STYLE_TOOL_NAMES, 'enter_worktree', 'exit_worktree', 'list_worktrees'],
           maxSteps: 16,
           runnerPath: PLAYGROUND,
           cwd: PLAYGROUND,
@@ -3826,6 +3978,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           'includeSkills',
           'excludeDynamicSystem',
           'noSessionPersistence',
+          'worktreeStart',
         ];
         const boolMap = {
           acceptEdits,
@@ -3858,6 +4011,7 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
           includeSkills,
           excludeDynamicSystem,
           noSessionPersistence,
+          worktreeStart,
         };
         if (!p.permissionStyle) {
           boolKeys.forEach((key) => {
@@ -3877,8 +4031,16 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
             'allowShell',
             'testWatch',
             'enableLsp',
+            'worktreeStart',
           ].forEach((key) => {
             if (Object.prototype.hasOwnProperty.call(p, key)) boolMap[key].checked = !!p[key];
+          });
+          // A preset is a whole recipe: run-shape flags it does not declare are
+          // switched off so an earlier preset cannot leak --test-watch or
+          // --worktree into this one. --enable-lsp is deliberately kept because
+          // it describes this machine (a language server on PATH), not the recipe.
+          ['testWatch', 'worktreeStart'].forEach((key) => {
+            if (!Object.prototype.hasOwnProperty.call(p, key)) boolMap[key].checked = false;
           });
         }
 

@@ -312,7 +312,10 @@ items rather than starting a parallel tracker.
   `HANDOFF-context-layer-thermo-nuclear-2026-09-06.md`. **Medium #1–#4 closed
   2026-09-16 (Fable, Alan-directed): `c7953e3` abort-commit protocol + fsync'd
   checkpoints, `eb12ff5` `worker-resume.js` extract + phase-dispatch resume; record
-  `HANDOFF-starlark-mediums-closed-2026-09-16.md`. Low #5–#8 still open.** Codex's
+  `HANDOFF-starlark-mediums-closed-2026-09-16.md`; acceptance-row hardening `3bacab3`
+  (09-18, `HANDOFF-starlark-abort-boundaries-2026-09-18.md`,
+  `HANDOFF-synthesis-resume-evidence-2026-09-18.md`). Low #5–#8 still open — read
+  `HANDOFF-starlark-lows-review-2026-09-26.md` (Low #8 needs an Alan decision) first.** Codex's
   same-day evidence handoff `HANDOFF-starlark-abort-commit-next-slice-2026-09-16.md`
   is bannered as superseded by that closure. The brief stays at the root until
   Alan accepts, then archive it. Open: R12 (deferred). This machine (verified
@@ -379,7 +382,8 @@ When changing runner behavior or CLI options, update:
 
 - `README.md`
 - `docs/runner-quickstart.html`
-- `docs/command-builder.html`
+- `docs/command-builder.html` and `docs/command-builder-v2.html` (both mirror runtime tables by hand;
+  `test/runner/command-builder-*.test.js` fails on drift — run them after any flag, group, model, or template change)
 - `docs/threat-model.md` when safety behavior changes
 
 ## Learned User Preferences

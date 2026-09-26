@@ -1,0 +1,9 @@
+
+> claude-local-bridge@1.0.0 format:check
+> prettier --check "src/**/*.js" "test/**/*.js" "scripts/claude-code-fingerprint.js" "*.json" "*.md"
+
+Checking formatting...
+[warn] HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md
+[warn] HANDOFF-permission-cache-thermo-nuclear-2026-09-07.md
+[warn] HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md
+[warn] Code style issues found in 3 files. Run Prettier with --write to fix.

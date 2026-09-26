@@ -1,0 +1,17 @@
+{
+  "baseline": "912cc6e4cc9dc63031c2c16c5b157eefeb52c9ee",
+  "final_head": "912cc6e4cc9dc63031c2c16c5b157eefeb52c9ee",
+  "branch": "main",
+  "sha256": {
+    "starlark-host/src/coordinator.js": "50b4b44479e36d64c3c8512a95edb208266a9f89defd9ddac91c0d88a6c50eba",
+    "starlark-host/test/abort-commit-boundaries.test.js": "f9ad4bcd0d2180eba0ca9f5fc14f13e421a6a75c51f665f3407dae7eab83016b",
+    "starlark-host/src/resume-synthesis.js": "12127bb4f8cce7abeaa2f29a8a9dbf8aa1bf96f9837c6dc221b5f6536ecd6e01",
+    "starlark-host/src/worker-resume.js": "fa5f379be9a30a975f601efc6a94de5e673dce6c85a9d700f2af2772c9775971",
+    "starlark-host/test/synthesis.test.js": "5e3688ecf9a10098a7139be757f908184b7adf7b55714c83bac2087e7ad9b6cb"
+  },
+  "concurrent_files": [
+    "starlark-host/src/resume-synthesis.js",
+    "starlark-host/src/worker-resume.js",
+    "starlark-host/test/synthesis.test.js"
+  ]
+}
