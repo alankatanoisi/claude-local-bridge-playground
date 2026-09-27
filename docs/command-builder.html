@@ -849,6 +849,9 @@
                 <label for="coordinatorModel">Model</label>
                 <select id="coordinatorModel">
                   <option value="claude-sonnet-5" selected>claude-sonnet-5 (default)</option>
+                  <option value="claude-opus-5-5">claude-opus-5-5 (latest Opus)</option>
+                  <option value="claude-fable-5-1">claude-fable-5-1 (latest Fable)</option>
+                  <option value="claude-mythos-5-1">claude-mythos-5-1 (limited availability)</option>
                   <option value="claude-fable-5">claude-fable-5</option>
                   <option value="claude-mythos-5">claude-mythos-5 (limited availability)</option>
                   <option value="claude-mythos-preview">claude-mythos-preview (limited availability)</option>
@@ -1036,6 +1039,9 @@
                   >
                   <select id="model">
                     <option value="claude-sonnet-5" selected>claude-sonnet-5 (default)</option>
+                    <option value="claude-opus-5-5">claude-opus-5-5 (latest Opus)</option>
+                    <option value="claude-fable-5-1">claude-fable-5-1 (latest Fable)</option>
+                    <option value="claude-mythos-5-1">claude-mythos-5-1 (limited availability)</option>
                     <option value="claude-fable-5">claude-fable-5</option>
                     <option value="claude-mythos-5">claude-mythos-5 (limited availability)</option>
                     <option value="claude-mythos-preview">claude-mythos-preview (limited availability)</option>
@@ -2268,8 +2274,13 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       //   sampling:  'default-only' rejects any --temperature other than 1
       //   maxOutput: hard ceiling for --max-tokens
       // Ids match on the whole id or on a dash boundary, so date-suffixed ids
-      // such as claude-opus-4-6-20260115 resolve to their family.
+      // such as claude-opus-4-6-20260115 resolve to their family. ORDER
+      // MATTERS: the first match wins, and "claude-fable-5-1" also matches the
+      // "claude-fable-5" prefix, so point releases sit above their family.
       const MODEL_RULES = [
+        { prefix: 'claude-fable-5-1', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
+        { prefix: 'claude-mythos-5-1', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
+        { prefix: 'claude-opus-5-5', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
         { prefix: 'claude-fable-5', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
         { prefix: 'claude-mythos-5', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
         { prefix: 'claude-mythos-preview', effort: ['low', 'medium', 'high', 'max'], thinking: 'always-on', sampling: 'default-only', maxOutput: 64000 },
@@ -2277,8 +2288,8 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
         { prefix: 'claude-sonnet-5', effort: EFFORT_LEVELS, thinking: 'default-on', sampling: 'default-only', maxOutput: 128000 },
         { prefix: 'claude-opus-4-8', effort: EFFORT_LEVELS, thinking: 'explicit-adaptive', sampling: 'default-only', maxOutput: 128000 },
         { prefix: 'claude-opus-4-7', effort: EFFORT_LEVELS, thinking: 'explicit-adaptive', sampling: 'default-only', maxOutput: 128000 },
-        { prefix: 'claude-opus-4-6', effort: ['low', 'medium', 'high', 'max'], thinking: 'explicit-adaptive', sampling: 'supported', maxOutput: 64000 },
-        { prefix: 'claude-sonnet-4-6', effort: ['low', 'medium', 'high', 'max'], thinking: 'explicit-adaptive', sampling: 'supported', maxOutput: 64000 },
+        { prefix: 'claude-opus-4-6', effort: ['low', 'medium', 'high', 'max'], thinking: 'explicit-adaptive', sampling: 'supported', maxOutput: 128000 },
+        { prefix: 'claude-sonnet-4-6', effort: ['low', 'medium', 'high', 'max'], thinking: 'explicit-adaptive', sampling: 'supported', maxOutput: 128000 },
         { prefix: 'claude-opus-4-5', effort: ['low', 'medium', 'high'], thinking: 'manual', sampling: 'supported', maxOutput: 64000 },
         { prefix: 'claude-haiku-4-5', effort: null, thinking: 'manual', sampling: 'supported', maxOutput: 64000 },
         { prefix: 'claude-sonnet-4-5', effort: null, thinking: 'manual', sampling: 'supported', maxOutput: 64000 },

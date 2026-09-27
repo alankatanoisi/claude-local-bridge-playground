@@ -79,11 +79,14 @@ describe('complete request estimation and model policy', () => {
     const current = deriveContextPolicy({ model: 'claude-sonnet-5', maxTokens: 128_000 });
     assert.equal(current.contextWindow, 1_000_000);
     assert.equal(current.inputCeiling, 862_000);
-    const older = deriveContextPolicy({ model: 'claude-sonnet-4-6', maxTokens: 64_000 });
+    // Haiku 4.5 is the current 200k / 64k model (models overview, checked
+    // 2026-09-26). Sonnet 4.6 used to play this role in the fixture, but its
+    // official page lists 1M / 128K, and the catalog was corrected to match.
+    const older = deriveContextPolicy({ model: 'claude-haiku-4-5', maxTokens: 64_000 });
     assert.equal(older.contextWindow, 200_000);
     assert.equal(older.inputCeiling, 126_000);
     assert.throws(
-      () => deriveContextPolicy({ model: 'claude-sonnet-4-6', maxTokens: 64_001 }),
+      () => deriveContextPolicy({ model: 'claude-haiku-4-5', maxTokens: 64_001 }),
       /maximum response output/,
     );
   });

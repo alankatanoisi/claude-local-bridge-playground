@@ -601,7 +601,9 @@ describe('acp agent over the real runner', () => {
     // The Cursor driver's model catalogue probe: every model carries the
     // composer knobs, and only select/boolean shapes are allowed.
     const catalogue = await client.request('cursor/list_available_models', {});
-    assert.equal(catalogue.models.length, 4);
+    // MODEL_CHOICES in src/runner/acp/agent.js: Sonnet 5, Opus 5.5, Fable 5.1,
+    // Fable 5, Opus 5, Haiku 4.5 (latest models added 2026-09-26).
+    assert.equal(catalogue.models.length, 6);
     for (const model of catalogue.models) {
       assert.ok(model.value && model.name);
       const knobIds = model.configOptions.map((o) => o.id);

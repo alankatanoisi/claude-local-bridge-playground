@@ -22,7 +22,7 @@ const { resolveRatesDetailed, summarizeUsage } = require('../../src/runner/model
 
 describe('P1-07 model catalog', () => {
   it('has a version and provenance-annotated sources', () => {
-    assert.equal(catalog.CATALOG_VERSION, '2026-07-26-context-limits');
+    assert.equal(catalog.CATALOG_VERSION, '2026-09-26-fable-5-1-opus-5-5');
     assert.ok(catalog.CATALOG_SOURCES.length > 0);
     for (const source of catalog.CATALOG_SOURCES) {
       assert.ok(source.id && source.url && source.status, 'every source names id/url/status');

@@ -606,7 +606,8 @@ cat "/Users/alanman/path/to/another/project/README.md" | node bin/local-bridge-r
               <td><code>--model &lt;name&gt;</code></td>
               <td><code>claude-sonnet-5</code></td>
               <td>
-                Model to request from the bridge. Use <code>--model claude-opus-5</code> for the newest Opus model.
+                Model to request from the bridge. Use <code>--model claude-opus-5-5</code> for the newest Opus model
+                (its effort defaults to medium) or <code>--model claude-fable-5-1</code> for the most capable one.
               </td>
             </tr>
             <tr>
@@ -1020,7 +1021,7 @@ node bin/local-bridge-coordinator.js \
 
         <h3>Use a different model</h3>
         <pre><code>node bin/local-bridge-runner.js \
-  --model claude-opus-5 \
+  --model claude-opus-5-5 \
   --max-tokens 4096 \
   "Give me a deep dive on src/runner/context-builder.js"</code></pre>
         <p>

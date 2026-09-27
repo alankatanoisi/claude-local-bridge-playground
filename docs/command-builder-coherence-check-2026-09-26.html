@@ -273,10 +273,24 @@ npm run check:docs   # the manifest gate now also covers docs/command-builder-v2
         <li>Both builders mirror runtime tables by hand. The drift tests make a mismatch fail the suite; they do not make the copies unnecessary. Generating the mirrors from the runtime at build time would remove the duplication (a future slice).</li>
       </ul>
 
-      <h2>5. Handoff</h2>
+      <h2>5. Addendum (same day): latest models added</h2>
+      <p>
+        Alan asked for both builders to include the latest models. The facts below were read live from the official
+        pages on 2026-09-26 (models overview, pricing, effort, thinking, and the per-model pages), not from memory.
+      </p>
+      <table>
+        <tr><th>Model</th><th>ID</th><th>Verified facts</th></tr>
+        <tr><td>Claude Fable 5.1 (latest)</td><td><code>claude-fable-5-1</code></td><td>Released 2026-09-01. 1M context, 128K output, adaptive thinking always on, all five effort levels (default high), $10 / $50, cache reads $0.25. Non-default temperature rejected.</td></tr>
+        <tr><td>Claude Mythos 5.1</td><td><code>claude-mythos-5-1</code></td><td>Same specs and price as Fable 5.1; Project Glasswing participants only (limited availability).</td></tr>
+        <tr><td>Claude Opus 5.5 (latest, now the documented default choice)</td><td><code>claude-opus-5-5</code></td><td>Released 2026-09-22. 1M context, 128K output, adaptive thinking always on (disabling it is rejected at every effort level), all five effort levels with default <b>medium</b>, $4 / $20, cache reads $0.20. Non-default temperature rejected.</td></tr>
+      </table>
+      <p>Two stale rows surfaced by the same check and corrected: Opus 4.6 and Sonnet 4.6 have a 1M context and 128K max output (the catalog said 200K / 64K), and Sonnet 5's $2 / $10 is now the standard price rather than an introductory one.</p>
+      <p><b>Where the change landed.</b> The runtime catalog (<code>src/runner/model-catalog.js</code>, version bumped to <code>2026-09-26-fable-5-1-opus-5-5</code> with dated provenance for every new fact; the Opus/Fable/Mythos family fallbacks now point at the newest member); both builders' pickers and rules tables (V1 <code>MODEL_RULES</code> and both <code>&lt;select&gt;</code>s, V2 <code>MODEL_RULES</code>); the ACP model picker for T3 Code (<code>src/runner/acp/agent.js</code>, so the same models appear there); the quickstart's "newest Opus" example. Point-release entries sit above their family entries because the first regex match wins; the false-green guards (FG-H2 ownership probes, FG-H3 fingerprint, FG-H9 fallback tier) were re-pinned in the same change. The default model stays <code>claude-sonnet-5</code>.</p>
+
+      <h2>6. Handoff</h2>
       <ul>
         <li><b>Folder / branch:</b> <code>/Users/alanman/Developer/claude-local-bridge-playground</code>, <code>main</code> (playground).</li>
-        <li><b>Files changed:</b> <code>docs/command-builder.html</code> (F1–F18); <code>docs/command-builder-v2.html</code> (new); this record; <code>test/runner/command-builder-behavior.test.js</code>; <code>test/runner/command-builder-combinatorics.test.js</code> (new); <code>test/runner/command-builder-v2.test.js</code> (new); <code>test/runner/helpers/command-builder-harness.js</code> and <code>cli-contract.js</code> (new); <code>scripts/check-runner-manifest.js</code> (covers V2); links in <code>README.md</code>, <code>docs/runner-quickstart.html</code>, <code>CLAUDE.md</code>, <code>AGENTS.md</code>.</li>
+        <li><b>Files changed:</b> <code>docs/command-builder.html</code> (F1–F18, latest models); <code>docs/command-builder-v2.html</code> (new); this record; <code>test/runner/command-builder-behavior.test.js</code>; <code>test/runner/command-builder-combinatorics.test.js</code> (new); <code>test/runner/command-builder-v2.test.js</code> (new); <code>test/runner/helpers/command-builder-harness.js</code> and <code>cli-contract.js</code> (new); <code>scripts/check-runner-manifest.js</code> (covers V2); links in <code>README.md</code>, <code>docs/runner-quickstart.html</code>, <code>CLAUDE.md</code>, <code>AGENTS.md</code>. Latest-models addendum: <code>src/runner/model-catalog.js</code>, <code>src/runner/acp/agent.js</code>, <code>test/runner/p1-07-model-catalog.test.js</code>, <code>test/runner/false-green-model-evolution.test.js</code>, <code>test/runner/acp-agent.test.js</code>, <code>docs/runner-quickstart.html</code>.</li>
         <li>
           <b>Checks run (final state, 2026-09-26):</b> <code>npm test</code> 1137 tests, 1136 pass, 0 fail, 1 todo
           (pre-existing); <code>npm run lint</code> clean; <code>npm run check:docs</code> passed with V2 included;
