@@ -49,6 +49,12 @@ function activate(context) {
     vscode.commands.registerCommand('claudeLocalBridge.stop', () => stopServer(ctx)),
     vscode.commands.registerCommand('claudeLocalBridge.showStatus', () => showStatus(ctx)),
     vscode.commands.registerCommand('claudeLocalBridge.showCredentialSource', () => showCredentialSource(ctx)),
+    // A deliberate clipboard action replaces printing a reusable door code
+    // into persistent extension logs. The token never leaves this Mac here.
+    vscode.commands.registerCommand('claudeLocalBridge.copyDebugToken', async () => {
+      await vscode.env.clipboard.writeText(ctx.sensitiveEndpointToken);
+      vscode.window.showInformationMessage('Local bridge debug token copied to clipboard.');
+    }),
   );
 
   // Install HTTPS interceptor first — it needs to be in place before
@@ -71,7 +77,11 @@ function activate(context) {
     .catch((err) => log(ctx, `Startup error: ${err.message}`, true));
 
   // Start auth capture proxy — Claude Code routes through this via HTTPS_PROXY
-  startCaptureProxy(ctx);
+  // Dedicated bridge-only hosts can read the existing local login directly.
+  // Avoid competing for the ordinary editor's capture-proxy port.
+  if (vscode.workspace.getConfiguration('claudeLocalBridge').get('captureProxyEnabled', true)) {
+    startCaptureProxy(ctx);
+  }
 }
 
 function deactivate() {

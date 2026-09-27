@@ -1,6 +1,6 @@
 'use strict';
 
-const vscode = require('vscode');
+const host = require('./host-runtime');
 const {
   JsonlTrace,
   bodySummary,
@@ -16,7 +16,7 @@ function headerValue(req, name) {
 }
 
 function createBridgeTrace(req) {
-  const config = vscode.workspace.getConfiguration('claudeLocalBridge');
+  const config = host.getConfiguration();
   const requested = normalizeTraceLevel(headerValue(req, 'x-local-bridge-trace-level'));
   const configured = normalizeTraceLevel(config.get('traceLevel', 'off'));
   const level = requested !== 'off' ? requested : configured;

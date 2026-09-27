@@ -114,6 +114,14 @@ describe('FG-H catalog reachability (the shadowed-entry trap)', () => {
       'claude-sonnet-5-1': 'Claude Sonnet 5',
       'claude-haiku-4-5-20251001': 'Claude Haiku 4.5',
       'claude-fable-5-2': 'Claude Fable 5',
+      // Dedicated point-release entries added 2026-09-26 (verified live). Their
+      // dated snapshots must resolve to the point release, not the family.
+      'claude-fable-5-1': 'Claude Fable 5.1',
+      'claude-fable-5-1-20261001': 'Claude Fable 5.1',
+      'claude-mythos-5-1': 'Claude Mythos 5.1',
+      'claude-opus-5-5': 'Claude Opus 5.5',
+      'claude-opus-5-5-20260922': 'Claude Opus 5.5',
+      'claude-opus-5-20260401': 'Claude Opus 5',
     };
     const actual = {};
     for (const id of Object.keys(probes)) {
@@ -155,8 +163,10 @@ describe('FG-H catalog bookkeeping', () => {
   // staleness report would be a lie. Pinning (fingerprint, version) as a PAIR
   // makes editing the data without re-dating it a hard failure.
   it('FG-H3: changing catalog facts requires bumping CATALOG_VERSION', () => {
-    const PINNED_FINGERPRINT = '6493d4f165ee966d';
-    const PINNED_VERSION = '2026-07-26-context-limits';
+    // Re-pinned 2026-09-26 when Fable 5.1, Mythos 5.1, and Opus 5.5 were added
+    // and the Opus 4.6 / Sonnet 4.6 limits were corrected to 1M / 128K.
+    const PINNED_FINGERPRINT = '16fa1f265932103c';
+    const PINNED_VERSION = '2026-09-26-fable-5-1-opus-5-5';
 
     if (catalogFingerprint() !== PINNED_FINGERPRINT) {
       assert.notEqual(
@@ -253,11 +263,12 @@ describe('FG-H default-model and honesty contracts', () => {
 
   // FG-H9: FG-D11 proves an unknown model is not reported as catalog-priced.
   // It does NOT distinguish the two *kinds* of estimate, and that distinction
-  // is what a new model release actually breaks. A brand-new `claude-opus-5-1`
-  // falls into the FAMILY fallback (Opus 5's real rates, flagged as a guess),
-  // while a genuinely unknown id falls to the GENERIC default. Collapsing the
-  // two — or letting the family fallback borrow the sibling's label — would
-  // present an inferred price with a real model's name attached to it.
+  // is what a new model release actually breaks. A brand-new `claude-opus-99`
+  // falls into the FAMILY fallback (the newest known Opus rates — Opus 5.5
+  // since 2026-09-26 — flagged as a guess), while a genuinely unknown id falls
+  // to the GENERIC default. Collapsing the two — or letting the family fallback
+  // borrow the sibling's label — would present an inferred price with a real
+  // model's name attached to it.
   it('FG-H9: the two estimate tiers stay distinct and carry no borrowed identity', () => {
     const generic = pricing.resolveRatesDetailed('definitely-not-a-real-model-9');
     assert.equal(generic.source, 'default-estimate');
@@ -272,8 +283,8 @@ describe('FG-H default-model and honesty contracts', () => {
     );
     assert.deepEqual(
       family.rates,
-      pricing.resolveRates('claude-opus-5'),
-      'family fallback must use the canonical rates',
+      pricing.resolveRates('claude-opus-5-5'),
+      'family fallback must use the canonical (newest Opus) rates',
     );
     assert.notEqual(family.rates, generic.rates, 'family and generic tiers must not collapse into one');
 

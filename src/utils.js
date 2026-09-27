@@ -1,6 +1,7 @@
 'use strict';
 
-const vscode = require('vscode');
+const host = require('./host-runtime');
+const { scrubSecrets } = require('./runner/safety');
 
 // ─────────────────────────────────────────────
 // Logging
@@ -12,7 +13,7 @@ function padNumber(value, width) {
 
 function configuredLogTimeZone() {
   try {
-    const config = vscode.workspace.getConfiguration('claudeLocalBridge');
+    const config = host.getConfiguration();
     return config.get('logTimeZone', 'local');
   } catch {
     return 'local';
@@ -81,6 +82,18 @@ function log(ctx, msg, isError = false) {
       msg = String(msg);
     }
   }
+  // Redact at the final output boundary, including arbitrary local door codes
+  // which a pattern-based scrubber cannot recognize on its own.
+  for (const secret of [
+    ctx.sensitiveEndpointToken,
+    ctx.callerAuthToken,
+    ctx.interceptedToken,
+    ctx.cachedCredentials?.accessToken,
+    ctx.rejectedInterceptedToken,
+  ]) {
+    if (secret) msg = String(msg).split(secret).join('[REDACTED]');
+  }
+  msg = scrubSecrets(String(msg)).replace(/(?:sha256:)?[a-f0-9]{12,64}(?=\b)/gi, '[FINGERPRINT REDACTED]');
   const ts = formatLogTimestamp();
   if (ctx.outputChannel) ctx.outputChannel.appendLine(`[${ts}] ${msg}`);
   if (isError) console.error(`[claude-bridge] ${msg}`);
@@ -88,7 +101,7 @@ function log(ctx, msg, isError = false) {
 
 /** Log only when claudeLocalBridge.logRequests is enabled */
 function verboseLog(ctx, msg) {
-  const config = vscode.workspace.getConfiguration('claudeLocalBridge');
+  const config = host.getConfiguration();
   if (config.get('logRequests', false)) {
     log(ctx, msg);
   }
@@ -107,7 +120,7 @@ function updateStatusBar(ctx, running, port, credSource) {
     ctx.statusBarItem.backgroundColor = undefined;
   } else {
     ctx.statusBarItem.text = '$(warning) Claude Bridge OFF';
-    ctx.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+    ctx.statusBarItem.backgroundColor = host.warningBackground();
   }
   ctx.statusBarItem.show();
 }

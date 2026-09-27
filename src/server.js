@@ -1,24 +1,19 @@
 'use strict';
 
-const vscode = require('vscode');
+const host = require('./host-runtime');
 const http = require('http');
 const { log, sendJson, updateStatusBar } = require('./utils');
 const { handleAnthropicMessages, handleCountTokens } = require('./handlers/anthropic');
 const { handleDebug } = require('./handlers/debug');
 const { getCredentials } = require('./credentials');
-const {
-  SENSITIVE_AUTH_HEADER,
-  getSensitiveEndpointToken,
-  isAuthorizedSensitiveRequest,
-  isSensitivePath,
-} = require('./local-auth');
+const { SENSITIVE_AUTH_HEADER, isAuthorizedSensitiveRequest, isSensitivePath } = require('./local-auth');
 
 // ─────────────────────────────────────────────
 // HTTP Server
 // ─────────────────────────────────────────────
 
 async function startServer(ctx) {
-  const config = vscode.workspace.getConfiguration('claudeLocalBridge');
+  const config = host.getConfiguration();
   const basePort = config.get('port', 11437);
 
   if (ctx.server) await stopServer(ctx);
@@ -44,7 +39,8 @@ async function startServer(ctx) {
   ctx.server.keepAliveTimeout = 0;
 
   let bound = false;
-  const maxRetries = 10;
+  // Dedicated modes must fail on a busy port instead of quietly changing address.
+  const maxRetries = config.get('strictPort', false) ? 0 : 10;
 
   for (let offset = 0; offset <= maxRetries; offset++) {
     const port = basePort + offset;
@@ -59,7 +55,10 @@ async function startServer(ctx) {
           ctx.server.removeListener('error', onError);
           const creds = getCredentials(ctx);
           log(ctx, `✅ Server running on http://localhost:${port}  [${creds.source}]`);
-          log(ctx, `🔐 Debug endpoints require header ${SENSITIVE_AUTH_HEADER}: ${getSensitiveEndpointToken(ctx)}`);
+          log(
+            ctx,
+            '🔐 Debug endpoints are locked. Use Copy Debug Token in the editor, or the standalone private token file.',
+          );
           updateStatusBar(ctx, true, port, creds.source);
           resolve(true);
         });
@@ -155,13 +154,13 @@ async function handleRequest(ctx, req, res) {
   if (isSensitivePath(url.pathname) && !isAuthorizedSensitiveRequest(ctx, req)) {
     return sendJson(res, 401, {
       error: {
-        message: `Debug endpoint locked. Add header ${SENSITIVE_AUTH_HEADER} with the token printed in the bridge Output log.`,
+        message: `Debug endpoint locked. Add header ${SENSITIVE_AUTH_HEADER} using the Copy Debug Token editor command or the standalone private debug-token.json file.`,
         type: 'unauthorized',
       },
     });
   }
 
-  const config = vscode.workspace.getConfiguration('claudeLocalBridge');
+  const config = host.getConfiguration();
   const requireCallerAuth = config.get('requireCallerAuth', false);
   if (requireCallerAuth && !isCallerAuthExempt(req, url.pathname)) {
     const authHeader = req.headers['authorization'] || req.headers['Authorization'];

@@ -99,6 +99,16 @@
           "type": "string",
           "default": "",
           "description": "Static caller auth Bearer token for local clients when caller auth is enabled"
+        },
+        "claudeLocalBridge.strictPort": {
+          "type": "boolean",
+          "default": false,
+          "description": "Stop if the configured port is busy instead of trying another port. Recommended for dedicated bridge hosts."
+        },
+        "claudeLocalBridge.captureProxyEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run the optional Claude credential capture proxy. Dedicated bridge-only hosts can disable it and read the existing local Claude login."
         }
       }
     },
@@ -118,6 +128,10 @@
       {
         "command": "claudeLocalBridge.showCredentialSource",
         "title": "Claude Local Bridge: Show Credential Source"
+      },
+      {
+        "command": "claudeLocalBridge.copyDebugToken",
+        "title": "Claude Local Bridge: Copy Debug Token"
       }
     ]
   }

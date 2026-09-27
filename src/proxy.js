@@ -2,7 +2,7 @@
 
 const https = require('https');
 const { URL } = require('url');
-const vscode = require('vscode');
+const host = require('./host-runtime');
 const { getCredentials, markCredentialsRejected, buildAuthHeaders } = require('./credentials');
 const { log, verboseLog } = require('./utils');
 const { PREVIEW_BYTES, headerSummary } = require('./trace-utils');
@@ -33,7 +33,7 @@ const sharedAgent = new https.Agent({ keepAlive: true, maxSockets: 6 });
  * @returns {Promise<void>}
  */
 async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false, trace = null) {
-  const config = vscode.workspace.getConfiguration('claudeLocalBridge');
+  const config = host.getConfiguration();
   const configuredBaseUrl = config.get('anthropicBaseUrl', 'https://api.anthropic.com');
 
   // Prefer the host we observed Claude Code actually calling so the bridge can

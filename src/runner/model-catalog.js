@@ -22,7 +22,7 @@
  */
 
 // Bump the version whenever an entry changes; consumers report it in warnings.
-const CATALOG_VERSION = '2026-07-26-context-limits';
+const CATALOG_VERSION = '2026-09-26-fable-5-1-opus-5-5';
 
 // Where each class of fact came from. `status` is deliberately blunt:
 // 'verified-live' means someone actually fetched the official page on that
@@ -33,29 +33,68 @@ const CATALOG_SOURCES = Object.freeze([
     id: 'anthropic-models-overview',
     url: 'https://platform.claude.com/docs/en/about-claude/models/overview',
     status: 'verified-live',
-    checked: '2026-07-25',
-    note: 'Current model IDs, aliases, context windows, output limits, and latest-model comparison.',
+    checked: '2026-09-26',
+    note:
+      'Current lineup is Claude Fable 5.1, Claude Opus 5.5, Claude Sonnet 5, Claude Haiku 4.5; Fable 5, Opus 5, ' +
+      'Opus 4.8/4.7/4.6/4.5, Sonnet 4.6/4.5 are legacy but still served.',
   },
   {
     id: 'anthropic-pricing',
     url: 'https://platform.claude.com/docs/en/about-claude/pricing',
     status: 'verified-live',
-    checked: '2026-07-25',
-    note: 'Per-million token rates, including Sonnet 5 introductory pricing through 2026-08-31.',
+    checked: '2026-09-26',
+    note:
+      'Per-million token rates. Sonnet 5 $2/$10 became the standard price (the scheduled 2026-09-01 increase ' +
+      'was cancelled). Cache reads: 0.1x input, except 0.025x on Fable/Mythos 5.1 and 0.05x on Opus 5.5.',
   },
   {
     id: 'anthropic-effort',
     url: 'https://platform.claude.com/docs/en/build-with-claude/effort',
     status: 'verified-live',
-    checked: '2026-07-25',
-    note: 'Per-model effort support, including the xhigh and max availability matrix.',
+    checked: '2026-09-26',
+    note:
+      'Per-model effort support. xhigh: Fable/Mythos 5.1, Fable/Mythos 5, Opus 5.5, Opus 5, Opus 4.8/4.7, ' +
+      'Sonnet 5. max additionally on Mythos Preview, Opus 4.6, Sonnet 4.6. Opus 4.5 low/medium/high only. ' +
+      'Sonnet 4.5 and Haiku 4.5 reject effort. Opus 5.5 defaults to medium; every other model to high.',
   },
   {
     id: 'anthropic-thinking',
     url: 'https://platform.claude.com/docs/en/build-with-claude/thinking',
     status: 'verified-live',
-    checked: '2026-07-25',
-    note: 'Per-model adaptive-thinking defaults and supported thinking modes.',
+    checked: '2026-09-26',
+    note:
+      'Per-model thinking modes. Non-default temperature/top_p/top_k return 400 on Fable/Mythos 5.1, ' +
+      'Fable/Mythos 5, Mythos Preview, Opus 5.5, Opus 5, Opus 4.8/4.7, and Sonnet 5.',
+  },
+  {
+    id: 'anthropic-fable-5-1',
+    url: 'https://platform.claude.com/docs/en/models/fable-5-1/overview',
+    status: 'verified-live',
+    checked: '2026-09-26',
+    note:
+      'Claude Fable 5.1 (released 2026-09-01): 1M context, 128K output, adaptive thinking always on, all five ' +
+      'effort levels (default high), $10/$50 with $0.25 cache reads. Claude Mythos 5.1 shares the specs and ' +
+      'pricing but is offered only to Project Glasswing participants.',
+  },
+  {
+    id: 'anthropic-opus-5-5',
+    url: 'https://platform.claude.com/docs/en/models/opus-5-5/overview',
+    status: 'verified-live',
+    checked: '2026-09-26',
+    note:
+      'Claude Opus 5.5 (released 2026-09-22): 1M context, 128K output, adaptive thinking always on ' +
+      '(thinking disabled returns 400 at every effort level), all five effort levels with default medium, ' +
+      '$4/$20 with $0.20 cache reads.',
+  },
+  {
+    id: 'anthropic-legacy-4-6-pages',
+    url: 'https://platform.claude.com/docs/en/models/opus-4-6/overview',
+    status: 'verified-live',
+    checked: '2026-09-26',
+    note:
+      'Opus 4.6 and Sonnet 4.6 model pages (the Sonnet page is /models/sonnet-4-6/overview): 1M context and ' +
+      '128K max output on the synchronous Messages API. The 2026-07-26 catalog recorded 200K/64K for both; ' +
+      'corrected here. Both are Active (legacy).',
   },
   {
     id: 'anthropic-opus-5',
@@ -94,14 +133,20 @@ const THINKING_MODES = Object.freeze(['auto', 'adaptive', 'off']);
 const DEFAULT_MODEL = 'claude-sonnet-5';
 
 // Shared per-family rate objects (single references, so identity comparisons
-// across family members remain valid for consumers/tests).
+// across family members remain valid for consumers/tests). `cache_write` is
+// the 1-hour cache-write rate (2x input), the convention every entry follows.
 const FABLE_PRICING = Object.freeze({ input: 10.0, output: 50.0, cache_read: 1.0, cache_write: 20.0 });
+// Fable/Mythos 5.1 keep Fable 5's per-token price but cache reads drop to
+// 0.025x input ($0.25/MTok), so they need their own rate object.
+const FABLE_5_1_PRICING = Object.freeze({ input: 10.0, output: 50.0, cache_read: 0.25, cache_write: 20.0 });
 const OPUS_PRICING = Object.freeze({ input: 5.0, output: 25.0, cache_read: 0.5, cache_write: 10.0 });
+// Opus 5.5 is cheaper than Opus 5 and its cache reads are 0.05x input.
+const OPUS_5_5_PRICING = Object.freeze({ input: 4.0, output: 20.0, cache_read: 0.2, cache_write: 8.0 });
 const LEGACY_OPUS_PRICING = Object.freeze({ input: 15.0, output: 75.0, cache_read: 1.5, cache_write: 30.0 });
-// Sonnet 5's $2/$10 introductory price is effective through 2026-08-31.
-// The catalog is date-versioned so this deliberately visible temporary rate
-// cannot masquerade as an evergreen price after its documented end date.
-const SONNET_5_INTRO_PRICING = Object.freeze({ input: 2.0, output: 10.0, cache_read: 0.2, cache_write: 4.0 });
+// Sonnet 5 launched at an introductory $2/$10 through 2026-08-31; the pricing
+// page (checked 2026-09-26) says that rate is now the standard price and the
+// scheduled increase to $3/$15 will not occur.
+const SONNET_5_PRICING = Object.freeze({ input: 2.0, output: 10.0, cache_read: 0.2, cache_write: 4.0 });
 const SONNET_PRICING = Object.freeze({ input: 3.0, output: 15.0, cache_read: 0.3, cache_write: 6.0 });
 const HAIKU_PRICING = Object.freeze({ input: 1.0, output: 5.0, cache_read: 0.1, cache_write: 2.0 });
 const BASE_EFFORT = Object.freeze(['low', 'medium', 'high']);
@@ -119,7 +164,34 @@ const THINKING_OFF_EFFORT = BASE_EFFORT;
  *   'manual-only'       legacy budgeted thinking only; adaptive rejected
  *   'manual-or-none'    legacy models; adaptive rejected
  */
+// ORDER MATTERS: `catalogEntryForModel` returns the first match, and a family
+// pattern such as /^claude-fable-5(?:$|-)/ also matches "claude-fable-5-1".
+// Point releases must therefore sit ABOVE their family entry.
 const CATALOG_ENTRIES = Object.freeze([
+  {
+    matches: /^claude-fable-5-1(?:$|-)/,
+    label: 'Claude Fable 5.1',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+    effortLevels: XHIGH_EFFORT,
+    thinking: 'always-on',
+    sampling: 'default-only',
+    lifecycle: 'active',
+    pricing: FABLE_5_1_PRICING,
+    provenance: 'anthropic-fable-5-1',
+  },
+  {
+    matches: /^claude-mythos-5-1(?:$|-)/,
+    label: 'Claude Mythos 5.1',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+    effortLevels: XHIGH_EFFORT,
+    thinking: 'always-on',
+    sampling: 'default-only',
+    lifecycle: 'limited-availability',
+    pricing: FABLE_5_1_PRICING,
+    provenance: 'anthropic-fable-5-1',
+  },
   {
     matches: /^claude-fable-5(?:$|-)/,
     label: 'Claude Fable 5',
@@ -161,6 +233,22 @@ const CATALOG_ENTRIES = Object.freeze([
     provenance: 'anthropic-thinking',
   },
   {
+    // Thinking cannot be disabled on Opus 5.5 at any effort level, so it takes
+    // the 'always-on' rule (omit the field; `--thinking off` is rejected).
+    // Its API default effort is medium, one level below every other model;
+    // the runner omits effort unless asked, so that default applies as-is.
+    matches: /^claude-opus-5-5(?:$|-)/,
+    label: 'Claude Opus 5.5',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+    effortLevels: XHIGH_EFFORT,
+    thinking: 'always-on',
+    sampling: 'default-only',
+    lifecycle: 'active',
+    pricing: OPUS_5_5_PRICING,
+    provenance: 'anthropic-opus-5-5',
+  },
+  {
     matches: /^claude-opus-5(?:$|-)/,
     label: 'Claude Opus 5',
     contextWindow: 1_000_000,
@@ -182,7 +270,7 @@ const CATALOG_ENTRIES = Object.freeze([
     thinking: 'default-on',
     sampling: 'default-only',
     lifecycle: 'active',
-    pricing: SONNET_5_INTRO_PRICING,
+    pricing: SONNET_5_PRICING,
     provenance: 'anthropic-thinking',
   },
   {
@@ -200,26 +288,26 @@ const CATALOG_ENTRIES = Object.freeze([
   {
     matches: /^claude-opus-4-6(?:$|-)/,
     label: 'Claude Opus 4.6',
-    contextWindow: 200_000,
-    maxOutputTokens: 64_000,
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
     effortLevels: STANDARD_EFFORT,
     thinking: 'explicit-adaptive',
     sampling: 'supported',
     lifecycle: 'active',
     pricing: OPUS_PRICING,
-    provenance: 'anthropic-thinking',
+    provenance: 'anthropic-legacy-4-6-pages',
   },
   {
     matches: /^claude-sonnet-4-6(?:$|-)/,
     label: 'Claude Sonnet 4.6',
-    contextWindow: 200_000,
-    maxOutputTokens: 64_000,
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
     effortLevels: STANDARD_EFFORT,
     thinking: 'explicit-adaptive',
     sampling: 'supported',
     lifecycle: 'active',
     pricing: SONNET_PRICING,
-    provenance: 'anthropic-thinking',
+    provenance: 'anthropic-legacy-4-6-pages',
   },
   {
     matches: /^claude-opus-4-5(?:$|-)/,
@@ -276,9 +364,9 @@ const CATALOG_ENTRIES = Object.freeze([
 // newest known family member so estimates skew current, and callers are told
 // the number is a family estimate rather than an exact published rate.
 const PRICING_FAMILY_FALLBACKS = Object.freeze([
-  { prefix: 'claude-opus', canonical: 'claude-opus-5' },
-  { prefix: 'claude-fable', canonical: 'claude-fable-5' },
-  { prefix: 'claude-mythos', canonical: 'claude-mythos-5' },
+  { prefix: 'claude-opus', canonical: 'claude-opus-5-5' },
+  { prefix: 'claude-fable', canonical: 'claude-fable-5-1' },
+  { prefix: 'claude-mythos', canonical: 'claude-mythos-5-1' },
   { prefix: 'claude-sonnet', canonical: 'claude-sonnet-5' },
   { prefix: 'claude-haiku', canonical: 'claude-haiku-4-5' },
 ]);

@@ -47,7 +47,16 @@ const PROTOCOL_VERSION = 1;
 // ACP composer controls are select-or-boolean only (no numeric input exists in
 // the protocol or in T3's composer), so the token budget is a preset list.
 
-const MODEL_CHOICES = Object.freeze(['claude-sonnet-5', 'claude-fable-5', 'claude-opus-5', 'claude-haiku-4-5']);
+// Newest first after the default; the older Fable 5 / Opus 5 stay selectable
+// because they are still served (models overview checked 2026-09-26).
+const MODEL_CHOICES = Object.freeze([
+  'claude-sonnet-5',
+  'claude-opus-5-5',
+  'claude-fable-5-1',
+  'claude-fable-5',
+  'claude-opus-5',
+  'claude-haiku-4-5',
+]);
 
 const MAX_TOKENS_PRESETS = Object.freeze([2000, 4096, 8192, 16384, 32768]);
 

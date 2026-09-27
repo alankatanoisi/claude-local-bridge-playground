@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
-const vscode = require('vscode');
+const host = require('./host-runtime');
 
 const CALLER_AUTH_TOKEN_SECRET = 'claudeLocalBridge.callerAuthToken';
 const CALLER_AUTH_ROTATED_AT_SECRET = 'claudeLocalBridge.callerAuthRotatedAt';
@@ -12,7 +12,7 @@ function tokenFingerprint(token) {
 }
 
 async function initializeCallerAuth(ctx, extensionContext) {
-  const config = vscode.workspace.getConfiguration('claudeLocalBridge');
+  const config = host.getConfiguration();
   const requireCallerAuth = config.get('requireCallerAuth', false);
   const configuredToken = String(config.get('callerAuthToken', '') || '').trim();
 

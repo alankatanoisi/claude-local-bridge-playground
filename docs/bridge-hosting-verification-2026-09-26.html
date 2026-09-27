@@ -1,0 +1,80 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Claude Bridge verification</title><style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#eef3f8;color:#162a40;font:17px/1.65 system-ui,-apple-system,sans-serif}header{background:#10243a;color:#fff;padding:40px max(24px,calc((100vw - 1180px)/2));border-bottom:5px solid #38b9a7}header p{color:#b8d4e5;margin:0}header strong{font-size:28px}.layout{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:235px minmax(0,1fr);gap:32px;padding:30px 24px}nav{position:sticky;top:20px;align-self:start}nav a{display:block;padding:9px 12px;margin-bottom:5px;font-size:14px;border-radius:8px;color:#17445e;text-decoration:none}nav a:hover{background:#dce8ef}main{background:white;border:1px solid #dae3eb;border-radius:18px;padding:34px;min-width:0;box-shadow:0 8px 24px #1b365d0b}h1{font-size:36px;letter-spacing:-1px;line-height:1.2}h2{font-size:25px;line-height:1.3;margin-top:48px;border-top:1px solid #dde6ed;padding-top:28px;scroll-margin-top:24px}p,li{max-width:80ch}li{margin:10px 0}a{color:#086477}code{background:#edf3f7;padding:2px 5px;border-radius:4px;font-size:.87em;overflow-wrap:anywhere}pre{background:#112940;color:#e5f5ff;padding:22px;border-radius:12px;overflow:auto;line-height:1.65}pre code{background:transparent;padding:0;white-space:pre;overflow-wrap:normal}table{border-collapse:collapse;width:100%;font-size:14px;margin:24px 0}th,td{border:1px solid #dce6ee;padding:12px;text-align:left;vertical-align:top;overflow-wrap:anywhere}th{background:#e8f2f5;color:#124854}tbody tr:nth-child(even){background:#f8fbfd}strong{color:inherit}footer{padding:24px;text-align:center;color:#52687a;font-size:13px}@media(max-width:820px){.layout{display:block;padding:14px}nav{position:static;margin:0 0 20px;display:flex;flex-wrap:wrap;gap:4px}nav a{background:#e0eaf1;padding:6px 10px;font-size:12px}main{padding:22px}h1{font-size:29px}table{font-size:12px}th,td{padding:8px}header{padding:25px}}@media print{nav,header{display:none}.layout{display:block}main{border:0;box-shadow:none}pre{white-space:pre-wrap}body{background:white}}</style></head><body><header><strong>Claude Bridge Lab</strong><p>Verification and agent handoff · September 26, 2026</p></header><div class="layout"><nav><a href="#installed-result">Installed result</a><a href="#final-live-acceptance">Final live acceptance</a><a href="#automated-checks-and-review">Automated checks and review</a><a href="#memory-and-operational-limits">Memory and operational limits</a><a href="#agent-handoff-location-and-ownership">Agent handoff: location and ownership</a><a href="#follow-up-boundaries">Follow-up boundaries</a></nav><main><h1>Three bridge hosts: verification and handoff</h1>
+<p>September 26, 2026 · local macOS installation</p>
+<p>All three requested modes are installed and have passed real model responses, streaming, and a real runner tool loop. Standalone is the mode left running. Read <a href="bridge-hosting-guide.html">the everyday guide</a> for click-by-click use and the second-Mac procedure.</p>
+<h2 id="installed-result">Installed result</h2>
+<ul>
+<li>Dedicated desktop VS Code: isolated user data and extension folder, bridge port 11447.</li>
+<li>Existing Homebrew Coder code-server: isolated user data and extension folder, editor port 18080 and bridge port 11457. Keep the browser editor tab open.</li>
+<li>Standalone: real Node process with no VS Code dependency at runtime, bridge port 11467. Managed by macOS independently of Terminal.</li>
+<li>Nine numbered Finder controls live in <code>~/Applications/Claude Bridge Lab</code>.</li>
+<li>Private settings, logs, jobs and copied source live in <code>~/Library/Application Support/Claude Bridge Lab</code>.</li>
+<li>A portable ZIP and extracted installer live in <code>~/Applications/Claude Bridge Lab Transfer</code>.</li>
+<li>Installation from that separate portable source folder succeeded. All 154 installed source and command-line files match the checkout byte for byte; both installed editor extension source trees also match.</li>
+</ul>
+<p>The modes share existing request handling and credential lookup. Dedicated editor modes disable the interception proxy. Standalone uses explicit host settings rather than a mocked editor API. Port selection is strict, and the controller verifies listener process ownership before reporting readiness. Starting one mode stops the other dedicated modes. Regular editors are not controlled by these jobs.</p>
+<h2 id="final-live-acceptance">Final live acceptance</h2>
+<p>Tests used the existing local Claude login, model <code>claude-sonnet-5</code>, synthetic prompts, and a disposable synthetic folder. A successful web status alone was not accepted as proof. The runner had only the read-only <code>list_files</code> tool available.</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Bridge port</th>
+<th>Test time (UTC)</th>
+<th>Normal response</th>
+<th>Stream</th>
+<th>Tool calls / successful results</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Desktop</td>
+<td>11447</td>
+<td>2026-09-26T23:25:36.802Z</td>
+<td>200 / pass</td>
+<td>200 / pass</td>
+<td>1 / 1</td>
+</tr>
+<tr>
+<td>Browser</td>
+<td>11457</td>
+<td>2026-09-26T23:26:08.046Z</td>
+<td>200 / pass</td>
+<td>200 / pass</td>
+<td>1 / 1</td>
+</tr>
+<tr>
+<td>Standalone</td>
+<td>11467</td>
+<td>2026-09-26T23:26:54.327Z</td>
+<td>200 / pass</td>
+<td>200 / pass</td>
+<td>1 / 1</td>
+</tr>
+</tbody>
+</table>
+<p>Each stream was reconstructed from its text events and checked for the expected answer. Each runner exited successfully after an actual tool invocation and result. Listener ownership was verified against the managed job. Aggregate records are in <code>~/.bridge-runner/hosting-verification/*-result.json</code>; private runner transcripts remain outside the repository and are not included in the transfer package.</p>
+<p>Browser login and the editor status bar were inspected in Edge. Closing the browser tab was tested: code-server stayed alive, but the extension host exited and bridge port 11457 closed. Reopening an empty editor reactivated the extension. This is why the guide requires an open tab.</p>
+<p>An early stream check incorrectly looked for a word inside individual stream chunks; the verifier was corrected to reconstruct the text. Initial editor startup with an untrusted folder prevented extension activation; launchers now open an empty editor. Reused transcript filenames initially accumulated prior tool counts; evidence files now use unique names. Final rows above each show one new tool call and one successful result.</p>
+<h2 id="automated-checks-and-review">Automated checks and review</h2>
+<ul>
+<li>Final full suite: <strong>1,143 passed, 0 failed, 0 cancelled, 0 skipped, 1 pre-existing TODO</strong>; 1,144 tests total. Exit status 0.</li>
+<li>Seven dedicated standalone/controller regression tests passed. They cover real child-process startup, caller authentication and private token persistence, duplicate-process rejection without damaging the original token, occupied ports, graceful shutdown with an unfinished request, cleanup after token-write failure, job configuration and operating-system lock ownership/recovery.</li>
+<li>JavaScript lint passed. Documentation defaults and runner manifest checks passed (15 offered models).</li>
+<li>Formatting check reports the same three pre-existing root handoff Markdown warnings: <code>HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md</code>, <code>HANDOFF-permission-cache-thermo-nuclear-2026-09-07.md</code>, and <code>HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md</code>.</li>
+<li><code>git diff --check</code> passed.</li>
+<li>Independent read-only Codex review inspected startup, duplicate processes, controller locking, ownership and cleanup. Its final follow-up found no remaining functional blocker in those fixes. This was not a Cursor review and does not claim to be one.</li>
+<li>The HTML guide was opened and visually inspected in Edge. Both HTML documents are generated from their adjacent Markdown sources and use embedded styling.</li>
+</ul>
+<p>Check output remains in <code>/tmp/claude-bridge-hosting-final-{tests,lint,docs,format}.log</code>; temporary logs are not permanent archival storage. No Starlark-specific test run was needed because its implementation was not changed.</p>
+<h2 id="memory-and-operational-limits">Memory and operational limits</h2>
+<p>Standalone measured <strong>52 MiB resident memory in one process</strong> at 2026-09-26T23:26:55Z. This counts resident pages only; compressed/swapped memory and shared-page accounting differ from Activity Monitor. Browser-host measurements omit the browser client and are not comparable totals. No precise savings percentage is claimed.</p>
+<p>No overnight endurance, sleep/wake, full reboot, or live credential-refresh cycle was tested. No automatic login startup is enabled. Existing Claude Code login renewal remains external to this bridge; renew normally and restart if necessary. A sleeping laptop cannot serve local requests. Standalone uses fallback request fingerprint metadata because no editor interception is running.</p>
+<p>The other Mac was not remotely installed or tested. Its documented prerequisites are Node 22+, desktop VS Code, Homebrew code-server and its own Claude Code login. The portable package excludes local settings, passwords, credentials, logs, transcripts and installed binaries. Host software prerequisites must be installed on that Mac separately.</p>
+<h2 id="agent-handoff-location-and-ownership">Agent handoff: location and ownership</h2>
+<p>Folder: <code>/Users/alanman/Developer/claude-local-bridge-playground</code>. Branch: <code>main</code>. Remote: <code>alankatanoisi/claude-local-bridge-playground</code>. At the original installation handoff, these changes were uncommitted. Alan subsequently authorized two separate commits and a push of main: one for the model/catalog work and one for the hosting work. Consult Git history for the resulting revisions; the chat handoff records verified push status.</p>
+<p>Hosting-owned new files: <code>bin/bridge-hosts.js</code>, <code>bin/local-bridge-standalone.js</code>, <code>src/host-runtime.js</code>, <code>src/standalone.js</code>, <code>src/hosting/control.js</code>, <code>scripts/hosting/Install.command</code>, <code>scripts/hosting/verify-live.js</code>, <code>scripts/hosting/measure-memory.js</code>, <code>test/standalone-host.test.js</code>, and the <code>docs/bridge-hosting-*</code> guide, plan and verification files.</p>
+<p>Hosting-owned modified files: <code>package.json</code>, <code>src/bridge-trace.js</code>, <code>src/caller-auth.js</code>, <code>src/extension.js</code>, <code>src/handlers/anthropic.js</code>, <code>src/handlers/debug.js</code>, <code>src/proxy.js</code>, <code>src/server.js</code>, <code>src/utils.js</code>. Changes introduce explicit host configuration, strict port behavior, optional capture proxy, deliberate debug-token copying and log redaction while retaining existing default extension behavior.</p>
+<p>The other completed session owns the four command-builder/quickstart HTML modifications, <code>src/runner/model-catalog.js</code>, <code>src/runner/acp/agent.js</code>, and four runner tests (<code>acp-agent</code>, <code>context-management-rebuild</code>, <code>false-green-model-evolution</code>, <code>p1-07-model-catalog</code>). Those edits were preserved. Whole-source installation snapshots include them, but this task does not claim authorship or independent live validation of each newly listed model. Do not stage the entire working tree blindly.</p>
+<h2 id="follow-up-boundaries">Follow-up boundaries</h2>
+<p>Use the controls to compare modes under your ordinary workload. Save and close any ordinary VS Code instance yourself if you want to reclaim its memory. Existing commands still default to bridge port 11437: set the documented <code>--bridge-url</code> explicitly when using a dedicated mode. A subsequent agent should inspect this handoff, current status and the source diff before committing or updating installed snapshots.</p>
+</main></div></body></html>
