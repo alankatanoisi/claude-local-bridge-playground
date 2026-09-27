@@ -11,8 +11,6 @@ Alan chose to publish the completed reconciliation to a **dedicated playground b
 - Review range: `1e06820f5bf47456c725686bd961cf60b22311c5..da42e7a4a6823956eedc909ffd7cbb98cd12ec9c`. The left commit is the unpatched GitHub `main` base; the right commit contains the 14 Starlark paths and the reconciliation handoff pair. Review the **code diff and its interactions with unchanged recovery code**, not just the handoff's claims.
 - Prepared worktree: `/Users/alanman/Developer/claude-local-bridge-starlark-resume-2020-2026-09-26`. On another machine, locate the actual repository and verify the branch/ref first; do not assume this path exists there.
 
-Alan also cited commit `381984c421c239884ce3c12a8f579eb6ba2e37737f02435f` as a review reference. It was not present in this local Git repository, the accessible local sibling repositories, or the playground GitHub commit endpoint when this brief was prepared. **Its contents are unknown.** If Alan supplies its repository or link, read it and add any applicable review requirements. Until then, use the verified instructions in `AGENTS.md`, `SECURITY.md`, and `docs/agent-team-charter-2026-08-25.md`; never invent what the missing commit says.
-
 ## Read before judging
 
 1. Perform the repository preflight: current folder, Git root, branch, remote, worktree/status, and current GitHub `main`. Do not switch a dirty checkout or alter another agent's work.
