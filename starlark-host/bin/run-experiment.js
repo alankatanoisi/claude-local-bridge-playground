@@ -7,7 +7,7 @@ const crypto = require('crypto');
 
 const { ClaudeBridge, CostBudget, MockBridge } = require('../src/bridge');
 const { openCampaignBudget } = require('../src/campaign-budget');
-const { createRunController, installRunSignals } = require('../src/run-abort');
+const { applyFailedRunExitCode, createRunController, installRunSignals } = require('../src/run-abort');
 const { loadExperimentConfig } = require('../src/config');
 const { resumeWorkerRun, routesForProfiles } = require('../src/workflow-runner');
 const { createDeterministicProvider } = require('../src/deterministic-analyst');
@@ -69,6 +69,10 @@ async function main() {
   const models = selectModels(args, config, axis);
   const summaries = [];
   let failedRuns = 0;
+  // Remember the final run's signal after its loop-local controller goes out
+  // of scope. If that run was interrupted, its 130/143 exit code must win
+  // over a generic failure from an earlier matrix entry.
+  let finalRunSignal = null;
 
   if (mode === 'live') await assertBridgeAlive(config.bridgeUrl);
 
@@ -93,6 +97,7 @@ async function main() {
           })
         : new MockBridge({ budget });
     const controller = createRunController();
+    finalRunSignal = controller.signal;
     const removeSignals = installRunSignals(controller);
     const coordinator = new PhasedCoordinator({
       controller,
@@ -156,7 +161,7 @@ async function main() {
   }
 
   process.stdout.write(JSON.stringify({ mode, axis, faultProfile, traceLevel, summaries, budget }, null, 2) + '\n');
-  if (failedRuns) process.exitCode = 1;
+  applyFailedRunExitCode(failedRuns, finalRunSignal);
 }
 
 function parseArgs(argv) {

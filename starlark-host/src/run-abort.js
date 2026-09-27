@@ -30,4 +30,12 @@ function installRunSignals(controller) {
   };
 }
 
-module.exports = { checkAbort, createRunController, installRunSignals };
+// A matrix can contain an ordinary failed run followed by a run interrupted
+// with Ctrl-C (SIGINT) or SIGTERM. The signal handler has already chosen the
+// informative shell exit code, 130 or 143. A generic "some run failed" code
+// must not replace that more specific explanation at the end of the command.
+function applyFailedRunExitCode(failedRuns, signal) {
+  if (failedRuns > 0 && !signal?.aborted) process.exitCode = 1;
+}
+
+module.exports = { applyFailedRunExitCode, checkAbort, createRunController, installRunSignals };

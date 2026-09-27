@@ -3,6 +3,53 @@
 const fs = require('fs');
 const path = require('path');
 
+const { safeArtifactName } = require('./artifact-name');
+
+class TornLedgerLineError extends Error {
+  constructor({ eventsPath, lineNumber, lastGoodEvent, cause }) {
+    const lastGood = lastGoodEvent ? `${lastGoodEvent.type} seq=${lastGoodEvent.seq}` : 'none';
+    super(
+      `Cannot resume: ${eventsPath} has a torn trailing JSONL line at line ${lineNumber}; ` +
+        `last good event was ${lastGood}. Refusing to skip the line because it may be a ` +
+        'completed-work receipt. Restore or repair the ledger from verified evidence before retrying.',
+      { cause },
+    );
+    this.name = 'TornLedgerLineError';
+    this.eventsPath = eventsPath;
+    this.lineNumber = lineNumber;
+    this.lastGoodSeq = lastGoodEvent?.seq ?? null;
+    this.lastGoodType = lastGoodEvent?.type ?? null;
+  }
+}
+
+function readLedgerEvents(eventsPath) {
+  const lines = fs
+    .readFileSync(eventsPath, 'utf8')
+    .split('\n')
+    .map((line, index) => ({ line, lineNumber: index + 1 }))
+    .filter(({ line }) => line.length > 0);
+  const events = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const { line, lineNumber } = lines[index];
+    try {
+      events.push(JSON.parse(line));
+    } catch (error) {
+      // A malformed MIDDLE line remains the original parse error: the named
+      // diagnosis is specifically for the common crash shape where only the
+      // final append was torn. In every case reopening still fails closed.
+      if (index !== lines.length - 1) throw error;
+      throw new TornLedgerLineError({
+        eventsPath,
+        lineNumber,
+        lastGoodEvent: events.at(-1),
+        cause: error,
+      });
+    }
+  }
+  return events;
+}
+
 class RunLedger {
   constructor(runDir) {
     this.runDir = runDir;
@@ -15,14 +62,11 @@ class RunLedger {
     // sequence, never restart at 1 — appended corrections stay ordered after
     // the original events.
     if (fs.existsSync(this.eventsPath)) {
-      for (const line of fs.readFileSync(this.eventsPath, 'utf8').split('\n')) {
-        if (!line) continue;
-        try {
-          const event = JSON.parse(line);
-          if (event.seq > this.seq) this.seq = event.seq;
-        } catch {
-          // a torn line does not block resume; seq continues from the last good one
-        }
+      // Do not step over a torn receipt to find the next sequence number.
+      // Every reopening path, including synthesis-only resume, receives the
+      // same actionable refusal before it can append more evidence.
+      for (const event of readLedgerEvents(this.eventsPath)) {
+        if (event.seq > this.seq) this.seq = event.seq;
       }
     }
   }
@@ -42,7 +86,7 @@ class RunLedger {
   }
 
   writeArtifact(name, value) {
-    const safeName = String(name).replace(/[^a-zA-Z0-9._-]/g, '_');
+    const safeName = safeArtifactName(name);
     const file = path.join(this.artifactDir, safeName + '.json');
     atomicWrite(file, value);
     return path.relative(this.runDir, file);
@@ -91,4 +135,4 @@ function fsyncDirectory(dir) {
   }
 }
 
-module.exports = { RunLedger, atomicWrite };
+module.exports = { RunLedger, TornLedgerLineError, atomicWrite, readLedgerEvents };

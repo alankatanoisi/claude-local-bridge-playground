@@ -250,6 +250,22 @@ landed. The process waits for outstanding budget cleanup before exiting with
 code 130 or 143 respectively. A small deterministic run may finish before you
 can interrupt it.
 
+A planner response is saved before local Starlark evaluation begins. If a stop
+interrupts that evaluator, the run records `plan_evaluation_interrupted` (or
+`recover_evaluation_interrupted`) and keeps the paid response pending. Resume
+verifies its source fingerprint, saved inputs, policy, model, and attempt number,
+then evaluates that same source locally with a fresh cancellation signal. It
+does not call the planner again for that response. A genuine validation failure
+can still use the next permitted repair attempt; cancellation itself is not a
+validation failure. The evaluator's existing execution and output limits still
+apply.
+
+This recovery needs a `plan_response_received` or `recover_response_received`
+receipt from the updated host. An older run interrupted before it accepted a
+plan cannot gain that missing receipt retroactively. Abrupt process death or
+disk failure between receiving a response and persisting its receipt remains a
+gap; these writes are not a single transaction with provider billing.
+
 **SIGKILL** stops the process immediately, so it cannot write an abort checkpoint.
 Every ledger write — event lines, artifacts, and `state.json` checkpoints — is
 flushed to disk (`fsync`) before the host moves on, and resume treats a recorded

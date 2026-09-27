@@ -33,7 +33,11 @@ class PhasedCoordinator {
     planSource = 'starlark',
     controller = createRunController(),
     executionContext = null,
+    evaluatePlan = evaluateStarlark,
   }) {
+    // Tests can supply a controlled evaluator while keeping the real run loop.
+    // Normal callers always use the bounded Starlark child process.
+    this.evaluatePlan = evaluatePlan;
     this.executionContext = executionContext;
     this.faultProfile = faultProfile;
     this.controller = controller;
@@ -211,16 +215,19 @@ class PhasedCoordinator {
       previousPhase: this.state.phase,
       trace: this.bridge.traceMetadata?.() || null,
       remaining: {
-        plan: plan.jobs.filter((job) => !results.has(job.id)).length,
+        plan: plan ? plan.jobs.filter((job) => !results.has(job.id)).length : null,
         recovery: recovery ? recovery.jobs.filter((job) => !results.has(job.id)).length : null,
         synthesis: true,
       },
     });
     this.state.inputHash = this.inputHash;
     this.state.results = [];
-    this.adoptPlan(plan);
     const policy = this.policy(publicDocuments);
-    const initialResults = await this.workerPhase(plan, documents);
+    // If cancellation interrupted local evaluation, finish the saved response
+    // first. planPhase consumes its receipt without buying another response.
+    const acceptedPlan = plan || (await this.planPhase(publicDocuments, policy));
+    this.adoptPlan(acceptedPlan);
+    const initialResults = await this.workerPhase(acceptedPlan, documents);
     await this.recoveryPhase({ initialResults, documents, publicDocuments, policy });
     return this.synthesisPhase();
   }
@@ -458,7 +465,17 @@ class PhasedCoordinator {
     // recorded on the ledger so the repair tax of cheap-first routing stays
     // measurable. Tiers below the current index are never revisited.
     let lastError = null;
-    let totalAttempts = 0;
+    let totalAttempts = this.resumeData?.pending?.[phaseLabel]?.attemptOffset || 0;
+    const pending = this.resumeData?.pending?.[phaseLabel];
+    // Integrity failures are not model failures and must not enter the retry
+    // ladder. Verify the saved context before any retry/escalation catch.
+    if (
+      pending &&
+      (pending.model !== this.plannerLadder[this.ladderIndex] ||
+        pending.evaluationHash !== contentHash({ context, policy, functionName, validationPhase }))
+    ) {
+      throw new Error('saved planner evaluation context/policy mismatch; refusing resume');
+    }
     checkAbort(this.signal);
     for (; this.ladderIndex < this.plannerLadder.length; this.ladderIndex += 1) {
       const tier = this.plannerLadder[this.ladderIndex];
@@ -479,7 +496,9 @@ class PhasedCoordinator {
         this.activePlannerModel = tier;
         return accepted;
       } catch (error) {
-        checkAbort(this.signal);
+        // A signal can arrive at the same instant as an unrelated host error.
+        // Keep that real error visible instead of replacing it with SIGTERM.
+        if (isRunCancellation(error, this.signal) || this.signal.aborted) throw error;
         lastError = error;
         totalAttempts += 2;
         const next = this.plannerLadder[this.ladderIndex + 1];
@@ -508,29 +527,48 @@ class PhasedCoordinator {
     acceptedEvent,
     attemptOffset = 0,
   }) {
-    let rejection = null;
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const pending = this.resumeData?.pending?.[phaseLabel];
+    let rejection = pending?.rejection || null;
+    for (let attempt = pending?.attempt || 1; attempt <= 2; attempt += 1) {
       checkAbort(this.signal);
       const repairSuffix = rejection
         ? `\n\nYour previous Starlark was rejected by the host. Error:\n${rejection.error}\n\nRejected source:\n${rejection.source}\n\nReturn a corrected complete program only.`
         : '';
-      const response = await this.bridge.call({
-        model,
-        system,
-        prompt: prompt + repairSuffix,
-        maxTokens,
-        label: `${phaseLabel}:${model}:attempt:${attempt}`,
-        signal: this.signal,
-      });
-      // Abort-commit protocol (Medium #1, planner leg): the planner response
-      // above is paid for. Finish this attempt (lint, evaluate, validate) and
-      // record its outcome before the abort is honored at the loop top, so a
-      // resume reuses the accepted plan instead of buying a new one.
-      // Artifact numbering is global across ladder tiers so an escalated
-      // phase never overwrites the cheap tier's rejected source.
       const globalAttempt = attemptOffset + attempt;
-      const source = extractStarlark(response.text);
-      this.ledger.writeArtifact(`${phaseLabel}-source-attempt-${globalAttempt}`, { source });
+      const evaluationHash = contentHash({ context, policy, functionName, validationPhase });
+      let source;
+      if (pending && attempt === pending.attempt) {
+        // Replay only local evaluation, under exactly the original inputs and
+        // policy. A damaged or mismatched receipt must never trigger a fallback
+        // model call that silently spends again.
+        source = pending.source;
+      } else {
+        const response = await this.bridge.call({
+          model,
+          system,
+          prompt: prompt + repairSuffix,
+          maxTokens,
+          label: `${phaseLabel}:${model}:attempt:${attempt}`,
+          signal: this.signal,
+        });
+        source = extractStarlark(response.text);
+        // Save the paid answer BEFORE observing cancellation. The receipt ties
+        // the artifact to this exact attempt; an interrupted evaluator can be
+        // restarted with a fresh signal while preserving the model-call count.
+        const artifact = this.ledger.writeArtifact(`${phaseLabel}-source-attempt-${globalAttempt}`, { source });
+        this.ledger.append(`${phaseLabel}_response_received`, {
+          artifact,
+          sourceHash: contentHash(source),
+          inputHash: this.inputHash,
+          evaluationHash,
+          model,
+          attempt,
+          attemptOffset,
+          globalAttempt,
+          ladderIndex: this.ladderIndex,
+          rejection,
+        });
+      }
 
       // R6: deterministic pre-lint. Mechanical Python-isms are auto-repaired
       // (and recorded); everything else becomes a precise rejection that
@@ -539,6 +577,7 @@ class PhasedCoordinator {
       if (lint.applied.length) {
         this.ledger.append(`${phaseLabel}_lint_repaired`, { applied: lint.applied });
       }
+      let accepted;
       try {
         if (lint.diagnostics.length) {
           const message =
@@ -548,12 +587,13 @@ class PhasedCoordinator {
           error.lintRules = lint.diagnostics.map((diagnostic) => diagnostic.rule);
           throw error;
         }
-        const evaluated = await evaluateStarlark({
+        const evaluated = await this.evaluatePlan({
           source: lint.source,
           functionName,
           context,
           maxSteps: this.config.maxStarlarkSteps,
           timeoutMs: this.config.starlarkTimeoutMs,
+          signal: this.signal,
         });
         const jobs = validateJobs(evaluated.result, policy, validationPhase);
         const metrics = {
@@ -565,10 +605,18 @@ class PhasedCoordinator {
           escalations: this.ladderIndex,
         };
         const hashes = this.acceptedHashes(jobs, lint.source, context.failures || null);
-        this.ledger.writeArtifact(`${phaseLabel}-source-accepted`, { source: lint.source });
-        this.ledger.append(acceptedEvent, { jobs, starlarkSteps: evaluated.steps, metrics, hashes });
-        return { jobs, metrics, hashes };
+        accepted = { jobs, metrics, hashes, steps: evaluated.steps };
       } catch (error) {
+        if (this.signal.aborted) {
+          // An interrupted evaluation says nothing about the program's validity.
+          // Keep its paid receipt pending. A separate disk/evaluator failure
+          // must still reach the caller, so record interruption only when the
+          // caught error is the cancellation itself.
+          if (isRunCancellation(error, this.signal)) {
+            this.ledger.append(`${phaseLabel}_evaluation_interrupted`, { attempt: globalAttempt, model });
+          }
+          throw error;
+        }
         // A rejection is honest evidence about a paid attempt; record it even
         // when an abort is pending. The next attempt's loop-top check stops
         // the retry from starting.
@@ -579,7 +627,23 @@ class PhasedCoordinator {
           error: error.message,
           ...(error.lintRules ? { lintRules: error.lintRules } : {}),
         });
+        // This verdict consumed the saved response. A legitimate repair or
+        // escalation must now use its next attempt, not replay this one again.
+        if (this.resumeData?.pending) this.resumeData.pending[phaseLabel] = null;
         if (attempt === 2) throw error;
+      }
+      if (accepted) {
+        // These writes are outside the model-validation catch. A full disk or
+        // broken ledger is a host failure, never a reason to buy a repair.
+        this.ledger.writeArtifact(`${phaseLabel}-source-accepted`, { source: lint.source });
+        this.ledger.append(acceptedEvent, {
+          jobs: accepted.jobs,
+          starlarkSteps: accepted.steps,
+          metrics: accepted.metrics,
+          hashes: accepted.hashes,
+        });
+        if (this.resumeData?.pending) this.resumeData.pending[phaseLabel] = null;
+        return { jobs: accepted.jobs, metrics: accepted.metrics, hashes: accepted.hashes };
       }
     }
     throw new Error(`${phaseLabel} did not produce a valid plan`);

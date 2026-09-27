@@ -15,7 +15,7 @@
  *   2. artifacts/    — saved inputs and worker outputs the receipts point at.
  *   3. state.json    — the latest checkpoint; used for phase and metrics only.
  *
- * Fail closed. A torn line, a missing plan, a hash mismatch, an unknown or
+ * Fail closed. A torn line, a missing plan AND response, a hash mismatch, an unknown or
  * duplicate receipt, or an artifact outside the run folder all REFUSE resume.
  * Silently skipping a damaged success receipt would turn a paid job into a
  * duplicate execution — the exact bug the abort-commit protocol closed.
@@ -24,26 +24,24 @@
  *   { kind: 'completed', state, staleCheckpoint }  — nothing to do
  *   { kind: 'partial',   state }                   — synthesis failed; use resume-synthesis.js
  *   { kind: 'workers',   state, documents, inputHash, activePlannerModel,
- *                        ladderIndex, resumeData: { plan, recovery, results } }
+ *                        ladderIndex, resumeData: { plan, recovery, results, pending } }
  */
 
 const fs = require('fs');
 const path = require('path');
 
+const { safeArtifactName } = require('./artifact-name');
 const { inputContentHash, publicDocument } = require('./documents');
+const { readLedgerEvents } = require('./ledger');
+const { pendingPlannerResponse } = require('./planner-response');
 const { acceptedPlanHashes, contentHash } = require('./plan-hash');
 const { validateJobs } = require('./validator');
 const { parseWorkerOutput } = require('./worker-contract');
 
 function readEvents(ledger) {
-  // Every line must parse. The RunLedger constructor tolerates a torn LAST
-  // line only to recover the sequence counter; resume must not, because a
-  // truncated `job_succeeded` would look like "never completed" and re-run.
-  const events = fs
-    .readFileSync(ledger.eventsPath, 'utf8')
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => JSON.parse(line));
+  // Every line must parse. A truncated `job_succeeded` cannot be skipped:
+  // doing so would look like "never completed" and could re-run paid work.
+  const events = readLedgerEvents(ledger.eventsPath);
   if (events.some((event, index) => index && event.seq <= events[index - 1].seq)) {
     throw new Error('run ledger sequence is not strictly increasing');
   }
@@ -130,15 +128,31 @@ function restoreWorkerRun({ ledger, objective, planSource, plannerModel, planner
   const start = events.find((event) => event.type === 'run_started');
   const plan = events.find((event) => event.type === 'plan_validated')?.payload;
   const recovery = events.find((event) => event.type === 'recovery_plan_validated')?.payload;
-  if (!start || !plan) throw new Error('worker resume requires a recorded accepted plan');
+  if (!start) throw new Error('worker resume requires a recorded accepted plan or saved planner response');
 
   // Resume uses the saved input bytes, even if the source repo has changed.
   const documents = start.payload.documents.map((document) => {
-    const input = JSON.parse(fs.readFileSync(path.join(ledger.artifactDir, `input-${document.id}.json`), 'utf8'));
+    // Use the SAME basename transformation as RunLedger.writeArtifact().
+    // Otherwise an unusual document id would be written successfully but
+    // resume would look for a different filename.
+    const inputName = safeArtifactName(`input-${document.id}`) + '.json';
+    const input = JSON.parse(fs.readFileSync(path.join(ledger.artifactDir, inputName), 'utf8'));
     return { ...input, relativePath: input.path };
   });
   const inputHash = inputContentHash(contentHash, objective, documents);
-  if (plan.hashes && (plan.hashes.inputHash !== inputHash || plan.hashes.planHash !== contentHash(plan.jobs))) {
+  const pending = {};
+  for (const [phaseLabel, acceptedEvent] of [
+    ['plan', 'plan_validated'],
+    ['recover', 'recovery_plan_validated'],
+  ]) {
+    pending[phaseLabel] =
+      planSource === 'starlark'
+        ? pendingPlannerResponse({ events, ledger, phaseLabel, acceptedEvent, plannerLadder, inputHash })
+        : null;
+  }
+  if (!plan && !pending.plan)
+    throw new Error('worker resume requires a recorded accepted plan or saved planner response');
+  if (plan?.hashes && (plan.hashes.inputHash !== inputHash || plan.hashes.planHash !== contentHash(plan.jobs))) {
     throw new Error('saved plan/input content hash mismatch; refusing worker resume');
   }
   if (recovery?.hashes && recovery.hashes.planHash !== contentHash(recovery.jobs)) {
@@ -147,7 +161,7 @@ function restoreWorkerRun({ ledger, objective, planSource, plannerModel, planner
 
   // Hashes are an integrity check, not a replacement for validateJobs.
   const policy = policyFor(documents.map(publicDocument));
-  validateJobs(plan.jobs, policy, 'plan');
+  if (plan) validateJobs(plan.jobs, policy, 'plan');
   if (recovery) {
     validateJobs(
       recovery.jobs,
@@ -164,7 +178,7 @@ function restoreWorkerRun({ ledger, objective, planSource, plannerModel, planner
   }
 
   // Terminal receipts become the results the coordinator reuses verbatim.
-  const jobs = new Map([...plan.jobs, ...(recovery?.jobs || [])].map((job) => [job.id, job]));
+  const jobs = new Map([...(plan?.jobs || []), ...(recovery?.jobs || [])].map((job) => [job.id, job]));
   const results = new Map();
   for (const event of events) {
     if (!['job_succeeded', 'job_failed'].includes(event.type)) continue;
@@ -197,7 +211,7 @@ function restoreWorkerRun({ ledger, objective, planSource, plannerModel, planner
   }
 
   // Recovery's inputs include the initial failure records as well as files.
-  const failures = plan.jobs
+  const failures = (plan?.jobs || [])
     .map((job) => results.get(job.id))
     .filter((result) => result && !result.ok)
     .map((result) => ({
@@ -208,6 +222,30 @@ function restoreWorkerRun({ ledger, objective, planSource, plannerModel, planner
       retryable: result.error.retryable,
       code: result.error.code,
     }));
+  // Verify the pending evaluation's inputs before resume appends any events.
+  // Recovery sees only the original plan's failure records, in plan order.
+  for (const label of ['plan', 'recover']) {
+    if (!pending[label]) continue;
+    const isRecovery = label === 'recover';
+    const context = { objective, documents: documents.map(publicDocument), ...(isRecovery ? { failures } : {}) };
+    const evaluationPolicy = isRecovery
+      ? {
+          ...policy,
+          failedJobIds: failures.filter((failure) => failure.retryable).map((failure) => failure.job_id),
+          exactJobs: undefined,
+          requireAllInputs: false,
+        }
+      : policy;
+    const expected = contentHash({
+      context,
+      policy: evaluationPolicy,
+      functionName: label,
+      validationPhase: isRecovery ? 'recovery' : 'plan',
+    });
+    if (pending[label].evaluationHash !== expected) {
+      throw new Error('saved planner evaluation context/policy mismatch; refusing resume');
+    }
+  }
   for (const [label, accepted, phaseFailures] of [
     ['plan', plan, null],
     ['recover', recovery, failures],
@@ -225,7 +263,8 @@ function restoreWorkerRun({ ledger, objective, planSource, plannerModel, planner
 
   // Synthesis (and any recovery planning still owed) runs on the ladder tier
   // that last produced an accepted program.
-  let activePlannerModel = recovery?.metrics?.model || plan.metrics?.model || plannerModel;
+  let activePlannerModel =
+    pending.recover?.model || pending.plan?.model || recovery?.metrics?.model || plan?.metrics?.model || plannerModel;
   if (activePlannerModel === 'host_json') activePlannerModel = plannerModel;
   return {
     kind: 'workers',
@@ -233,8 +272,11 @@ function restoreWorkerRun({ ledger, objective, planSource, plannerModel, planner
     documents,
     inputHash,
     activePlannerModel,
-    ladderIndex: Math.max(0, plannerLadder.indexOf(activePlannerModel)),
-    resumeData: { plan, recovery, results },
+    ladderIndex:
+      pending.recover?.ladderIndex ??
+      pending.plan?.ladderIndex ??
+      Math.max(0, plannerLadder.indexOf(activePlannerModel)),
+    resumeData: { plan, recovery, results, pending },
   };
 }
 

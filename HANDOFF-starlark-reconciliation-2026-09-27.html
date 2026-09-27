@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Starlark reconciliation · September 27, 2026</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: #f4f6f5;
+        color: #172b2b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        line-height: 1.65;
+      }
+      header {
+        background: linear-gradient(135deg, #102f35, #245c55);
+        color: white;
+        padding: 4rem max(1.5rem, calc((100vw - 1000px) / 2));
+      }
+      header p {
+        color: #d7e8df;
+        max-width: 44rem;
+      }
+      h1 {
+        font-size: clamp(2rem, 5vw, 3.4rem);
+        line-height: 1.1;
+        margin: 0.3rem 0 1rem;
+      }
+      h2 {
+        margin-top: 0;
+        font-size: 1.5rem;
+      }
+      main {
+        max-width: 1000px;
+        margin: -1.5rem auto 4rem;
+        padding: 0 1.25rem;
+      }
+      section {
+        background: white;
+        border: 1px solid #dce5df;
+        border-radius: 18px;
+        padding: clamp(1.25rem, 3vw, 2rem);
+        margin: 1rem 0;
+        box-shadow: 0 10px 28px #112f2910;
+      }
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #94d7b5;
+      }
+      .pill {
+        display: inline-block;
+        background: #d7f1df;
+        color: #195039;
+        border-radius: 999px;
+        padding: 0.25rem 0.8rem;
+        font-size: 0.9rem;
+        font-weight: 700;
+      }
+      .note {
+        background: #fff5df;
+        border-left: 4px solid #c78a26;
+        padding: 0.8rem 1rem;
+        border-radius: 4px;
+      }
+      code {
+        background: #edf3f0;
+        border-radius: 4px;
+        padding: 0.1rem 0.3rem;
+        overflow-wrap: anywhere;
+      }
+      header code {
+        background: #ffffff22;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid #e1e8e2;
+        padding: 0.7rem 0.6rem;
+      }
+      th {
+        color: #315e54;
+      }
+      a {
+        color: #176455;
+      }
+      @media (max-width: 650px) {
+        table,
+        tbody,
+        tr,
+        td,
+        th {
+          display: block;
+        }
+        thead {
+          display: none;
+        }
+        tr {
+          border-bottom: 1px solid #cbd8d0;
+        }
+        td {
+          border: 0;
+          padding: 0.3rem 0;
+        }
+        td:first-child {
+          font-weight: 700;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="eyebrow">Research playground · handoff · September 27, 2026</div>
+      <h1>Starlark reconciliation verified</h1>
+      <p>
+        Local implementation and deterministic checks are complete in the dedicated 2020 worktree. Alan chose a
+        dedicated GitHub branch and independent Cursor review before deciding about main.
+      </p>
+      <span class="pill">Verified for branch review</span>
+    </header>
+    <main>
+      <section>
+        <h2>Location and package integrity</h2>
+        <p>
+          The original repository is <code>/Users/alanman/Developer/claude-local-bridge-playground</code>. Its clean
+          <code>main</code> and GitHub <code>main</code> both pointed to
+          <code>1e06820f5bf47456c725686bd961cf60b22311c5</code> at preflight. Work took place in
+          <code>/Users/alanman/Developer/claude-local-bridge-starlark-resume-2020-2026-09-26</code> on branch
+          <code>codex/starlark-resume-2020-2026-09-26</code>, based on that commit.
+        </p>
+        <p>
+          The ZIP checksum matched its supplied <code>.sha256</code> file. The extracted package verifier checked all 40
+          files and found no extras. The transfer base <code>bf4c276</code> and current GitHub main had no differing
+          Starlark files. Only <code>reconciled.patch</code> was applied once; <code>original.patch</code> was not
+          applied. Existing worktrees and the existing stash were left untouched.
+        </p>
+        <p>
+          Node.js <code>v22.22.3</code> and Go <code>go1.26.8 darwin/arm64</code> were available. The evaluator was
+          built locally. No paid model call was made. The checksum establishes consistency with the supplied package,
+          not independent authorship.
+        </p>
+      </section>
+      <section>
+        <h2>What changed</h2>
+        <p>
+          The transferred 13-file snapshot contains resumable paid planner-response receipts, evaluator cancellation,
+          safe artifact names, torn-ledger refusal, signal exit-code handling, and initial tests. This session added
+          three focused corrections:
+        </p>
+        <ol>
+          <li>
+            When cancellation coincides with an unrelated evaluator error, the real error reaches the caller. Only
+            actual cancellation becomes an interrupted-evaluation event. Host errors do not enter the planner's paid
+            repair or escalation path.
+          </li>
+          <li>
+            Accepted-source artifact and accepted-plan receipt writes sit outside the model-validation catch, so storage
+            failures cannot become model rejections or prompt another purchase.
+          </li>
+          <li>
+            Real child-process matrix tests cover SIGINT exit 130 and SIGTERM exit 143 after an earlier failure.
+            Synthesis-only resume verifies a named <code>TornLedgerLineError</code>, zero model calls, and unchanged
+            event bytes.
+          </li>
+        </ol>
+        <p>
+          Only <code>starlark-host/</code> files changed: <code>README.md</code>, <code>bin/run-experiment.js</code>,
+          <code>src/{artifact-name,coordinator,ledger,planner-response,run-abort,starlark,worker-resume}.js</code>, and
+          <code>test/{planner-resume,run-abort,starlark,synthesis,worker-resume}.test.js</code>. Bridge/auth and
+          <code>src/runner/</code> were untouched.
+        </p>
+      </section>
+      <section>
+        <h2>Checks</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Check</th>
+              <th>Observed result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Incoming Starlark verification</td>
+              <td>Evaluator built; 128 passed, no failures or skips.</td>
+            </tr>
+            <tr>
+              <td>Planner boundary tests</td>
+              <td>Two failed before correction as expected; planner file then passed 16.</td>
+            </tr>
+            <tr>
+              <td>Real matrix signal tests</td>
+              <td>Four run-abort tests passed, including both signal exits.</td>
+            </tr>
+            <tr>
+              <td>First combined focused run</td>
+              <td>
+                Stopped with exit 137 after one abort-boundary assertion observed two requests instead of one; no
+                complete result. The boundary file passed alone on rerun.
+              </td>
+            </tr>
+            <tr>
+              <td>Focused run, one test file at a time</td>
+              <td>64 passed, no failures or skips.</td>
+            </tr>
+            <tr>
+              <td>Full Starlark verification</td>
+              <td>Evaluator built; 151 passed, no failures or skips.</td>
+            </tr>
+            <tr>
+              <td>Repository test suite</td>
+              <td>1,161 passed, no failures or skips; one existing TODO.</td>
+            </tr>
+            <tr>
+              <td>Root lint and documentation checks</td>
+              <td>Both passed.</td>
+            </tr>
+            <tr>
+              <td>Root format check</td>
+              <td>Failed on three unchanged historical Markdown handoffs. They were not reformatted.</td>
+            </tr>
+            <tr>
+              <td>Changed Starlark files</td>
+              <td>Explicit ESLint and Prettier checks passed.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          The unchanged format warnings concern <code>HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md</code>,
+          <code>HANDOFF-permission-cache-thermo-nuclear-2026-09-07.md</code>, and
+          <code>HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md</code>.
+        </p>
+      </section>
+      <section>
+        <h2>Limits and next decision</h2>
+        <p>
+          Checks used local fixtures and mock responses. They establish deterministic behavior in this worktree; they do
+          not establish exactly-once provider billing or general power-loss recovery. Durability begins after the source
+          artifact and receipt are persisted. Older runs without receipts cannot automatically recover a paid source.
+          Simultaneous writers to one run directory and missing or corrupt checkpoints were not generally repaired.
+          Browser visual inspection of this page was not performed.
+        </p>
+        <p class="note">
+          Alan chose a dedicated GitHub branch and an independent Cursor invariant review before deciding whether to
+          move this work to playground <code>main</code>. Inspect the exact staging list and staged diff, check for
+          secrets, recheck GitHub main, and preserve unrelated work before branch publication. This verification is not
+          the independent review; inspect the Git branch and separate Cursor handoff for subsequent commit and push
+          status.
+        </p>
+        <p><a href="HANDOFF-starlark-reconciliation-2026-09-27.md">Open the agent-facing Markdown version</a></p>
+      </section>
+    </main>
+  </body>
+</html>

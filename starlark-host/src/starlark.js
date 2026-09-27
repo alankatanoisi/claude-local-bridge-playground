@@ -25,9 +25,14 @@ function evaluateStarlark({
   timeoutMs,
   binary = DEFAULT_BINARY,
   maxOutputBytes = DEFAULT_MAX_OUTPUT_BYTES,
+  signal,
 }) {
   return new Promise((resolve, reject) => {
-    const child = spawn(binary, [], { stdio: ['pipe', 'pipe', 'pipe'] });
+    // Giving spawn the run's AbortSignal ties this exact evaluator child to
+    // the run lifecycle. When the run is cancelled, Node sends SIGTERM to the
+    // child and reports an AbortError instead of waiting for the evaluator's
+    // independent timeout to expire.
+    const child = spawn(binary, [], { stdio: ['pipe', 'pipe', 'pipe'], signal });
     const stdout = [];
     const stderr = [];
     let stdoutBytes = 0;

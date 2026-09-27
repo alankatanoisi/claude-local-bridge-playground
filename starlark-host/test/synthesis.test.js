@@ -273,7 +273,14 @@ for (const damage of ['missing', 'invalid-json', 'empty-text', 'escape', 'symlin
     const bridge = stubBridge(() => {
       throw new Error('must not call model');
     });
-    await assert.rejects(resumeSynthesis({ runDir, bridge }));
+    const eventBytesBeforeRetry = fs.readFileSync(ledger.eventsPath);
+    await assert.rejects(
+      resumeSynthesis({ runDir, bridge }),
+      damage === 'torn-event'
+        ? (error) => error.name === 'TornLedgerLineError' && /Restore or repair/.test(error.message)
+        : undefined,
+    );
+    assert.deepEqual(fs.readFileSync(ledger.eventsPath), eventBytesBeforeRetry);
     assert.throws(() => restoreWorkerRun({ ledger: new RunLedger(runDir) }));
     assert.equal(bridge.calls.length, 0);
     assert.deepEqual(fs.readFileSync(ledger.statePath), oldCheckpoint);
