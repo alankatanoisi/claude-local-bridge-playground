@@ -7,7 +7,7 @@
 const { sendJson } = require('../utils');
 const { getCredentials, getCredentialAuthMode } = require('../credentials');
 const crypto = require('crypto');
-const vscode = require('vscode');
+const host = require('../host-runtime');
 
 function fingerprintSecret(secret) {
   if (!secret) return null;
@@ -18,7 +18,7 @@ function fingerprintSecret(secret) {
 }
 
 async function handleDebug(ctx, _req, res) {
-  const config = vscode.workspace.getConfiguration('claudeLocalBridge');
+  const config = host.getConfiguration();
   const creds = getCredentials(ctx);
 
   const port = ctx.server?.address()?.port ?? config.get('port', 11437);
@@ -73,7 +73,7 @@ async function showStatus(ctx) {
     `Authenticated: ${creds.accessToken ? '✅ yes' : '❌ no'}`,
   ];
 
-  vscode.window.showInformationMessage(lines.join('  |  '));
+  host.showInformationMessage(lines.join('  |  '));
 }
 
 /**
@@ -93,7 +93,7 @@ async function showCredentialSource(ctx) {
   const detail = sourceMap[creds.source] || creds.source;
   const auth = !!creds.accessToken;
 
-  vscode.window.showInformationMessage(
+  host.showInformationMessage(
     auth
       ? `🔑 Claude Local Bridge — authenticated via: ${detail}`
       : `⚠️ Claude Local Bridge — no OAuth token found. Open Claude Code once so the bridge can capture or read its login.`,

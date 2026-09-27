@@ -14,10 +14,10 @@ const { proxyToAnthropic } = require('../proxy');
 const { getCredentials, getCredentialAuthMode, prependClaudeCodeSystem, messagesPathFor } = require('../credentials');
 const { appendIncoming, appendTransformed, createBridgeTrace } = require('../bridge-trace');
 
-const vscode = require('vscode');
+const host = require('../host-runtime');
 
 function dumpCapture(ctx, req, raw) {
-  const cfg = vscode.workspace.getConfiguration('claudeLocalBridge');
+  const cfg = host.getConfiguration();
   if (!cfg.get('logRequests', false)) return;
   const redacted = {};
   for (const [k, v] of Object.entries(req.headers)) {
@@ -55,7 +55,7 @@ async function handleAnthropicMessages(ctx, req, res) {
   appendIncoming(trace, req, body);
 
   // Resolve model name (with alias table + passthrough)
-  body.model = resolveModel(body.model, vscode);
+  body.model = resolveModel(body.model || host.getConfiguration().get('defaultModel'));
 
   // Anthropic requires max_tokens — default if missing
   if (!body.max_tokens) body.max_tokens = 4096;
