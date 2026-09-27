@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cursor review entry · Starlark reconciliation</title>
+    <style>
+      :root {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #1b2b35;
+        background: #f2f5f6;
+        line-height: 1.65;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      header {
+        background: linear-gradient(130deg, #182b45, #22536c);
+        color: white;
+        padding: 4rem max(1.5rem, calc((100vw - 1060px) / 2));
+      }
+      header h1 {
+        font-size: clamp(2.1rem, 5vw, 3.6rem);
+        line-height: 1.1;
+        max-width: 780px;
+        margin: 0.4rem 0 1rem;
+      }
+      header p {
+        max-width: 780px;
+        color: #d8e7ee;
+      }
+      .eyebrow {
+        color: #95ded0;
+        font-size: 0.8rem;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      main {
+        max-width: 1060px;
+        padding: 0 1.25rem 4rem;
+        margin: -1.5rem auto 0;
+      }
+      section {
+        background: white;
+        border: 1px solid #dce5e8;
+        border-radius: 18px;
+        padding: clamp(1.2rem, 3vw, 2rem);
+        margin: 1rem 0;
+        box-shadow: 0 12px 30px #1b354016;
+      }
+      h2 {
+        margin-top: 0;
+        line-height: 1.25;
+      }
+      h3 {
+        margin-bottom: 0.15rem;
+      }
+      ul,
+      ol {
+        padding-left: 1.45rem;
+      }
+      li {
+        margin: 0.45rem 0;
+      }
+      code {
+        background: #eaf0f2;
+        border-radius: 4px;
+        padding: 0.1rem 0.28rem;
+        overflow-wrap: anywhere;
+      }
+      a {
+        color: #126c79;
+      }
+      .badge {
+        display: inline-block;
+        color: #103a39;
+        background: #aff0db;
+        font-weight: 750;
+        padding: 0.3rem 0.8rem;
+        border-radius: 99px;
+      }
+      .alert {
+        border-left: 5px solid #d19036;
+        background: #fff5e5;
+        padding: 0.8rem 1rem;
+        border-radius: 4px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.8rem 1.5rem;
+      }
+      @media (max-width: 720px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="eyebrow">Research playground · Cursor review · September 27, 2026</div>
+      <h1>Starlark reconciliation: independent review entry</h1>
+      <p>
+        Alan chose a dedicated GitHub branch for review before deciding whether to move the work to playground main.
+        This document assigns a review; it does not assert that findings have been verified.
+      </p>
+      <span class="badge">Review only · no paid calls</span>
+    </header>
+    <main>
+      <section>
+        <h2>Start here</h2>
+        <p>
+          Review the branch in <code>https://github.com/alankatanoisi/claude-local-bridge-playground.git</code>. The
+          canonical <code>claude-local-bridge</code> repository is reference-only. Do not restore or discard the stash
+          on the other laptop. Do not edit code, commit, push, merge, or present findings as settled implementation
+          work.
+        </p>
+        <ul>
+          <li><strong>Branch:</strong> <code>codex/starlark-resume-2020-2026-09-26</code>.</li>
+          <li>
+            <strong>Exact review range:</strong>
+            <code>1e06820f5bf47456c725686bd961cf60b22311c5..da42e7a4a6823956eedc909ffd7cbb98cd12ec9c</code>. The left
+            commit is the unpatched GitHub main base. The right commit contains 14 Starlark paths and the reconciliation
+            handoff pair.
+          </li>
+          <li>
+            <strong>Prepared worktree:</strong>
+            <code>/Users/alanman/Developer/claude-local-bridge-starlark-resume-2020-2026-09-26</code>. Verify the actual
+            folder and ref if reviewing on another machine.
+          </li>
+        </ul>
+        <p class="alert">
+          Alan cited <code>381984c421c239884ce3c12a8f579eb6ba2e37737f02435f</code> as a review reference. It was absent
+          from the local Git repository, accessible sibling repositories, and the playground GitHub commit endpoint when
+          this brief was prepared. Its contents are unknown. If Alan supplies a link or repository, read it and
+          incorporate any applicable requirements. Do not invent its contents.
+        </p>
+      </section>
+      <section>
+        <h2>Read before judging</h2>
+        <ol>
+          <li>
+            Verify current folder, Git root, branch, remote, worktree and change status, plus current GitHub main.
+            Preserve any dirty checkout.
+          </li>
+          <li>
+            Read <code>AGENTS.md</code>, <code>SECURITY.md</code>, <code>docs/agent-team-charter-2026-08-25.md</code>,
+            and this brief. Check Cursor's <code>.cursor/rules/**</code> for drift against current instructions.
+          </li>
+          <li>
+            Read the <a href="HANDOFF-starlark-reconciliation-2026-09-27.md">reconciliation record</a>,
+            <a href="HANDOFF-starlark-laptop-transfer-2026-09-26.md">transfer handoff</a>,
+            <a href="HANDOFF-starlark-lows-review-2026-09-26.md">September 26 Low review</a>, and September 18 abort and
+            synthesis records. Verify their claims in source and tests.
+          </li>
+          <li>
+            Review the exact range above and neighboring unchanged <code>starlark-host/</code> code. Keep bridge/auth
+            and <code>src/runner/</code> outside this assignment.
+          </li>
+        </ol>
+      </section>
+      <section>
+        <h2>Questions for the independent review</h2>
+        <div class="grid">
+          <div>
+            <h3>Paid planner response</h3>
+            <p>
+              Is the source artifact and <code>*_response_received</code> receipt durable before cancellation can
+              discard a settled response? Can interruption, evaluation failure, or accepted-source storage failure cause
+              a second purchase, false rejection, wrong attempt number, or escalation? State precisely where durability
+              begins.
+            </p>
+          </div>
+          <div>
+            <h3>Error classification</h3>
+            <p>
+              When cancellation coincides with evaluator, artifact, receipt, checkpoint, or accounting failure, does the
+              original error remain visible? Does true cancellation still stop new calls and permit receipt-based
+              resume? Trace <code>generateValidatedPlan</code>, <code>generateValidatedPlanOnModel</code>,
+              <code>isRunCancellation</code>, and worker abort-commit behavior.
+            </p>
+          </div>
+          <div>
+            <h3>Resume integrity</h3>
+            <p>
+              Do source, input, and policy hashes; model tier; attempt index; confined paths; and symlink checks fail
+              closed before mutation or another call? Does a genuine rejected plan still get an appropriate repair? Are
+              accepted recovery plans, workers, and completed synthesis reused?
+            </p>
+          </div>
+          <div>
+            <h3>Ledger and names</h3>
+            <p>
+              Does every reopen path, including synthesis-only resume, refuse a torn final JSONL line with a named
+              actionable error and unchanged bytes? Does the shared artifact-name helper keep writer and reader in
+              agreement without collisions or path escape?
+            </p>
+          </div>
+          <div>
+            <h3>Signals and child lifetime</h3>
+            <p>
+              Does the evaluator child receive cancellation without hiding unrelated errors? Does the real matrix
+              command preserve 130/143 after an earlier failure? Inspect readiness control, process lifetime, and
+              cleanup in the child test.
+            </p>
+          </div>
+          <div>
+            <h3>Scope and evidence</h3>
+            <p>
+              Confirm the branch touches only 14 Starlark files and two handoffs. Investigate the first focused run's
+              unexpected second request and exit 137 as an unresolved observation. Later passing runs do not explain it;
+              classify it only with evidence.
+            </p>
+          </div>
+        </div>
+      </section>
+      <section>
+        <h2>Recorded checks and practical limits</h2>
+        <p>
+          The incoming baseline built the evaluator and passed 128 Starlark tests. Two new planner boundary tests failed
+          before correction; the planner file later passed 16. The first eight-file combined focused run stopped with
+          exit 137 after an assertion saw two requests rather than one. The boundary file passed alone, and the same
+          eight files later passed 64 tests with <code>--test-concurrency=1</code>. Full Starlark verification built the
+          evaluator and passed 151 tests with no failures or skips. Repository <code>npm test</code> passed 1,161 tests
+          with no failures or skips and one existing TODO. Root lint and documentation checks passed. Explicit ESLint
+          and Prettier checks of changed Starlark files passed. Root <code>format:check</code> failed on three unchanged
+          historical Markdown handoffs listed in the reconciliation record. No live provider call or browser visual
+          inspection occurred.
+        </p>
+        <p>
+          The implementation does not promise exactly-once provider execution or billing, recovery of older runs lacking
+          receipts, general power-loss recovery, or safe simultaneous writers in one run directory. Keep these limits
+          visible. Report a demonstrated breach of a real boundary; an accepted limitation alone is not a new bug.
+        </p>
+      </section>
+      <section>
+        <h2>Deliverable and stop point</h2>
+        <p>
+          Write a dated <code>HANDOFF-starlark-thermo-nuclear-*.md</code> at the repository root and a self-contained
+          HTML companion. Include severity-ranked findings with exact file and line evidence and a reproduction or
+          concrete reasoning path; a <strong>“not bugs (do not fix)”</strong> section; recommended fix order; checks run
+          and skipped; unresolved observations; and pointers for the next implementing agent. Banner the thread-entry
+          handoff so unverified claims are not mistaken for settled facts. State explicitly if no findings are
+          supported.
+        </p>
+        <p>
+          Stop after the review handoff. Alan decides what to fix and whether to move the branch to playground main.
+          Keep the other laptop's stash separate for later read-only comparison; do not use Restore or Discard during
+          this review.
+        </p>
+        <p>
+          This documentation-only pair was prepared after runtime commit
+          <code>da42e7a4a6823956eedc909ffd7cbb98cd12ec9c</code>. It adds no runtime code or new test result. Verify
+          branch publication from GitHub rather than inferring it from this page.
+        </p>
+        <p><a href="HANDOFF-starlark-cursor-review-2026-09-27.md">Open the agent-facing Markdown version</a></p>
+      </section>
+    </main>
+  </body>
+</html>
