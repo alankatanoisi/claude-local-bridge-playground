@@ -98,16 +98,23 @@ describe('bin/t3-cursor-shim.sh (T3 Code launcher)', { skip: process.platform ==
     ['-e', 'http://x', 'acp'],
     ['-e', 'http://x', '--force', 'acp'],
   ];
-  const NEVER_FORWARDED = ['--force', '--auto-review', '-e', 'http://x', 'acp', '--allow-shell'];
+  // T3's Cursor-only launch tokens must never reach the agent. `--allow-shell`
+  // used to be in this list too: until 2026-09-28 the shim never forwarded it.
+  // That day Alan hand-edited the exec lines to add it (the one deliberate edit
+  // the shim's block 5 describes), so the pinned posture below now EXPECTS it.
+  // The env-var refusal test further down still guards the other half of the
+  // rule: shell can only ever come from this file, never from a setting.
+  const NEVER_FORWARDED = ['--force', '--auto-review', '-e', 'http://x', 'acp'];
 
   for (const shape of T3_LAUNCH_SHAPES) {
-    it(`launch shape "${shape.join(' ')}" reaches the agent read-only with only the posture flags`, () => {
+    it(`launch shape "${shape.join(' ')}" reaches the agent with only the posture flags`, () => {
       const result = runShim(shape);
       assert.equal(result.status, 0, result.stderr);
       const argv = argvOf(result);
       assert.equal(argv[0], fakeNode);
       assert.equal(argv[1], AGENT);
       assert.ok(argv.includes('--trust-workspace'));
+      assert.ok(argv.includes('--allow-shell'), 'shell is on by hand edit since 2026-09-28');
       assert.ok(!argv.includes('--capabilities'), 'no capability groups unless the env var is set');
       for (const token of NEVER_FORWARDED) {
         assert.ok(!argv.includes(token), `T3 token "${token}" must not reach the agent`);

@@ -264,6 +264,12 @@
           on purpose. The only way to let the runner execute commands is to edit the last line of
           <code>bin/t3-cursor-shim.sh</code> and add <code>--allow-shell</code> by hand. That is deliberate: who may run
           commands on this machine is decided in a file, not in a settings screen.
+          <br /><br />
+          <strong>Update 2026-09-28:</strong> Alan made that hand edit. Both exec lines in the shim now carry
+          <code>--allow-shell</code>, so every T3 thread launched through this shim offers the runner's shell tools. In
+          T3's supervised mode each command still shows an approval card before it runs. To turn shell back off, remove
+          the flag from both exec lines; the launcher test in <code>test/runner/acp-t3-shim.test.js</code> pins whichever
+          posture is current and must be updated together with the shim.
         </div>
       </section>
 

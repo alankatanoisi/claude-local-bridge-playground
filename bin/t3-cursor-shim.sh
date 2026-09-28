@@ -146,7 +146,12 @@ esac
 # "do you trust this folder?" prompt, so without this flag every untrusted
 # thread folder would fail closed. From here on, standard output is the ACP
 # wire: nothing in this script may print to it after this point.
+#
+# --allow-shell: ADDED BY HAND 2026-09-28 at Alan's request. This is the one
+# deliberate edit block 5 talks about. With it, the agent offers a run-command
+# tool; in T3's supervised mode each command still shows an approval card
+# before it runs. Remove the flag from both exec lines below to turn shell off.
 if [ -n "$CAPS" ]; then
-  exec "$NODE_BIN" "$AGENT" --trust-workspace --capabilities "$CAPS"
+  exec "$NODE_BIN" "$AGENT" --trust-workspace --allow-shell --capabilities "$CAPS"
 fi
-exec "$NODE_BIN" "$AGENT" --trust-workspace
+exec "$NODE_BIN" "$AGENT" --trust-workspace --allow-shell
