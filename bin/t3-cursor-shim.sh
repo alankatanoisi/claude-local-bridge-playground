@@ -55,7 +55,7 @@ set -eu
 # T3 caches the model list for 30 minutes keyed by cliVersion, so bumping the
 # date in cliVersion is also how you force a fresh model list after a change.
 if [ "${1:-}" = "about" ]; then
-  printf '%s\n' '{"cliVersion":"2026.09.26-bridge-runner-nightly","userEmail":"bridge-runner@localhost","subscriptionTier":"local"}'
+  printf '%s\n' '{"cliVersion":"2026.09.28-bridge-runner-nightly","userEmail":"bridge-runner@localhost","subscriptionTier":"local"}'
   exit 0
 fi
 
