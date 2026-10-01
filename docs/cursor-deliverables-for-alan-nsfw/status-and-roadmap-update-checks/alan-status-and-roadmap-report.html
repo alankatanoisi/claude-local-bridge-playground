@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Where the playground actually is — Cursor status report, 30 September 2026</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #526075;
+      --paper: #f4f7fb;
+      --card: #ffffff;
+      --line: #d5deea;
+      --navy: #16324f;
+      --teal: #0f6e6a;
+      --teal-soft: #e5f6f4;
+      --amber: #8a5a00;
+      --amber-soft: #fff4d8;
+      --red: #8d2f39;
+      --red-soft: #fdecef;
+      --green: #1d6b45;
+      --green-soft: #e7f6ee;
+      --blue: #1d4e89;
+      --blue-soft: #e7f0fb;
+      --shadow: 0 10px 30px rgba(22, 50, 79, 0.06);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+      font-size: 19px;
+      line-height: 1.6;
+    }
+    header.hero {
+      background: var(--navy);
+      color: #f7fbff;
+      padding: 48px 24px 36px;
+    }
+    header.hero, main, footer.note {
+      max-width: 980px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    header.hero { max-width: none; }
+    .hero-inner { max-width: 980px; margin: 0 auto; }
+    h1 { font-size: 2.15rem; line-height: 1.2; margin: 0 0 12px; letter-spacing: -0.02em; }
+    h2 { font-size: 1.55rem; line-height: 1.25; margin: 2.2rem 0 0.6rem; }
+    h3 { font-size: 1.2rem; margin: 1.4rem 0 0.4rem; }
+    p, li { max-width: 72ch; }
+    a { color: var(--teal); }
+    header a { color: #9be7e1; }
+    code, .id {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.86em;
+    }
+    code { background: #edf2f8; padding: 0.05em 0.35em; border-radius: 4px; }
+    header code { background: rgba(255,255,255,0.12); color: #fff; }
+    .lede { font-size: 1.15rem; color: #d5e4f2; margin: 0; max-width: 68ch; }
+    .meta { color: #b7c9da; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.95rem; margin-top: 18px; }
+    main { padding: 8px 24px 64px; }
+    nav.toc {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px 20px;
+      margin: 28px 0;
+      box-shadow: var(--shadow);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.95rem;
+    }
+    nav.toc ol { margin: 0.4rem 0 0; padding-left: 1.2rem; }
+    nav.toc a { text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    .card, .callout, table.wrap {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+    .card, .callout { padding: 18px 20px; margin: 16px 0; }
+    .callout strong.label { display: block; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+    .callout.good { background: var(--green-soft); border-color: #b7e0c8; }
+    .callout.warn { background: var(--amber-soft); border-color: #efd59a; }
+    .callout.bad { background: var(--red-soft); border-color: #f3c2c8; }
+    .callout.info { background: var(--blue-soft); border-color: #c5d7f0; }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px 16px;
+    }
+    .stat b { display: block; font-size: 1.8rem; line-height: 1; color: var(--navy); }
+    .stat span { color: var(--muted); font-size: 0.92rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 20px;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+    th, td { border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; padding: 10px 8px; }
+    th { color: var(--muted); font-weight: 650; font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; }
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.78rem;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+    .pill.done { background: var(--green-soft); color: var(--green); }
+    .pill.wait { background: var(--amber-soft); color: var(--amber); }
+    .pill.stop { background: #eee; color: #444; }
+    .pill.gap { background: var(--red-soft); color: var(--red); }
+    .pill.idea { background: var(--blue-soft); color: var(--blue); }
+    footer.note {
+      padding: 0 24px 48px;
+      color: var(--muted);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 0.92rem;
+    }
+    @media (max-width: 720px) {
+      body { font-size: 17px; }
+      h1 { font-size: 1.7rem; }
+      header.hero, main { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <h1>Where the playground actually is</h1>
+      <p class="lede">A plain-language status check of every direction this repo once took. The short version: you did not abandon fifty products. You finished a lot, you deliberately stopped a few, and two approved jobs are still sitting unfinished.</p>
+      <p class="meta">Written by Cursor on 30 September 2026, for Alan. Folder: the playground on <code>main</code>. This report did not open Codex’s or Claude’s private folders. Spreadsheet: <a href="project-direction-inventory.csv">project-direction-inventory.csv</a> (51 rows).</p>
+    </div>
+  </header>
+  <main>
+    <nav class="toc" aria-label="Contents">
+      <strong>Contents</strong>
+      <ol>
+        <li><a href="#words">Two words, then the diagnosis</a></li>
+        <li><a href="#alive">What is actually unfinished</a></li>
+        <li><a href="#done">What you can stop worrying about</a></li>
+        <li><a href="#shelf">The shelf of ideas that were never a yes</a></li>
+        <li><a href="#decisions">Decisions only you can make</a></li>
+        <li><a href="#walk">Walk through each area</a></li>
+        <li><a href="#traps">Documents that will mislead the next reader</a></li>
+        <li><a href="#feedback">Cursor’s feedback</a></li>
+        <li><a href="#method">How this audit was done</a></li>
+      </ol>
+    </nav>
+
+    <section id="words">
+      <h2>Two words, then the diagnosis</h2>
+      <p><strong>Scope creep</strong> is the developer phrase for a project that keeps gaining goals until nobody can say what “done” means. <strong>Backlog rot</strong> is the cousin: a list of unfinished ideas that stays on the desk after the reason for the list has passed. You have some of both. The louder problem is rot. Old handoffs still describe work as open after it landed, and recommendation lists still look like assignments.</p>
+      <div class="callout good">
+        <strong class="label">The shape of the repo today</strong>
+        There are four layers, and only the first two are “the product” of this lab. The bridge carries your Claude login to a local web address. The runner is the experiment: a loop that asks the model, runs a local tool, and asks again. Starlark is a separate lab that writes plans, not actions. T3 Code is a chat window in front of the runner. Hosting is three ways to start the bridge.
+      </div>
+      <div class="stats">
+        <div class="stat"><b>51</b><span>directions in the spreadsheet</span></div>
+        <div class="stat"><b>22</b><span>built and still the current design</span></div>
+        <div class="stat"><b>2</b><span>approved jobs that are genuinely unfinished</span></div>
+        <div class="stat"><b>1</b><span>known safety gap that was recommended, not built</span></div>
+      </div>
+      <p>The two unfinished yeses are the Starlark “lows” patch, which you already chose and which is not on <code>main</code>, and the T3 Nightly live check, whose code landed but whose full proof did not finish. Everything else is either done, deliberately stopped, only a recommendation, or a small leftover inside a finished slice.</p>
+    </section>
+
+    <section id="alive">
+      <h2>What is actually unfinished</h2>
+      <p>If you only read one table, read this one. “Approval” means I could point at a record where you asked for the work, not merely a document where an agent thought it would be smart.</p>
+      <table>
+        <thead>
+          <tr><th>Id</th><th>What it is</th><th>Where it stands</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="id">ST-04</td>
+            <td>Starlark lows 5 through 8. In plain words: when you interrupt a Starlark run, the program should exit with the right interrupt code, refuse a half-written last line in its log by name, and keep a plan you already paid for if the checker is cancelled.</td>
+            <td><span class="pill wait">Paused, not on main</span> You chose the fuller option (option 2) in the 26 September transfer note. A review the same day had recommended the smaller option. The transfer published instructions for your 2020 laptop. I searched today’s <code>main</code> and the new error names from that patch are not in the Starlark code. So the choice is made, and the code is not merged.</td>
+          </tr>
+          <tr>
+            <td class="id">RN-13</td>
+            <td>Talking to the runner inside the real T3 Code Nightly app, using a launcher this repo owns.</td>
+            <td><span class="pill wait">Code landed, proof incomplete</span> August slices worked on a demo copy of T3 that is now gone. On 26 September the packaged app path landed. The test program shook hands with T3, then the bridge could not reach the network because something told it to use a proxy on port 9090 that was not running. Your click-through checklist in the app was still unchecked. On 28 September you also turned on the command tool in that launcher (<span class="id">RN-15</span>). That part is in the file. I did not click through T3 for this audit.</td>
+          </tr>
+          <tr>
+            <td class="id">RN-05</td>
+            <td>A new front-page README, written from scratch.</td>
+            <td><span class="pill wait">Draft waiting</span> <code>README-v2.md</code> exists. The live <code>README.md</code> was left alone until you say to swap them.</td>
+          </tr>
+          <tr>
+            <td class="id">OR-05</td>
+            <td>The coordinator’s spending cap counts ordinary tokens and ignores cache tokens. Cache tokens are the cheaper reread of a prompt the service already stored. They still cost money.</td>
+            <td><span class="pill gap">Known gap</span> I re-read the budget code today. The cap still watches only <code>input_tokens</code> and <code>output_tokens</code>. A 6 August memo called this a safety bug. Nobody later approved it as its own job, and nobody fixed it. It gets more wrong if you run several workers at once.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout warn">
+        <strong class="label">One contradiction the other two agents must not “resolve” by asking you again</strong>
+        <code>CLAUDE.md</code> still says Starlark Low 8 needs your decision. The later laptop-transfer handoff says you already chose option 2 and that agents must not ask you to repeat it. Both documents are in the repo. The code on <code>main</code> matches neither “closed” nor “option 2 landed.” The honest status is: decision recorded, implementation parked off <code>main</code>.
+      </div>
+    </section>
+
+    <section id="done">
+      <h2>What you can stop worrying about</h2>
+      <p>These were real threads. They are not sitting half-built in the way the unfinished pair is. “Done” here means the decision is settled and the code or the record matches that decision. It does not mean the lab is finished forever.</p>
+      <h3>Built, and this is the current design</h3>
+      <table>
+        <thead><tr><th>Id</th><th>Name</th><th>Plain meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="id">BR-01</td><td>Local bridge</td><td>Your Claude login, offered as a local Messages endpoint on port 11437. Still the plumbing. Still not an API-key product.</td></tr>
+          <tr><td class="id">BR-02</td><td>Three hosts</td><td>Desktop editor, browser editor, and a standalone process. All three passed a real model call on 26 September. The second Mac was not installed.</td></tr>
+          <tr><td class="id">BR-03</td><td>Fingerprint pins</td><td>A chore that notices when Claude Code updates. Last pin bump was 28 September.</td></tr>
+          <tr><td class="id">RN-01</td><td>Runner loop</td><td>The actual experiment. It runs. The main file is large (1,978 lines).</td></tr>
+          <tr><td class="id">RN-02</td><td>Tools</td><td>22 tools, grouped. Shell stays off unless a flag turns it on. Web search stayed off on purpose.</td></tr>
+          <tr><td class="id">RN-03</td><td>Command builders</td><td>The everyday page, plus a version 2 page from 26 September, with tests against the real command.</td></tr>
+          <tr><td class="id">RN-07</td><td>Questions to you</td><td><code>ask_user_question</code> works, including T3’s question card, as of 31 August.</td></tr>
+          <tr><td class="id">RN-08</td><td>History and headlines</td><td>Opt-in search of this session’s own history, plus an index of forgotten turns. Landed 6–10 September.</td></tr>
+          <tr><td class="id">RN-10</td><td>Tool wording audit</td><td>Done. It was step 2 of the paper-ideas sequence.</td></tr>
+          <tr><td class="id">RN-11</td><td>Network ceiling</td><td>You told Cursor to fix this and land it. Pull request 27 is merged. A run that starts with no network cannot quietly drop that promise.</td></tr>
+          <tr><td class="id">RN-15</td><td>Shell in the T3 launcher</td><td>You asked for this by hand on 28 September. The launcher file says so.</td></tr>
+          <tr><td class="id">SF-01</td><td>July P0 list</td><td>P0-01 through P0-12 are closed. Later notes that still call them open are stale.</td></tr>
+          <tr><td class="id">SF-03</td><td>Symlink path safety</td><td>The safari-2 hole is closed: a nice-looking link cannot open a blocked file such as <code>.env</code>.</td></tr>
+          <tr><td class="id">SF-07</td><td>Worktree isolation</td><td>Landed. An old archived plan still says “not done.” Ignore that sentence.</td></tr>
+          <tr><td class="id">OR-04</td><td>Ledger resume</td><td>The repair-on-resume stub was closed the evening of 31 July.</td></tr>
+          <tr><td class="id">ST-02</td><td>Starlark bundles A–D</td><td>Budgets, checks, scoring, a free second worker, and synthesis. Built in August.</td></tr>
+          <tr><td class="id">ST-03</td><td>Starlark interrupt and resume</td><td>On <code>main</code> through 18 September, including the medium review fixes. Live spend for that slice was zero.</td></tr>
+          <tr><td class="id">PR-01</td><td>Four-seat charter</td><td>You, Fable, Codex, Cursor. In force. This report is a status pass, not a build order.</td></tr>
+          <tr><td class="id">PR-09</td><td>How agents talk to you</td><td>Standing rules. Not a project to reopen.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>You ran the experiment, and the result is the deliverable</h3>
+      <p>These were supposed to answer a question and then stop. They did. The writeups are the souvenir. They are not a second product waiting to ship.</p>
+      <ul>
+        <li><span class="id">SF-02</span> Permission safari 1: the flag combinations behaved. Do not rerun the whole ladder for nostalgia.</li>
+        <li><span class="id">OR-01</span> The orchestration study: its sharp conclusion was that the runner already was the architecture the papers were circling.</li>
+        <li><span class="id">OR-02</span> Four prototypes on 31 July. CodeAct (the model writes a script) scored well and bypasses the file-permission checks. That is a result, not a promotion.</li>
+        <li><span class="id">OR-03</span> Ledger read, crash tests, and a four-worker speed test. The speedup was real. Answer quality was not scored. Killing the process with SIGTERM was fixed. A harder kill, SIGKILL, cannot be caught by the program. That is a fact about operating systems, not a forgotten ticket.</li>
+        <li><span class="id">PR-05</span> A GitHub button that runs a read-only job on your Mac. It was a proof. Write access from GitHub was never promised.</li>
+        <li><span class="id">RS-01</span> in its approved half: the paper sequence you said yes to (steps 0 through 3, plus the headline index) is complete.</li>
+      </ul>
+
+      <h3>You stopped these on purpose</h3>
+      <table>
+        <thead><tr><th>Id</th><th>Stop</th><th>What to tell the next agent</th></tr></thead>
+        <tbody>
+          <tr><td class="id">RN-06</td><td><span class="pill stop">Retired</span> <code>--agent</code> and <code>--profile</code></td><td>Do not restore them. History lives under <code>docs/archive/runner-profiles</code>.</td></tr>
+          <tr><td class="id">ST-01</td><td><span class="pill stop">Frozen</span> Starlark stays a separate lab</td><td>No <code>run_workflow</code> tool inside the runner. Reopening that edge is a new decision. R11 has now been used, which was the old “revisit after” condition, and you have not lifted the freeze.</td></tr>
+          <tr><td class="id">OR-06</td><td><span class="pill stop">Stopped</span> DBOS versus LangGraph</td><td>Do not install Postgres to finish a comparison the 6 August memo already closed.</td></tr>
+          <tr><td class="id">SF-04</td><td><span class="pill stop">Tabled</span> Safari 3 live probes</td><td>You tabled the plan on 25 July. Some code fixes landed the next day anyway. The live re-test still needs a fresh yes. An agent who “finishes safari 3” because the file exists is ignoring you.</td></tr>
+          <tr><td class="id">PR-07</td><td><span class="pill stop">Archived</span> Apple Shortcuts recipes</td><td>Filed away on 22 August. Not a sleeping product.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="shelf">
+      <h2>The shelf of ideas that were never a yes</h2>
+      <p>This is the pile that feels like scope creep when you scroll the <code>docs</code> folder. Most of these pages are an agent saying “here is a good next thing.” A good next thing is not the same as a job you accepted.</p>
+      <table>
+        <thead><tr><th>Id</th><th>The shelf</th><th>Why it looks alive</th></tr></thead>
+        <tbody>
+          <tr><td class="id">SF-05</td><td>Safari leftovers FD-06 through FD-22</td><td>Twenty-two numbered items. FD-01, the one that mattered, was fixed. The rest are probes and questions from 22 July.</td></tr>
+          <tr><td class="id">OR-07</td><td>Five “non-obvious next steps” from 6 August</td><td>A strong memo. Items include “is fan-out actually better, or only faster?” and the cache-token cap. No later commit lands that queue.</td></tr>
+          <tr><td class="id">OR-08</td><td>Make the coordinator the front door</td><td>A review suggestion (HE-09). You still drive the single runner from the command builder. That is a valid choice.</td></tr>
+          <tr><td class="id">HE-01</td><td>Harness review HE-02 through HE-11</td><td>Hygiene: one test command, a smaller <code>run.js</code>, an observability writeup, types. HE-01 itself was later fixed and is not in this leftover. The rest was never a batch approval. This list is the main creep engine.</td></tr>
+          <tr><td class="id">RS-01</td><td>Paper ideas 1, 3, 4, 10, 11, 12</td><td>The approved sequence finished. These six stayed as candidates. Idea 9, a script-block tool, was parked because it would punch through the Starlark freeze.</td></tr>
+          <tr><td class="id">ST-05</td><td>One folder for Starlark evidence (R12)</td><td>Still split between campaign notes and run folders. Never picked up after the freeze.</td></tr>
+          <tr><td class="id">PR-02</td><td>Shorten <code>CLAUDE.md</code></td><td>A proposal from 22 August. It was right. The long status section is still there, and it is already missing this month’s hosting and T3 notes.</td></tr>
+          <tr><td class="id">PR-04</td><td>Datadog manual</td><td>A guide. I did not find a connected dashboard in the project scripts.</td></tr>
+          <tr><td class="id">RN-12</td><td>The big compaction rebuild</td><td>A careful July plan whose header still says “not started.” Pieces of the problem were later handled by history search and headlines. I cannot find a message where you said “build that entire plan as one landing.”</td></tr>
+          <tr><td class="id">PR-06</td><td>Harbor benchmarks</td><td>A folder exists. The paper trail that you wanted it as a main line is thin. Low confidence.</td></tr>
+          <tr><td class="id">PR-11</td><td>The huge subagent catalog</td><td>A copied library of generic personas. It is not a direction you abandoned. It was never your project.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="decisions">
+      <h2>Decisions only you can make</h2>
+      <p>I am not asking you to answer these inside this file. They are the short list I would put in front of you after Codex and Claude have written their own reports, so the four of us can see whether we noticed the same forks.</p>
+      <ol>
+        <li><strong>Starlark lows.</strong> Resume the 26 September transfer on the 2020 laptop, or say that package is dropped and the lows stay open on this Mac. Please do not re-litigate option 1 versus option 2 unless you want to change the choice you already made.</li>
+        <li><strong>T3 Nightly.</strong> After the bridge is healthy, do the click-through in the setup guide, or call the launcher “good enough without the full probe.” Shell is already on in the launcher, which is a bigger power than the 26 September handoff describes.</li>
+        <li><strong>README draft.</strong> Promote <code>README-v2.md</code>, keep editing it, or delete the draft later. Two front doors will confuse the next cold start.</li>
+        <li><strong>Cache-token cap.</strong> This is the one unpaid safety note I would not leave on the shelf forever. It is still a recommendation until you say “fix it.”</li>
+        <li><strong>The shelf.</strong> A useful sentence, when you want one, is: “N-1 through N-5, the unbuilt paper ideas, the HE leftovers, and FD-06 onward are not approved.” You do not owe that sentence today.</li>
+      </ol>
+    </section>
+
+    <section id="walk">
+      <h2>Walk through each area</h2>
+      <p>Jargon, once: a <strong>handoff</strong> is a note an agent leaves so the next agent does not have to reconstruct the session from chat. A <strong>commit</strong> is a saved snapshot of files. <code>main</code> is the shared line of those snapshots for this playground. A <strong>pull request</strong> is a GitHub request to merge one branch into another. This repo usually commits straight to <code>main</code>.</p>
+
+      <h3>The bridge</h3>
+      <p>The bridge is the part that stays boring on purpose. It listens on your computer and forwards model calls with your existing Claude Code login. The rules you set are still in force: the Messages route stays, there is no hidden API-key fallback, and logs stay redacted because login material is sensitive.</p>
+      <p>On 26 September that boring part grew a practical convenience. You can start it as the usual editor extension, as a separate desktop editor, as a browser editor, or as a standalone program that does not need the editor at all. The verification page says all three new modes answered a real model, streamed text, and let the runner list files once. Standalone used about 52 megabytes of resident memory in one measurement. Nobody tested the other Mac, and nobody tested the machine sleeping overnight. Everyday runner commands still assume port 11437 unless you point them at 11447, 11457, or 11467.</p>
+      <p>The fingerprint checker is the maintenance buddy of the bridge. Claude Code updates, the pin goes stale, a ledger file appears. Those ledger files are not new scientific directions.</p>
+
+      <h3>The runner</h3>
+      <p>This is the lab you kept. A short default prompt. Extra powers come in groups you turn on: edits, undo, spawning a helper agent, git worktrees, skills, history search, a language-server query, and shell. Shell is the sharp one. <code>--dont-ask</code> does not turn it on. Writes still ask unless you pass the accept-edits flag.</p>
+      <p>A lot of the “Claude Code harness” wish list from July actually landed: find-files, a task checklist, undo of a whole run, prompt templates, questions, worktrees, background shell jobs, skill running, and a language-server tool. The July roadmap still says some of those are future work, and it still mentions <code>--agent</code>. The code is ahead of that document. Trust <code>src/runner/tool-catalog.js</code>.</p>
+      <p>The command builder is still the page you use day to day. Version 2 arrived on 26 September with stricter tests so the page cannot quietly invent a flag the program rejects. You now have two pages. That is a small creep of the surface, and it is contained by tests.</p>
+      <p>Context management is the muddy one. In July the runner was forgetting useful conversation too early. There is a postmortem, a measured evaluation, and a long rebuild plan that still announces “not started.” In September you approved a narrower pair of tools: search the lossless history, and show a headline index of what scrolled away. Those landed, and their important review notes were fixed on 10 September. Three small wording notes remain. The grand one-landing rebuild was not done. I am not going to pretend the July plan is either finished or formally cancelled. It was overtaken.</p>
+      <p>Golden evals grew from 2 cases to 9, including seven cases a review had named. That yes is fulfilled. The same review found that a refresh command can mark those cases passed without really scoring them. I did not find a fix. That is a hole in the scoreboard, not a reason to grow the eval program.</p>
+
+      <h3>Safety work</h3>
+      <p>The July “P0” repair list is closed. Please keep the full names. A second list, FD-01 and upward, was also nicknamed P0, and that nickname has confused later agents.</p>
+      <p>Permission safari 1 checked flag combinations and passed. Safari 2 found a real hole: a symlink inside the project whose name looked harmless could point at a blocked file. That hole was fixed, then checked again at the tool layer, then checked for tools whose path is not stored under the argument name <code>path</code>. That last check is N1, and it is closed.</p>
+      <p>Safari 3 is the awkward chapter. You read the plan and tabled it so you could learn the ideas first. The banner on that handoff still says an agent must not start work just because the file exists. The following day, a batch of the non-live fixes landed anyway. So “tabled” and “some code exists” are both true. The live re-test, Phase B, is still waiting for you. I would not authorize it as cleanup. I would authorize it only if you want another live permission drill.</p>
+      <p>False-green guards are a habit you did approve in August: tests that fail when a safety check is deleted or when a test only pretends to exercise it. Several rounds landed. The habit does not have a finish line, and it should not be turned into one.</p>
+
+      <h3>Orchestration experiments</h3>
+      <p>Late July was a burst. You studied other systems, then ran four prototypes, then a third round: read 141 real session ledgers (counts only; the notes can contain prompts, so the writeups stay aggregate), kill the process on purpose, and run four workers beside one sequential run. The four-worker run was about 4.13 times faster at the same input size. The crash work found that a polite kill was being treated as a brutal kill, and fixed it the same day. Resume-from-ledger landed that evening.</p>
+      <p>What that burst did not answer: whether the faster answers were as good, and whether the dollar cap sees cache tokens. The 6 August memo is the best “what next” page from that era. It also says to stop the DBOS comparison. Then the calendar moved to Starlark and T3. The memo did not become a secret assignment. It became a shelf.</p>
+      <p>CodeAct deserves one plain sentence. It lets the model write a small program instead of many tool calls. The experiment’s answers were right. The program does not pass through the file-permission gate, so the safety work you already paid for does not apply on that path. Leave it as an experiment until you explicitly want that design.</p>
+
+      <h3>Starlark</h3>
+      <p>Starlark is a small programming language. In this lab the model writes a Starlark program that only describes jobs. The program cannot read files, use the network, or run shell commands. A Node host checks the description, spends a budget, and runs workers. That split is the whole point.</p>
+      <p>You wanted this direction enough to graduate it into the repo in August, run live trials, raise a summary-size ceiling, and then decide on 31 August that it stays a separate lab. It must not grow a door into the runner. When you later wanted interrupt-and-resume, that work stayed inside <code>starlark-host/</code>. The medium-severity review notes from 6 September were fixed by 18 September. The suite at that point was reported as 128 tests, none skipped.</p>
+      <p>The loose end is specific. A review listed four low notes. You later chose the design that cancels the checker and still keeps the paid plan, and you asked for that unfinished patch to move to the 2020 laptop. Publishing the instructions was not the same as merging the code. Today’s <code>main</code> does not contain that patch. Two Starlark coordinators now exist in the story (the runner’s coordinator, and the host’s). The freeze is what keeps them from becoming a third product.</p>
+      <p>Do not quote the 10 August scoreboard (which model planned best, which model worked best) as if it still applies. The summary limit and the retry wording changed after those trials.</p>
+
+      <h3>T3 Code</h3>
+      <p>ACP means Agent Client Protocol: a way for an editor to talk to a coding agent over a stream of messages. Slices in August built that stream, proved a question card, and proved cancel plus live text on a demo copy of T3. On 26 September the demo copy was retired. A launcher script in this repo is what the packaged Nightly app starts. That is the right shape for a playground: no private fork to maintain.</p>
+      <p>The same day, the bridge inside Cursor lost its path to the network. The notes blame a proxy address, <code>127.0.0.1:9090</code>, that nothing was listening on. The new probe therefore never reached “cancel, then ask a second question.” That is an environment failure, not a verdict that the launcher is fake.</p>
+      <p>Two days later the launcher was edited, at your request, so the runner starts with <code>--allow-shell</code>. The script still refuses to turn shell on from an environment variable named like a capability group. The power is in the file, on purpose. In T3’s supervised mode the comment says each command should still show an approval card. Full-access mode in T3 hides those cards. I am repeating the setup guide’s warning because the shell flag makes it more important, and I did not re-check it live.</p>
+      <p>A custom T3 driver, replaying old scrollback, and a fleet of agents were written down as “not this chunk.” They are still not this chunk.</p>
+
+      <h3>Paper ideas</h3>
+      <p>On 31 August a reading of nine papers produced twelve borrowable ideas and a sequence. You ran that sequence. Tool descriptions, end-state checklists, history search, recoverable clipping, and the headline index all landed. The note at the end of that thread says the next slice is a fresh decision. Ideas still sitting there include an end-of-run verifier flag, a rule that the worker who did the job cannot mark the job done, routing by past cost, and three small counters. Idea 9, a tool that runs a block of inner tool calls, was parked because the obvious way to build it would violate the Starlark freeze.</p>
+
+      <h3>Process, docs, and things that are not projects</h3>
+      <p>The four-seat charter is in force, and its review notes were fixed. The owner profile is in force. An August docs pass moved a batch of stale pages into <code>docs/archive</code>. The root has filled with handoffs again. That is backlog rot of the paperwork, not evidence that each handoff is an active build.</p>
+      <p>The proposal to shorten <code>CLAUDE.md</code> is the document that best explains why this audit was hard. Status was stored in a file that every Claude Code session loads, so every session inherited a story, and the story cannot be updated in the same breath as every experiment. Hosting, the README draft, command builder v2, the T3 shell edit, and your Low 8 choice are missing or stale there. I did not edit <code>CLAUDE.md</code> in this task. You asked for an inventory, not a cleanup.</p>
+    </section>
+
+    <section id="traps">
+      <h2>Documents that will mislead the next reader</h2>
+      <p>If Codex or Claude treat the newest-looking handoff as gospel, they will rebuild finished work or re-ask a decision you already made. These are the traps I hit, with the newer fact beside each one.</p>
+      <table>
+        <thead><tr><th>If you only read</th><th>You will think</th><th>The later fact</th></tr></thead>
+        <tbody>
+          <tr><td><code>CLAUDE.md</code> Starlark paragraph</td><td>Low 8 still needs Alan’s decision.</td><td>The 26 September laptop transfer says option 2 was already chosen. The patch is still not on <code>main</code>.</td></tr>
+          <tr><td><code>HANDOFF-acp-nightly-graduation-2026-09-26.md</code></td><td>The T3 launcher refuses shell.</td><td><code>bin/t3-cursor-shim.sh</code> passes <code>--allow-shell</code> as of 28 September, by your request.</td></tr>
+          <tr><td><code>HANDOFF-round3-results-2026-07-31.md</code> open list</td><td>Resume repair, N1, and two fan-out bugs are still open.</td><td>Those closed later on 31 July. See the evening handoffs.</td></tr>
+          <tr><td>Starlark status handoff of 25 August</td><td>R11 is unbuilt. R8 is undecided.</td><td>R8 was frozen on 31 August. R11 landed on 6 September and was hardened through 18 September.</td></tr>
+          <tr><td>Compaction plan of 26 July</td><td>Implementation has not started.</td><td>History search and headlines later covered part of the pain. The one-shot rebuild did not land.</td></tr>
+          <tr><td><code>docs/runner-expansion-roadmap.md</code></td><td>About 11 tools, <code>--agent</code> exists, <code>ask_user_question</code> is future work.</td><td>The catalog has 22 tools. Profiles are retired. The question tool shipped.</td></tr>
+          <tr><td>Safari 3 banner</td><td>No safari-3 code exists, and none may be written.</td><td>You did table the live plan. Phase A code landed on 26 July anyway. Phase B is still unauthorized.</td></tr>
+          <tr><td>August 10 Starlark score tables</td><td>Those model rankings are current.</td><td>The summary ceiling and retry text changed afterward. The tables describe the old contract.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="feedback">
+      <h2>Cursor’s feedback</h2>
+      <p>You asked for my view as well as the inventory, before the other two reports are compared. This is that view. It is not a work order.</p>
+      <div class="callout info">
+        <strong class="label">What I would hold onto</strong>
+        The lab is in better shape than the document pile suggests. The runner loop, the permission fixes, the three bridge hosts, the command builders, the history tools, and the Starlark lab-through-R11 are real. The creep is mostly paperwork: every experiment left a handoff, and almost none of those handoffs were willing to say “this thread is over.”
+      </div>
+      <p>I would not pick up the shelf in order to feel caught up. N-1 through N-5, the rest of the HE list, FD-06 onward, and the unbuilt paper ideas can sit. They are how a research notebook looks when it is honest. They become creep only when an agent treats them as the current assignment.</p>
+      <p>I would pick at most one of the two unfinished yeses if you want a next session that is still this project. Starlark option 2 is a bounded patch with a transfer package and a decision already made. T3 is a bounded click-through once the bridge can reach the network, with the extra seriousness that shell is now on. Doing both in one session is how the last two months felt endless.</p>
+      <p>Separately, and smaller: the cache-token cap is the leftover I trust most as a real bug rather than a vibe. The August memo’s reasoning still matches the function I read today. It can wait until you want one unpaid safety fix. I did not make that fix in this task.</p>
+      <p>I would also, on some later docs day, let <code>README-v2.md</code> become the only front door or throw the draft away, and let <code>CLAUDE.md</code> go back to pointers. Not this week, and not by three agents at once. The charter’s “one person holds the working tree” rule exists because this repo has already had two stories of the same fact.</p>
+      <p>What I would not do: delete the old handoffs to make the folder feel clean, merge the Starlark laptop patch because the instructions sound confident, or reopen Starlark into the runner because R11 is now “used.” The freeze is still the decision. The patch is still unverified as a merge. The handoffs are the evidence this report stands on.</p>
+    </section>
+
+    <section id="method">
+      <h2>How this audit was done</h2>
+      <p>I started from playground <code>main</code>, already even with GitHub, at commit <code>e79ffdf</code>. That commit is Codex’s private status folder. I recorded that it exists so I would not pretend the repo was untouched, and I did not open those files. Claude’s folder was not in the tree yet.</p>
+      <p>I read the current thread-entry handoffs, the July and August roadmaps, the research-review pages, and the hosting verification. Where a later document and an earlier one disagreed, I preferred the later dated handoff, then checked the code when the disagreement was about whether a patch had landed. The checks that changed a row were: the budget function still ignores cache tokens; the Starlark torn-line error name is absent on <code>main</code>; the T3 launcher contains <code>--allow-shell</code> with a 28 September comment; <code>run.js</code> is 1,978 lines; there is an <code>ARCHITECTURE.md</code> and there is no <code>OBSERVABILITY.md</code>.</p>
+      <p>I did not run the test suite, did not start the bridge, did not open T3, and did not read session ledgers under your home folder. Ledger rows in this report repeat published counts only. Dates are the document or commit dates, not a claim that I watched the work happen.</p>
+      <p>Rows where I am less sure are marked low or medium in the spreadsheet’s last column. Harbor benchmarks and the old Cursor-rules audit are the thin ones.</p>
+      <div class="card">
+        <h3>Files in this folder</h3>
+        <ul>
+          <li><a href="project-direction-inventory.csv">project-direction-inventory.csv</a> — one row per direction, for sorting and for the other agents.</li>
+          <li><a href="alan-status-and-roadmap-report.html">alan-status-and-roadmap-report.html</a> — this page.</li>
+          <li><a href="HANDOFF-cursor-status-and-roadmap-2026-09-30.md">HANDOFF-cursor-status-and-roadmap-2026-09-30.md</a> — the note to give Codex and Claude with this page.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+  <footer class="note">
+    Playground folder <code>/Users/alanman/Developer/claude-local-bridge-playground</code>, branch <code>main</code>. Nothing in the runner or the bridge was changed to produce this report.
+  </footer>
+</body>
+</html>
