@@ -89,8 +89,9 @@ describe('fingerprint automation header containment', () => {
   it('loads the checked-in fallback without request-specific fields', () => {
     const checkedIn = automation.loadFallbackManifest();
     // This pin must move every time the fallback manifest is refreshed
-    // (2026-09-28: 2.1.267 -> 2.1.283, needed for the Opus 5.5 model gate).
-    assert.equal(checkedIn.claudeCodeVersion, '2.1.283');
+    // (2026-09-28: 2.1.267 -> 2.1.283, needed for the Opus 5.5 model gate;
+    // 2026-10-01: 2.1.283 -> 2.1.287 via `fingerprint:prepare` localhost capture).
+    assert.equal(checkedIn.claudeCodeVersion, '2.1.287');
     for (const name of checkedIn.stableHeaders ? Object.keys(checkedIn.stableHeaders) : []) {
       assert.ok(automation.STABLE_CAPTURE_HEADERS.includes(name));
       assert.equal(name.startsWith('authorization'), false);
