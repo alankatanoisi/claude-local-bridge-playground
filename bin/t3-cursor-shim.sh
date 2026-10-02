@@ -34,7 +34,8 @@
 #   BRIDGE_RUNNER_NODE          absolute path to the node binary to use
 #                               (the packaged app's PATH is not your Terminal's PATH)
 #   BRIDGE_RUNNER_CAPABILITIES  comma-separated capability groups to enable,
-#                               e.g. "edits". Unset = core read-only tool set.
+#                               e.g. "edits". Unset = core tools PLUS shell;
+#                               file-write tools need "edits" (see block 5).
 #                               "shell" is refused here on purpose (see block 5).
 #
 # Exit codes: 0 = answered "about" or handed over to the agent;
@@ -121,16 +122,19 @@ else
 fi
 
 # ── 5. Tool posture for this instance ──────────────────────────────────────────
-# Unset            -> core read-only tools (read, search, glob, git status, questions)
-# "edits"          -> adds file writes; every write still shows an approval card
-#                     in T3's supervised mode
+# Unset            -> core tools (read, search, glob, git status, questions)
+#                     PLUS shell, because both exec paths below set --allow-shell.
+# "edits"          -> also enables file-write tools. In supervised Ask mode,
+#                     writes and shell commands request approval unless this
+#                     ACP session already received "Allow for this session".
+# No "edits" does not make the instance read-only: shell can also change files.
 # Any group the agent does not know makes the agent exit with a clear message.
 #
 # "shell" is refused here on purpose. Shell is not a capability group; the ONLY
 # way to expose it is the explicit --allow-shell flag on the agent command line,
-# which means deliberately editing the exec line in block 6 of this file. No
-# environment variable or T3 setting can switch it on. That keeps "who can run
-# commands on this machine" a decision made in this file, by hand.
+# already present on BOTH exec paths in block 6 since Alan's 2026-09-28 edit.
+# This environment variable selects extra tool groups; it is not a shell toggle.
+# T3's access mode controls approvals separately from which tools are exposed.
 CAPS="${BRIDGE_RUNNER_CAPABILITIES:-}"
 case ",$CAPS," in
   *shell*)
@@ -148,9 +152,13 @@ esac
 # wire: nothing in this script may print to it after this point.
 #
 # --allow-shell: ADDED BY HAND 2026-09-28 at Alan's request. This is the one
-# deliberate edit block 5 talks about. With it, the agent offers a run-command
-# tool; in T3's supervised mode each command still shows an approval card
-# before it runs. Remove the flag from both exec lines below to turn shell off.
+# deliberate shell opt-in for this launcher, so shell is ON by default here.
+# Supervised Ask mode requests approval unless this ACP session already received
+# "Allow for this session". T3 full access auto-selects that answer, so commands
+# can run without a card. The agent remembers it for later asks in this session;
+# runner hard denies still apply. ACP Code mode accepts file edits automatically
+# but still asks for shell; Plan mode records proposals without executing them.
+# Remove the flag from both exec lines below to turn shell off.
 if [ -n "$CAPS" ]; then
   exec "$NODE_BIN" "$AGENT" --trust-workspace --allow-shell --capabilities "$CAPS"
 fi
