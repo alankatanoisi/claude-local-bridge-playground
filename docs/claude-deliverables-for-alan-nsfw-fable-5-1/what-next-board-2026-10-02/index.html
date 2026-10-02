@@ -1,0 +1,1333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What-Next Board (2026-10-02): 30 agent prompts</title>
+<style>
+  :root { color-scheme: light dark; --codex: #0b7a75; --fable: #b5541c; --opus: #5b4bb5; --line: #8884; --bg: Canvas; --fg: CanvasText; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; background: var(--bg); color: var(--fg); }
+  main { max-width: 1600px; margin: 0 auto; padding: 1.25rem; }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.1rem; margin: 0 0 .5rem; }
+  h3 { font-size: 1rem; margin: .4rem 0 .5rem; line-height: 1.3; }
+  .intro { border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.25rem; margin: 1rem 0; }
+  .intro h2 { margin-top: .75rem; }
+  .intro ol, .intro ul { padding-left: 1.3rem; }
+  .intro li { margin: .25rem 0; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; margin: .75rem 0 1rem; }
+  .toolbar label { display: inline-flex; gap: .35rem; align-items: center; }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+  @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+  .col { border: 1px solid var(--line); border-radius: 10px; padding: .9rem; min-width: 0; }
+  .blurb { font-size: .92rem; opacity: .9; margin: 0 0 .6rem; }
+  .preamble pre, .card pre { white-space: pre-wrap; word-break: break-word; font: 12.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; background: #8881; padding: .6rem .7rem; border-radius: 6px; max-height: 60vh; overflow: auto; }
+  .preamble { margin-bottom: .9rem; font-size: .92rem; }
+  .card { border: 1px solid var(--line); border-radius: 8px; padding: .7rem .8rem .8rem; margin: .7rem 0; background: #8880a; }
+  .card header { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+  .badge { display: inline-block; font-weight: 700; font-size: .8rem; padding: .1rem .5rem; border-radius: 999px; color: white; }
+  .badge.codex { background: var(--codex); } .badge.fable { background: var(--fable); } .badge.opus { background: var(--opus); }
+  .wave { font-size: .78rem; opacity: .75; }
+  .status { margin-left: auto; font-size: .82rem; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: .15rem .6rem; margin: 0 0 .5rem; font-size: .9rem; }
+  dt { font-weight: 600; opacity: .8; } dd { margin: 0; }
+  dd code { font-size: .82rem; word-break: break-word; }
+  .actions { display: flex; flex-direction: column; gap: .4rem; }
+  button.copy { align-self: flex-start; cursor: pointer; font: inherit; font-size: .88rem; padding: .3rem .7rem; border-radius: 6px; border: 1px solid var(--line); background: #8882; }
+  button.copy:active { transform: translateY(1px); }
+  button.copy.ok { border-color: #2a8; }
+  details summary { cursor: pointer; font-size: .88rem; opacity: .85; }
+  textarea.note { width: 100%; margin-top: .5rem; min-height: 2.2rem; font: inherit; font-size: .85rem; border: 1px dashed var(--line); border-radius: 6px; padding: .3rem .5rem; background: transparent; color: inherit; resize: vertical; }
+  .card[data-status="merged"] { opacity: .55; }
+  .card[data-status="blocked"] { border-color: #c33; }
+  .card[data-status="running"] { border-color: #e9a; }
+  .card[data-status="pr"] { border-color: #39c; }
+  .card.hidden { display: none; }
+  footer { font-size: .85rem; opacity: .75; margin: 1.5rem 0 .5rem; }
+  kbd, code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; }
+</style>
+</head>
+<body>
+<main>
+  <h1>What-Next Board (2026-10-02)</h1>
+  <p>Thirty paste-ready starter prompts: ten for Codex, ten for Fable, ten for Claude Opus 5.5. Each card is complete on its own. Press <strong>Copy full prompt</strong>, paste into the app named at the top of the column, and send. Statuses and notes you set here are saved in this browser only (localStorage), so the page stays useful across reloads without touching git.</p>
+
+  <div class="intro">
+    <h2>Read this first</h2>
+    <p><strong>Verified state when this board was built (2026-10-02, 11:00):</strong> playground clone on <code>main</code>, clean, in sync with GitHub at <code>e41ee7b</code>. Lint and docs checks pass. The format check is red only on three root <code>HANDOFF-*thermo-nuclear*.md</code> files (whitespace, left alone on purpose). All 52 command-builder drift tests pass. Codex reported the full test suite green (1161 pass, 0 fail, 1 todo) on the #30 branch the night before.</p>
+
+    <h2>Two GitHub clicks before anything else (Alan, in the browser)</h2>
+    <ol>
+      <li><strong>Merge pull request #30</strong> (Codex's fingerprint refresh to Claude Code 2.1.287; mergeable, tests green).</li>
+      <li><strong>Close pull request #21</strong> (a July docs draft superseded the same day by #22; nothing in it is still needed).</li>
+      <li>Then in <strong>Terminal</strong>, from the playground folder: <code>git pull --ff-only origin main</code>. Success looks like "Fast-forward" or "Already up to date". Every card below assumes this happened.</li>
+    </ol>
+
+    <h2>Collision rules (why cards are in the columns they are in)</h2>
+    <ol>
+      <li><strong>Codex always works on its own branch in its own worktree and opens a pull request.</strong> That is already how #27, #29, and #30 landed. Up to three Codex threads can run at once because the cards in each wave touch disjoint files.</li>
+      <li><strong>Fable and Opus both run in T3 Code against the same local checkout, so only one of them edits <code>src/</code>, <code>bin/</code>, or <code>test/</code> at a time.</strong> The charter calls this "the tree is the baton". Opus cards that write docs only go into <code>docs/claude-deliverables-for-alan-nsfw-opus-5-5/</code> and commit only that folder, which is safe beside a Fable code card. Cards O2, O6, O8, and O10 touch shared files: run them when no Fable code card is live.</li>
+      <li><strong>Dependencies are printed on every card.</strong> Do not start a card until its dependency has merged to <code>main</code> and you have pulled.</li>
+      <li><strong>No card touches bridge internals</strong> (<code>src/credentials.js</code>, <code>src/proxy.js</code>, <code>src/server.js</code>, <code>src/interceptors/**</code>), spends live model tokens, quotes ledger payloads, or pushes to <code>main</code>. Codex pushes only its own branch; Fable and Opus push nothing unless you say so.</li>
+      <li><strong>Safety-boundary cards (C7, C8) need an independent review before merge.</strong> Use card O5 with the pull request number.</li>
+    </ol>
+
+    <h2>Suggested order</h2>
+    <ul>
+      <li><strong>Wave 1 (now):</strong> Codex C1, C2, C3 in parallel. Opus O1 (review) and O7 (decision board), both docs only. Fable F1 holds the code baton; F4 (docs only) can run alongside if you prefer a cheaper Fable card first.</li>
+      <li><strong>Wave 2 (after wave-1 pull requests merge):</strong> Codex C4, C5, C6. Opus O5 reviews each wave-1 pull request, then O2 when Fable is idle. Fable F2, then F10 to refresh this board.</li>
+      <li><strong>Wave 3:</strong> Codex C7 then C8 (same file, in that order), C9, C10. Opus O3, O4, O9, O10, O6, and O8 if you said yes on HE-02. Fable F3, F5 (after C2), F8 (after C10), F6 (after C7 and C8), F7 (after C8), F9 (after C2 and F1).</li>
+      <li><strong>Budget:</strong> Fable is the most expensive seat and shares the weekly Claude pool with Opus. Plan on three or four Fable cards before the reset and give the rest to Opus. Codex cards are long-running and autonomous, which is the best use of the Codex pool before it resets.</li>
+    </ul>
+  </div>
+
+  <div class="toolbar">
+    <strong>Show:</strong>
+    <label><input type="checkbox" class="f-col" value="codex" checked> Codex</label>
+    <label><input type="checkbox" class="f-col" value="fable" checked> Fable</label>
+    <label><input type="checkbox" class="f-col" value="opus" checked> Opus</label>
+    <span>|</span>
+    <label><input type="checkbox" class="f-wave" value="1" checked> wave 1</label>
+    <label><input type="checkbox" class="f-wave" value="2" checked> wave 2</label>
+    <label><input type="checkbox" class="f-wave" value="3" checked> wave 3</label>
+    <span>|</span>
+    <label><input type="checkbox" id="hide-done"> hide merged / done</label>
+    <button type="button" id="export" class="copy">Copy my statuses and notes as text</button>
+    <button type="button" id="reset" class="copy">Clear saved statuses</button>
+  </div>
+
+  <div class="grid">
+
+<section class="col" id="col-codex">
+  <h2><span class="badge codex">Codex</span></h2>
+  <p class="blurb">Executes written briefs to the letter, exhaustive test matrices, mechanical sweeps. Always on its own branch and pull request.<br><strong>Paste into:</strong> Codex app (ChatGPT desktop).</p>
+  <details class="preamble"><summary>Shared preamble every Codex prompt begins with</summary><pre>Work only in /Users/alanman/Developer/claude-local-bridge-playground. Read AGENTS.md, docs/working-with-alan.md, and docs/agent-user-autonomy-boundary-2026-08-11.md first. Run the AGENTS.md startup preflight, then `git pull --ff-only origin main`, and confirm the tree is clean; if it is dirty, stop and ask me. Create branch `codex/&lt;slug&gt;-2026-10-02` in a fresh git worktree and do all work there.
+
+Hard constraints: never edit src/credentials.js, src/proxy.js, src/server.js, src/interceptors/**, or any *.plist. Never restore --agent, --profile, --list-agents, or --list-profiles. Never quote text from ~/.bridge-runner or any run ledger; aggregates only. No live model calls. No policy or Terms-of-Service commentary. Never kill processes by pattern; port 3773 is my live T3 app.
+
+Before handoff run `npm test`, `npm run lint`, `npm run check:docs`, and `npm run format:check`, and record the baseline you inherited (format:check is already red on three root HANDOFF-*thermo-nuclear*.md files; leave them alone). Fix causes, never gates. Commit in conventional-commit shape, one commit per part, push only your branch, and open a pull request against main with the raw check output in the body. Write HANDOFF-&lt;slug&gt;-2026-10-02.md at the repo root with: folder, branch, files changed, checks run, checks skipped, risks and next steps. Do not merge. If anything is ambiguous, ask me instead of guessing.</pre></details>
+  
+<article class="card" data-id="C1" data-col="codex" data-wave="1">
+  <header>
+    <span class="badge codex">C1</span>
+    <span class="wave">wave 1</span>
+    <select class="status" aria-label="Status of C1">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Golden-eval scoring fixes (GE-M1, GE-L2, GE-L3, GE-L4)</h3>
+  <dl>
+    <dt>Why</dt><dd>Best-specified open item in the repo. `runner eval --update` currently reports checklist-only cases as passed without scoring them, which is a false green.</dd>
+    <dt>Files</dt><dd><code>src/runner/golden-eval.js, test/runner/golden-eval.test.js, test/runner/golden/he06-offered-tools-quarantine.json</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Codex branch. Disjoint from C2 and C3.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Work only in /Users/alanman/Developer/claude-local-bridge-playground. Read AGENTS.md, docs/working-with-alan.md, and docs/agent-user-autonomy-boundary-2026-08-11.md first. Run the AGENTS.md startup preflight, then `git pull --ff-only origin main`, and confirm the tree is clean; if it is dirty, stop and ask me. Create branch `codex/&lt;slug&gt;-2026-10-02` in a fresh git worktree and do all work there.
+
+Hard constraints: never edit src/credentials.js, src/proxy.js, src/server.js, src/interceptors/**, or any *.plist. Never restore --agent, --profile, --list-agents, or --list-profiles. Never quote text from ~/.bridge-runner or any run ledger; aggregates only. No live model calls. No policy or Terms-of-Service commentary. Never kill processes by pattern; port 3773 is my live T3 app.
+
+Before handoff run `npm test`, `npm run lint`, `npm run check:docs`, and `npm run format:check`, and record the baseline you inherited (format:check is already red on three root HANDOFF-*thermo-nuclear*.md files; leave them alone). Fix causes, never gates. Commit in conventional-commit shape, one commit per part, push only your branch, and open a pull request against main with the raw check output in the body. Write HANDOFF-&lt;slug&gt;-2026-10-02.md at the repo root with: folder, branch, files changed, checks run, checks skipped, risks and next steps. Do not merge. If anything is ambiguous, ask me instead of guessing.
+
+Slug: golden-eval-fixes.
+
+Source of truth: HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md (all four findings are still open; I checked on 2026-10-02).
+
+Part 1 (GE-M1): in src/runner/golden-eval.js around lines 579-593, make `--update` always score a non-empty `checklist`, including dual-mode cases that carry both `expect` and `checklist`. Add the two tests the handoff specifies.
+
+Part 2 (GE-L3): reject a case whose `checklist` is `[]` and that has no `expect`, with a clear error naming the case file. Test it.
+
+Part 3 (GE-L2): the file predicates (around lines 352-359 and 80-84) check paths lexically and follow cwd symlinks outside the sandbox. Realpath the target and refuse anything resolving outside the sandbox root. Add a symlink test that would have passed before and fails now.
+
+Part 4 (GE-L4): the disk predicate in test/runner/golden/he06-offered-tools-quarantine.json can never fail. Either make the input well-formed so the predicate is meaningful or drop the predicate; say which you chose and why in the commit message.
+
+Acceptance: `npm run runner:eval` still reports 9 of 9 cases passing, and the new tests fail if you revert each part.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="C2" data-col="codex" data-wave="1">
+  <header>
+    <span class="badge codex">C2</span>
+    <span class="wave">wave 1</span>
+    <select class="status" aria-label="Status of C2">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Context-layer Lows and the tail-notes helper (CL-L4, CL-L5, CL-L6, CI-CAP32, CL-CQ1)</h3>
+  <dl>
+    <dt>Why</dt><dd>Five small, fully specified fixes left from the 09-06 context-layer review. The CQ1 helper unblocks Fable card F5 (idea 12 counters).</dd>
+    <dt>Files</dt><dd><code>src/runner/run.js (one function near line 761), src/runner/context-headlines.js, src/runner/context-projection.js, src/runner/tools/_history-index.js, and their tests</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Codex branch. Disjoint from C1 and C3.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Work only in /Users/alanman/Developer/claude-local-bridge-playground. Read AGENTS.md, docs/working-with-alan.md, and docs/agent-user-autonomy-boundary-2026-08-11.md first. Run the AGENTS.md startup preflight, then `git pull --ff-only origin main`, and confirm the tree is clean; if it is dirty, stop and ask me. Create branch `codex/&lt;slug&gt;-2026-10-02` in a fresh git worktree and do all work there.
+
+Hard constraints: never edit src/credentials.js, src/proxy.js, src/server.js, src/interceptors/**, or any *.plist. Never restore --agent, --profile, --list-agents, or --list-profiles. Never quote text from ~/.bridge-runner or any run ledger; aggregates only. No live model calls. No policy or Terms-of-Service commentary. Never kill processes by pattern; port 3773 is my live T3 app.
+
+Before handoff run `npm test`, `npm run lint`, `npm run check:docs`, and `npm run format:check`, and record the baseline you inherited (format:check is already red on three root HANDOFF-*thermo-nuclear*.md files; leave them alone). Fix causes, never gates. Commit in conventional-commit shape, one commit per part, push only your branch, and open a pull request against main with the raw check output in the body. Write HANDOFF-&lt;slug&gt;-2026-10-02.md at the repo root with: folder, branch, files changed, checks run, checks skipped, risks and next steps. Do not merge. If anything is ambiguous, ask me instead of guessing.
+
+Slug: context-layer-lows.
+
+Source of truth: HANDOFF-context-layer-thermo-nuclear-2026-09-06.md, sections Low #4-#6 and Code quality #1. Read HANDOFF-context-layer-mediums-closed-2026-09-10.md too so you do not redo what is already closed (Mediums #1-#3, Lows #7-#8).
+
+Part 1 (Low #4): `getCanonicalMessages` in src/runner/run.js returns the live array. Return a shallow copy (do not freeze the message objects). Test that pushing onto the returned array does not change the session.
+
+Part 2 (Low #5): in src/runner/context-headlines.js (around line 169) the phrase &quot;no longer shown verbatim&quot; overclaims for exchanges that are only stubbed or stale-dropped. Reword for stubs; keep the wording for checkpointed spans. Update the tests.
+
+Part 3 (Low #6): `rangeLabel` (around lines 148-150 and 200) prints ranges like `m0–m2`, which `expand_history` cannot consume. Print real recover targets (`m2`, `tu0`). Do not change the use/result id alias.
+
+Part 4 (CI-CAP32): the comment at src/runner/tools/_history-index.js:17 claims a 32 MB cap that is only a diagnostic flag. Correct the comment to describe what the code does.
+
+Part 5 (CQ1): replace the two `appendAnchor` calls in src/runner/context-projection.js (around lines 251, 373, 389) with one `appendTailNotes(projected, [anchor, index, ...])` helper that appends every tail note in one place. The existing tests are the guard; no behavior change.
+
+Run test/runner/context-*.test.js and test/runner/command-builder-*.test.js before the full suite.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="C3" data-col="codex" data-wave="1">
+  <header>
+    <span class="badge codex">C3</span>
+    <span class="wave">wave 1</span>
+    <select class="status" aria-label="Status of C3">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Ledger and resume residuals (A1-F5, C3-2, A1-F4)</h3>
+  <dl>
+    <dt>Why</dt><dd>Three durability leftovers from round 3. One is a one-line health-record bug that makes a failed resume look healthy.</dd>
+    <dt>Files</dt><dd><code>src/runner/session-health.js, src/runner/session-ledger.js, src/runner/replay-simulator.js, src/runner/ledger-repair.js, tests</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Codex branch. Disjoint from C1 and C2.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Work only in /Users/alanman/Developer/claude-local-bridge-playground. Read AGENTS.md, docs/working-with-alan.md, and docs/agent-user-autonomy-boundary-2026-08-11.md first. Run the AGENTS.md startup preflight, then `git pull --ff-only origin main`, and confirm the tree is clean; if it is dirty, stop and ask me. Create branch `codex/&lt;slug&gt;-2026-10-02` in a fresh git worktree and do all work there.
+
+Hard constraints: never edit src/credentials.js, src/proxy.js, src/server.js, src/interceptors/**, or any *.plist. Never restore --agent, --profile, --list-agents, or --list-profiles. Never quote text from ~/.bridge-runner or any run ledger; aggregates only. No live model calls. No policy or Terms-of-Service commentary. Never kill processes by pattern; port 3773 is my live T3 app.
+
+Before handoff run `npm test`, `npm run lint`, `npm run check:docs`, and `npm run format:check`, and record the baseline you inherited (format:check is already red on three root HANDOFF-*thermo-nuclear*.md files; leave them alone). Fix causes, never gates. Commit in conventional-commit shape, one commit per part, push only your branch, and open a pull request against main with the raw check output in the body. Write HANDOFF-&lt;slug&gt;-2026-10-02.md at the repo root with: folder, branch, files changed, checks run, checks skipped, risks and next steps. Do not merge. If anything is ambiguous, ask me instead of guessing.
+
+Slug: ledger-residuals.
+
+Sources: HANDOFF-f6-ledger-aware-resume-2026-07-31.md lines 61-68, docs/ledger-forensics-sweep-2026-07-31.md, HANDOFF-round3-results-2026-07-31.md.
+
+Part 1 (A1-F5): a failed resume currently writes a `resume_ok` health record. Add `MESSAGE_CONTRACT_ERROR` to the degraded set in src/runner/session-health.js (lines 9-15) and add a test that a resume failing with that error is recorded as degraded.
+
+Part 2 (C3-2): the load path in src/runner/session-ledger.js (around line 134) opens a pending intent for any `*_intent` event even when it has no `effectId`, while `append()` refuses such events. Make load match append. Test both directions: append rejects, load ignores or rejects consistently.
+
+Part 3 (A1-F4): src/runner/replay-simulator.js lines 28-40 detect `orphaned_tool_use` using ledger vocabulary the runner never emits, so the branch is dead. Grep src/runner/session-ledger.js for the event names the runner actually writes. Either map the detector onto that real vocabulary or remove the dead branch, and update src/runner/ledger-repair.js:171 to match. Add a test that exercises the real vocabulary.
+
+Build fixtures in temp directories. Do not open any real ledger under ~/.bridge-runner.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="C4" data-col="codex" data-wave="2">
+  <header>
+    <span class="badge codex">C4</span>
+    <span class="wave">wave 2</span>
+    <select class="status" aria-label="Status of C4">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Repo hygiene scripts: check:agent-docs and one-command check (PROC-MIRROR, HE-07)</h3>
+  <dl>
+    <dt>Why</dt><dd>CLAUDE.md has recommended an automatic mirror check for the two Learned blocks since 2026-07-25 and nobody built it. HE-07 asks for a single `npm run check`.</dd>
+    <dt>Files</dt><dd><code>new scripts/check-agent-docs.js, package.json scripts, README.md checks section, one sentence each in AGENTS.md and CLAUDE.md, a test under test/</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Codex branch.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Work only in /Users/alanman/Developer/claude-local-bridge-playground. Read AGENTS.md, docs/working-with-alan.md, and docs/agent-user-autonomy-boundary-2026-08-11.md first. Run the AGENTS.md startup preflight, then `git pull --ff-only origin main`, and confirm the tree is clean; if it is dirty, stop and ask me. Create branch `codex/&lt;slug&gt;-2026-10-02` in a fresh git worktree and do all work there.
+
+Hard constraints: never edit src/credentials.js, src/proxy.js, src/server.js, src/interceptors/**, or any *.plist. Never restore --agent, --profile, --list-agents, or --list-profiles. Never quote text from ~/.bridge-runner or any run ledger; aggregates only. No live model calls. No policy or Terms-of-Service commentary. Never kill processes by pattern; port 3773 is my live T3 app.
+
+Before handoff run `npm test`, `npm run lint`, `npm run check:docs`, and `npm run format:check`, and record the baseline you inherited (format:check is already red on three root HANDOFF-*thermo-nuclear*.md files; leave them alone). Fix causes, never gates. Commit in conventional-commit shape, one commit per part, push only your branch, and open a pull request against main with the raw check output in the body. Write HANDOFF-&lt;slug&gt;-2026-10-02.md at the repo root with: folder, branch, files changed, checks run, checks skipped, risks and next steps. Do not merge. If anything is ambiguous, ask me instead of guessing.
+
+Slug: hygiene-scripts.
+
+Part 1: write scripts/check-agent-docs.js. It reads CLAUDE.md and AGENTS.md, extracts the bullet lists under the headings &quot;Learned User Preferences&quot; and &quot;Learned Workspace Facts&quot; (ignore the blockquote note under the first heading), normalizes whitespace, and exits 1 with a unified diff when the two files differ. Add `&quot;check:agent-docs&quot;: &quot;node scripts/check-agent-docs.js&quot;` to package.json. Add a test under test/ that copies both files into a temp dir, mutates one bullet, and asserts the script exits 1, then asserts exit 0 on the untouched pair.
+
+Part 2 (HE-07): add `&quot;check&quot;: &quot;npm test &amp;&amp; npm run lint &amp;&amp; npm run check:docs &amp;&amp; npm run check:agent-docs &amp;&amp; npm run format:check&quot;` to package.json and document it in README.md under the checks section, with one sentence on what each sub-check proves. Do not fix the three Prettier-red handoffs.
+
+Part 3: add one identical sentence to the Learned-blocks note in both CLAUDE.md and AGENTS.md saying the mirror check now exists and how to run it. Touch nothing else in those files.
+
+Run `npm run check:agent-docs` and paste its output in the pull request body.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="C5" data-col="codex" data-wave="2">
+  <header>
+    <span class="badge codex">C5</span>
+    <span class="wave">wave 2</span>
+    <select class="status" aria-label="Status of C5">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>CLI parsing defects and --help completeness (P2-16, stale help)</h3>
+  <dl>
+    <dt>Why</dt><dd>Stray positionals become the prompt, negative numbers are accepted, and --help omits --replay/--repair and lists 3 of 6 templates.</dd>
+    <dt>Files</dt><dd><code>bin/local-bridge-runner.js, test/runner/cli-*.test.js, src/runner/tool-registry.js (one comment), docs/command-builder*.html only if the drift tests demand it</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Codex branch.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Work only in /Users/alanman/Developer/claude-local-bridge-playground. Read AGENTS.md, docs/working-with-alan.md, and docs/agent-user-autonomy-boundary-2026-08-11.md first. Run the AGENTS.md startup preflight, then `git pull --ff-only origin main`, and confirm the tree is clean; if it is dirty, stop and ask me. Create branch `codex/&lt;slug&gt;-2026-10-02` in a fresh git worktree and do all work there.
+
+Hard constraints: never edit src/credentials.js, src/proxy.js, src/server.js, src/interceptors/**, or any *.plist. Never restore --agent, --profile, --list-agents, or --list-profiles. Never quote text from ~/.bridge-runner or any run ledger; aggregates only. No live model calls. No policy or Terms-of-Service commentary. Never kill processes by pattern; port 3773 is my live T3 app.
+
+Before handoff run `npm test`, `npm run lint`, `npm run check:docs`, and `npm run format:check`, and record the baseline you inherited (format:check is already red on three root HANDOFF-*thermo-nuclear*.md files; leave them alone). Fix causes, never gates. Commit in conventional-commit shape, one commit per part, push only your branch, and open a pull request against main with the raw check output in the body. Write HANDOFF-&lt;slug&gt;-2026-10-02.md at the repo root with: folder, branch, files changed, checks run, checks skipped, risks and next steps. Do not merge. If anything is ambiguous, ask me instead of guessing.
+
+Slug: cli-parsing-p2-16.
+
+Spec: docs/runner-p2-next-session-handoff-2026-07-20.md, item P2-16.
+
+Part 1: in bin/local-bridge-runner.js (argument parser around line 289) reject unknown positional arguments with a clear error instead of folding them into the prompt; reject negative or non-numeric values for every numeric flag; make the `canonicalTool=unknown` fallbacks explicit errors. Write a table-driven test that covers every numeric flag in the runner manifest (use scripts/check-runner-manifest.js or the manifest module it reads to enumerate them, so the test cannot drift).
+
+Part 2: make `--help` list every live subcommand including `--replay` and `--repair`, and all six built-in prompt templates (cleanup, explore, grill, review, simplify, verify), generated from the prompt registry rather than typed by hand. Add a test that the help text contains every template name from the registry.
+
+Part 3: fix the stale comment at src/runner/tool-registry.js:112 (&quot;sliding-window scrubber&quot;) to describe the current central redaction boundary.
+
+Run test/runner/command-builder-*.test.js and `npm run check:docs`. If the command-builder pages need a matching change, make it and say so in the handoff.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="C6" data-col="codex" data-wave="2">
+  <header>
+    <span class="badge codex">C6</span>
+    <span class="wave">wave 2</span>
+    <select class="status" aria-label="Status of C6">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Test-coverage sweep for untested modules</h3>
+  <dl>
+    <dt>Why</dt><dd>Ten modules have no test that requires them directly. Exhausting a matrix of branches is exactly what Codex is for.</dd>
+    <dt>Files</dt><dd><code>new tests only under test/runner/ and starlark-host/test/</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Codex branch. Tests only; a source edit is allowed only as a separate commit if a test exposes a real bug.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Work only in /Users/alanman/Developer/claude-local-bridge-playground. Read AGENTS.md, docs/working-with-alan.md, and docs/agent-user-autonomy-boundary-2026-08-11.md first. Run the AGENTS.md startup preflight, then `git pull --ff-only origin main`, and confirm the tree is clean; if it is dirty, stop and ask me. Create branch `codex/&lt;slug&gt;-2026-10-02` in a fresh git worktree and do all work there.
+
+Hard constraints: never edit src/credentials.js, src/proxy.js, src/server.js, src/interceptors/**, or any *.plist. Never restore --agent, --profile, --list-agents, or --list-profiles. Never quote text from ~/.bridge-runner or any run ledger; aggregates only. No live model calls. No policy or Terms-of-Service commentary. Never kill processes by pattern; port 3773 is my live T3 app.
+
+Before handoff run `npm test`, `npm run lint`, `npm run check:docs`, and `npm run format:check`, and record the baseline you inherited (format:check is already red on three root HANDOFF-*thermo-nuclear*.md files; leave them alone). Fix causes, never gates. Commit in conventional-commit shape, one commit per part, push only your branch, and open a pull request against main with the raw check output in the body. Write HANDOFF-&lt;slug&gt;-2026-10-02.md at the repo root with: folder, branch, files changed, checks run, checks skipped, risks and next steps. Do not merge. If anything is ambiguous, ask me instead of guessing.
+
+Slug: coverage-sweep.
+
+Write focused unit tests (node:test, run with `node --require ./test/setup.js --test`) for these modules, which currently have no direct test:
+- src/runner/background-shell.js
+- src/runner/event-bus.js
+- src/runner/archive/index.js
+- src/runner/archive/session-rollup.js
+- src/runner/tools/git-status.js
+- src/runner/tools/list-worktrees.js
+- src/runner/acp/ndjson.js
+- src/runner/acp/connection.js
+- starlark-host/src/documents.js
+- starlark-host/src/run-abort.js
+
+For each module: read it, list its exported functions and the branches inside them, and write one test per branch including error paths. Use temp directories for anything touching disk. Never spawn a real shell unless the module's purpose is spawning; then use `echo`. For git-based tools, build a throwaway git repo in a temp dir.
+
+If a test reveals a real bug, do not fix it inline. Write the test to assert current behavior with a comment that names the suspected bug, keep the suite skip-free, and list the bug in the handoff under risks. Tests only; no source changes unless I say so.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="C7" data-col="codex" data-wave="3">
+  <header>
+    <span class="badge codex">C7</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of C7">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Secret-scrub pattern expansion (SEC-02 / HE-08b(a))</h3>
+  <dl>
+    <dt>Why</dt><dd>`scrubSecrets` misses GitHub fine-grained tokens, OpenAI project keys, Slack tokens, and several PRIVATE KEY header variants, including when a PEM block is split across streamed chunks.</dd>
+    <dt>Files</dt><dd><code>src/runner/safety.js (patterns around lines 197-210, streaming parser around line 502), a new or extended redaction test, docs/threat-model.md (one dated line)</code></dd>
+    <dt>Depends on</dt><dd>Nothing. Safety boundary: needs an independent review (Opus card O5) before merge.</dd>
+    <dt>Lane</dt><dd>Codex branch. Run before C8 (same file).</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Work only in /Users/alanman/Developer/claude-local-bridge-playground. Read AGENTS.md, docs/working-with-alan.md, and docs/agent-user-autonomy-boundary-2026-08-11.md first. Run the AGENTS.md startup preflight, then `git pull --ff-only origin main`, and confirm the tree is clean; if it is dirty, stop and ask me. Create branch `codex/&lt;slug&gt;-2026-10-02` in a fresh git worktree and do all work there.
+
+Hard constraints: never edit src/credentials.js, src/proxy.js, src/server.js, src/interceptors/**, or any *.plist. Never restore --agent, --profile, --list-agents, or --list-profiles. Never quote text from ~/.bridge-runner or any run ledger; aggregates only. No live model calls. No policy or Terms-of-Service commentary. Never kill processes by pattern; port 3773 is my live T3 app.
+
+Before handoff run `npm test`, `npm run lint`, `npm run check:docs`, and `npm run format:check`, and record the baseline you inherited (format:check is already red on three root HANDOFF-*thermo-nuclear*.md files; leave them alone). Fix causes, never gates. Commit in conventional-commit shape, one commit per part, push only your branch, and open a pull request against main with the raw check output in the body. Write HANDOFF-&lt;slug&gt;-2026-10-02.md at the repo root with: folder, branch, files changed, checks run, checks skipped, risks and next steps. Do not merge. If anything is ambiguous, ask me instead of guessing.
+
+Slug: secret-scrub-sec-02.
+
+Read SECURITY.md and docs/threat-model.md first; this is a safety-boundary change and will get an independent review before merge.
+
+In src/runner/safety.js extend the secret patterns so `scrubSecrets` and the streaming scrubber cover:
+- GitHub fine-grained tokens: `github_pat_`
+- GitHub app and server tokens: `ghs_`, `ghu_`, `ghr_`
+- OpenAI project keys: `sk-proj-`
+- Slack tokens: `xoxb-`, `xoxp-`, `xoxa-`, `xoxr-`
+- PEM blocks matching `-----BEGIN (ENCRYPTED |EC |RSA |OPENSSH |DSA )?PRIVATE KEY-----`, including when the header or body is split across streamed chunks (see the streaming parser near line 502).
+
+Add a table-driven test with at least three positive and three negative examples per pattern, using obviously fake values (for example `github_pat_FAKE000...`). Add a chunk-split test for the PEM case that feeds the block in three pieces. Confirm test/runner/p0-11-redaction-boundary.test.js and the rest of the suite still pass.
+
+Add one dated line to the pattern list in docs/threat-model.md. Do not change deny-list or path-confinement logic.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="C8" data-col="codex" data-wave="3">
+  <header>
+    <span class="badge codex">C8</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of C8">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Rescue the code half of PR #26 (HS-01 case-variant key filenames)</h3>
+  <dl>
+    <dt>Why</dt><dd>PR #26 has a still-valid safety fix buried under doc rewrites that main has since superseded. SECURITY.md and the one `todo` left in the test suite still list HS-01 as open.</dd>
+    <dt>Files</dt><dd><code>src/runner/safety.js (around lines 114-115), src/runner/shell-policy.js, test/runner/false-green-deny-matrix.test.js, scripts/mutation-check.js, one dated line each in SECURITY.md and docs/threat-model.md</code></dd>
+    <dt>Depends on</dt><dd>C7 merged first (same file). Safety boundary: needs an O5-style review before merge.</dd>
+    <dt>Lane</dt><dd>Codex branch.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Work only in /Users/alanman/Developer/claude-local-bridge-playground. Read AGENTS.md, docs/working-with-alan.md, and docs/agent-user-autonomy-boundary-2026-08-11.md first. Run the AGENTS.md startup preflight, then `git pull --ff-only origin main`, and confirm the tree is clean; if it is dirty, stop and ask me. Create branch `codex/&lt;slug&gt;-2026-10-02` in a fresh git worktree and do all work there.
+
+Hard constraints: never edit src/credentials.js, src/proxy.js, src/server.js, src/interceptors/**, or any *.plist. Never restore --agent, --profile, --list-agents, or --list-profiles. Never quote text from ~/.bridge-runner or any run ledger; aggregates only. No live model calls. No policy or Terms-of-Service commentary. Never kill processes by pattern; port 3773 is my live T3 app.
+
+Before handoff run `npm test`, `npm run lint`, `npm run check:docs`, and `npm run format:check`, and record the baseline you inherited (format:check is already red on three root HANDOFF-*thermo-nuclear*.md files; leave them alone). Fix causes, never gates. Commit in conventional-commit shape, one commit per part, push only your branch, and open a pull request against main with the raw check output in the body. Write HANDOFF-&lt;slug&gt;-2026-10-02.md at the repo root with: folder, branch, files changed, checks run, checks skipped, risks and next steps. Do not merge. If anything is ambiguous, ask me instead of guessing.
+
+Slug: hs01-rescue.
+
+Pull request #26 (branch codex/hs01-charter-roadmap-refresh, single commit 2f1cc67, 2026-08-30) mixes a valid HS-01 fix with rewrites of AGENTS.md, CLAUDE.md, SECURITY.md, the charter, the template, and the roadmap that main has since superseded.
+
+Cherry-pick only the code and test files from 2f1cc67 onto your new branch: src/runner/safety.js, src/runner/shell-policy.js, test/runner/false-green-deny-matrix.test.js, scripts/mutation-check.js. Resolve conflicts against current main (shell-policy.js has changed since the fork point 915ea89). Drop every documentation file from that commit.
+
+Turn the suite's remaining `todo` into a passing test. Remove the `t.skip` at test/runner/false-green-deny-matrix.test.js:176 if the case-insensitive path is now reachable on this macOS filesystem; if it is not, explain why in the handoff.
+
+Add one dated line to SECURITY.md and to docs/threat-model.md saying HS-01 is fixed by this pull request; do not rewrite surrounding text. In the pull request body state that #26 can be closed once this merges. Do not close #26 yourself.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="C9" data-col="codex" data-wave="3">
+  <header>
+    <span class="badge codex">C9</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of C9">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Stage the unmerged Starlark resume branch for review</h3>
+  <dl>
+    <dt>Why</dt><dd>Branch codex/starlark-resume-2020-2026-09-26 is three commits ahead of main with Low #5-#8 done, but it has no pull request, so nobody can review or merge it.</dd>
+    <dt>Files</dt><dd><code>starlark-host/** only (the 14 files already on the branch), plus the handoff</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Codex, existing branch and worktree, rebased.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Work only in /Users/alanman/Developer/claude-local-bridge-playground. Read AGENTS.md, docs/working-with-alan.md, and docs/agent-user-autonomy-boundary-2026-08-11.md first. Run the AGENTS.md startup preflight, then `git pull --ff-only origin main`, and confirm the tree is clean; if it is dirty, stop and ask me. Create branch `codex/&lt;slug&gt;-2026-10-02` in a fresh git worktree and do all work there.
+
+Hard constraints: never edit src/credentials.js, src/proxy.js, src/server.js, src/interceptors/**, or any *.plist. Never restore --agent, --profile, --list-agents, or --list-profiles. Never quote text from ~/.bridge-runner or any run ledger; aggregates only. No live model calls. No policy or Terms-of-Service commentary. Never kill processes by pattern; port 3773 is my live T3 app.
+
+Before handoff run `npm test`, `npm run lint`, `npm run check:docs`, and `npm run format:check`, and record the baseline you inherited (format:check is already red on three root HANDOFF-*thermo-nuclear*.md files; leave them alone). Fix causes, never gates. Commit in conventional-commit shape, one commit per part, push only your branch, and open a pull request against main with the raw check output in the body. Write HANDOFF-&lt;slug&gt;-2026-10-02.md at the repo root with: folder, branch, files changed, checks run, checks skipped, risks and next steps. Do not merge. If anything is ambiguous, ask me instead of guessing.
+
+Slug: starlark-resume-pr.
+
+Exception to the preamble: do not create a new branch. Use the existing worktree at /Users/alanman/Developer/claude-local-bridge-starlark-resume-2020-2026-09-26 on branch codex/starlark-resume-2020-2026-09-26.
+
+Rebase the branch onto current origin/main. Resolve conflicts and keep the three commits (da42e7a, cb5f6d0, 2596b2c) separate. Build the evaluator with `npm --prefix starlark-host run build:evaluator` (Go 1.26 is on PATH via Homebrew) and run `npm run test:starlark` so the suite runs with zero skips. Run the suite three times in a row and report any flake with the failing test name; the 09-26 handoff saw 4-of-9 flaky runs under load and port reuse is the first suspect.
+
+Open a pull request titled &quot;starlark: close Low #5-#8 (resume, abort boundaries)&quot;. The body lists each Low with the file and commit that closes it and links HANDOFF-starlark-lows-review-2026-09-26.md and HANDOFF-starlark-laptop-transfer-2026-09-26.md (Low #8 = option 2, already chosen).
+
+Mock mode only; `--mode live` is forbidden and no campaign ledger may be created. Write the handoff.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="C10" data-col="codex" data-wave="3">
+  <header>
+    <span class="badge codex">C10</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of C10">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Coordinator verdict and claim filtering (APR-P1-3, APR-P1-4)</h3>
+  <dl>
+    <dt>Why</dt><dd>The coordinator always emits &quot;completed&quot; after the verify phase and lets failed workers’ claims feed the spec. Both are prerequisites for Fable card F8 (the audit rule).</dd>
+    <dt>Files</dt><dd><code>src/runner/coordinator.js (around line 447), src/runner/coordinator-spec-compiler.js (around lines 32-33), tests</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Codex branch.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Work only in /Users/alanman/Developer/claude-local-bridge-playground. Read AGENTS.md, docs/working-with-alan.md, and docs/agent-user-autonomy-boundary-2026-08-11.md first. Run the AGENTS.md startup preflight, then `git pull --ff-only origin main`, and confirm the tree is clean; if it is dirty, stop and ask me. Create branch `codex/&lt;slug&gt;-2026-10-02` in a fresh git worktree and do all work there.
+
+Hard constraints: never edit src/credentials.js, src/proxy.js, src/server.js, src/interceptors/**, or any *.plist. Never restore --agent, --profile, --list-agents, or --list-profiles. Never quote text from ~/.bridge-runner or any run ledger; aggregates only. No live model calls. No policy or Terms-of-Service commentary. Never kill processes by pattern; port 3773 is my live T3 app.
+
+Before handoff run `npm test`, `npm run lint`, `npm run check:docs`, and `npm run format:check`, and record the baseline you inherited (format:check is already red on three root HANDOFF-*thermo-nuclear*.md files; leave them alone). Fix causes, never gates. Commit in conventional-commit shape, one commit per part, push only your branch, and open a pull request against main with the raw check output in the body. Write HANDOFF-&lt;slug&gt;-2026-10-02.md at the repo root with: folder, branch, files changed, checks run, checks skipped, risks and next steps. Do not merge. If anything is ambiguous, ask me instead of guessing.
+
+Slug: coordinator-verdict.
+
+Sources: review items APR-P1-3 and APR-P1-4 as summarized in docs/claude-deliverables-for-alan-nsfw-fable-5-1/status-and-roadmap-update-checks/HANDOFF-fable-status-audit-2026-09-30.md, plus docs/ARCHITECTURE.md for the phase model.
+
+Part 1 (APR-P1-3): in src/runner/coordinator.js replace the unconditional &quot;completed&quot; after the verify phase with a typed verdict, one of `completed`, `completed_with_findings`, `failed_verification`, derived from the verify worker's structured result. Emit the verdict in the ledger and in the final summary. Test all three outcomes with scripted workers.
+
+Part 2 (APR-P1-4): in src/runner/coordinator-spec-compiler.js filter worker claims to accepted terminal states only, so a failed or aborted worker's claims never enter the compiled spec. Test with a fixture mixing accepted, failed, and aborted workers.
+
+Keep `--chaos` behavior unchanged. Run test/runner/coordinator*.test.js first, then the full gates.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+</section>
+
+<section class="col" id="col-fable">
+  <h2><span class="badge fable">Fable (Claude Code in T3 Code)</span></h2>
+  <p class="blurb">Explores, builds first slices, writes execution briefs, frames decisions. Holds the code baton while a card runs.<br><strong>Paste into:</strong> T3 Code, model Fable 5.1.</p>
+  <details class="preamble"><summary>Shared preamble every Fable prompt begins with</summary><pre>Fable, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me who you think is mid-flight. You hold the code baton for this card: no other Claude thread is editing src/, bin/, or test/ while it runs. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Run the four checks before handoff and report their real output. Commit on local main; do not push unless I say so in the same turn.</pre></details>
+  
+<article class="card" data-id="F1" data-col="fable" data-wave="1">
+  <header>
+    <span class="badge fable">F1</span>
+    <span class="wave">wave 1</span>
+    <select class="status" aria-label="Status of F1">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>First slice of --verify-finish (programmatic-tooling idea 3)</h3>
+  <dl>
+    <dt>Why</dt><dd>The §6 sequence is complete and this is the recommended next slice: one structured model turn that asks whether the final answer is complete and consistent before the runner accepts it.</dd>
+    <dt>Files</dt><dd><code>src/runner/run.js (finish path), new src/runner/verify-finish.js, bin/local-bridge-runner.js (flag), test/runner/verify-finish.test.js, command-builder pages, README, quickstart, manifest</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Fable, code baton.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Fable, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me who you think is mid-flight. You hold the code baton for this card: no other Claude thread is editing src/, bin/, or test/ while it runs. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Run the four checks before handoff and report their real output. Commit on local main; do not push unless I say so in the same turn.
+
+Build the first slice of idea 3 from docs/programmatic-tooling-research-review-2026-08-31.html: an opt-in `--verify-finish` flag.
+
+When the flag is set and the model returns a final text answer, make exactly one extra model turn with a fixed structured prompt (no tools offered) asking for `{complete: boolean, inconsistent: boolean, reason: string}`. If `complete &amp;&amp; !inconsistent`, stop as normal. Otherwise inject one CONTINUE user turn containing the reason and let the loop run again, at most once per run, then accept whatever comes next. When the flag is off, nothing changes, including the default prompt.
+
+Tests: deterministic scripted-model tests only, following the monkey-patch pattern in src/runner/golden-eval.js (replace modelClient.post / postStream). Cover: accepted first try, one continue then accepted, continue budget exhausted, flag off.
+
+Docs: update docs/command-builder.html, docs/command-builder-v2.html, README.md, docs/runner-quickstart.html, and the runner manifest so `npm run check:docs` and test/runner/command-builder-*.test.js pass. Explain each design choice in beginner-friendly comments.
+
+Commit on local main and write HANDOFF-verify-finish-2026-10-02.md at the repo root. Do not push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="F2" data-col="fable" data-wave="2">
+  <header>
+    <span class="badge fable">F2</span>
+    <span class="wave">wave 2</span>
+    <select class="status" aria-label="Status of F2">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Name and write the missing HE-06 golden cases (9 to 15)</h3>
+  <dl>
+    <dt>Why</dt><dd>The corpus target is about 15 cases, but no document names the missing six, so Codex cannot be briefed. Designing them is Fable work; writing most of them is Codex work.</dd>
+    <dt>Files</dt><dd><code>test/runner/golden/*.json (two new), a case-list note under docs/claude-deliverables-for-alan-nsfw-fable-5-1/, CODEX-TASK-he06-cases-2026-10-02.md</code></dd>
+    <dt>Depends on</dt><dd>C1 merged, so new cases are scored honestly.</dd>
+    <dt>Lane</dt><dd>Fable.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Fable, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me who you think is mid-flight. You hold the code baton for this card: no other Claude thread is editing src/, bin/, or test/ while it runs. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Run the four checks before handoff and report their real output. Commit on local main; do not push unless I say so in the same turn.
+
+Read the HE-06 section of docs/harness-engineering-runner-runtime-review-2026-07-28.html and the nine cases in test/runner/golden/ (seven he06-*.json plus plan-mode-write-blocked.json and read-list-then-answer.json).
+
+Propose six new terminal-state checklist cases covering failure classes the nine do not. Candidates: shell denied under `--dont-ask` without `--allow-shell`; write refused through a symlink; budget stop in the middle of a tool loop; resume after the SIGTERM finalizer; history group not offered, so no recover marker appears; plan-mode proposal accepted path. Replace any candidate that the existing nine already cover.
+
+Write a one-page case list at docs/claude-deliverables-for-alan-nsfw-fable-5-1/he06-case-list-2026-10-02.md with, for each case, the scenario, the terminal-state predicate it asserts, and why the current nine miss it. Then implement the two you judge most valuable as golden JSON cases and run `npm run runner:eval` (expect 11 of 11). Leave the other four as a ready-to-paste Codex brief at CODEX-TASK-he06-cases-2026-10-02.md built from docs/templates/CODEX-TASK-template.md.
+
+Commit, write HANDOFF-he06-cases-2026-10-02.md, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="F3" data-col="fable" data-wave="3">
+  <header>
+    <span class="badge fable">F3</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of F3">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Budget broker: cache tokens and dollar metering (A3-F4 / N-3)</h3>
+  <dl>
+    <dt>Why</dt><dd>The budget cap ignores cache tokens, so real spend can exceed the ceiling. Alan needs the telemetry-versus-safety classification argued before anyone edits it.</dd>
+    <dt>Files</dt><dd><code>src/runner/budget-broker.js, src/runner/model-pricing.js, tests, docs/threat-model.md only if classified as a safety bug</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Fable, code baton.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Fable, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me who you think is mid-flight. You hold the code baton for this card: no other Claude thread is editing src/, bin/, or test/ while it runs. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Run the four checks before handoff and report their real output. Commit on local main; do not push unless I say so in the same turn.
+
+Investigate A3-F4 (also called N-3): src/runner/budget-broker.js meters tokens without counting cache reads and cache writes, while src/runner/model-pricing.js already knows per-model prices for every token class.
+
+First write a half-page classification for me in plain language: is this a telemetry inaccuracy or a safety-ceiling bug? Include one concrete worked example of a run that exceeds `--max-cost-usd` today, with the numbers. Put it at docs/claude-deliverables-for-alan-nsfw-fable-5-1/a3-f4-budget-classification-2026-10-02.md.
+
+Then implement the fix you recommend behind no new flag: meter dollars using model-pricing.js including cache token classes, keep the existing token counters for display, and add tests showing the cap now trips where it used to leak. Update docs/threat-model.md only if you classified it as a safety bug.
+
+Commit, write HANDOFF-budget-broker-2026-10-02.md, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="F4" data-col="fable" data-wave="1">
+  <header>
+    <span class="badge fable">F4</span>
+    <span class="wave">wave 1</span>
+    <select class="status" aria-label="Status of F4">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Decision memo: kernel direction (HE-03) and coordinator status (HE-09)</h3>
+  <dl>
+    <dt>Why</dt><dd>Both block other work and both are Alan’s call. Fable frames the options with pros and cons; nobody codes until Alan decides.</dd>
+    <dt>Files</dt><dd><code>docs/claude-deliverables-for-alan-nsfw-fable-5-1/decision-memo-kernel-and-coordinator-2026-10-02.html only</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Fable, docs only. Can overlap any Codex card.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Fable, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me who you think is mid-flight. You hold the code baton for this card: no other Claude thread is editing src/, bin/, or test/ while it runs. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Run the four checks before handoff and report their real output. Commit on local main; do not push unless I say so in the same turn.
+
+Write docs/claude-deliverables-for-alan-nsfw-fable-5-1/decision-memo-kernel-and-coordinator-2026-10-02.html for a non-programmer. No code changes.
+
+Part 1 (HE-03): read src/runner/agent-kernel.js, src/runner/kernel/contract.js (around line 164), bin/local-bridge-runner.js, and the 07-28 review's claim that the kernel abstraction is inverted. Explain in plain words what a &quot;kernel&quot; is here and why the review says it is inside out. Show the Val-Q4 problem (options dropped on the coordinator path) with a two-line code trace. Give me three options: keep and document, invert properly, remove. For each: cost in rough hours, risk, and what it unblocks.
+
+Part 2 (HE-09): promote the coordinator to a supported surface or mark it experimental. Same format: what it is, three options, cost, risk, unblocks.
+
+End with your recommendation for each and the exact one-line decision I need to type back to you. Commit only that file, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="F5" data-col="fable" data-wave="3">
+  <header>
+    <span class="badge fable">F5</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of F5">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Idea 12 counters (after C2’s helper lands)</h3>
+  <dl>
+    <dt>Why</dt><dd>Three cheap observability counters the research review named: primitive versus model-visible tool counts, model calls per task, stated sub-goal per tool call.</dd>
+    <dt>Files</dt><dd><code>src/runner/context-projection.js (uses appendTailNotes), src/runner/run.js summary, transcript writer, tests</code></dd>
+    <dt>Depends on</dt><dd>C2 merged.</dd>
+    <dt>Lane</dt><dd>Fable, code baton.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Fable, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me who you think is mid-flight. You hold the code baton for this card: no other Claude thread is editing src/, bin/, or test/ while it runs. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Run the four checks before handoff and report their real output. Commit on local main; do not push unless I say so in the same turn.
+
+Implement idea 12 from docs/programmatic-tooling-research-review-2026-08-31.html now that `appendTailNotes` exists in src/runner/context-projection.js (landed by Codex card C2).
+
+Counters: (a) primitive tool executions versus model-visible tool_use blocks, (b) model calls per task, (c) the model's stated sub-goal per tool call when a `goal` field or a first sentence is present. Surface all three in the end-of-run summary and the JSON output, passed through the central redaction boundary like everything else. No new flag.
+
+Tests for each counter with scripted models, following the pattern in src/runner/golden-eval.js. Commit, write HANDOFF-idea12-counters-2026-10-02.md, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="F6" data-col="fable" data-wave="3">
+  <header>
+    <span class="badge fable">F6</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of F6">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Probe APR-P1-1: runner-made worktrees blocked by the deny list</h3>
+  <dl>
+    <dt>Why</dt><dd>Two safety features conflict: worktree-utils creates worktrees under ~/.bridge-runner and the deny matrix blocks that path. It needs a careful probe, not a blind deny-list edit.</dd>
+    <dt>Files</dt><dd><code>read src/runner/worktree-utils.js and src/runner/safety.js; a probe test; a finding memo; code change only if the fix is confined</code></dd>
+    <dt>Depends on</dt><dd>C7 and C8 merged (both edit safety.js).</dd>
+    <dt>Lane</dt><dd>Fable.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Fable, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me who you think is mid-flight. You hold the code baton for this card: no other Claude thread is editing src/, bin/, or test/ while it runs. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Run the four checks before handoff and report their real output. Commit on local main; do not push unless I say so in the same turn.
+
+Reproduce APR-P1-1 with a model-free test: create a runner worktree via src/runner/worktree-utils.js under a temporary HOME and show which gate in src/runner/safety.js denies a `read_file` inside it.
+
+Write the finding at docs/claude-deliverables-for-alan-nsfw-fable-5-1/apr-p1-1-worktree-deny-probe-2026-10-02.md with the exact deny rule and three options: allow-list the runner's own worktree root, move worktrees outside ~/.bridge-runner, or document the block as intended. Pros and cons for each, in plain words.
+
+If the first option is a confined, target-aware change to `resolveFileTarget`, implement it with tests and update docs/threat-model.md with a dated line. Otherwise stop at the memo and ask me. Commit, write HANDOFF-apr-p1-1-2026-10-02.md, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="F7" data-col="fable" data-wave="3">
+  <header>
+    <span class="badge fable">F7</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of F7">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Shell-filter canonicalization with a model-free harness (FD-11)</h3>
+  <dl>
+    <dt>Why</dt><dd>The shell policy uses substring matching. The backlog calls for canonicalizing the filter and testing it without a model. Fable builds the harness and first rules; Codex later exhausts the matrix.</dd>
+    <dt>Files</dt><dd><code>src/runner/shell-policy.js, new test/runner/shell-policy-harness.test.js, CODEX-TASK-shell-policy-matrix-2026-10-02.md</code></dd>
+    <dt>Depends on</dt><dd>C8 merged (touches shell-policy.js).</dd>
+    <dt>Lane</dt><dd>Fable, code baton.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Fable, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me who you think is mid-flight. You hold the code baton for this card: no other Claude thread is editing src/, bin/, or test/ while it runs. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Run the four checks before handoff and report their real output. Commit on local main; do not push unless I say so in the same turn.
+
+FD-11 from docs/HANDOFF-safari-future-directions-2026-07-22.md.
+
+Build a model-free harness at test/runner/shell-policy-harness.test.js that feeds candidate shell commands through src/runner/shell-policy.js and asserts allow, ask, or deny. Then canonicalize the filter: tokenize with a small shell-word splitter, resolve the first word, and match on tokens rather than substrings, keeping every currently denied example denied (prove it by running the old denied list through the new filter).
+
+Add 30 table-driven cases including quoting, `;`, `&amp;&amp;`, `|`, environment prefixes like `FOO=1 cmd`, and `$(...)`. Shell stays hidden unless `--allow-shell`; `--dont-ask` must still not enable it.
+
+Write a Codex brief for the exhaustive matrix at CODEX-TASK-shell-policy-matrix-2026-10-02.md from docs/templates/CODEX-TASK-template.md. Commit, write HANDOFF-shell-policy-2026-10-02.md, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="F8" data-col="fable" data-wave="3">
+  <header>
+    <span class="badge fable">F8</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of F8">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>First slice of the audit rule (idea 1) on top of C10’s typed verdict</h3>
+  <dl>
+    <dt>Why</dt><dd>The coordinator’s verify phase becomes a read-only auditor that never sees the worker transcript; any mutation voids the audit; claims never flip task state.</dd>
+    <dt>Files</dt><dd><code>src/runner/coordinator.js, src/runner/coordinator-spec-compiler.js, tests, docs/ARCHITECTURE.md (dated section)</code></dd>
+    <dt>Depends on</dt><dd>C10 merged.</dd>
+    <dt>Lane</dt><dd>Fable, code baton.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Fable, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me who you think is mid-flight. You hold the code baton for this card: no other Claude thread is editing src/, bin/, or test/ while it runs. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Run the four checks before handoff and report their real output. Commit on local main; do not push unless I say so in the same turn.
+
+Implement idea 1 from docs/programmatic-tooling-research-review-2026-08-31.html as a first slice, on top of the typed verdict Codex landed in card C10.
+
+The coordinator's verify worker receives only the task spec, the diff, and the file tree, never the worker transcript. It runs with write and shell tools hidden. If it attempts any write or shell tool anyway, the verdict becomes `audit_voided`. Auditor claims are recorded but never change a task's state; only the typed verdict does.
+
+Scripted-model tests for the three outcomes: clean audit, audit with findings, audit voided. Add a dated section to docs/ARCHITECTURE.md describing the auditor boundary. Commit, write HANDOFF-audit-rule-2026-10-02.md, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="F9" data-col="fable" data-wave="3">
+  <header>
+    <span class="badge fable">F9</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of F9">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Write the run.js extraction brief (HE-04); do not execute it</h3>
+  <dl>
+    <dt>Why</dt><dd>src/runner/run.js is about 1,978 lines. Extraction is risky and needs a careful, ordered brief before anyone touches it.</dd>
+    <dt>Files</dt><dd><code>CODEX-TASK-run-js-extraction-2026-10-02.md only</code></dd>
+    <dt>Depends on</dt><dd>C2 and F1 merged (both touch run.js).</dd>
+    <dt>Lane</dt><dd>Fable, docs only.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Fable, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me who you think is mid-flight. You hold the code baton for this card: no other Claude thread is editing src/, bin/, or test/ while it runs. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Run the four checks before handoff and report their real output. Commit on local main; do not push unless I say so in the same turn.
+
+Read src/runner/run.js end to end. Write a Codex brief at CODEX-TASK-run-js-extraction-2026-10-02.md from docs/templates/CODEX-TASK-template.md that extracts it into at most four modules. Candidates: finish and termination handling, tool-loop dispatch, resume and finalizers, summary and output.
+
+The brief must have strictly ordered parts. For each part: the exact functions to move, the tests that must stay green after that part, the command to prove it (`node --require ./test/setup.js --test test/runner/*.test.js` plus scripts/mutation-check.js), and a &quot;stop if&quot; condition. Name what must not change: the SIGTERM finalizer, the central redaction boundary, the permission gate order.
+
+No code changes; brief only. Commit, write HANDOFF-run-js-brief-2026-10-02.md, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="F10" data-col="fable" data-wave="2">
+  <header>
+    <span class="badge fable">F10</span>
+    <span class="wave">wave 2</span>
+    <select class="status" aria-label="Status of F10">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Keep this board current (recurring)</h3>
+  <dl>
+    <dt>Why</dt><dd>The board rots like every status document. A five-minute refresh after each wave keeps it honest.</dd>
+    <dt>Files</dt><dd><code>docs/claude-deliverables-for-alan-nsfw-fable-5-1/what-next-board-2026-10-02/index.html and prompts.md only</code></dd>
+    <dt>Depends on</dt><dd>At least one wave merged.</dd>
+    <dt>Lane</dt><dd>Fable, docs only.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Fable, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me who you think is mid-flight. You hold the code baton for this card: no other Claude thread is editing src/, bin/, or test/ while it runs. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Run the four checks before handoff and report their real output. Commit on local main; do not push unless I say so in the same turn.
+
+Refresh docs/claude-deliverables-for-alan-nsfw-fable-5-1/what-next-board-2026-10-02/index.html and prompts.md.
+
+Run `gh pr list --state all --limit 30`, `git log --oneline -30`, and the four checks. For every card, set the printed status to merged, open (with the pull request number), blocked (with what it waits on), or not started, and add the date. Add any new residual that the merged pull requests' handoffs name as a new card at the bottom of the right column. Remove nothing. Keep the HTML self-contained.
+
+Commit with `docs: what-next board refresh &lt;date&gt;`. No push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+</section>
+
+<section class="col" id="col-opus">
+  <h2><span class="badge opus">Claude Opus 5.5 (T3 Code)</span></h2>
+  <p class="blurb">Independent reviews of Codex work, Alan-facing learning docs, prototypes, isolated builds. Writes into its own folder unless a card says otherwise.<br><strong>Paste into:</strong> T3 Code, model Claude Opus 5.5.</p>
+  <details class="preamble"><summary>Shared preamble every Claude prompt begins with</summary><pre>Opus, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me. Unless this card says otherwise, write only inside docs/claude-deliverables-for-alan-nsfw-opus-5-5/ and commit only that path (`git add` the folder, never `-A`), because another Claude thread may hold the code baton. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Explain terms on first use; I am a beginner. Do not push unless I say so in the same turn.</pre></details>
+  
+<article class="card" data-id="O1" data-col="opus" data-wave="1">
+  <header>
+    <span class="badge opus">O1</span>
+    <span class="wave">wave 1</span>
+    <select class="status" aria-label="Status of O1">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Independent review: PR #30 and the Starlark resume branch</h3>
+  <dl>
+    <dt>Why</dt><dd>The charter wants landed runner code reviewed by a seat other than its author. Cursor is not in today’s rotation; Opus is a different model from Codex, so it counts.</dd>
+    <dt>Files</dt><dd><code>docs/claude-deliverables-for-alan-nsfw-opus-5-5/review-pr30-and-starlark-resume-2026-10-02.md only</code></dd>
+    <dt>Depends on</dt><dd>Nothing; both review targets already exist.</dd>
+    <dt>Lane</dt><dd>Opus, docs only.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Opus, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me. Unless this card says otherwise, write only inside docs/claude-deliverables-for-alan-nsfw-opus-5-5/ and commit only that path (`git add` the folder, never `-A`), because another Claude thread may hold the code baton. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Explain terms on first use; I am a beginner. Do not push unless I say so in the same turn.
+
+Review two things read-only.
+
+(1) Pull request #30 (`gh pr view 30`, `gh pr diff 30`): does the fingerprint refresh change only the user-agent and x-stainless-package-version values, keep `billingBlock` null, and leave the two unreviewed betas out? Does test/fingerprint-automation.test.js assert exactly that? Is the ledger entry under docs/automation-ledger/fingerprint-checks/ consistent with the diff?
+
+(2) The range 1e06820..da42e7a on branch codex/starlark-resume-2020-2026-09-26 (worktree at /Users/alanman/Developer/claude-local-bridge-starlark-resume-2020-2026-09-26), checked against HANDOFF-starlark-lows-review-2026-09-26.md: is each of Low #5, #6, #7, #8 actually closed by the diff, and does Low #8 follow option 2 as HANDOFF-starlark-laptop-transfer-2026-09-26.md records?
+
+Write docs/claude-deliverables-for-alan-nsfw-opus-5-5/review-pr30-and-starlark-resume-2026-10-02.md with severity-ranked findings, a &quot;not bugs (do not fix)&quot; list, and a merge recommendation for each target. No code edits, no GitHub comments, commit only that folder, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="O2" data-col="opus" data-wave="2">
+  <header>
+    <span class="badge opus">O2</span>
+    <span class="wave">wave 2</span>
+    <select class="status" aria-label="Status of O2">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Documentation drift pass on the shared agent docs (PROC-AGENTSMD)</h3>
+  <dl>
+    <dt>Why</dt><dd>The 09-30 audits list stale lines in CLAUDE.md, AGENTS.md, and docs/threat-model.md. Agents arriving today read them as true.</dd>
+    <dt>Files</dt><dd><code>CLAUDE.md, AGENTS.md, docs/threat-model.md, README.md lines 281-282</code></dd>
+    <dt>Depends on</dt><dd>Nothing, but these are shared files: run only when no Fable code card is live.</dd>
+    <dt>Lane</dt><dd>Opus, shared docs. Alan approves the doc edits by sending this prompt.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Opus, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me. Unless this card says otherwise, write only inside docs/claude-deliverables-for-alan-nsfw-opus-5-5/ and commit only that path (`git add` the folder, never `-A`), because another Claude thread may hold the code baton. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Explain terms on first use; I am a beginner. Do not push unless I say so in the same turn.
+
+Exception to the preamble: Alan authorizes edits to CLAUDE.md, AGENTS.md, docs/threat-model.md, and README.md for this task only, and commits on local main.
+
+Read the stale-line lists in docs/claude-deliverables-for-alan-nsfw-opus-5-5/status-and-roadmap-update-checks/AGENT-HANDOFF-status-audit-2026-09-30.md (section 5) and in the Fable audit at docs/claude-deliverables-for-alan-nsfw-fable-5-1/status-and-roadmap-update-checks/HANDOFF-fable-status-audit-2026-09-30.md. For each stale claim, verify it against current code or git history, then correct it with a dated parenthetical such as &quot;(corrected 2026-10-02)&quot; rather than silently rewriting. Keep the two Learned blocks byte-identical across CLAUDE.md and AGENTS.md. Fix the &quot;shell is off&quot; drift at README.md lines 281-282 to match bin/t3-cursor-shim.sh, which passes `--allow-shell`, and state that the shim choice is Alan's.
+
+Run `npm run check:docs` and `npm run format:check` (three root handoffs are already red; leave them). Commit with `docs: correct stale agent-doc claims (2026-10-02)`. No push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="O3" data-col="opus" data-wave="3">
+  <header>
+    <span class="badge opus">O3</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of O3">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Interactive &quot;how my agent works&quot; learning lab (HTML)</h3>
+  <dl>
+    <dt>Why</dt><dd>Alan learns by doing. A stepper that walks one request through runner, bridge, model, tool, permission prompt, and error, using the real file names, is the teaching artifact this repo lacks.</dd>
+    <dt>Files</dt><dd><code>docs/claude-deliverables-for-alan-nsfw-opus-5-5/agent-learning-lab-2026-10-02/index.html</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Opus, docs only.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Opus, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me. Unless this card says otherwise, write only inside docs/claude-deliverables-for-alan-nsfw-opus-5-5/ and commit only that path (`git add` the folder, never `-A`), because another Claude thread may hold the code baton. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Explain terms on first use; I am a beginner. Do not push unless I say so in the same turn.
+
+Build a single self-contained HTML page (no build step, no external scripts or fonts) at docs/claude-deliverables-for-alan-nsfw-opus-5-5/agent-learning-lab-2026-10-02/index.html.
+
+It lets a non-programmer step through one runner request: the prompt, the `POST /v1/messages` call to the local bridge, the model response containing a `tool_use` block, the permission gate (src/runner/permissions.js and `resolveFileTarget` in src/runner/safety.js), the local tool execution, the `tool_result`, the next model turn, and the finish.
+
+Each step shows a plain-language card and the real file and function names from the code; read them, do not guess. Add a &quot;what if&quot; toggle per step for: permission denied, path escape attempt, budget stop, SIGTERM during a tool. Use the real tool list from src/runner/tool-catalog.js and the real capability groups. Define every term on first use. Commit only that folder, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="O4" data-col="opus" data-wave="3">
+  <header>
+    <span class="badge opus">O4</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of O4">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Visual &quot;which folder and branch am I in?&quot; map</h3>
+  <dl>
+    <dt>Why</dt><dd>Seven worktrees and eight codex/* branches exist on this machine. A current map explains many of Alan’s collisions.</dd>
+    <dt>Files</dt><dd><code>docs/claude-deliverables-for-alan-nsfw-opus-5-5/folder-and-branch-map-2026-10-02/index.html</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Opus, docs only.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Opus, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me. Unless this card says otherwise, write only inside docs/claude-deliverables-for-alan-nsfw-opus-5-5/ and commit only that path (`git add` the folder, never `-A`), because another Claude thread may hold the code baton. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Explain terms on first use; I am a beginner. Do not push unless I say so in the same turn.
+
+Run read-only: `git worktree list`, `git branch -a --format='%(refname:short) %(upstream:track) %(committerdate:short)'`, `gh pr list --state all --limit 40`, and `ls ~/Developer`.
+
+Build one self-contained HTML page at docs/claude-deliverables-for-alan-nsfw-opus-5-5/folder-and-branch-map-2026-10-02/index.html for a beginner. Explain what a clone, a worktree, a branch, and a pull request each are, one sentence each, with a small inline SVG drawing. Then list every worktree on this machine with its path, branch, last commit date, and whether the branch is merged, has an open pull request, or has unmerged commits and no pull request. Say which app usually touches each one (Terminal, T3 Code, the Codex app, Cursor, or GitHub in the browser). Add a &quot;safe to delete?&quot; column that says &quot;ask Alan&quot; for anything with unmerged commits.
+
+Do not delete, prune, or check out anything. Commit only that folder, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="O5" data-col="opus" data-wave="2">
+  <header>
+    <span class="badge opus">O5</span>
+    <span class="wave">wave 2</span>
+    <select class="status" aria-label="Status of O5">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Review each Codex pull request as it lands (fill in the number)</h3>
+  <dl>
+    <dt>Why</dt><dd>The charter’s rule: landed runner code gets at least one invariant review. Use this once per Codex pull request, starting with C1, C2, C3.</dd>
+    <dt>Files</dt><dd><code>docs/claude-deliverables-for-alan-nsfw-opus-5-5/review-pr-NN-2026-10-02.md, one per pull request</code></dd>
+    <dt>Depends on</dt><dd>The pull request exists.</dd>
+    <dt>Lane</dt><dd>Opus, docs only.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Opus, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me. Unless this card says otherwise, write only inside docs/claude-deliverables-for-alan-nsfw-opus-5-5/ and commit only that path (`git add` the folder, never `-A`), because another Claude thread may hold the code baton. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Explain terms on first use; I am a beginner. Do not push unless I say so in the same turn.
+
+Review pull request #NN read-only (`gh pr view NN`, `gh pr diff NN`, `gh pr checks NN`). Replace NN with the number I give you.
+
+Check it against the source handoff the pull request cites; the safety invariants in CLAUDE.md and SECURITY.md (no bridge-file edits, redaction intact, deny matrix untouched unless the pull request says so, no retired flags); test honesty (do the tests assert the behavior the pull request claims, or merely current behavior, and would they fail if the change were reverted); and scope creep beyond the card.
+
+Write docs/claude-deliverables-for-alan-nsfw-opus-5-5/review-pr-NN-2026-10-02.md with severity-ranked findings, a &quot;not bugs (do not fix)&quot; list, and one of: merge, fix first, reject. Do not comment on GitHub, do not edit code, commit only that folder, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="O6" data-col="opus" data-wave="3">
+  <header>
+    <span class="badge opus">O6</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of O6">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Refresh docs/ARCHITECTURE.md (HE-05 docs half)</h3>
+  <dl>
+    <dt>Why</dt><dd>ARCHITECTURE.md has been stale since round 3. The OpenTelemetry half stays parked, but the module map should match the code agents read today.</dd>
+    <dt>Files</dt><dd><code>docs/ARCHITECTURE.md (shared doc; Alan approves by sending)</code></dd>
+    <dt>Depends on</dt><dd>Nothing; shared file, so run between Fable code cards.</dd>
+    <dt>Lane</dt><dd>Opus, shared doc.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Opus, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me. Unless this card says otherwise, write only inside docs/claude-deliverables-for-alan-nsfw-opus-5-5/ and commit only that path (`git add` the folder, never `-A`), because another Claude thread may hold the code baton. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Explain terms on first use; I am a beginner. Do not push unless I say so in the same turn.
+
+Exception to the preamble: Alan authorizes editing docs/ARCHITECTURE.md for this task and committing on local main.
+
+Read docs/ARCHITECTURE.md, then read every module under src/runner/ (file names and top-of-file comments) and bin/local-bridge-runner.js. Rewrite the module map so every listed file exists, every existing runtime module appears with a one-line purpose, and retired concepts (agent profiles, capability profiles) are absent. Add a dated &quot;last verified&quot; line. Add a &quot;built but unwired&quot; subsection naming src/runner/tool-prefetch.js, subprocess-pool.js, streaming-write.js, and workspace-fingerprint.js if grep confirms nothing in src/ or bin/ requires them. Leave the observability section marked parked, with the date.
+
+`npm run check:docs` must pass. Commit with `docs: refresh ARCHITECTURE module map (2026-10-02)`. No push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="O7" data-col="opus" data-wave="1">
+  <header>
+    <span class="badge opus">O7</span>
+    <span class="wave">wave 1</span>
+    <select class="status" aria-label="Status of O7">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Alan’s decision board (all open decisions in one place)</h3>
+  <dl>
+    <dt>Why</dt><dd>At least ten open items are blocked on an Alan decision and scattered across handoffs. One page with options, a recommendation, and a type-this-line answer per item turns them into clicks.</dd>
+    <dt>Files</dt><dd><code>docs/claude-deliverables-for-alan-nsfw-opus-5-5/decision-board-2026-10-02/index.html</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Opus, docs only.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Opus, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me. Unless this card says otherwise, write only inside docs/claude-deliverables-for-alan-nsfw-opus-5-5/ and commit only that path (`git add` the folder, never `-A`), because another Claude thread may hold the code baton. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Explain terms on first use; I am a beginner. Do not push unless I say so in the same turn.
+
+Build a beginner-readable self-contained HTML decision board at docs/claude-deliverables-for-alan-nsfw-opus-5-5/decision-board-2026-10-02/index.html.
+
+Cover these open decisions. For each: what it is in plain words, the options with pros and cons, your recommendation, what deciding unblocks, the file that raises it (cite the path), and the exact one-line reply Alan can type.
+- D-F3: Starlark summary truncate-versus-reject
+- R12: unify the Starlark evidence layout
+- DBOS arm: formally retire it
+- HE-02: add a GitHub Actions CI workflow
+- HE-08: legacy src/runner/context-compactor.js (mark deprecated, migrate, or keep)
+- S25-DEFAULTS: planner model in starlark-host/experiment.config.json versus the &quot;plan with Haiku, work with Sonnet&quot; conclusion
+- PROC-FMT: the three Prettier-red root handoffs
+- SEC-05: `--allow-shell` passed by bin/t3-cursor-shim.sh
+- HE-10: adopting `@ts-check`
+- Closing pull request #26 after the HS-01 rescue lands
+- Closing pull request #21 (superseded by #22)
+
+Include a checkbox per decision saved in localStorage and a &quot;copy my decisions&quot; button that produces the chosen one-liners as text. Commit only that folder, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="O8" data-col="opus" data-wave="3">
+  <header>
+    <span class="badge opus">O8</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of O8">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>GitHub Actions CI running the four checks (HE-02), only if Alan says yes on O7</h3>
+  <dl>
+    <dt>Why</dt><dd>No workflow runs the tests today. Pull-request checks would catch what the three agents miss.</dd>
+    <dt>Files</dt><dd><code>new .github/workflows/checks.yml, one README paragraph</code></dd>
+    <dt>Depends on</dt><dd>Alan’s HE-02 decision (card O7).</dd>
+    <dt>Lane</dt><dd>Opus, shared file area; run when the code baton is free.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Opus, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me. Unless this card says otherwise, write only inside docs/claude-deliverables-for-alan-nsfw-opus-5-5/ and commit only that path (`git add` the folder, never `-A`), because another Claude thread may hold the code baton. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Explain terms on first use; I am a beginner. Do not push unless I say so in the same turn.
+
+Exception to the preamble: Alan has decided yes on HE-02 and authorizes adding .github/workflows/checks.yml and one README.md paragraph, committed on local main.
+
+Write .github/workflows/checks.yml that runs on pull_request and on push to main, on ubuntu-latest and macos-latest, with the Node version from .nvmrc or the engines field in package.json. Steps: `npm ci`, `npm test` with `HOME=$RUNNER_TEMP/testhome` (the Codex briefs explain why), `npm run lint`, `npm run check:docs`, and `npm run format:check` marked `continue-on-error: true` with a comment naming PROC-FMT until that decision lands. No secrets, no caching of ~/.bridge-runner, no network beyond npm.
+
+Add a README.md paragraph explaining what CI (continuous integration) is, what the workflow checks, and where to see results on GitHub. Commit with `ci: add checks workflow (HE-02)`. Tell Alan the workflow only runs after he pushes. No push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="O9" data-col="opus" data-wave="3">
+  <header>
+    <span class="badge opus">O9</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of O9">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Beginner-friendly command-builder prototype</h3>
+  <dl>
+    <dt>Why</dt><dd>The command builder is Alan’s primary runner UX. He has asked for hover explanations and conflict warnings that grey out instead of resetting other toggles.</dd>
+    <dt>Files</dt><dd><code>docs/claude-deliverables-for-alan-nsfw-opus-5-5/command-builder-beginner-2026-10-02/index.html</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Opus, docs only. The live builder pages are untouched, so the drift tests are unaffected.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Opus, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me. Unless this card says otherwise, write only inside docs/claude-deliverables-for-alan-nsfw-opus-5-5/ and commit only that path (`git add` the folder, never `-A`), because another Claude thread may hold the code baton. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Explain terms on first use; I am a beginner. Do not push unless I say so in the same turn.
+
+Read docs/command-builder.html and docs/command-builder-v2.html and the runtime tables they mirror: src/runner/tool-catalog.js, the MODES in src/runner/permissions.js, src/runner/prompts/registry.js, and the CLI flag list in bin/local-bridge-runner.js.
+
+Build a separate self-contained prototype at docs/claude-deliverables-for-alan-nsfw-opus-5-5/command-builder-beginner-2026-10-02/index.html offering the same flags with: a one-sentence plain-language hover for every flag, a glossary drawer, greyed-out (never reset) conflicting choices with the reason shown (for example `--dont-ask` never enables shell; shell needs `--allow-shell`), and a &quot;what will happen&quot; preview paragraph that updates live.
+
+Generate the command string identically to the live builder for the same inputs, and include a self-check table comparing ten sample inputs against the live builder's output. Do not edit the live builder pages. Commit only that folder, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+
+<article class="card" data-id="O10" data-col="opus" data-wave="3">
+  <header>
+    <span class="badge opus">O10</span>
+    <span class="wave">wave 3</span>
+    <select class="status" aria-label="Status of O10">
+      <option value="todo">not started</option>
+      <option value="running">running</option>
+      <option value="pr">PR open / awaiting merge</option>
+      <option value="merged">merged / done</option>
+      <option value="blocked">blocked</option>
+    </select>
+  </header>
+  <h3>Repeatable local agent demo with a fake bridge (no live model)</h3>
+  <dl>
+    <dt>Why</dt><dd>The golden eval fakes the model in-process by monkey-patching model-client.js. Nothing exercises the real HTTP path end to end. A tiny fake /v1/messages server plus --bridge-url gives Alan a demo he can rerun whenever the account is rate-limited.</dd>
+    <dt>Files</dt><dd><code>new scripts/demo-fake-bridge.js, new test/fake-bridge-demo.test.js, docs/claude-deliverables-for-alan-nsfw-opus-5-5/fake-bridge-demo-2026-10-02.html</code></dd>
+    <dt>Depends on</dt><dd>Nothing.</dd>
+    <dt>Lane</dt><dd>Opus. scripts/ and this test file are touched by no other card.</dd>
+  </dl>
+  <div class="actions">
+    <button class="copy" type="button">Copy full prompt</button>
+    <details><summary>Show prompt</summary><pre>Opus, we are in /Users/alanman/Developer/claude-local-bridge-playground on main. Run the CLAUDE.md startup preflight first and pull; if the tree is dirty, stop and tell me. Unless this card says otherwise, write only inside docs/claude-deliverables-for-alan-nsfw-opus-5-5/ and commit only that path (`git add` the folder, never `-A`), because another Claude thread may hold the code baton. Stay out of src/credentials.js, src/proxy.js, src/server.js, and src/interceptors/**. No live model calls. Explain terms on first use; I am a beginner. Do not push unless I say so in the same turn.
+
+Exception to the preamble: you may add scripts/demo-fake-bridge.js and test/fake-bridge-demo.test.js and commit them on local main together with the walkthrough.
+
+Write scripts/demo-fake-bridge.js: a Node HTTP server on an ephemeral 127.0.0.1 port that answers `POST /v1/messages` in the Anthropic Messages shape with a scripted sequence (turn 1: a `tool_use` block calling `list_files` on `.`; turn 2: a short text answer summarizing the result). Honor `stream: true` with the server-sent events the runner already parses; read src/runner/model-client.js for the exact event names. On start, print the exact runner command to run against it using `--bridge-url` and a temporary `--cwd` (use scripts/create-runner-throwaway-lab.js if it fits).
+
+Add test/fake-bridge-demo.test.js that starts the server, runs the real runner CLI as a child process against it, and asserts the transcript contains exactly one list_files call and a final answer. Never forward anything upstream; never read credentials or the keychain.
+
+Write a beginner walkthrough at docs/claude-deliverables-for-alan-nsfw-opus-5-5/fake-bridge-demo-2026-10-02.html. Commit, no push.
+</pre></details>
+  </div>
+  <textarea class="note" placeholder="Your note (PR number, date, what happened). Saved in this browser only."></textarea>
+</article>
+</section>
+  </div>
+
+  <footer>Built by Fable (Claude Code) on 2026-10-02 from the 2026-09-30 status audits, the open handoffs, pull requests #30 / #26 / #21, and the live checks. Plain-text copy of every prompt: <code>prompts.md</code> in this folder. Refresh procedure: card F10.</footer>
+</main>
+<script>
+(function () {
+  var KEY = 'what-next-board-2026-10-02';
+  var state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { state = {}; }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.card'));
+  cards.forEach(function (card) {
+    var id = card.getAttribute('data-id');
+    var s = state[id] || {};
+    var sel = card.querySelector('.status');
+    var note = card.querySelector('.note');
+    sel.value = s.status || 'todo';
+    card.setAttribute('data-status', sel.value);
+    note.value = s.note || '';
+    sel.addEventListener('change', function () {
+      state[id] = state[id] || {};
+      state[id].status = sel.value;
+      state[id].updated = new Date().toISOString().slice(0, 10);
+      card.setAttribute('data-status', sel.value);
+      save(); applyFilters();
+    });
+    note.addEventListener('input', function () {
+      state[id] = state[id] || {};
+      state[id].note = note.value;
+      save();
+    });
+    var btn = card.querySelector('.copy');
+    var pre = card.querySelector('pre');
+    btn.addEventListener('click', function () { copyText(pre.textContent, btn); });
+  });
+
+  function copyText(text, btn) {
+    var done = function () {
+      var old = btn.textContent; btn.textContent = 'Copied'; btn.classList.add('ok');
+      setTimeout(function () { btn.textContent = old; btn.classList.remove('ok'); }, 1400);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(text); done(); });
+    } else { fallback(text); done(); }
+  }
+  function fallback(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.top = '-1000px';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  function applyFilters() {
+    var cols = {}; Array.prototype.forEach.call(document.querySelectorAll('.f-col'), function (c) { cols[c.value] = c.checked; });
+    var waves = {}; Array.prototype.forEach.call(document.querySelectorAll('.f-wave'), function (c) { waves[c.value] = c.checked; });
+    var hideDone = document.getElementById('hide-done').checked;
+    cards.forEach(function (card) {
+      var show = cols[card.getAttribute('data-col')] && waves[card.getAttribute('data-wave')];
+      if (hideDone && card.getAttribute('data-status') === 'merged') show = false;
+      card.classList.toggle('hidden', !show);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.col'), function (col) {
+      col.style.display = cols[col.id.replace('col-', '')] ? '' : 'none';
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.f-col, .f-wave, #hide-done'), function (el) { el.addEventListener('change', applyFilters); });
+  applyFilters();
+
+  document.getElementById('export').addEventListener('click', function (ev) {
+    var lines = ['What-Next Board statuses (' + new Date().toISOString().slice(0, 10) + ')'];
+    cards.forEach(function (card) {
+      var id = card.getAttribute('data-id'); var s = state[id] || {};
+      var title = card.querySelector('h3').textContent;
+      lines.push(id + ' [' + (s.status || 'todo') + (s.updated ? ' ' + s.updated : '') + '] ' + title + (s.note ? ' -- ' + s.note.replace(/\s+/g, ' ') : ''));
+    });
+    copyText(lines.join('\n'), ev.currentTarget);
+  });
+  document.getElementById('reset').addEventListener('click', function () {
+    if (!confirm('Clear every saved status and note on this board? This only affects this browser.')) return;
+    state = {}; save(); location.reload();
+  });
+})();
+</script>
+</body>
+</html>
