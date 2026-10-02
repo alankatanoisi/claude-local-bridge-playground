@@ -128,6 +128,9 @@ describe('bin/t3-cursor-shim.sh (T3 Code launcher)', { skip: process.platform ==
       assert.equal(argv[0], fakeNode);
       assert.equal(argv[1], AGENT);
       assert.ok(argv.includes('--trust-workspace'));
+      // Adding file-write tools must keep the same shell-on posture as the
+      // no-capabilities path above; approvals are handled later over ACP.
+      assert.ok(argv.includes('--allow-shell'), 'shell stays on when capability groups are configured');
       const at = argv.indexOf('--capabilities');
       assert.notEqual(at, -1);
       assert.equal(argv[at + 1], 'edits');

@@ -155,16 +155,16 @@
           <li><code>&lt;program&gt; acp</code> — the real session. It stays running for the whole thread.</li>
         </ol>
         <p>
-          The program you point T3 at is the small shell script <code>bin/t3-cursor-shim.sh</code> in this repository. It
-          answers "who are you?", removes a few Cursor-only launch flags, finds a <code>node</code> binary, and hands over
-          to the real ACP agent, <code>bin/local-bridge-acp.js</code>. That agent talks to the local bridge on
+          The program you point T3 at is the small shell script <code>bin/t3-cursor-shim.sh</code> in this repository.
+          It answers "who are you?", removes a few Cursor-only launch flags, finds a <code>node</code> binary, and hands
+          over to the real ACP agent, <code>bin/local-bridge-acp.js</code>. That agent talks to the local bridge on
           <code>127.0.0.1:11437</code>, so every turn spends real model calls through your Claude Code credentials.
         </p>
         <div class="callout">
           <strong>Why a "shim" at all?</strong> The agent cannot answer "about" itself, and T3 adds flags
-          (<code>--auto-review</code>, <code>--force</code>) meant for the real Cursor command-line tool. The shim is the
-          adapter between what T3 sends and what our agent accepts. It used to live in a T3 fork checkout that has since
-          been deleted; it now lives here, next to the agent it launches.
+          (<code>--auto-review</code>, <code>--force</code>) meant for the real Cursor command-line tool. The shim is
+          the adapter between what T3 sends and what our agent accepts. It used to live in a T3 fork checkout that has
+          since been deleted; it now lives here, next to the agent it launches.
         </div>
       </section>
 
@@ -182,7 +182,9 @@
             <tr>
               <td>T3 Code Nightly version</td>
               <td>T3 Code → About</td>
-              <td><code>0.0.43-nightly.20260926.2282</code> or newer (the launch contract was verified against this).</td>
+              <td>
+                <code>0.0.43-nightly.20260926.2282</code> or newer (the launch contract was verified against this).
+              </td>
             </tr>
             <tr>
               <td>The bridge is running</td>
@@ -190,8 +192,8 @@
               <td>
                 <code>curl -s http://127.0.0.1:11437/ping</code> prints a one-line JSON message containing
                 <code>"not_found"</code>. That is success: the bridge answered, it just does not know that path. If you
-                see "Connection refused", start the Claude Local Bridge extension (press F5 in Cursor or VS Code with the
-                playground folder open).
+                see "Connection refused", start the Claude Local Bridge extension (press F5 in Cursor or VS Code with
+                the playground folder open).
               </td>
             </tr>
             <tr>
@@ -249,33 +251,61 @@
                   <td><code>BRIDGE_RUNNER_CAPABILITIES</code></td>
                   <td><code>edits</code></td>
                   <td>
-                    Enables file writes. Every write still shows an approval card in T3's supervised mode. Leave this
-                    variable out for a read-only instance.
+                    Enables file-write tools. In supervised Ask mode, writes request approval unless you already chose
+                    "Allow for this session". Leaving this variable out disables these tools, but shell stays enabled
+                    and can also change files; this is not a read-only instance.
                   </td>
                 </tr>
               </tbody>
             </table>
             Leave the "sensitive" checkbox <strong>off</strong> for both; sensitive values are stored blanked out.
           </li>
-          <li>Save. The card should show the instance as ready, with four models: Sonnet 5, Fable 5, Opus 5, Haiku 4.5.</li>
+          <li>
+            Save. The card should show the instance as ready, with four models: Sonnet 5, Fable 5, Opus 5, Haiku 4.5.
+          </li>
         </ol>
         <div class="callout warn">
-          <strong>Shell stays off.</strong> Setting <code>BRIDGE_RUNNER_CAPABILITIES=shell</code> is refused by the shim
-          on purpose. The only way to let the runner execute commands is to edit the last line of
-          <code>bin/t3-cursor-shim.sh</code> and add <code>--allow-shell</code> by hand. That is deliberate: who may run
-          commands on this machine is decided in a file, not in a settings screen.
-          <br /><br />
-          <strong>Update 2026-09-28:</strong> Alan made that hand edit. Both exec lines in the shim now carry
-          <code>--allow-shell</code>, so every T3 thread launched through this shim offers the runner's shell tools. In
-          T3's supervised mode each command still shows an approval card before it runs. To turn shell back off, remove
-          the flag from both exec lines; the launcher test in <code>test/runner/acp-t3-shim.test.js</code> pins whichever
-          posture is current and must be updated together with the shim.
+          <strong>Shell is enabled by default in this shim.</strong> At Alan's request on 2026-09-28, both exec lines in
+          <code>bin/t3-cursor-shim.sh</code> were hand-edited to pass <code>--allow-shell</code>. This applies with or
+          without <code>BRIDGE_RUNNER_CAPABILITIES=edits</code>. The runner normally hides shell without that flag; this
+          launcher explicitly supplies it. Setting <code>BRIDGE_RUNNER_CAPABILITIES=shell</code> is still refused
+          because shell is not a capability group; that refusal does not mean shell is off.
+          <p>
+            <strong>Supervised Ask mode:</strong> enabled file-write tools and shell commands request approval. Choosing
+            "Allow" approves once. Choosing "Allow for this session" also approves later requests in the same ACP (Agent
+            Client Protocol) session, so a new card is not guaranteed for every command.
+          </p>
+          <p>
+            <strong>T3 full access:</strong> T3's Cursor provider automatically selects "Allow for this session" on
+            permission requests. The agent remembers that answer, so enabled shell commands can run without a card. This
+            is client-side approval behavior: the shim removes <code>--force</code> rather than forwarding it to the
+            runner. Runner hard denies still apply; automatic approval only answers requests that ask for consent.
+          </p>
+          <p>
+            <strong>ACP Code and Plan modes:</strong> Code maps to <code>acceptEdits</code>, which automatically accepts
+            enabled file-write tools but still asks for shell approval unless this session already has permission. Code
+            alone does not set <code>dontAsk</code>. Plan records proposed writes and commands without executing them,
+            even when approval is granted. These runner modes are separate from T3's full-access approval handling.
+          </p>
+          <p>
+            Shell-on remains the intended configuration. To deliberately turn it off in a future change, remove
+            <code>--allow-shell</code> from <strong>both</strong> exec lines and update the matching launcher assertions
+            in <code>test/runner/acp-t3-shim.test.js</code> together.
+          </p>
+          <p>
+            Runner source and tests: <code>src/runner/acp/agent.js</code>, <code>src/runner/permissions.js</code>, and
+            <code>test/runner/acp-agent.test.js</code>. T3's full-access handler and its test are in
+            <code>apps/server/src/provider/Layers/CursorAdapter.ts</code> and <code>CursorAdapter.test.ts</code> (T3
+            source checked at <code>8b07947844c01d651409e184a4876db84397a557</code> on 2026-10-01).
+          </p>
         </div>
       </section>
 
       <section>
         <h2>4. Hand-edit fallback (only if the UI route fails)</h2>
-        <p class="where">Where: Terminal, then a text editor. T3 re-reads this file automatically about 100 ms after you save.</p>
+        <p class="where">
+          Where: Terminal, then a text editor. T3 re-reads this file automatically about 100 ms after you save.
+        </p>
         <div class="callout danger">
           <strong>Back up first.</strong> If the file is not valid JSON after your edit, T3 silently drops
           <em>every</em> provider instance until the file is fixed.
@@ -305,8 +335,9 @@
         <h2>5. Verification checklist</h2>
         <p>
           Start a <strong>new thread</strong> in T3, pick the <strong>Bridge Runner</strong> provider, and keep the
-          thread in <strong>supervised</strong> mode. (T3's "full access" mode approves writes automatically on the
-          client side, which would hide the approval card you want to see.)
+          thread in <strong>supervised Ask</strong> mode, without a prior "Allow for this session" grant. T3's
+          <strong>full access</strong> mode automatically approves permission requests for enabled writes and shell
+          commands, which would hide the approval card you want to see. See section 3 for the mode distinctions.
         </p>
         <table>
           <thead>
@@ -321,8 +352,8 @@
               <td>1</td>
               <td><em>Count from 1 to 30, one number per line.</em></td>
               <td>
-                Lines appear progressively (streaming). If the whole answer paints at once, turn on T3's "Stream token by
-                token (legacy)" setting.
+                Lines appear progressively (streaming). If the whole answer paints at once, turn on T3's "Stream token
+                by token (legacy)" setting.
               </td>
             </tr>
             <tr>
@@ -357,7 +388,9 @@
 
       <section>
         <h2>6. Health check from Terminal (no T3 needed)</h2>
-        <p class="where">Where: Terminal, from the playground folder. Real spend: two tiny prompts, the first cancelled early.</p>
+        <p class="where">
+          Where: Terminal, from the playground folder. Real spend: two tiny prompts, the first cancelled early.
+        </p>
         <pre><code>cd /Users/alanman/Developer/claude-local-bridge-playground
 node scripts/acp-live-probe.js</code></pre>
         <p>
@@ -377,8 +410,8 @@ RESULT: PASS</code></pre>
         <div class="callout warn">
           <strong>Run it from your own Terminal, not from inside a coding-agent session.</strong> Agent sessions (Claude
           Code, Cursor) run commands in a sandbox that child processes inherit; the runner then cannot write under
-          <code>~/.bridge-runner</code> and the probe fails with <code>EPERM</code>. The probe prints a hint when it sees
-          that.
+          <code>~/.bridge-runner</code> and the probe fails with <code>EPERM</code>. The probe prints a hint when it
+          sees that.
         </div>
       </section>
 
@@ -395,10 +428,13 @@ RESULT: PASS</code></pre>
           <tbody>
             <tr>
               <td>The thread fails to start; T3 logs show a line beginning <code>t3-cursor-shim:</code></td>
-              <td>The shim stopped on purpose. The line says why (node not found, unexpected launch argument, refused posture).</td>
               <td>
-                Node not found → set <code>BRIDGE_RUNNER_NODE</code> on the instance. Unexpected argument → T3 changed its
-                launch contract; the shim's comment block lists the tokens it knows.
+                The shim stopped on purpose. The line says why (node not found, unexpected launch argument, refused
+                posture).
+              </td>
+              <td>
+                Node not found → set <code>BRIDGE_RUNNER_NODE</code> on the instance. Unexpected argument → T3 changed
+                its launch contract; the shim's comment block lists the tokens it knows.
               </td>
             </tr>
             <tr>
@@ -440,15 +476,27 @@ RESULT: PASS</code></pre>
             to a packaged build. Pick a level, or leave the dropdown alone and the runner's default applies.
           </li>
           <li><strong>Reopened threads</strong> start with empty scrollback; the session state itself is restored.</li>
-          <li><strong>Shell</strong> is off and can only be enabled by hand-editing the shim (see section 3).</li>
+          <li>
+            <strong>Shell</strong> is enabled by default in this shim through <code>--allow-shell</code> on both exec
+            paths, with or without the <code>edits</code> capability group. Supervised Ask mode requests approval unless
+            this ACP session already has an "Allow for this session" grant; T3 full access automatically grants that
+            approval, so commands can run without a card. See section 3 for Code and Plan behavior and how a future
+            deliberate change could disable shell.
+          </li>
         </ul>
       </section>
 
       <section>
         <h2>9. Removing it</h2>
-        <p>Delete the instance in Settings → Providers, or remove the JSON block from section 4. The shim and the agent stay in the repository; nothing else was installed.</p>
+        <p>
+          Delete the instance in Settings → Providers, or remove the JSON block from section 4. The shim and the agent
+          stay in the repository; nothing else was installed.
+        </p>
       </section>
     </main>
-    <footer>Companion records: <code>HANDOFF-acp-nightly-graduation-2026-09-26.md</code> (agent-facing) and <code>bin/t3-cursor-shim.sh</code> (the launcher, with its own comments).</footer>
+    <footer>
+      Companion records: <code>HANDOFF-acp-nightly-graduation-2026-09-26.md</code> (agent-facing) and
+      <code>bin/t3-cursor-shim.sh</code> (the launcher, with its own comments).
+    </footer>
   </body>
 </html>
