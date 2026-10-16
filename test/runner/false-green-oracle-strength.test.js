@@ -262,6 +262,9 @@ describe('FG-M assertion oracles can still fail', () => {
   // run — coverage silently varies by platform and by environment.
   it('FG-M4: conditionally-skipped tests match the reviewed register', () => {
     const KNOWN_SKIPS = {
+      // macOS-only launchctl startup policy. Other platforms still run the
+      // socket-lock, browser-deduplication, ownership, and error-output tests.
+      'test/bridge-host-operations.test.js': 1,
       // POSIX mode-bit assertions; skipped on Windows and on filesystems
       // that do not preserve permissions.
       'test/runner/fd-10-artifact-modes.test.js': 5,

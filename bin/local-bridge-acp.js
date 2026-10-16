@@ -39,6 +39,7 @@ const { OPTIONAL_CAPABILITIES } = require('../src/runner/tool-catalog');
 // a bridge URL is normalized. Requiring it does not execute its main() — that
 // is gated behind require.main === module.
 const { resolveBridgeUrl } = require('./local-bridge-runner');
+const { validateHost, createHostManager } = require('../src/hosting/ensure');
 
 function showHelp() {
   // Deliberately stderr: stdout carries protocol frames only.
@@ -53,6 +54,11 @@ function showHelp() {
       '  --max-tokens <n>       default per-turn token budget (default 2000)',
       '  --capabilities <list>  comma-separated groups enabled by default (' + OPTIONAL_CAPABILITIES.join(', ') + ')',
       '  --bridge-url <url>     local bridge address (default from BRIDGE_RUNNER_BRIDGE_URL or 127.0.0.1:11437)',
+      '  --bridge-host <host>   opt in to per-chat host selection (standalone, desktop, browser, vscode)',
+      '                         managed hosts start on prompt submission; vscode is connect-only',
+      '                         default also accepts BRIDGE_RUNNER_HOST; conflicts with a fixed bridge URL',
+      '                         BRIDGE_RUNNER_VSCODE_URL may override only the existing/debug endpoint',
+      '                         BRIDGE_CALLER_TOKEN supplies optional local caller auth (never upstream auth)',
       '  --session-dir <path>   where session checkpoints live (default ~/.bridge-runner/sessions)',
       '  --trust-workspace      record workspace trust for session cwds (headless processes cannot',
       '                         answer the interactive trust prompt; without this, an untrusted cwd fails closed)',
@@ -71,6 +77,7 @@ function main() {
       'max-tokens': { type: 'string' },
       capabilities: { type: 'string' },
       'bridge-url': { type: 'string' },
+      'bridge-host': { type: 'string' },
       'session-dir': { type: 'string' },
       'trust-workspace': { type: 'boolean' },
       'allow-shell': { type: 'boolean' },
@@ -107,7 +114,9 @@ function main() {
       const group = raw.trim();
       if (!group) continue;
       if (!OPTIONAL_CAPABILITIES.includes(group)) {
-        console.error('--capabilities: unknown group "' + group + '" (valid: ' + OPTIONAL_CAPABILITIES.join(', ') + ')');
+        console.error(
+          '--capabilities: unknown group "' + group + '" (valid: ' + OPTIONAL_CAPABILITIES.join(', ') + ')',
+        );
         process.exitCode = 1;
         return;
       }
@@ -122,7 +131,16 @@ function main() {
     // agentInfo.version is cosmetic; never fail startup over it
   }
 
-  const bridgeUrl = resolveBridgeUrl(args.values, process.env);
+  const bridgeHost = args.values['bridge-host'] || process.env.BRIDGE_RUNNER_HOST;
+  if (bridgeHost) {
+    validateHost(bridgeHost);
+    if (args.values['bridge-url'] || process.env.BRIDGE_RUNNER_BRIDGE_URL) {
+      throw new Error(
+        'Choose --bridge-host OR a fixed bridge URL. Remove --bridge-url and BRIDGE_RUNNER_BRIDGE_URL to use the host selector.',
+      );
+    }
+  }
+  const bridgeUrl = bridgeHost ? undefined : resolveBridgeUrl(args.values, process.env);
 
   createAcpAgent({
     input: process.stdin,
@@ -130,13 +148,18 @@ function main() {
     runFn: run,
     sessionDir: args.values['session-dir'],
     version,
+    ...(bridgeHost
+      ? { hostManager: createHostManager(undefined, { vscodeUrl: process.env.BRIDGE_RUNNER_VSCODE_URL }) }
+      : {}),
     configDefaults: {
+      ...(bridgeHost ? { bridgeHost } : {}),
       model: args.values.model,
       effort,
       maxTokens,
       capabilities: capabilityDefaults,
     },
     runDefaults: {
+      ...(process.env.BRIDGE_CALLER_TOKEN ? { callerToken: process.env.BRIDGE_CALLER_TOKEN } : {}),
       ...(bridgeUrl ? { bridgeUrl } : {}),
       ...(args.values['trust-workspace'] ? { trustWorkspace: true } : {}),
       ...(args.values['allow-shell'] ? { allowShell: true } : {}),
@@ -151,7 +174,13 @@ function main() {
 }
 
 if (require.main === module) {
-  main();
+  try {
+    main();
+  } catch (error) {
+    // A concise message is useful in T3; raw parser output and stacks are not.
+    console.error(error.message);
+    process.exitCode = 1;
+  }
 }
 
 module.exports = { main };

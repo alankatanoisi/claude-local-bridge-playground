@@ -60,6 +60,8 @@ describe('FG-J sink inventory (wider than FG-C10)', () => {
   // This is a REVIEWED register: adding a module here is a deliberate act that
   // says "I checked that this routes through the redaction boundary."
   const REVIEWED_SINKS = [
+    // Enum-only, private ACP companion; reviewed with the four-host change.
+    'acp/host-settings.js',
     'confirmation.js',
     'event-bus.js',
     'golden-eval.js',

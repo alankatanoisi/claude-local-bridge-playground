@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>T3 ACP four-host integration — implementation handoff</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        color: #183143;
+        background: #edf3f5;
+        font:
+          16px/1.7 system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      header {
+        background: #102f40;
+        color: #fff;
+        padding: 32px max(24px, calc((100vw - 1240px) / 2));
+        border-bottom: 5px solid #36cbb4;
+      }
+      header b {
+        font-size: 25px;
+      }
+      header p {
+        margin: 5px 0 0;
+        color: #c8e7e9;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 235px minmax(0, 1fr);
+        gap: 30px;
+        max-width: 1300px;
+        margin: auto;
+        padding: 28px 24px;
+      }
+      nav {
+        position: sticky;
+        top: 20px;
+        align-self: start;
+      }
+      nav a {
+        display: block;
+        padding: 7px 10px;
+        color: #285468;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 13px;
+      }
+      nav a:hover,
+      nav a:focus {
+        background: #d2e7e9;
+        outline-offset: 2px;
+      }
+      main {
+        background: white;
+        padding: 36px 42px;
+        border: 1px solid #d5e2e7;
+        border-radius: 16px;
+        min-width: 0;
+        box-shadow: 0 10px 30px #1831430a;
+      }
+      h1 {
+        font-size: 39px;
+        line-height: 1.15;
+        letter-spacing: -1.3px;
+        margin: 0 0 24px;
+      }
+      h2 {
+        font-size: 25px;
+        line-height: 1.3;
+        margin-top: 48px;
+        padding-top: 25px;
+        border-top: 1px solid #d8e6eb;
+        scroll-margin-top: 20px;
+      }
+      p,
+      li {
+        max-width: 86ch;
+      }
+      li {
+        margin: 9px 0;
+      }
+      main > p:first-of-type {
+        font-size: 14px;
+        color: #637e8c;
+      }
+      main > p:nth-of-type(2) {
+        background: #e8f8f3;
+        border-left: 4px solid #24a58b;
+        padding: 20px;
+        border-radius: 8px;
+      }
+      a {
+        color: #006e83;
+        text-underline-offset: 3px;
+      }
+      code {
+        font:
+          0.87em ui-monospace,
+          SFMono-Regular,
+          monospace;
+        background: #edf3f6;
+        border-radius: 4px;
+        padding: 2px 5px;
+        overflow-wrap: anywhere;
+      }
+      pre {
+        background: #122e40;
+        color: #e3f5f6;
+        padding: 20px;
+        border-radius: 10px;
+        overflow: auto;
+      }
+      pre code {
+        background: none;
+        padding: 0;
+        overflow-wrap: normal;
+      }
+      .table-wrap {
+        overflow: auto;
+        margin: 22px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      td,
+      th {
+        padding: 12px;
+        border: 1px solid #d9e6e9;
+        vertical-align: top;
+        text-align: left;
+        min-width: 120px;
+      }
+      th {
+        background: #e4f2f1;
+        color: #154e53;
+      }
+      tr:nth-child(even) {
+        background: #f7fafb;
+      }
+      footer {
+        max-width: 1200px;
+        margin: 10px auto 35px;
+        text-align: center;
+        color: #58737f;
+        font-size: 13px;
+      }
+      @media (max-width: 900px) {
+        .layout {
+          display: block;
+          padding: 15px;
+        }
+        nav {
+          position: static;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-bottom: 18px;
+        }
+        nav a {
+          background: #dfebef;
+        }
+        main {
+          padding: 25px;
+        }
+        h1 {
+          font-size: 32px;
+        }
+      }
+      @media print {
+        header,
+        nav {
+          display: none;
+        }
+        .layout {
+          display: block;
+          padding: 0;
+        }
+        main {
+          border: 0;
+          box-shadow: none;
+          padding: 0;
+        }
+        body {
+          background: white;
+        }
+        pre {
+          white-space: pre-wrap;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <b>Bridge Runner × T3</b>
+      <p>One conversation · Four local connections · Explicit control</p>
+    </header>
+    <div class="layout">
+      <nav aria-label="Guide sections">
+        <a href="#location-ownership-and-starting-point">Location, ownership, and starting point</a
+        ><a href="#behavior-and-implementation-map">Behavior and implementation map</a
+        ><a href="#t3-machine-migration">T3 machine migration</a
+        ><a href="#independent-invariant-review">Independent invariant review</a
+        ><a href="#not-bugs-do-not-change-these-boundaries">Not bugs — do not change these boundaries</a
+        ><a href="#live-evidence-and-limits">Live evidence and limits</a
+        ><a href="#checks-first-failures-and-final-status">Checks, first failures, and final status</a
+        ><a href="#next-steps-and-retained-state">Next steps and retained state</a
+        ><a href="#companion-guide">Companion guide</a>
+      </nav>
+      <main>
+        <h1 id="t3-acp-four-host-integration-implementation-handoff">
+          T3 ACP four-host integration — implementation handoff
+        </h1>
+        <p>October 16, 2026 · Agent-facing record with a browser-readable companion</p>
+        <p>
+          <strong
+            >Implemented and migrated on the 2020 laptop; original VS Code successful acceptance remains
+            pending.</strong
+          >
+          Do not read this as all-four-host live signoff or as Cursor invariant-review signoff. This implementation
+          snapshot was prepared before its commit. Alan subsequently authorized committing and synchronizing all 20
+          intended files; that save operation does not close the outstanding live acceptance or actual Cursor review.
+        </p>
+        <h2 id="location-ownership-and-starting-point">Location, ownership, and starting point</h2>
+        <ul>
+          <li>Folder: <code>/Users/alanman/Developer/claude-local-bridge-playground</code>.</li>
+          <li>
+            Branch: <code>main</code>; starting committed revision
+            <code>0011586410412e96b47047e82fe028c21d0b6f21</code>, after the separate fingerprint work completed and
+            released the clean, pulled checkout.
+          </li>
+          <li>
+            The current dirty files belong to this integration. Keep the single-editor ownership rule; do not have
+            another agent edit these files concurrently.
+          </li>
+          <li>
+            Scope: runner ACP (Agent Client Protocol), managed-host connection policy, local T3 migration, tests, and
+            paired HTML/Markdown documentation. Upstream auth, proxy, fingerprint data, and ordinary editor settings
+            were not edited.
+          </li>
+          <li>
+            Alan explicitly authorized commit, push, and synchronization after checking the 20-file change set. The 2024
+            laptop migration and machine configuration remain separate.
+          </li>
+        </ul>
+        <h2 id="behavior-and-implementation-map">Behavior and implementation map</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Files</th>
+                <th scope="col">What changed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>bin/t3-bridge-runner.sh</code></td>
+                <td>
+                  New generic Local ACP launcher. Standalone default, existing Node resolution, trust and explicit shell
+                  opt-in retained. Old Cursor shim retained.
+                </td>
+              </tr>
+              <tr>
+                <td><code>bin/local-bridge-acp.js</code></td>
+                <td>
+                  Host-selection opt-in, fixed-URL conflict rejection, loopback VS Code override, private caller-token
+                  forwarding. Legacy clients remain fixed-URL.
+                </td>
+              </tr>
+              <tr>
+                <td><code>src/hosting/ensure.js</code></td>
+                <td>
+                  Four choices and deadlines, selected-host-only ensure, no ordinary VS Code lifecycle calls, no
+                  fallback or model replay.
+                </td>
+              </tr>
+              <tr>
+                <td><code>src/hosting/connection-operations.js</code></td>
+                <td>
+                  Async macOS operations, existing socket lock, job/listener ownership, bootstrap or non-killing
+                  kickstart, deduplicated browser activation. No stop API.
+                </td>
+              </tr>
+              <tr>
+                <td><code>src/hosting/control.js</code></td>
+                <td>Exposes ensure and its adapter; old exclusive manual start operation unchanged.</td>
+              </tr>
+              <tr>
+                <td><code>src/runner/acp/agent.js</code></td>
+                <td>
+                  <code>bridge_host</code> selector, turn snapshot, local connection card, cancellation, endpoint
+                  injection, selection restore, unique activity identifiers across restarts.
+                </td>
+              </tr>
+              <tr>
+                <td><code>src/runner/acp/host-settings.js</code></td>
+                <td>
+                  Private schema-versioned enum companion beside the checkpoint; validated identifiers, no-follow reads,
+                  exclusive temporary files and atomic replacement.
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <code>test/bridge-host-ensure.test.js</code>, <code>test/bridge-host-operations.test.js</code>,
+                  <code>test/runner/acp-host-selection.test.js</code>
+                </td>
+                <td>
+                  Host policy, real socket-lock adapter tests with mocked subprocesses, ACP
+                  session/persistence/compatibility checks.
+                </td>
+              </tr>
+              <tr>
+                <td><code>test/runner/false-green-telemetry-sink.test.js</code></td>
+                <td>
+                  Registers the reviewed companion writer, which passes structured state through the common scrubber.
+                </td>
+              </tr>
+              <tr>
+                <td><code>test/runner/false-green-oracle-strength.test.js</code></td>
+                <td>Registers one intentional macOS-only launchctl test; other adapter tests remain portable.</td>
+              </tr>
+              <tr>
+                <td><code>docs/t3-bridge-host-integration.md</code>, <code>.html</code></td>
+                <td>Current setup, architecture, customization scope, recovery, and explicit evidence limits.</td>
+              </tr>
+              <tr>
+                <td><code>README.md</code>, old hosting guide pair, dated September T3 guide</td>
+                <td>Point to the new route and distinguish ensure from exclusive manual Start.</td>
+              </tr>
+              <tr>
+                <td>This handoff and its HTML companion</td>
+                <td>Review findings, evidence, remaining acceptance, and next-agent boundaries.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The generic launcher preserves shell availability from Alan’s existing explicit launcher configuration. Host
+          selection does not grant shell or bypass approvals. The guide explains a direct ACP command without
+          <code>--allow-shell</code> for an intentionally shell-free provider.
+        </p>
+        <h2 id="t3-machine-migration">T3 machine migration</h2>
+        <p>
+          The existing <code>acpRegistry_bridge_runner</code> instance was changed in place using T3’s interface.
+          Display name is <strong>Bridge Runner (Local ACP)</strong>. Executable is the absolute repository path to
+          <code>bin/t3-bridge-runner.sh</code>, with empty arguments. The old <code>BRIDGE_RUNNER_BRIDGE_URL</code> was
+          removed; <code>BRIDGE_RUNNER_NODE=/Users/alanman/.local/bin/node</code> and
+          <code>BRIDGE_RUNNER_CAPABILITIES=edits</code> were retained. Provider instance identity and model preferences
+          were preserved. The old Cursor bridge instance remains disabled.
+        </p>
+        <p>
+          T3 version exercised: <code>0.1.1-nightly.20261016.3190</code>. Test chat:
+          <strong>Bridge Integration Acceptance Test</strong>. Model: Haiku 4.5. Mode: Ask. Working project/environment:
+          2020 laptop playground. No model write tools or shell were used in live acceptance.
+        </p>
+        <p>
+          Machine settings and runner session/campaign artifacts remain private local state outside Git. Do not copy
+          settings, checkpoint bodies, trace payloads, passwords, tokens, or account identifiers into a report or
+          commit.
+        </p>
+        <h2 id="independent-invariant-review">Independent invariant review</h2>
+        <p>
+          An independent Codex reviewer performed read-only review and a final follow-up; this is
+          <strong>not</strong> actual Cursor signoff. The final follow-up reported no new actionable findings and 24
+          focused tests passing.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Finding</th>
+                <th scope="col">Resolution and verification</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>P2: loaded desktop job with no PID was treated as a live job</td>
+                <td>
+                  Ensure now waits only for an actual PID. A loaded stopped job uses <code>kickstart</code> without
+                  <code>-k</code>; unloaded uses bootstrap. Policy and adapter tests pass.
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  P2: a saved selection without a model checkpoint could not reload after a failed first preflight
+                </td>
+                <td>
+                  A valid settings companion now permits load with no model history; the next request starts without
+                  resume. Unknown sessions and invalid settings still fail explicitly.
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  Live UI: T3 replaced a missing update title with “Tool” and displayed structured output awkwardly
+                </td>
+                <td>
+                  Local connection updates repeat their title, kind and origin metadata and use plain-text details.
+                  Failure and success were inspected in T3.
+                </td>
+              </tr>
+              <tr>
+                <td>Live UI: process-local connection counters repeated after a T3 restart</td>
+                <td>
+                  Activity IDs now include a random UUID (universally unique identifier); fresh-agent regression test
+                  verifies that a restored turn cannot reuse the previous activity ID.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h2 id="not-bugs-do-not-change-these-boundaries">Not bugs — do not change these boundaries</h2>
+        <ul>
+          <li>
+            Original VS Code is connect-only even if an editor happens to be running. No launch/restart/stop/settings
+            changes and no nearby-port scan.
+          </li>
+          <li>
+            A responsive original endpoint proves connection, not editor-process ownership. Managed hosts retain
+            controller ownership checks.
+          </li>
+          <li>Discovery, creating a session, changing a selector, and listing models remain passive.</li>
+          <li>
+            Failed preflight submits no model request. Failures do not select another bridge or replay an entire prompt.
+          </li>
+          <li>Configuration changes during a turn take effect next turn; one turn keeps one endpoint.</li>
+          <li>
+            The connection activity uses ACP’s tool-card transport but is explicitly local controller work, not a model
+            tool.
+          </li>
+          <li>Canceling or closing a chat does not stop shared services. Other managed hosts remain running.</li>
+          <li>
+            Browser activation needs its editor tab and sometimes Alan’s login; no password is copied or displayed by
+            ensure.
+          </li>
+          <li>
+            The old manual Start controls remain exclusive and can stop other dedicated modes. T3 uses ensure instead.
+          </li>
+          <li>
+            The companion stores only the host enum and format version, not credentials, URLs, model configuration, or
+            conversation payloads.
+          </li>
+        </ul>
+        <h2 id="live-evidence-and-limits">Live evidence and limits</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Acceptance item</th>
+                <th scope="col">Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Standalone from stopped state</td>
+                <td>Real T3 reply <code>STANDALONE_OK MAPLE-2020</code>; service automatically started.</td>
+              </tr>
+              <tr>
+                <td>Dedicated Desktop from stopped state</td>
+                <td>Same T3 chat replied <code>DESKTOP_OK MAPLE-2020</code>; Standalone stayed running.</td>
+              </tr>
+              <tr>
+                <td>Browser from stopped state</td>
+                <td>
+                  Same T3 chat replied <code>BROWSER_OK MAPLE-2020</code>; editor opened; other two hosts stayed
+                  running.
+                </td>
+              </tr>
+              <tr>
+                <td>Original VS Code unavailable</td>
+                <td>
+                  Port 11437 had no listener; T3 gave the exact requested next-action message; no automatic
+                  lifecycle/fallback.
+                </td>
+              </tr>
+              <tr>
+                <td>Selection after T3 restart</td>
+                <td>Existing/debug selection was restored after quitting/reopening T3.</td>
+              </tr>
+              <tr>
+                <td>Conversation after T3 restart</td>
+                <td>Switching to Standalone then replying returned <code>RESTORED_OK MAPLE-2020</code>.</td>
+              </tr>
+              <tr>
+                <td>Readable local connection activity</td>
+                <td>Failure and success titles/details inspected in T3 after final presentation fixes.</td>
+              </tr>
+              <tr>
+                <td>Simultaneous different-host sessions</td>
+                <td>
+                  Two scripted real ACP clients completed overlapping Standalone/Desktop prompts in 2.516 seconds. This
+                  is protocol/runtime evidence, not two simultaneously clicked T3 chats.
+                </td>
+              </tr>
+              <tr>
+                <td>Constrained read-only tool loop</td>
+                <td>
+                  Standalone emitted one real tool event and completed <code>TOOL_LOOP_OK</code> in a disposable private
+                  fixture; shell/writes unavailable to that harness.
+                </td>
+              </tr>
+              <tr>
+                <td>Streaming and cancellation</td>
+                <td>Real streamed chunk followed by ACP cancellation; settled as cancelled after 115 ms.</td>
+              </tr>
+              <tr>
+                <td>Recovery</td>
+                <td>
+                  First recovery hit the deliberately small 256-token output limit. A separate load of the same saved
+                  session with 512 tokens completed <code>AFTER_CANCEL_OK</code>. Preserve the first failed test result;
+                  do not call the initial campaign entirely green.
+                </td>
+              </tr>
+              <tr>
+                <td>Shared-service health</td>
+                <td>
+                  All three jobs remained running with owned, ready listeners after the scripted checks; the same job
+                  PIDs survived that campaign.
+                </td>
+              </tr>
+              <tr>
+                <td>Original success, visibility, and Standalone-to-original continuity</td>
+                <td>
+                  <strong>Pending Alan starting the ordinary/debug bridge.</strong> No corresponding successful original
+                  request was claimed.
+                </td>
+              </tr>
+              <tr>
+                <td>Browser login from a signed-out state</td>
+                <td>
+                  Not separately exercised; existing browser authentication was available. Mock tests cover activation
+                  waits/timeouts.
+                </td>
+              </tr>
+              <tr>
+                <td>Two concurrent T3 UI chats and T3 Stop button</td>
+                <td>Scripted ACP concurrency/cancellation verified; separate full UI exercise remains outstanding.</td>
+              </tr>
+              <tr>
+                <td>2024 laptop</td>
+                <td>Outside this migration and acceptance.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The T3 Browser turn’s displayed one-file diff came from the implementing agent editing presentation code
+          concurrently, not a model tool. Subsequent UI turns were run without concurrent source edits to avoid that
+          misleading attribution.
+        </p>
+        <p>
+          Campaign limit: $3. Through the nine recorded runner outcomes, estimated model cost was
+          <strong>$0.0381434</strong>, with <strong>$2.25 conservatively reserved</strong> for bounded prompts. Failed
+          unavailable-original checks made no model request. The private campaign is under
+          <code>~/.bridge-runner/campaigns/t3-acp-hosts-2026-10-16/</code>; only aggregate usage was reported, never
+          ledger payload text.
+        </p>
+        <h2 id="checks-first-failures-and-final-status">Checks, first failures, and final status</h2>
+        <p>
+          Focused host/adapter/ACP checks: <strong>24 passed</strong>. The source-output and assertion guards also
+          passed after their required reviewed-register updates. Lint and documentation checks passed.
+          <code>git diff --check</code> passed.
+        </p>
+        <p>
+          The earlier full run after adding adapter tests had 1,186 tests: 1,184 passed, one failure from the
+          unregistered intentional macOS-only test, and one existing TODO. The skip-register entry was added with its
+          environment explanation, then its focused regression suite passed (14 tests).
+          <strong
+            >Final full suite: 1,186 total, 1,185 passed, zero failures, zero skips, one existing TODO; 129.0
+            seconds.</strong
+          >
+          The corrected full run is logged at <code>/tmp/t3-acp-final-confirmed-suite.log</code>.
+        </p>
+        <p>Formatting checks report three pre-existing root handoff files; these were left unchanged:</p>
+        <ul>
+          <li><code>HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md</code></li>
+          <li><code>HANDOFF-permission-cache-thermo-nuclear-2026-09-07.md</code></li>
+          <li><code>HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md</code></li>
+        </ul>
+        <p>
+          The existing HS-01 case-variant private-key test remains an explicit TODO. This task does not close that
+          unrelated safety limitation.
+        </p>
+        <p>
+          The new HTML guide’s section parity, local links and navigation were checked against Markdown. Browser
+          automation was disabled in Work settings, so a browser-rendered guide screenshot was not obtained. The HTML
+          was opened/queued in the current Codex file panel and contains no external scripts, fonts or analytics.
+        </p>
+        <h2 id="next-steps-and-retained-state">Next steps and retained state</h2>
+        <ol>
+          <li>
+            Alan starts the intended ordinary VS Code bridge himself using
+            <strong>Shift–Command–P → Claude Local Bridge: Start Server</strong>. Confirm its actual port; use the
+            validated provider override only if necessary.
+          </li>
+          <li>
+            Continue the existing test conversation through original/debug and inspect the corresponding request in that
+            VS Code diagnostic surface without exposing tokens. Record successful model response and editor visibility
+            as separate claims.
+          </li>
+          <li>
+            Complete the remaining two-chat/Stop UI acceptance if needed; respect the remaining campaign reservation and
+            $3 maximum.
+          </li>
+          <li>
+            Obtain the actual Cursor invariant review required by the repository charter. Give Cursor this handoff and
+            the current working diff; do not claim the independent Codex review replaced it.
+          </li>
+          <li>
+            Alan authorized saving and pushing this implementation checkpoint. Verify local and remote revision equality
+            after that operation; treat 2024 migration as a separate action.
+          </li>
+        </ol>
+        <p>
+          All three managed hosts intentionally remain running so other chats are not interrupted. The test chat is left
+          on working Standalone with the selector available. Original VS Code was not started or changed. No
+          installation replacement, upstream credential change, branch reset, or canonical-repository operation was
+          performed. Commit/push synchronization is authorized as a subsequent save step; the final Git revision and
+          push verification are reported in chat.
+        </p>
+        <h2 id="companion-guide">Companion guide</h2>
+        <ul>
+          <li><a href="docs/t3-bridge-host-integration.html">Setup and architecture guide</a></li>
+          <li><a href="docs/t3-bridge-host-integration.md">Markdown setup guide</a></li>
+          <li><a href="HANDOFF-t3-acp-hosts-2026-10-16.html">Browser-readable handoff</a></li>
+        </ul>
+      </main>
+    </div>
+    <footer>Local research guide · October 16, 2026 · No external scripts, fonts, or analytics</footer>
+  </body>
+</html>

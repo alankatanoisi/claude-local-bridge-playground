@@ -2,6 +2,8 @@
 
 A practical guide for Alan · September 26, 2026
 
+**October 16 update for T3:** the [four-host T3 guide](t3-bridge-host-integration.html) explains the new Bridge host selector and non-disruptive automatic startup. The manual Start controls described below still switch modes by stopping the other dedicated modes; T3’s ensure operation leaves those other hosts running.
+
 **Start with Standalone when memory is tight.** It runs the bridge without a desktop editor, browser tab, or cmux. Desktop and Browser are available for comparison. Each mode uses the same bridge request-handling code and the existing Claude login on this Mac.
 
 This is a personal research setup. It is installed locally; it does not publish a server on the internet. The other laptop still needs its own installation and Claude login.

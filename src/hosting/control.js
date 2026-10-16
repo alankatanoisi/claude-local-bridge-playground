@@ -400,6 +400,10 @@ async function withLock(action, port = 18081) {
 }
 
 module.exports = {
+  // Lazy adapter construction keeps ACP discovery free of process launches.
+  connectionOperations: () =>
+    require('./connection-operations').connectionOperations({ root: ROOT, modes: MODES, webPort: WEB_PORT }),
+  ensure: (mode, options) => require('./ensure').createHostManager().ensure(mode, options),
   MODES,
   WEB_PORT,
   ROOT,

@@ -3,9 +3,11 @@
 /**
  * agent.js — the ACP (Agent Client Protocol) front end for the bridge runner.
  *
- * This module is a pure TRANSLATOR. It owns no model calls, no credentials,
- * no file access, and no permission decisions of its own. Everything it does
- * is convert between two vocabularies:
+ * This module translates client messages into runner options. Model calls
+ * and permission decisions remain in run(). Its small local responsibilities
+ * are saving the selected bridge and asking the injected host manager to
+ * connect before a turn; neither responsibility is available to model tools.
+ * It converts between two vocabularies:
  *
  *   ACP client (T3 Code)                      bridge runner (run())
  *   ────────────────────                      ─────────────────────
@@ -34,12 +36,16 @@
 
 const path = require('path');
 const fs = require('fs');
+const { randomUUID } = require('crypto');
 
 const { createConnection, RpcError, ERROR_CODES } = require('./connection');
 const { STOP_REASONS } = require('../kernel/contract');
 const { CATEGORIES, OPTIONAL_CAPABILITIES } = require('../tool-catalog');
 const { DEFAULT_MODEL, EFFORT_LEVELS, EFFORT_AUTO, catalogEntryForModel } = require('../model-catalog');
 const { makeSessionId, sessionPathFor } = require('../session-store');
+const { HOSTS, validateHost } = require('../../hosting/ensure');
+const hostSettings = require('./host-settings');
+const { createRedactionBoundary } = require('../redaction-boundary');
 
 const PROTOCOL_VERSION = 1;
 
@@ -141,6 +147,30 @@ function describeConfigOptions(config) {
       options: MODEL_CHOICES.map((id) => ({ value: id, name: modelLabel(id) })),
     },
     ...describeModelKnobs(config),
+    ...(config.bridgeHost
+      ? [
+          {
+            id: 'bridge_host',
+            name: 'Bridge host',
+            type: 'select',
+            description:
+              'Connection for the next turn. Managed hosts start on demand; existing VS Code is connect-only.',
+            currentValue: config.bridgeHost,
+            options: Object.entries(HOSTS).map(([value, host]) => ({
+              value,
+              name: host.name,
+              description:
+                value === 'vscode'
+                  ? 'Use your existing VS Code bridge for debugging; start it yourself.'
+                  : value === 'browser'
+                    ? 'Opens the local browser editor if needed; keep its tab open.'
+                    : value === 'standalone'
+                      ? 'No editor window required.'
+                      : 'Starts the dedicated desktop editor, leaving other hosts running.',
+            })),
+          },
+        ]
+      : []),
     // Capability toggles ride along for generic ACP hosts; T3's Cursor host
     // drops them from the composer, so under T3 they are set per instance via
     // the agent command line (--capabilities) instead.
@@ -304,9 +334,23 @@ function parseAskQuestionAnswer(response, questionId, wireOptions, allowMultiple
  * @param {string} [deps.version] — reported in initialize's agentInfo
  */
 function createAcpAgent(deps) {
-  const { input, write, runFn, sessionDir, runDefaults = {}, configDefaults = {}, version = '0.0.0' } = deps;
+  const {
+    input,
+    write,
+    runFn,
+    sessionDir,
+    runDefaults = {},
+    configDefaults = {},
+    version = '0.0.0',
+    hostManager,
+  } = deps;
   if (typeof runFn !== 'function') throw new Error('createAcpAgent: runFn is required');
   if (!input || typeof write !== 'function') throw new Error('createAcpAgent: input stream and write are required');
+  if (configDefaults.bridgeHost) {
+    validateHost(configDefaults.bridgeHost);
+    if (!hostManager || typeof hostManager.ensure !== 'function')
+      throw new Error('Managed ACP bridge selection requires a host manager.');
+  }
 
   const home = process.env.HOME || process.env.USERPROFILE || process.cwd();
   const resolvedSessionDir = sessionDir || path.join(home, '.bridge-runner', 'sessions');
@@ -316,6 +360,14 @@ function createAcpAgent(deps) {
   let activeTurn = false; // one run() at a time — see the module header
 
   const connection = createConnection({ input, write });
+  const cancelSessions = () => {
+    for (const session of sessions.values()) {
+      session.cancelRequested = true;
+      session.hostAbort?.abort();
+    }
+  };
+  input.on('end', cancelSessions);
+  input.on('close', cancelSessions);
 
   function defaultConfig() {
     const capabilities = {};
@@ -328,6 +380,7 @@ function createAcpAgent(deps) {
       maxTokens: configDefaults.maxTokens || 2000,
       mode: configDefaults.mode || 'ask',
       capabilities,
+      ...(configDefaults.bridgeHost ? { bridgeHost: configDefaults.bridgeHost } : {}),
     };
   }
 
@@ -390,15 +443,29 @@ function createAcpAgent(deps) {
     if (typeof cwd !== 'string' || !path.isAbsolute(cwd)) {
       throw new RpcError(ERROR_CODES.INVALID_PARAMS, 'session/load requires an absolute cwd');
     }
+    // Validate before any checkpoint lookup for the managed-session path.
+    const config = defaultConfig();
+    if (config.bridgeHost) config.bridgeHost = hostSettings.readHost(resolvedSessionDir, sessionId, config.bridgeHost);
     const checkpoint = sessionPathFor(resolvedSessionDir, sessionId);
-    if (!fs.existsSync(checkpoint)) {
+    const hasCheckpoint = fs.existsSync(checkpoint);
+    const hasHostSettings =
+      config.bridgeHost && fs.existsSync(hostSettings.settingsPath(resolvedSessionDir, sessionId));
+    if (!hasCheckpoint && !hasHostSettings) {
       throw new RpcError(ERROR_CODES.INVALID_PARAMS, 'No session checkpoint found for ' + sessionId);
     }
     // turnCount 1 makes the next prompt resume the checkpoint instead of
     // starting fresh. Replaying past conversation as session/update messages
     // is not implemented in this slice; the history lives in the checkpoint
     // and the model sees it — only the client-side scrollback starts empty.
-    sessions.set(sessionId, { cwd, config: defaultConfig(), turnCount: 1, cancelRequested: false, alwaysAllow: false });
+    // Settings may predate any model call (for example, a failed preflight).
+    // That chat reloads too, but it must not resume nonexistent model history.
+    sessions.set(sessionId, {
+      cwd,
+      config,
+      turnCount: hasCheckpoint ? 1 : 0,
+      cancelRequested: false,
+      alwaysAllow: false,
+    });
     const session = sessions.get(sessionId);
     return {
       modes: describeModeState(session.config),
@@ -458,7 +525,12 @@ function createAcpAgent(deps) {
     const configId = params && params.configId;
     const value = params && params.value;
 
-    if (configId === 'model') {
+    if (configId === 'bridge_host' && session.config.bridgeHost) {
+      validateHost(value);
+      // Persist FIRST. A failed write must not report an unsaved selection.
+      hostSettings.saveHost(resolvedSessionDir, params.sessionId, value);
+      session.config.bridgeHost = value;
+    } else if (configId === 'model') {
       if (!MODEL_CHOICES.includes(value)) {
         throw new RpcError(ERROR_CODES.INVALID_PARAMS, 'Unknown model: ' + String(value));
       }
@@ -498,7 +570,10 @@ function createAcpAgent(deps) {
   // side effects, and (b) the prompt response reports "cancelled".
   connection.onMethod('session/cancel', (params) => {
     const session = sessions.get(params && params.sessionId);
-    if (session) session.cancelRequested = true;
+    if (session) {
+      session.cancelRequested = true;
+      session.hostAbort?.abort();
+    }
   });
 
   // ── The prompt turn ───────────────────────────────────────────────────────
@@ -755,18 +830,69 @@ function createAcpAgent(deps) {
       return { ok: true, text: 'User selected: ' + selected.join(', '), selected };
     };
 
-    const capabilities = CAPABILITY_TOGGLES.filter((group) => session.config.capabilities[group]);
+    // Capture ALL controls before asynchronous host startup. UI changes during
+    // this wait belong to the next turn, just like a change during streaming.
+    const turnConfig = { ...session.config, capabilities: { ...session.config.capabilities } };
+    const capabilities = CAPABILITY_TOGGLES.filter((group) => turnConfig.capabilities[group]);
 
     activeTurn = true;
+    session.hostAbort = new AbortController();
     let result;
     try {
+      let bridgeUrl;
+      if (turnConfig.bridgeHost) {
+        // A process-local counter repeats after T3 restarts. A fresh identifier
+        // keeps this attempt from overwriting an older card in T3's history.
+        const toolCallId = 'bridge-connection-' + sessionId + '-' + randomUUID();
+        // This is a local connection activity, NOT a tool requested by the
+        // model. Its own title and metadata keep that distinction visible.
+        sendUpdate({
+          sessionUpdate: 'tool_call',
+          toolCallId,
+          title: 'Bridge connection (local)',
+          kind: 'other',
+          status: 'in_progress',
+          _meta: { origin: 'bridge-control' },
+        });
+        // Repeat presentation fields on updates: some clients normalize a
+        // missing update title to "Tool", replacing the original local label.
+        const connectionUpdate = (status, text) =>
+          sendUpdate({
+            sessionUpdate: 'tool_call_update',
+            toolCallId,
+            title: 'Bridge connection (local)',
+            kind: 'other',
+            status,
+            rawOutput: text,
+            _meta: { origin: 'bridge-control' },
+          });
+        try {
+          hostSettings.saveHost(resolvedSessionDir, sessionId, session.config.bridgeHost);
+          const connected = await hostManager.ensure(turnConfig.bridgeHost, {
+            signal: session.hostAbort.signal,
+            onStatus: (text) => connectionUpdate('in_progress', text),
+          });
+          if (session.cancelRequested || connection.closed) return { stopReason: 'cancelled' };
+          bridgeUrl = connected.bridgeUrl;
+          connectionUpdate('completed', 'Connected—sending prompt');
+        } catch (error) {
+          const cancelled = session.cancelRequested || connection.closed;
+          const message = cancelled
+            ? 'Bridge connection cancelled; no model request was sent.'
+            : createRedactionBoundary().scrubText(error.message || 'Bridge connection failed.');
+          connectionUpdate('failed', message);
+          if (cancelled) return { stopReason: 'cancelled' };
+          throw new RpcError(ERROR_CODES.INTERNAL_ERROR, message);
+        }
+      }
       result = await runFn({
         ...runDefaults,
+        ...(bridgeUrl ? { bridgeUrl } : {}),
         prompt: promptText,
         cwd: session.cwd,
-        model: session.config.model,
-        maxTokens: session.config.maxTokens,
-        ...(session.config.effort !== EFFORT_AUTO ? { effort: session.config.effort } : {}),
+        model: turnConfig.model,
+        maxTokens: turnConfig.maxTokens,
+        ...(turnConfig.effort !== EFFORT_AUTO ? { effort: turnConfig.effort } : {}),
         ...(capabilities.length > 0 ? { capabilities } : {}),
         sessionPath: sessionPathFor(resolvedSessionDir, sessionId),
         resume: session.turnCount > 0,
@@ -784,14 +910,15 @@ function createAcpAgent(deps) {
         // Mode semantics — each is the runner's real flag, not an imitation:
         // plan records proposals instead of executing; code (acceptEdits)
         // skips the per-write approval card the user opted out of.
-        ...(session.config.mode === 'plan' ? { plan: true } : {}),
-        ...(session.config.mode === 'code' ? { acceptEdits: true } : {}),
+        ...(turnConfig.mode === 'plan' ? { plan: true } : {}),
+        ...(turnConfig.mode === 'code' ? { acceptEdits: true } : {}),
         onEvent,
         confirm,
         askUserQuestion,
       });
     } finally {
       activeTurn = false;
+      session.hostAbort = null;
     }
 
     if (!result || ERROR_STOP_REASONS.has(result.stopReason)) {

@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>One T3 provider, four bridge connections</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        color: #183143;
+        background: #edf3f5;
+        font:
+          16px/1.7 system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      header {
+        background: #102f40;
+        color: #fff;
+        padding: 32px max(24px, calc((100vw - 1240px) / 2));
+        border-bottom: 5px solid #36cbb4;
+      }
+      header b {
+        font-size: 25px;
+      }
+      header p {
+        margin: 5px 0 0;
+        color: #c8e7e9;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 235px minmax(0, 1fr);
+        gap: 30px;
+        max-width: 1300px;
+        margin: auto;
+        padding: 28px 24px;
+      }
+      nav {
+        position: sticky;
+        top: 20px;
+        align-self: start;
+      }
+      nav a {
+        display: block;
+        padding: 7px 10px;
+        color: #285468;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 13px;
+      }
+      nav a:hover,
+      nav a:focus {
+        background: #d2e7e9;
+        outline-offset: 2px;
+      }
+      main {
+        background: white;
+        padding: 36px 42px;
+        border: 1px solid #d5e2e7;
+        border-radius: 16px;
+        min-width: 0;
+        box-shadow: 0 10px 30px #1831430a;
+      }
+      h1 {
+        font-size: 39px;
+        line-height: 1.15;
+        letter-spacing: -1.3px;
+        margin: 0 0 24px;
+      }
+      h2 {
+        font-size: 25px;
+        line-height: 1.3;
+        margin-top: 48px;
+        padding-top: 25px;
+        border-top: 1px solid #d8e6eb;
+        scroll-margin-top: 20px;
+      }
+      p,
+      li {
+        max-width: 86ch;
+      }
+      li {
+        margin: 9px 0;
+      }
+      main > p:first-of-type {
+        font-size: 14px;
+        color: #637e8c;
+      }
+      main > p:nth-of-type(2) {
+        background: #e8f8f3;
+        border-left: 4px solid #24a58b;
+        padding: 20px;
+        border-radius: 8px;
+      }
+      a {
+        color: #006e83;
+        text-underline-offset: 3px;
+      }
+      code {
+        font:
+          0.87em ui-monospace,
+          SFMono-Regular,
+          monospace;
+        background: #edf3f6;
+        border-radius: 4px;
+        padding: 2px 5px;
+        overflow-wrap: anywhere;
+      }
+      pre {
+        background: #122e40;
+        color: #e3f5f6;
+        padding: 20px;
+        border-radius: 10px;
+        overflow: auto;
+      }
+      pre code {
+        background: none;
+        padding: 0;
+        overflow-wrap: normal;
+      }
+      .table-wrap {
+        overflow: auto;
+        margin: 22px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      td,
+      th {
+        padding: 12px;
+        border: 1px solid #d9e6e9;
+        vertical-align: top;
+        text-align: left;
+        min-width: 120px;
+      }
+      th {
+        background: #e4f2f1;
+        color: #154e53;
+      }
+      tr:nth-child(even) {
+        background: #f7fafb;
+      }
+      footer {
+        max-width: 1200px;
+        margin: 10px auto 35px;
+        text-align: center;
+        color: #58737f;
+        font-size: 13px;
+      }
+      @media (max-width: 900px) {
+        .layout {
+          display: block;
+          padding: 15px;
+        }
+        nav {
+          position: static;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          margin-bottom: 18px;
+        }
+        nav a {
+          background: #dfebef;
+        }
+        main {
+          padding: 25px;
+        }
+        h1 {
+          font-size: 32px;
+        }
+      }
+      @media print {
+        header,
+        nav {
+          display: none;
+        }
+        .layout {
+          display: block;
+          padding: 0;
+        }
+        main {
+          border: 0;
+          box-shadow: none;
+          padding: 0;
+        }
+        body {
+          background: white;
+        }
+        pre {
+          white-space: pre-wrap;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <b>Bridge Runner × T3</b>
+      <p>One conversation · Four local connections · Explicit control</p>
+    </header>
+    <div class="layout">
+      <nav aria-label="Guide sections">
+        <a href="#choose-the-right-host">Choose the right host</a><a href="#use-it-in-t3">Use it in T3</a
+        ><a href="#original-vs-code-keep-the-debugging-option">Original VS Code: keep the debugging option</a
+        ><a href="#browser-activation-and-resource-use">Browser activation and resource use</a
+        ><a href="#provider-configuration-and-migration">Provider configuration and migration</a
+        ><a href="#what-automatic-startup-does">What automatic startup does</a
+        ><a href="#persistence-and-authority-boundaries">Persistence and authority boundaries</a
+        ><a href="#recovery-without-guessing">Recovery without guessing</a
+        ><a href="#architecture-and-customization-range">Architecture and customization range</a
+        ><a href="#verification-record-and-remaining-acceptance">Verification record and remaining acceptance</a
+        ><a href="#related-material">Related material</a>
+      </nav>
+      <main>
+        <h1 id="one-t3-provider-four-bridge-connections">One T3 provider, four bridge connections</h1>
+        <p>Alan’s setup and architecture guide · October 16, 2026</p>
+        <p>
+          <strong
+            >Use Bridge Runner (Local ACP) in T3, then choose Bridge host in the runner-options menu beside the
+            model.</strong
+          >
+          Standalone is the default for new chats. You can change the connection between turns without starting another
+          conversation or entering a Terminal flag.
+        </p>
+        <p>
+          ACP means <strong>Agent Client Protocol</strong>: the structured messages T3 and the runner exchange. A bridge
+          host is the local program handling the runner’s model connection. Changing hosts changes that connection; it
+          does not choose a different model or grant more tool permissions.
+        </p>
+        <h2 id="choose-the-right-host">Choose the right host</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Bridge host</th>
+                <th scope="col">Local Messages endpoint</th>
+                <th scope="col">What happens when you submit a prompt</th>
+                <th scope="col">Best use</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Standalone</td>
+                <td><code>http://127.0.0.1:11467/v1/messages</code></td>
+                <td>Reuses the installed service, or starts it if stopped; waits up to 30 seconds</td>
+                <td>Everyday use, especially when memory is tight; no editor window needed</td>
+              </tr>
+              <tr>
+                <td>Desktop — dedicated editor</td>
+                <td><code>http://127.0.0.1:11447/v1/messages</code></td>
+                <td>Reuses or starts the separate installed editor host; waits up to 60 seconds</td>
+                <td>An isolated desktop editor for inspection</td>
+              </tr>
+              <tr>
+                <td>Browser — browser editor</td>
+                <td><code>http://127.0.0.1:11457/v1/messages</code></td>
+                <td>
+                  Reuses or starts the installed service; opens its editor when activation is needed; waits up to 90
+                  seconds
+                </td>
+                <td>Browser-based editor access; keep its tab open</td>
+              </tr>
+              <tr>
+                <td>VS Code — existing/debug</td>
+                <td><code>http://127.0.0.1:11437/v1/messages</code></td>
+                <td>Checks only, for at most five seconds; Alan starts and controls the editor</td>
+                <td>Your original VS Code debugging environment and full diagnostic visibility</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          <code>127.0.0.1</code> means the computer running the selected T3 environment. A <strong>port</strong> is the
+          numbered connection point after the colon. An <strong>endpoint</strong> is the complete request address. The
+          Browser editor page is a separate address: <code>http://127.0.0.1:18080/</code>.
+        </p>
+        <p>
+          All four choices use <strong>the environment selected in T3</strong>. The 2020 environment connects to the
+          2020 laptop. This does not route through the 2024 laptop, and that laptop’s migration remains a separate step.
+        </p>
+        <h2 id="use-it-in-t3">Use it in T3</h2>
+        <ol>
+          <li>Open <strong>T3 Code (Nightly)</strong> from the Dock or Applications folder.</li>
+          <li>
+            Open a chat in the intended project and confirm its environment is <strong>2020 MacBook Air (Alan)</strong>.
+          </li>
+          <li>Use the model menu to choose a model belonging to <strong>Bridge Runner (Local ACP)</strong>.</li>
+          <li>
+            Open the adjacent runner-options menu. It shows controls such as Ask, Effort, Token Budget, and
+            <strong>Bridge host</strong>.
+          </li>
+          <li>
+            Choose a host. Selecting an item only saves the choice; it does not start services or spend model usage.
+          </li>
+          <li>
+            Submit your prompt. A <strong>Bridge connection (local)</strong> activity reports checking, startup or
+            editor activation, and connection. The model request begins only after connection succeeds.
+          </li>
+        </ol>
+        <p>
+          T3 controls the placement and visual style of ACP selectors. This integration uses the existing runner-options
+          menu rather than adding a custom toolbar or dashboard.
+        </p>
+        <p>
+          Each chat remembers its selected host. A change made while a reply is running takes effect on the
+          <strong>next</strong> turn. The active turn keeps one endpoint for every request in its tool loop. The model,
+          project, approvals, available tools, and checkpoint conversation continue through a host switch. A
+          <strong>checkpoint</strong> is the runner’s saved conversation, used to continue a later turn.
+        </p>
+        <h2 id="original-vs-code-keep-the-debugging-option">Original VS Code: keep the debugging option</h2>
+        <p>
+          Choose <strong>VS Code — existing/debug</strong> to deliberately use your ordinary editor’s bridge. The
+          integration never launches, stops, restarts, reinstalls, or changes settings in that editor. It does not
+          search neighboring ports or silently choose another host.
+        </p>
+        <p>
+          If it is unavailable, T3 reports:
+          <strong
+            >“The existing VS Code bridge is unavailable at port 11437. Start the bridge in your VS Code session, then
+            retry.”</strong
+          >
+        </p>
+        <p>
+          To start it yourself, bring your usual <strong>VS Code</strong> window forward. Press
+          <strong>Shift–Command–P</strong> to open its Command Palette, type
+          <strong>Claude Local Bridge: Start Server</strong>, and select that command. Success means the bridge reports
+          its listening port in that editor. Then return to T3 and retry. If the command is absent, that editor may not
+          have the extension loaded; check the intended extension/debugging session before changing anything.
+        </p>
+        <p>
+          A successful response proves that the endpoint served the request. It does not prove which editor process owns
+          that endpoint. For a separate visibility check, inspect the corresponding request in your VS Code bridge
+          diagnostics. Host selection does not enable verbose traces, copy a debug token, or weaken existing redaction.
+          Full traces can contain prompts and source code, so they remain a separate deliberate setting.
+        </p>
+        <p>
+          If your original extension reports another port, set the provider environment variable
+          <code>BRIDGE_RUNNER_VSCODE_URL</code> to its exact local Messages endpoint. For example,
+          <code>http://127.0.0.1:11438/v1/messages</code> changes <strong>only</strong> this choice. Accepted hosts are
+          <code>localhost</code>, <code>127.0.0.1</code>, and <code>[::1]</code>, using HTTP or HTTPS and the Messages
+          path. Credentials in the address, query strings, fragments, remote hosts, and unrelated paths are rejected.
+          Nothing scans for the new port automatically.
+        </p>
+        <h2 id="browser-activation-and-resource-use">Browser activation and resource use</h2>
+        <p>
+          Browser mode runs a local editor service, then needs an editor tab to activate its extension. When that tab is
+          needed, the integration opens <code>http://127.0.0.1:18080/</code> once per activation window. Concurrent
+          chats share that activation attempt rather than opening repeated tabs. If login is requested, Alan completes
+          it; the integration never copies or displays its password. The password belongs to this laptop’s local editor
+          installation, not the T3 provider.
+        </p>
+        <p>
+          Keep the Browser editor tab open while using that host. If activation times out, open the same address in your
+          browser, finish the existing login, wait for the editor to load, then retry in T3. A timed-out connection
+          sends no model request.
+        </p>
+        <p>
+          Standalone avoids an editor and browser tab, so it is the useful default on an 8 GB laptop. Desktop and
+          Browser consume additional resources. Hosts stay running after a prompt is stopped, a chat closes, or T3
+          quits, because another chat may be using them. Close or stop dedicated hosts deliberately when they are idle
+          if you want to reclaim memory.
+        </p>
+        <h2 id="provider-configuration-and-migration">Provider configuration and migration</h2>
+        <p>
+          On the 2020 laptop the existing provider instance was migrated in place; its identity and model preferences
+          were retained. No duplicate provider is required.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">T3 provider setting</th>
+                <th scope="col">Value or meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Display name</td>
+                <td>Bridge Runner (Local ACP)</td>
+              </tr>
+              <tr>
+                <td>Provider route</td>
+                <td>Local ACP command, rather than the built-in Cursor provider</td>
+              </tr>
+              <tr>
+                <td>Executable / Binary path</td>
+                <td><code>/Users/alanman/Developer/claude-local-bridge-playground/bin/t3-bridge-runner.sh</code></td>
+              </tr>
+              <tr>
+                <td>Arguments</td>
+                <td>Empty</td>
+              </tr>
+              <tr>
+                <td><code>BRIDGE_RUNNER_NODE</code></td>
+                <td>Existing executable Node.js path; on this laptop <code>/Users/alanman/.local/bin/node</code></td>
+              </tr>
+              <tr>
+                <td><code>BRIDGE_RUNNER_CAPABILITIES</code></td>
+                <td>Existing <code>edits</code> setting retained; other supported groups remain explicit choices</td>
+              </tr>
+              <tr>
+                <td><code>BRIDGE_RUNNER_HOST</code></td>
+                <td>
+                  Optional initial host: <code>standalone</code>, <code>desktop</code>, <code>browser</code>, or
+                  <code>vscode</code>; absent means Standalone
+                </td>
+              </tr>
+              <tr>
+                <td><code>BRIDGE_RUNNER_VSCODE_URL</code></td>
+                <td>Optional loopback override for existing/debug only</td>
+              </tr>
+              <tr>
+                <td><code>BRIDGE_CALLER_TOKEN</code></td>
+                <td>Optional existing local caller-authentication token, supplied privately through the environment</td>
+              </tr>
+              <tr>
+                <td><code>BRIDGE_RUNNER_BRIDGE_URL</code></td>
+                <td>Remove this old fixed-address setting for the four-host provider</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Do not combine <code>--bridge-host</code> or <code>BRIDGE_RUNNER_HOST</code> with a generic fixed
+          <code>--bridge-url</code> or <code>BRIDGE_RUNNER_BRIDGE_URL</code>: the agent rejects the conflict instead of
+          ignoring one setting. The generic launcher explicitly opts into host selection. Direct ACP clients without
+          that opt-in retain their previous fixed-URL behavior and receive no automatic host management.
+        </p>
+        <p>
+          The launcher resolves Node.js using the existing explicit setting and usual installation paths. It preserves
+          this setup’s existing workspace-trust and explicit <code>--allow-shell</code> launch choices.
+          <strong>Shell is available in this launcher</strong>, with supervised approval behavior; changing Bridge host
+          never grants it. To create a provider without shell, use Node.js and
+          <code>bin/local-bridge-acp.js --bridge-host standalone --trust-workspace</code> directly, with separate
+          arguments in T3, omitting <code>--allow-shell</code>. Do not add <code>shell</code> to the capability-group
+          variable. Ask, Plan, Code, and T3’s access selection still control their established runner behavior.
+        </p>
+        <p>
+          Caller tokens authenticate local clients to a bridge that requires them. They are not upstream model
+          credentials. They never appear in the selector, companion settings, or connection diagnostics. The host choice
+          does not alter Claude login, fingerprint behavior, upstream credentials, or the native
+          <code>/v1/messages</code> surface.
+        </p>
+        <h2 id="what-automatic-startup-does">What automatic startup does</h2>
+        <p>
+          The sequence is:
+          <strong
+            >capture this turn’s host → inspect/check → reuse or start → wait for activation → send the prompt → run the
+            existing tool loop</strong
+          >.
+        </p>
+        <p>
+          The new asynchronous <strong>ensure</strong> operation reuses a healthy selected host, starts a stopped
+          installed host, and leaves every other managed mode running. It checks that managed listeners belong to the
+          controller’s selected job. It refuses an unrelated process occupying a managed port. It does not automatically
+          install, replace, restart an unhealthy running service, switch hosts, or replay a failed model request.
+        </p>
+        <p>
+          Startup decisions use the existing controller lock: one local operation owns the startup decision at a time.
+          The lock is released before the longer editor-activation wait, so another chat can start a different host.
+          Subprocesses and waits support cancellation. Canceling startup prevents model submission; canceling a reply
+          uses the existing runner cancellation path. Neither stops a shared service.
+        </p>
+        <p>
+          <strong>The older manual Start controls behave differently:</strong> they intentionally stop the other
+          dedicated modes before starting the chosen mode. Do not use those exclusive Start controls while another chat
+          needs a different managed host. T3 uses ensure, which preserves those other hosts. Existing manual commands
+          retain their original meaning.
+        </p>
+        <h2 id="persistence-and-authority-boundaries">Persistence and authority boundaries</h2>
+        <p>
+          The runner’s checkpoint stays under its existing session directory. The selected host is saved beside it as
+          <code>&lt;session-id&gt;.acp.json</code>, containing only <code>schemaVersion: 1</code> and
+          <code>bridgeHost</code>. It uses private permissions, validated session identifiers, an exclusive temporary
+          file, and atomic replacement. <strong>Atomic replacement</strong> means readers see the previous complete file
+          or the next complete file rather than a half-written file.
+        </p>
+        <p>
+          A failed save leaves the previous selection intact. Invalid saved settings report an explicit error instead of
+          falling back. A session with settings but no successful model turn can still reload; an older checkpoint
+          without settings uses the provider default. The companion file stores neither the endpoint override nor a
+          caller token and does not rewrite an active conversation checkpoint.
+        </p>
+        <p>
+          Lifecycle authority belongs to the fixed local controller. Prompt text, workspace files, and model tools
+          cannot supply launch commands or turn a host selection into permission to manage ordinary editors.
+        </p>
+        <h2 id="recovery-without-guessing">Recovery without guessing</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">What T3 reports</th>
+                <th scope="col">Useful next action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Existing VS Code unavailable</td>
+                <td>Start the bridge yourself in the intended VS Code session; check its actual port; retry</td>
+              </tr>
+              <tr>
+                <td>Dedicated installation missing</td>
+                <td>
+                  Install the dedicated hosts deliberately using the existing hosting installation guide; retry
+                  afterward
+                </td>
+              </tr>
+              <tr>
+                <td>Port occupied by another process</td>
+                <td>
+                  Inspect which program owns that exact port; this integration stops nothing and chooses no alternative
+                </td>
+              </tr>
+              <tr>
+                <td>Browser not ready</td>
+                <td>
+                  Open <code>http://127.0.0.1:18080/</code> in your browser, finish login, keep its tab open, and retry
+                </td>
+              </tr>
+              <tr>
+                <td>Managed job running but unhealthy</td>
+                <td>
+                  Inspect that dedicated editor or private service logs; decide on a manual repair while other chats are
+                  idle
+                </td>
+              </tr>
+              <tr>
+                <td>Saved settings invalid or unreadable</td>
+                <td>
+                  Inspect the named session’s private <code>.acp.json</code>; repair or remove that companion
+                  deliberately, preserving the conversation checkpoint
+                </td>
+              </tr>
+              <tr>
+                <td>Fixed URL conflicts with host selection</td>
+                <td>
+                  Remove the old generic fixed URL from this provider, or use a separate legacy fixed-URL provider
+                </td>
+              </tr>
+              <tr>
+                <td>Node executable unavailable</td>
+                <td>Correct <code>BRIDGE_RUNNER_NODE</code> to an existing executable on the selected laptop</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          For a read-only managed-host status check, open <strong>Terminal</strong>: press Command–Space, type Terminal,
+          and press Return. Paste the following there, one block at a time. Spotlight opens Terminal; commands go into
+          the Terminal window.
+        </p>
+        <pre><code># Move Terminal to this laptop’s real playground checkout.
+cd /Users/alanman/Developer/claude-local-bridge-playground</code></pre>
+        <pre><code># Inspect dedicated jobs and listener ownership; this sends no model request.
+node bin/bridge-hosts.js status</code></pre>
+        <p>
+          Success lists the three dedicated modes and whether their listeners are owned. It does not prove a model
+          reply; a short T3 prompt provides that separate evidence. If the folder is absent, stop and locate the
+          checkout on that laptop. Do not install into a random replacement folder.
+        </p>
+        <p>
+          To leave this integration, change the T3 provider command deliberately while chats are idle. The old
+          <code>bin/t3-cursor-shim.sh</code> remains available for historical Cursor-driver configurations, and direct
+          ACP without <code>--bridge-host</code> remains the fixed-URL route. Do not reuse the generic launcher with
+          Cursor-only launch arguments. Returning to the old Cursor route may still encounter T3’s Cursor-authentication
+          gate; the Local ACP route avoids that dependency.
+        </p>
+        <h2 id="architecture-and-customization-range">Architecture and customization range</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Layer</th>
+                <th scope="col">Responsibility</th>
+                <th scope="col">Main file</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>T3 launcher</td>
+                <td>Node resolution, explicit startup defaults, protocol-only output</td>
+                <td><code>bin/t3-bridge-runner.sh</code></td>
+              </tr>
+              <tr>
+                <td>ACP entry point</td>
+                <td>Validate flags, reject fixed-URL conflict, forward local caller auth</td>
+                <td><code>bin/local-bridge-acp.js</code></td>
+              </tr>
+              <tr>
+                <td>ACP session</td>
+                <td>Advertise controls, snapshot each turn, connection activity, selection restore</td>
+                <td><code>src/runner/acp/agent.js</code></td>
+              </tr>
+              <tr>
+                <td>Settings companion</td>
+                <td>Validate and privately save the selected host</td>
+                <td><code>src/runner/acp/host-settings.js</code></td>
+              </tr>
+              <tr>
+                <td>Host policy</td>
+                <td>Four endpoints, deadlines, connect-only VS Code, non-disruptive ensure</td>
+                <td><code>src/hosting/ensure.js</code></td>
+              </tr>
+              <tr>
+                <td>macOS adapter</td>
+                <td>Cooperative lock, job/listener ownership, asynchronous launch and browser activation</td>
+                <td><code>src/hosting/connection-operations.js</code></td>
+              </tr>
+              <tr>
+                <td>Existing runner</td>
+                <td>Model requests, approvals, tools, streaming, conversation checkpoints</td>
+                <td><code>src/runner/run.js</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The present customization surface includes provider command/environment defaults, model selection, effort,
+          output-token presets, Ask/Plan/Code, supported capability toggles, and the new host selector. These controls
+          must be backed by real runner behavior. A model label added only to T3 does not establish upstream model
+          support.
+        </p>
+        <p>
+          Future separate work could add validated step/time/cost controls, prompt templates, richer diagnostics,
+          session listing/export/fork, or MCP (Model Context Protocol) services. Images, audio, and embedded context
+          remain advertised as unsupported. Custom dashboards require a verified T3 extension surface or changes to T3
+          itself. Remote hosts and automatic failover are excluded. No additional controls are implemented merely
+          because they appear in this possibilities list.
+        </p>
+        <h2 id="verification-record-and-remaining-acceptance">Verification record and remaining acceptance</h2>
+        <p>
+          On the 2020 laptop, real short replies succeeded through Standalone, Desktop, and Browser from stopped state.
+          One continuing chat retained the marker <code>MAPLE-2020</code> across those three connections. All three
+          managed services remained running simultaneously. The existing/debug failure was verified with no port-11437
+          listener, and the selected existing/debug option survived quitting and reopening T3.
+        </p>
+        <p>
+          After quitting and reopening T3, the same chat replied <code>RESTORED_OK MAPLE-2020</code> through Standalone.
+          The connection card’s title and plain-text details were verified in T3 on both failure and success. Two
+          separate real ACP clients also completed simultaneous Standalone/Desktop turns, including a read-only
+          <code>list_files</code> loop. Streaming cancellation settled in 115 milliseconds after the first chunk. A
+          recovery check first hit the deliberately low 256-token limit; raising the test limit to 512 allowed that
+          saved session to answer successfully. These scripted checks use real hosts and the real runner, but do not
+          substitute for two simultaneous chats clicked through T3’s interface.
+        </p>
+        <p>
+          The existing/debug successful response, matching request visibility inside the ordinary VS Code diagnostics,
+          and Standalone-to-original continuity require Alan’s ordinary bridge to be started. They remain separate from
+          the successful managed-host responses. The 2024 laptop is outside this migration.
+        </p>
+        <p>
+          Mock-based tests cover passive discovery, endpoints/override, idempotent startup, occupancy and installation
+          failures, unhealthy jobs, browser activation, cancellation, saved settings, turn boundaries, legacy behavior,
+          caller-token forwarding, and protocol output. Passing mocks establish those controlled cases; they do not
+          substitute for the remaining editor-level checks. See the dated implementation handoff for the final check
+          counts, live-test spend, independent-review findings, and any remaining acceptance items.
+        </p>
+        <h2 id="related-material">Related material</h2>
+        <ul>
+          <li><a href="bridge-hosting-guide.html">Dedicated host installation and manual controls</a></li>
+          <li><a href="t3-code-nightly-setup-2026-09-26.html">Historical September T3 Cursor-driver setup</a></li>
+          <li>
+            <a href="https://agentclientprotocol.com/protocol/v1/session-config-options"
+              >ACP session configuration specification</a
+            >
+          </li>
+          <li><a href="t3-bridge-host-integration.md">Markdown companion</a></li>
+        </ul>
+      </main>
+    </div>
+    <footer>Local research guide · October 16, 2026 · No external scripts, fonts, or analytics</footer>
+  </body>
+</html>

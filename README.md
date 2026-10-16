@@ -275,13 +275,16 @@ Project-local prompt primitives live under `.bridge-runner/`:
 Matching global files under `~/.bridge-runner/` are also loaded. Project files win over global replacement prompts;
 append files are applied global first, then project, then CLI flags.
 
-**Chat with the runner inside T3 Code (desktop app).** T3's Cursor provider driver can launch any program that
-speaks ACP (Agent Client Protocol) over standard input/output. `bin/t3-cursor-shim.sh` is that program for this repo: it
-answers T3's identity probe, drops T3's Cursor-only launch flags, finds `node`, and starts `bin/local-bridge-acp.js`
-with the read-only tool set. Setting `BRIDGE_RUNNER_CAPABILITIES=edits` on the T3 provider instance adds approval-gated
-file edits; shell stays a hand edit of the script. Setup and the verification checklist:
-`docs/t3-code-nightly-setup-2026-09-26.html`. Live health check from this folder (tiny real model spend):
-`node scripts/acp-live-probe.js`.
+**Chat with the runner inside T3 Code (desktop app).** Use T3's **Local ACP command** route with
+`bin/t3-bridge-runner.sh`. ACP (Agent Client Protocol) carries the conversation and session controls over standard
+input/output. The **Bridge host** selector offers Standalone (the new-chat default), a dedicated Desktop editor,
+a Browser editor, and the original VS Code debugging bridge. The three installed managed hosts start on prompt
+submission without stopping each other; original VS Code is strictly connect-only. This launcher preserves the
+existing explicit shell opt-in and workspace-trust settings; host selection does not alter permissions.
+See the [setup and architecture guide](docs/t3-bridge-host-integration.html) and its
+[Markdown companion](docs/t3-bridge-host-integration.md) for settings, persistence, and recovery.
+The old `bin/t3-cursor-shim.sh`, dated September setup, and `scripts/acp-live-probe.js` remain available for
+historical Cursor-driver/fixed-endpoint configurations; they do not test this new four-host pathway.
 
 ### Prompt-template registry
 
