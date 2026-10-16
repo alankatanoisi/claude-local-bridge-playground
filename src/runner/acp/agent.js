@@ -46,8 +46,22 @@ const { makeSessionId, sessionPathFor } = require('../session-store');
 const { HOSTS, validateHost } = require('../../hosting/ensure');
 const hostSettings = require('./host-settings');
 const { createRedactionBoundary } = require('../redaction-boundary');
+const { MAX_IMAGE_BYTES } = require('../media-read');
 
 const PROTOCOL_VERSION = 1;
+
+// Image media types the Anthropic Messages API accepts as base64 sources. An
+// ACP client may send anything; everything else is dropped with a visible
+// placeholder rather than forwarded to fail at the model boundary.
+const PROMPT_IMAGE_MEDIA_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+
+// Default tool-step ceiling for one ACP turn. The CLI runner defaults to 16
+// because a one-shot command should fail fast, but an interactive chat turn has
+// a human watching and a Stop button, so here the ceiling is a safety net, not
+// a pacing device. A real turn hit 16 mid-edit on 2026-10-16; Alan's owner
+// decision the same day: 1000. `--max-steps` on the agent command line
+// (arriving through runDefaults) overrides this.
+const DEFAULT_ACP_MAX_STEPS = 1000;
 
 // ── Config options ──────────────────────────────────────────────────────────
 // ACP composer controls are select-or-boolean only (no numeric input exists in
@@ -257,18 +271,57 @@ const ERROR_STOP_REASONS = new Set([
   STOP_REASONS.WORKSPACE_NOT_TRUSTED,
 ]);
 
-/** Extract the plain text of an ACP prompt (ContentBlock[]) for run(). */
-function promptTextFrom(blocks) {
-  if (!Array.isArray(blocks)) return '';
+/**
+ * Split an ACP prompt (ContentBlock[]) into what run() consumes: the plain
+ * prompt text plus any image attachments as Anthropic image blocks.
+ *
+ * ACP image blocks are `{ type: 'image', data: <base64>, mimeType }`. Images
+ * the model API cannot accept (unknown media type, oversized, malformed) are
+ * not forwarded; a short placeholder is appended to the text instead so the
+ * model — and the user reading the transcript — can see an attachment was
+ * dropped rather than silently losing it. A prompt that is only images gets a
+ * minimal text stub because run() requires a non-empty prompt string and the
+ * ledger/trace capture it as text.
+ */
+function promptContentFrom(blocks) {
+  if (!Array.isArray(blocks)) return { text: '', attachments: [], dropped: [] };
   const parts = [];
+  const attachments = [];
+  const dropped = [];
+  let imageIndex = 0;
   for (const block of blocks) {
     if (!block || typeof block !== 'object') continue;
     if (block.type === 'text' && typeof block.text === 'string') parts.push(block.text);
     // Baseline ACP also requires resource_link support: we cannot fetch the
     // resource, but we can hand its address to the model as context.
     else if (block.type === 'resource_link' && typeof block.uri === 'string') parts.push('[resource] ' + block.uri);
+    else if (block.type === 'image') {
+      imageIndex += 1;
+      const mediaType = typeof block.mimeType === 'string' ? block.mimeType.toLowerCase() : '';
+      const data = typeof block.data === 'string' ? block.data : '';
+      let reason = null;
+      if (!PROMPT_IMAGE_MEDIA_TYPES.has(mediaType)) reason = 'unsupported media type ' + (mediaType || '(missing)');
+      else if (!data) reason = 'missing image data';
+      // base64 inflates ~4/3; compare decoded size against the model limit.
+      else if (Math.floor((data.length * 3) / 4) > MAX_IMAGE_BYTES) reason = 'exceeds ' + MAX_IMAGE_BYTES + ' bytes';
+      if (reason) {
+        dropped.push({ index: imageIndex, reason });
+        parts.push('[image attachment ' + imageIndex + ' not forwarded: ' + reason + ']');
+        continue;
+      }
+      attachments.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data } });
+    }
   }
-  return parts.join('\n\n').trim();
+  let text = parts.join('\n\n').trim();
+  if (!text && attachments.length > 0) {
+    text = attachments.length === 1 ? '(See attached image.)' : '(See the ' + attachments.length + ' attached images.)';
+  }
+  return { text, attachments, dropped };
+}
+
+/** Extract the plain text of an ACP prompt (ContentBlock[]) for run(). */
+function promptTextFrom(blocks) {
+  return promptContentFrom(blocks).text;
 }
 
 /**
@@ -406,7 +459,11 @@ function createAcpAgent(deps) {
       authMethods: [],
       agentCapabilities: {
         loadSession: true,
-        promptCapabilities: { image: false, audio: false, embeddedContext: false },
+        // image: true since 2026-10-16 — T3 gates attachment drops on this flag
+        // (a single screenshot failed identically to five), and the prompt path
+        // now converts ACP image blocks to Anthropic image blocks. Audio and
+        // embedded context stay off: nothing downstream can consume them.
+        promptCapabilities: { image: true, audio: false, embeddedContext: false },
       },
     };
   });
@@ -585,7 +642,11 @@ function createAcpAgent(deps) {
     if (activeTurn) {
       throw new RpcError(ERROR_CODES.INVALID_REQUEST, 'A turn is already running in this agent process');
     }
-    const promptText = promptTextFrom(params && params.prompt);
+    // Text plus any image attachments the client sent. Images ride along to
+    // run() as Anthropic image blocks under a SEPARATE option so `prompt` stays
+    // a plain string for every transcript/ledger/trace sink that captures it.
+    const promptContent = promptContentFrom(params && params.prompt);
+    const promptText = promptContent.text;
     if (!promptText) {
       throw new RpcError(ERROR_CODES.INVALID_PARAMS, 'session/prompt contained no text');
     }
@@ -887,8 +948,12 @@ function createAcpAgent(deps) {
       }
       result = await runFn({
         ...runDefaults,
+        // After the spread on purpose: a caller passing `maxSteps: undefined`
+        // must still land on the ACP default rather than the runner's 16.
+        maxSteps: runDefaults.maxSteps || DEFAULT_ACP_MAX_STEPS,
         ...(bridgeUrl ? { bridgeUrl } : {}),
         prompt: promptText,
+        ...(promptContent.attachments.length > 0 ? { promptAttachments: promptContent.attachments } : {}),
         cwd: session.cwd,
         model: turnConfig.model,
         maxTokens: turnConfig.maxTokens,
@@ -956,8 +1021,11 @@ module.exports = {
   toolTitleFor,
   acpStopReasonFor,
   promptTextFrom,
+  promptContentFrom,
   parseAskQuestionAnswer,
   PROTOCOL_VERSION,
+  PROMPT_IMAGE_MEDIA_TYPES,
+  DEFAULT_ACP_MAX_STEPS,
   MODEL_CHOICES,
   MAX_TOKENS_PRESETS,
   SESSION_MODES,

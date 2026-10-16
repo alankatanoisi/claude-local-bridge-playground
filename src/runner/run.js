@@ -445,6 +445,7 @@ async function run(options) {
     model,
     maxTokens,
     maxSteps,
+    promptAttachments,
     transcriptPath,
     humanLogPath,
     bridgeUrl,
@@ -502,6 +503,9 @@ async function run(options) {
     capabilities,
     enterWorktreeAtStart,
   } = options;
+  // Image blocks a hosted caller (the ACP agent) attached to this prompt. They
+  // join the outbound user message only; logs record the count, never bytes.
+  const imageCount = Array.isArray(promptAttachments) ? promptAttachments.length : 0;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
   // Thermo-nuclear M3 (2026-08-25): process.exitCode is CLI vocabulary. A
@@ -1215,7 +1219,7 @@ async function run(options) {
     // Checkpoint may already have been repaired in the early F6 reconcile above;
     // reload so we continue from the flushed repaired messages.
     messages = [...sessionStore.messages];
-    messages.push(buildUserMessage(prompt, stdinText));
+    messages.push(buildUserMessage(prompt, stdinText, null, promptAttachments));
     ctx.contextState = updateDirective(ctx.contextState || createContextState(prompt, 'unknown'), prompt);
     if (!quiet) console.error('[runner] resumed ' + messages.length + ' messages from session ' + resolvedSessionPath);
     if (sessionStore && !noSessionPersistence) {
@@ -1239,8 +1243,9 @@ async function run(options) {
       const envBlock = buildDynamicEnvironmentBlock(ctx);
       if (envBlock) userEnvPrefix.push(envBlock);
     }
-    messages = [buildUserMessage(prompt, stdinText, userEnvPrefix.length ? userEnvPrefix : null)];
-    if (transcript) transcript.append({ type: 'user_prompt', text: prompt });
+    messages = [buildUserMessage(prompt, stdinText, userEnvPrefix.length ? userEnvPrefix : null, promptAttachments)];
+    if (transcript)
+      transcript.append({ type: 'user_prompt', text: prompt, ...(imageCount ? { images: imageCount } : {}) });
     if (sessionStore && !noSessionPersistence) {
       sessionStore.load();
       hydrateRunnerStateFromSession(ctx, sessionStore);
@@ -1308,7 +1313,13 @@ async function run(options) {
     console.error('[runner] tip: --task-scope runs work best with --plan for the first pass.');
   }
 
-  if (ledger) appendLedger(ledger, hooks, 'user_prompt', { runId, prompt: prompt.slice(0, 500) });
+  if (ledger) {
+    appendLedger(ledger, hooks, 'user_prompt', {
+      runId,
+      prompt: prompt.slice(0, 500),
+      ...(imageCount ? { images: imageCount } : {}),
+    });
+  }
 
   output.emit('system', { subtype: 'init', cwd: ctx.cwdRealpath, model, max_steps: steps });
   if (trace) {

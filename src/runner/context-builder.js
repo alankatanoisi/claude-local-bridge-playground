@@ -215,11 +215,24 @@ function buildRepoContextBlock(ctx, contextPolicy = DEFAULT_POLICY) {
   return '## Repository context (cached for the session)\n\n' + parts.join('\n\n');
 }
 
-function buildUserMessage(text, stdinText, prefixBlocks) {
+function buildUserMessage(text, stdinText, prefixBlocks, attachments) {
   const blocks = [];
   if (prefixBlocks && prefixBlocks.length) {
     for (const block of prefixBlocks) {
       if (block) blocks.push({ type: 'text', text: block });
+    }
+  }
+  // Image attachments (an ACP client such as T3 sends dropped screenshots this
+  // way) go in front of the prompt text: Anthropic's guidance is image first,
+  // question after, and it keeps the text block last so the prompt reads
+  // naturally once the model has "seen" the pictures. Only well-formed
+  // Anthropic image blocks are accepted — anything else here is a caller bug,
+  // and dropping it beats sending the API a block it will reject outright.
+  if (Array.isArray(attachments)) {
+    for (const block of attachments) {
+      if (block && block.type === 'image' && block.source && typeof block.source.data === 'string') {
+        blocks.push(block);
+      }
     }
   }
   let content = text;

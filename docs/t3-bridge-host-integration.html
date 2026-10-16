@@ -315,6 +315,22 @@
           project, approvals, available tools, and checkpoint conversation continue through a host switch. A
           <strong>checkpoint</strong> is the runner’s saved conversation, used to continue a later turn.
         </p>
+        <p>
+          <strong>Screenshots and other images</strong> (added 2026-10-16). Dropping an image into the composer works:
+          the agent advertises image support, converts each PNG, JPEG, GIF or WebP attachment into the form the model
+          API accepts, and places it in front of your text. An attachment the model cannot take (another format, or over
+          the 7 MB media limit) is not sent; the prompt text gains a line such as
+          <code>[image attachment 1 not forwarded: unsupported media type image/svg+xml]</code> so neither you nor the
+          model is left guessing. Images are kept inside the saved checkpoint so later turns still “see” them; logs and
+          ledgers record only how many images a turn carried, never their bytes.
+        </p>
+        <p>
+          <strong>Tool-step ceiling</strong> (added 2026-10-16). One ACP turn may run up to <strong>1000</strong> tool
+          steps before the runner stops with “Reached max_steps”. The command-line runner keeps its default of 16
+          because a one-shot command should fail fast; a chat turn has you watching and a Stop button, so the ceiling is
+          only a safety net. T3 has no composer control for it. To change it, add <code>--max-steps &lt;n&gt;</code> to
+          the provider’s launch arguments in T3 (the same place <code>--allow-shell</code> lives).
+        </p>
         <h2 id="original-vs-code-keep-the-debugging-option">Original VS Code: keep the debugging option</h2>
         <p>
           Choose <strong>VS Code — existing/debug</strong> to deliberately use your ordinary editor’s bridge. The

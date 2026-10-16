@@ -36,6 +36,12 @@ const DEFAULT_POLICY = Object.freeze({
 
 const _blockCharCache = new WeakMap();
 
+// Image blocks carry base64 the model never tokenizes as text. The API bills
+// roughly (width × height) / 750 tokens, capped near 1,600 once an oversized
+// image is downscaled. Charge that flat cap so the budget sees attachments
+// without mistaking megabytes of base64 for prose.
+const IMAGE_BLOCK_ESTIMATE_TOKENS = 1600;
+
 function estimateBlockChars(block) {
   const cached = _blockCharCache.get(block);
   if (cached !== undefined) return cached;
@@ -43,6 +49,7 @@ function estimateBlockChars(block) {
   if (block.text) n += block.text.length;
   if (block.content) n += String(block.content).length;
   if (block.input) n += JSON.stringify(block.input).length;
+  if (block.type === 'image') n += IMAGE_BLOCK_ESTIMATE_TOKENS * 4;
   _blockCharCache.set(block, n);
   return n;
 }

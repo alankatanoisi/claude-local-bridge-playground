@@ -32,7 +32,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { run } = require('../src/runner/run');
-const { createAcpAgent, MODEL_CHOICES } = require('../src/runner/acp/agent');
+const { createAcpAgent, MODEL_CHOICES, DEFAULT_ACP_MAX_STEPS } = require('../src/runner/acp/agent');
 const { EFFORT_LEVELS, EFFORT_AUTO } = require('../src/runner/model-catalog');
 const { OPTIONAL_CAPABILITIES } = require('../src/runner/tool-catalog');
 // Reused from the terminal runner so the two entry points cannot drift on how
@@ -52,6 +52,9 @@ function showHelp() {
       '  --model <id>           default model (' + MODEL_CHOICES.join(', ') + ')',
       '  --effort <level>       default reasoning effort (' + [EFFORT_AUTO, ...EFFORT_LEVELS].join(', ') + ')',
       '  --max-tokens <n>       default per-turn token budget (default 2000)',
+      '  --max-steps <n>        tool-step ceiling per turn (default ' +
+        DEFAULT_ACP_MAX_STEPS +
+        '; the CLI runner default of 16 is too low for an open-ended chat)',
       '  --capabilities <list>  comma-separated groups enabled by default (' + OPTIONAL_CAPABILITIES.join(', ') + ')',
       '  --bridge-url <url>     local bridge address (default from BRIDGE_RUNNER_BRIDGE_URL or 127.0.0.1:11437)',
       '  --bridge-host <host>   opt in to per-chat host selection (standalone, desktop, browser, vscode)',
@@ -75,6 +78,7 @@ function main() {
       model: { type: 'string' },
       effort: { type: 'string' },
       'max-tokens': { type: 'string' },
+      'max-steps': { type: 'string' },
       capabilities: { type: 'string' },
       'bridge-url': { type: 'string' },
       'bridge-host': { type: 'string' },
@@ -104,6 +108,13 @@ function main() {
   const maxTokens = args.values['max-tokens'] ? parseInt(args.values['max-tokens'], 10) : undefined;
   if (args.values['max-tokens'] && (!Number.isFinite(maxTokens) || maxTokens <= 0)) {
     console.error('--max-tokens must be a positive integer');
+    process.exitCode = 1;
+    return;
+  }
+
+  const maxSteps = args.values['max-steps'] ? parseInt(args.values['max-steps'], 10) : undefined;
+  if (args.values['max-steps'] && (!Number.isFinite(maxSteps) || maxSteps <= 0)) {
+    console.error('--max-steps must be a positive integer');
     process.exitCode = 1;
     return;
   }
@@ -163,6 +174,7 @@ function main() {
       ...(bridgeUrl ? { bridgeUrl } : {}),
       ...(args.values['trust-workspace'] ? { trustWorkspace: true } : {}),
       ...(args.values['allow-shell'] ? { allowShell: true } : {}),
+      ...(maxSteps ? { maxSteps } : {}),
     },
   });
 

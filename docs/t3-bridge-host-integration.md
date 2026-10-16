@@ -32,6 +32,10 @@ T3 controls the placement and visual style of ACP selectors. This integration us
 
 Each chat remembers its selected host. A change made while a reply is running takes effect on the **next** turn. The active turn keeps one endpoint for every request in its tool loop. The model, project, approvals, available tools, and checkpoint conversation continue through a host switch. A **checkpoint** is the runner’s saved conversation, used to continue a later turn.
 
+**Screenshots and other images** (added 2026-10-16). Dropping an image into the composer works: the agent advertises image support, converts each PNG, JPEG, GIF or WebP attachment into the form the model API accepts, and places it in front of your text. An attachment the model cannot take (another format, or over the 7 MB media limit) is not sent; the prompt text gains a line such as `[image attachment 1 not forwarded: unsupported media type image/svg+xml]` so neither you nor the model is left guessing. Images are kept inside the saved checkpoint so later turns still “see” them; logs and ledgers record only how many images a turn carried, never their bytes.
+
+**Tool-step ceiling** (added 2026-10-16). One ACP turn may run up to **1000** tool steps before the runner stops with “Reached max_steps”. The command-line runner keeps its default of 16 because a one-shot command should fail fast; a chat turn has you watching and a Stop button, so the ceiling is only a safety net. T3 has no composer control for it. To change it, add `--max-steps <n>` to the provider’s launch arguments in T3 (the same place `--allow-shell` lives).
+
 ## Original VS Code: keep the debugging option
 
 Choose **VS Code — existing/debug** to deliberately use your ordinary editor’s bridge. The integration never launches, stops, restarts, reinstalls, or changes settings in that editor. It does not search neighboring ports or silently choose another host.
