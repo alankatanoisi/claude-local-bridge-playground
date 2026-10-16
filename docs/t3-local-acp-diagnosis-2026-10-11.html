@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>T3 local ACP diagnosis and verified resolution</title>
+    <style>
+      body {
+        margin: 0;
+        background: #edf2f6;
+        color: #18283b;
+        font:
+          17px/1.7 system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      main {
+        max-width: 940px;
+        margin: 48px auto;
+        background: white;
+        padding: 52px 64px;
+        border-radius: 22px;
+        box-shadow: 0 12px 50px #18283b12;
+        border-top: 7px solid #167a83;
+      }
+      h1 {
+        font-size: 38px;
+        line-height: 1.2;
+        letter-spacing: -1px;
+        color: #12333f;
+      }
+      h2 {
+        font-size: 24px;
+        margin-top: 42px;
+        border-top: 1px solid #dce5eb;
+        padding-top: 28px;
+        color: #15545f;
+      }
+      p {
+        margin: 16px 0;
+      }
+      li {
+        margin: 12px 0;
+      }
+      code {
+        font:
+          14px/1.6 ui-monospace,
+          monospace;
+        background: #eef4f6;
+        padding: 3px 6px;
+        border-radius: 5px;
+        overflow-wrap: anywhere;
+      }
+      a {
+        color: #12637b;
+      }
+      strong {
+        color: #125c65;
+      }
+      .eyebrow {
+        letter-spacing: 2px;
+        font-size: 12px;
+        font-weight: 750;
+        color: #167a83;
+        text-transform: uppercase;
+      }
+      .status {
+        background: #fff4d8;
+        border-left: 4px solid #cc930b;
+        padding: 16px 20px;
+        margin: 24px 0;
+        border-radius: 6px;
+      }
+      @media (max-width: 700px) {
+        main {
+          margin: 0;
+          padding: 26px 22px;
+          border-radius: 0;
+        }
+        h1 {
+          font-size: 30px;
+        }
+      }
+      @media print {
+        body {
+          background: white;
+        }
+        main {
+          margin: 0;
+          padding: 20px;
+          box-shadow: none;
+        }
+        h2 {
+          break-after: avoid;
+        }
+        li,
+        p {
+          orphans: 3;
+          widows: 3;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">October 11 diagnosis · October 16 resolution</div>
+      <h1>T3 Code: bridge runner connection diagnosis</h1>
+      <p>
+        Verified on Alan&#x27;s Mac on October 11, 2026. Installed T3 Code Nightly:
+        <code>0.0.46-nightly.20261011.2980</code>.
+      </p>
+      <h2>Resolution verified October 16, 2026</h2>
+      <p>
+        The manual local ACP connection is now saved and working on <strong>2020 MacBook Air (Alan)</strong> in T3 Code
+        Nightly <code>0.1.1-nightly.20261016.3190</code>. The October 11 investigation below is retained as historical
+        evidence; its pending setup statements describe that earlier session.
+      </p>
+      <p>
+        The provider is <strong>Bridge Runner (Local ACP)</strong>, instance ID <code>acpRegistry_bridge_runner</code>,
+        using the executable and two environment variables listed below, with no arguments. One additional environment
+        variable is required for the selected bridge on this laptop:
+        <code>BRIDGE_RUNNER_BRIDGE_URL=http://127.0.0.1:11467/v1/messages</code>.
+      </p>
+      <p>
+        T3 discovered the runner&#x27;s models without a Cursor login. The first live hello attempt failed with
+        <code>ECONNREFUSED</code> at port <code>11437</code>: no ordinary bridge was running. All managed bridge
+        services were also stopped. Starting the already-installed standalone service and pointing this provider to port
+        <code>11467</code> resolved that separate transport problem.
+      </p>
+      <p>
+        A fresh T3 chat, using Claude Haiku 4.5 through the local ACP provider with supervised approvals and runner Ask
+        mode, completed the requested response: “Hello Alan — Bridge Runner on the 2020 laptop is connected.” The test
+        requested no tools or file access. The standalone bridge was left running, and the old Cursor-based bridge entry
+        was left disabled.
+      </p>
+      <p>
+        To restart the existing service later, open <strong>Finder</strong>, press <strong>Command–Shift–G</strong>,
+        enter <code>/Users/alanman/Applications/Claude Bridge Lab</code>, and double-click
+        <strong>3 Start Standalone.command</strong>. A Terminal window should report that the bridge is listening on
+        port <code>11467</code>. A listening message establishes startup; a completed T3 reply establishes the model
+        connection.
+      </p>
+      <p>
+        No runner, launcher, bridge, or authentication source changes were required. T3&#x27;s provider settings were
+        saved outside this repository in <code>/Users/alanman/.t3/userdata/settings.json</code>. Validation established
+        discovery, the saved endpoint, controller ownership of the running service, and one completed live reply. Tool
+        approvals, file edits, cancellation, other models, and long-running sessions were not exercised during this
+        setup. Alan separately reported that the manual ACP setup worked on the 2024 laptop; that machine was not
+        inspected in this session.
+      </p>
+      <h2>Finding</h2>
+      <p>
+        The old bridge-runner provider is configured as a Cursor provider. This T3 version uses Cursor&#x27;s Agent SDK
+        (Software Development Kit) for that provider instead of launching the configured ACP (Agent Client Protocol)
+        command. The installed code requires Cursor credentials before opening a Cursor SDK agent. The live app shows
+        the corresponding sign-in warning, and Alan&#x27;s failed turn reports “Cursor Agent SDK open failed.”
+      </p>
+      <p>
+        Our launcher still works. The appropriate replacement is T3&#x27;s new
+        <strong>Local ACP command</strong> provider, which starts an existing executable and speaks ACP directly to it.
+        No Cursor account is needed for this connection: the bridge runner advertises an empty list of authentication
+        methods because the local bridge handles Claude credentials.
+      </p>
+      <p>
+        Signing into Cursor would enable T3&#x27;s actual Cursor agent. It would not make that provider run our bridge
+        runner.
+      </p>
+      <h2>Prepared replacement</h2>
+      <p>
+        Open the <strong>T3 Code (Nightly) app</strong>, then
+        <strong>Settings → Providers → Add provider → Local ACP command</strong>. These values belong in T3&#x27;s
+        settings fields, not Terminal.
+      </p>
+      <ul>
+        <li>Label: <code>Bridge Runner (Local ACP)</code>.</li>
+        <li>Instance ID: <code>acpRegistry_bridge_runner</code>.</li>
+        <li>ACP source: <code>Local command</code>.</li>
+        <li>Executable: <code>/Users/alanman/Developer/claude-local-bridge-playground/bin/t3-cursor-shim.sh</code>.</li>
+        <li>Arguments: none.</li>
+        <li>Environment variable <code>BRIDGE_RUNNER_NODE</code>: <code>/Users/alanman/.local/bin/node</code>.</li>
+        <li>Environment variable <code>BRIDGE_RUNNER_CAPABILITIES</code>: <code>edits</code>.</li>
+        <li>Both variable values are ordinary local settings; they are not credentials.</li>
+      </ul>
+      <p>
+        The existing launcher starts <code>bin/local-bridge-acp.js</code> and already works with no arguments. Although
+        its filename mentions Cursor, its normal execution path is also usable as a generic ACP launcher. Its old
+        identity-probe compatibility code is unnecessary for the new provider but does not prevent this connection.
+      </p>
+      <p>
+        No new launcher or runner source change is required by the startup evidence. The existing launcher preserves
+        Alan&#x27;s previously selected shell setting and file-edit capability. These are separate from approval
+        behavior: supervised Ask mode requests approval for effectful tools; runner hard denies remain in place.
+        Selecting full access can allow commands without a permission card. Do not change access modes simply to repair
+        provider discovery.
+      </p>
+      <h2>Current verification status</h2>
+      <ul>
+        <li>Repository location and root: <code>/Users/alanman/Developer/claude-local-bridge-playground</code>.</li>
+        <li>
+          Git branch: <code>main</code>; starting revision: <code>8ef529f3e026d55faf59e641baeecd01faa7c1b7</code>.
+        </li>
+        <li>GitHub remote: the expected <code>alankatanoisi/claude-local-bridge-playground</code> repository.</li>
+        <li>Starting working tree was clean. Safe fast-forward pull reported “Already up to date.”</li>
+        <li>The live T3 app was inspected and the new Local ACP wizard was exercised.</li>
+        <li>
+          A replacement provider was prepared at the <strong>Add instance</strong> step. Saving it and running a brief
+          model test await Alan&#x27;s choice.
+        </li>
+        <li>The old provider was preserved.</li>
+        <li>Focused ACP agent, transport, and T3 launcher tests: <strong>59 passed, 0 failed</strong>.</li>
+        <li>
+          A direct no-model startup probe used the same launcher and variables as the proposed provider. It returned
+          agent name <code>bridge-runner-acp</code>, agent version <code>1.0.0</code>, protocol version <code>1</code>,
+          and no authentication methods.
+        </li>
+        <li>
+          T3&#x27;s generic ACP runtime requests protocol version <code>2</code>; the runner responds with version
+          <code>1</code>. Actual T3 discovery remains necessary to verify that negotiation end to end.
+        </li>
+        <li>
+          The HTTP listener on <code>127.0.0.1:11437</code> responded to a read-only request with an unknown-route
+          error. This establishes a responding listener only. The current bridge source has no <code>/ping</code> or
+          <code>/health</code> route, so those addresses do not establish readiness.
+        </li>
+      </ul>
+      <h2>What success must look like</h2>
+      <p>
+        After saving, refresh provider status inside T3. The new provider should discover the runner&#x27;s models and
+        options and should not request a Cursor login. Then use a fresh test chat with
+        <strong>Bridge Runner (Local ACP)</strong> selected and send a brief hello prompt. A completed reply is the next
+        useful proof that T3, the ACP runner, the bridge, and upstream Claude authentication work together.
+      </p>
+      <p>
+        If discovery fails, inspect the new provider&#x27;s exact startup error before changing code. If discovery
+        succeeds but a prompt fails, diagnose the bridge/model request separately. A ready provider card alone does not
+        prove a successful model call.
+      </p>
+      <p>
+        An existing chat associated with the old Cursor instance should not be assumed to migrate its underlying session
+        automatically. Preserve its history and use a fresh test chat first. Session continuation, permissions,
+        questions, cancellation, images, and prolonged operation are separate checks; the focused automated tests do not
+        establish every feature in the new T3 connection.
+      </p>
+      <p>
+        T3&#x27;s generic ACP provider does not supply application-level text generation such as automatic thread
+        titles, branch names, or commit-message generation. Those helpers may need another T3 provider. This limitation
+        does not itself prevent normal runner chat.
+      </p>
+      <h2>Evidence and handoff</h2>
+      <p>
+        The strongest version-specific evidence is the installed application archive:
+        <code>/Applications/T3 Code (Nightly).app/Contents/Resources/app.asar</code>. Its packaged server contains
+        Cursor SDK credential checks and the generic ACP local-command driver. Selected packaged files were extracted
+        for read-only examination under <code>/tmp/t3-acp-diagnosis-20261011/</code>; this temporary directory is not a
+        durable installation or repository.
+      </p>
+      <p>
+        The existing provider settings were read selectively from
+        <code>/Users/alanman/.t3/userdata/settings.json</code>. Do not copy credentials or raw logs into reports. Our
+        executable and protocol implementation are <code>bin/t3-cursor-shim.sh</code>,
+        <code>bin/local-bridge-acp.js</code>, and <code>src/runner/acp/agent.js</code>.
+      </p>
+      <p>Official upstream source corroborates the installed behavior:</p>
+      <ul>
+        <li>
+          <a href="https://github.com/pingdotgg/t3code/blob/main/packages/provider-cursor/src/server/driver.ts"
+            >Cursor provider driver</a
+          >: SDK agent startup requires Cursor authentication.
+        </li>
+        <li>
+          <a href="https://github.com/pingdotgg/t3code/blob/main/packages/provider-acp-registry/src/server/driver.ts"
+            >Generic ACP provider driver</a
+          >: generic ACP model/configuration discovery and application helper limits.
+        </li>
+      </ul>
+      <p>
+        These upstream links track a moving branch. The installed app, rather than a potentially different web revision,
+        was used for the version-specific conclusion.
+      </p>
+      <p>
+        Files added by this diagnosis: this Markdown report and its standalone HTML companion. Runner, bridge,
+        authentication, and launcher source are unchanged. Documentation-default and runner-manifest checks passed.
+        Formatting checks passed for both new report files after formatting the HTML companion. Full repository tests,
+        lint, and broad formatting checks were not run because there is no runtime source change. No commit or push was
+        performed. Remaining risk: the prepared generic connection still needs live T3 discovery and a completed model
+        reply before it can be called a verified repair.
+      </p>
+    </main>
+  </body>
+</html>
