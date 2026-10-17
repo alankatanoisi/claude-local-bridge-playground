@@ -1,5 +1,8 @@
 # T3 ACP four-host integration — implementation handoff
 
+> **Cursor thermo-nuclear review, 2026-10-17:** [`HANDOFF-acp-hosts-images-thermo-nuclear-2026-10-17.md`](HANDOFF-acp-hosts-images-thermo-nuclear-2026-10-17.md).
+> This file is the build record. The Codex “no new actionable findings” note below is not that review. Findings are open. Do not implement from this file.
+
 October 16, 2026 · Agent-facing record with a browser-readable companion
 
 **Implemented and migrated on the 2020 laptop; original VS Code successful acceptance remains pending.** Do not read this as all-four-host live signoff or as Cursor invariant-review signoff. This implementation snapshot was prepared before its commit. Alan subsequently authorized committing and synchronizing all 20 intended files; that save operation does not close the outstanding live acceptance or actual Cursor review.

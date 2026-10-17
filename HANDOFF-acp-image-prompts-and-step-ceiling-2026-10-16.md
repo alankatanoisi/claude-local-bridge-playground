@@ -1,5 +1,8 @@
 # HANDOFF — ACP image attachments + per-turn step ceiling (2026-10-16)
 
+> **Cursor thermo-nuclear review, 2026-10-17:** [`HANDOFF-acp-hosts-images-thermo-nuclear-2026-10-17.md`](HANDOFF-acp-hosts-images-thermo-nuclear-2026-10-17.md).
+> This file is the build record. The “decoded size” wording in §2 does not match the length formula that landed (review Medium #4). Do not implement from this file.
+
 **Doc type:** dated record of one landed slice. **Author:** Fable 5.1 (Claude Code), Alan-directed.
 **Folder:** `/Users/alanman/Developer/claude-local-bridge-playground`, branch `main`.
 **Status:** built and unit/protocol-tested; **not yet live-verified in T3** (see §4) and **not committed** at
