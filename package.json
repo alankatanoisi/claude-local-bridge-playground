@@ -40,14 +40,12 @@
     "fingerprint:check": "node scripts/claude-code-fingerprint.js check",
     "fingerprint:due": "node scripts/claude-code-fingerprint.js due",
     "fingerprint:prepare": "node scripts/claude-code-fingerprint.js prepare",
-    "runner:eval": "node bin/local-bridge-runner.js runner eval",
-    "test:keploy": "jest --coverage --coverageReporters=text --coverageReporters=cobertura --collectCoverageFrom='./**/*.{js,jsx,ts,tsx}'"
+    "runner:eval": "node bin/local-bridge-runner.js runner eval"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "eslint": "^9.0.0",
     "globals": "^15.0.0",
-    "jest": "^30.4.2",
     "prettier": "^3.0.0"
   },
   "contributes": {

@@ -249,7 +249,7 @@
       <tr><td>Model protocol</td><td>Anthropic Messages API (buffered + SSE streaming)</td><td><code>src/runner/model-client.js</code></td></tr>
       <tr><td>Credential store</td><td>macOS Keychain via <code>security(1)</code>; JSON file fallback</td><td><code>src/credentials.js</code> shells out to <code>security find-generic-password</code></td></tr>
       <tr><td>Persistence</td><td>Plain files: JSON checkpoints, JSONL ledgers/transcripts/traces</td><td>No database; atomic writes with <code>0600</code> permissions via <code>private-fs.js</code></td></tr>
-      <tr><td>Testing</td><td><code>node:test</code> (100 test files) + golden-transcript eval harness + Jest for coverage</td><td><code>npm test</code>, <code>npm run runner:eval</code>, <code>test:keploy</code></td></tr>
+      <tr><td>Testing</td><td><code>node:test</code> (100 test files) + golden-transcript eval harness</td><td><code>npm test</code>, <code>npm run runner:eval</code></td></tr>
       <tr><td>Quality gates</td><td>ESLint 9 (flat config), Prettier 3, custom doc-drift checks</td><td><code>npm run lint</code>, <code>format:check</code>, <code>check:docs</code></td></tr>
       <tr><td>Packaging</td><td>Multi-stage Dockerfile + Docker Compose; VS&nbsp;Code extension manifest</td><td>Non-root <code>bridge</code> user, named volume for <code>~/.bridge-runner</code></td></tr>
       <tr><td>CI</td><td>GitHub Actions: CodeQL scanning + a self-hosted read-only runner PoC</td><td><code>.github/workflows/codeql.yml</code>, <code>bridge-runner-readonly-poc.yml</code></td></tr>

@@ -693,12 +693,6 @@ CMD ["--help"]</code></pre>
               <td>^3.0.0</td>
               <td>Code formatting</td>
             </tr>
-            <tr>
-              <td><code>jest</code></td>
-              <td>devDependencies</td>
-              <td>^30.4.2</td>
-              <td>Coverage reporting</td>
-            </tr>
           </tbody>
         </table>
       </section>

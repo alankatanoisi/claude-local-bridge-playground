@@ -108,7 +108,7 @@
     <tr><td>CLI parsing</td><td><code>util.parseArgs</code> — no dependency</td><td><code>bin/local-bridge-runner.js</code></td></tr>
     <tr><td>Crypto / identity</td><td>Node core <code>crypto</code> — SHA-256 token fingerprints</td><td><code>src/interceptors/https.js</code></td></tr>
     <tr><td>Credential store</td><td>macOS Keychain via <code>security</code> CLI, JSON file fallback</td><td><code>src/credentials.js</code></td></tr>
-    <tr><td>Test framework</td><td><code>node:test</code> (Jest configured for coverage runs)</td><td><code>scripts.test</code>, <code>scripts.test:keploy</code></td></tr>
+    <tr><td>Test framework</td><td><code>node:test</code></td><td><code>scripts.test</code></td></tr>
     <tr><td>Lint / format</td><td>ESLint 9, Prettier 3</td><td><code>eslint.config.cjs</code>, <code>.prettierrc</code></td></tr>
     <tr><td>Containers (optional)</td><td>Dockerfile, docker-compose, Harbor eval adapter</td><td><code>Dockerfile</code>, <code>docker-compose.yml</code>, <code>evals/harbor</code></td></tr>
   </tbody>

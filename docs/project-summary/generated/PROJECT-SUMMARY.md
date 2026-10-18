@@ -33,7 +33,7 @@ The stated design philosophy is *minimal-but-extensible*: a small default prompt
 | CLI parsing | `util.parseArgs` (no dependency) | `bin/local-bridge-runner.js` |
 | Crypto/identity | Node core `crypto` (SHA-256 token fingerprints) | `src/interceptors/https.js` |
 | Credential store | macOS Keychain via `security` CLI, JSON file fallback | `src/credentials.js` |
-| Test framework | `node:test` (plus Jest configured for coverage runs) | `package.json` `scripts.test`, `scripts.test:keploy` |
+| Test framework | `node:test` | `package.json` `scripts.test` |
 | Lint / format | ESLint 9, Prettier 3 | `eslint.config.cjs`, `.prettierrc` |
 | Containers (optional) | Dockerfile, docker-compose, Harbor eval adapter | `Dockerfile`, `docker-compose.yml`, `evals/harbor` |
 

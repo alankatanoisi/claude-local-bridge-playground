@@ -344,7 +344,6 @@ flags). When CLI flags or capability groups change, update it in the same turn.
 | `eslint` | dev | ^9.0.0 | Linting (flat config `eslint.config.cjs`) |
 | `@eslint/js` | dev | ^9.0.0 | ESLint shared config |
 | `globals` | dev | ^15.0.0 | ESLint global definitions |
-| `jest` | dev | ^30.4.2 | Keploy coverage reporting (`npm run test:keploy`) |
 | `prettier` | dev | ^3.0.0 | Formatting (`npm run format`, `format:check`) |
 
 Runtime platform: Node.js 22 (per `Dockerfile` and CI), VS Code engine `^1.85.0` for the extension host.
