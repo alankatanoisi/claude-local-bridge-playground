@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { validateHost } = require('../../hosting/ensure');
+const { validateHost } = require('../../hosting/hosts');
 const { ensurePrivateDir } = require('../private-fs');
 const { scrubDeepSecrets } = require('../redaction-boundary');
 
@@ -64,4 +64,20 @@ function saveHost(directory, sessionId, host) {
   }
 }
 
-module.exports = { settingsPath, readHost, saveHost };
+/**
+ * Save only when the companion file is missing or holds a different host.
+ * session/set_config_option already persisted the user's choice, so a prompt
+ * on an unchanged chat does no disk write at all; the chat's FIRST prompt
+ * still saves, because session/new keeps the default in memory only. A
+ * corrupt or symlinked file is not papered over: readHost's own error
+ * propagates, exactly as it would on session/load. Returns true when a write
+ * happened.
+ */
+function saveHostIfChanged(directory, sessionId, host) {
+  validateHost(host);
+  if (readHost(directory, sessionId, null) === host) return false;
+  saveHost(directory, sessionId, host);
+  return true;
+}
+
+module.exports = { settingsPath, readHost, saveHost, saveHostIfChanged };

@@ -1,20 +1,15 @@
 'use strict';
 
-// A host is a way to run the SAME bridge. It is not a different agent, model,
-// or permission level. Keeping this table in one place prevents port drift.
-const HOSTS = Object.freeze({
-  standalone: Object.freeze({ name: 'Standalone', port: 11467, timeout: 30000 }),
-  desktop: Object.freeze({ name: 'Desktop — dedicated editor', port: 11447, timeout: 60000 }),
-  browser: Object.freeze({ name: 'Browser — browser editor', port: 11457, timeout: 90000 }),
-  vscode: Object.freeze({ name: 'VS Code — existing/debug', port: 11437, timeout: 5000 }),
-});
+// ensure.js — host POLICY for one ACP (Agent Client Protocol) chat turn: which
+// endpoint a host means, how long to wait for it, that VS Code is connect-only,
+// and that a managed host is started but never restarted or stopped. The
+// table of hosts lives in hosts.js; the macOS operations are injected (see
+// connection-operations.js), so this file performs no process launches itself.
 
-function validateHost(host) {
-  if (!Object.hasOwn(HOSTS, host)) throw new Error('Bridge host must be standalone, desktop, browser, or vscode.');
-  return host;
-}
+const { HOSTS, BROWSER_EDITOR_URL, messagesUrl, validateHost } = require('./hosts');
+const { DEFAULT_BRIDGE_URL } = require('../runner/model-client');
 
-function validateVscodeUrl(value = 'http://127.0.0.1:11437/v1/messages') {
+function validateVscodeUrl(value = DEFAULT_BRIDGE_URL) {
   // Do not include a rejected URL in an error: it might contain a password.
   const invalid = () =>
     new Error(
@@ -40,16 +35,22 @@ function validateVscodeUrl(value = 'http://127.0.0.1:11437/v1/messages') {
   return url.href;
 }
 
-function createHostManager(injected, options = {}) {
-  // Constructing/discovering an ACP agent must be passive. Real OS operations
-  // are obtained lazily, only when a human actually submits a prompt.
-  let operations = injected;
+/**
+ * @param {object} operations — the host operations (probe, locked, installed,
+ *   inspect, start, openBrowser, pause). The ACP entry point injects the real
+ *   macOS adapter; tests inject a fake. Nothing is looked up lazily, so this
+ *   module never reaches for control.js and discovery stays passive: the
+ *   operations are only CALLED from ensure(), which runs on a prompt.
+ */
+function createHostManager(operations, options = {}) {
+  if (!operations || typeof operations !== 'object')
+    throw new Error('createHostManager requires host operations (see src/hosting/connection-operations.js).');
   const vscodeUrl = validateVscodeUrl(options.vscodeUrl);
   return {
     async ensure(host, { signal, onStatus = () => {} } = {}) {
       validateHost(host);
       const target = HOSTS[host];
-      const bridgeUrl = host === 'vscode' ? vscodeUrl : `http://127.0.0.1:${target.port}/v1/messages`;
+      const bridgeUrl = host === 'vscode' ? vscodeUrl : messagesUrl(target.port);
       const timeout = options.timeouts?.[host] ?? target.timeout;
       const expiry = new AbortController();
       const combined = signal ? AbortSignal.any([signal, expiry.signal]) : expiry.signal;
@@ -57,7 +58,7 @@ function createHostManager(injected, options = {}) {
         () =>
           expiry.abort(
             new Error(
-              `${target.name} is not ready. ${host === 'browser' ? 'Open http://127.0.0.1:18080/, finish login, and keep the editor tab open; then retry.' : 'Inspect the selected bridge in its editor or private service logs, then retry.'}`,
+              `${target.name} is not ready. ${host === 'browser' ? `Open ${BROWSER_EDITOR_URL}, finish login, and keep the editor tab open; then retry.` : 'Inspect the selected bridge in its editor or private service logs, then retry.'}`,
             ),
           ),
         timeout,
@@ -71,7 +72,6 @@ function createHostManager(injected, options = {}) {
       };
       try {
         combined.throwIfAborted();
-        operations ||= require('./control').connectionOperations();
         status(`Checking ${target.name}`);
         if (host === 'vscode') {
           // The ordinary editor belongs to Alan. This branch has no start,
@@ -130,4 +130,4 @@ function createHostManager(injected, options = {}) {
   };
 }
 
-module.exports = { HOSTS, validateHost, validateVscodeUrl, createHostManager };
+module.exports = { validateVscodeUrl, createHostManager };

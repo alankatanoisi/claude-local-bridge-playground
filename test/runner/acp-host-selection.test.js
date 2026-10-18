@@ -234,8 +234,82 @@ test('cancel during host startup sends no model request and the next prompt stil
   c.rpc.notify('session/cancel', { sessionId });
   assert.equal((await active).stopReason, 'cancelled');
   assert.deepEqual(c.calls, []);
+  assertCardFinishedAsCancelled(c);
   assert.equal((await prompt(c, sessionId)).stopReason, 'end_turn');
   assert.equal(c.calls[0].resume, false);
+});
+
+/** The connection card must never be left "in_progress" once the turn has ended. */
+function assertCardFinishedAsCancelled(c) {
+  const cardId = c.updates.find((u) => u.sessionUpdate === 'tool_call').toolCallId;
+  const last = c.updates.filter((u) => u.toolCallId === cardId).at(-1);
+  assert.equal(last.sessionUpdate, 'tool_call_update');
+  assert.equal(last.status, 'failed');
+  assert.equal(last.rawOutput, 'Bridge connection cancelled; no model request was sent.');
+}
+
+test('a cancel that lands as startup finishes still closes the connection card', async (t) => {
+  // ensure() resolves AFTER the cancel: the gap between its last abort check
+  // and its return (Cursor review 2026-10-17, Medium #3). The stub ignores the
+  // abort signal on purpose to model that gap.
+  let entered;
+  const reached = new Promise((resolve) => {
+    entered = resolve;
+  });
+  let release;
+  const released = new Promise((resolve) => {
+    release = resolve;
+  });
+  let first = true;
+  const c = client(t, {
+    hostManager: {
+      ensure: async () => {
+        if (!first) return { bridgeUrl: 'http://127.0.0.1:11467/v1/messages' };
+        first = false;
+        entered();
+        await released;
+        return { bridgeUrl: 'http://127.0.0.1:11467/v1/messages' };
+      },
+    },
+  });
+  const { sessionId } = await session(c);
+  const active = prompt(c, sessionId);
+  await reached;
+  c.rpc.notify('session/cancel', { sessionId });
+  // Only let startup "finish" once the agent has actually processed the cancel.
+  while (!c.agent._sessions.get(sessionId).cancelRequested) await new Promise((resolve) => setTimeout(resolve, 5));
+  release();
+  assert.equal((await active).stopReason, 'cancelled');
+  assert.deepEqual(c.calls, []);
+  assertCardFinishedAsCancelled(c);
+  assert.equal((await prompt(c, sessionId)).stopReason, 'end_turn');
+  assert.equal(c.calls[0].resume, false);
+});
+
+test('an unchanged selection is not rewritten on later prompts; a change or a missing file is', async (t) => {
+  const c = client(t);
+  const { sessionId } = await session(c);
+  const file = settingsPath(c.directory, sessionId);
+  assert.equal(fs.existsSync(file), false, 'session/new keeps the default in memory only');
+  await prompt(c, sessionId);
+  const first = fs.statSync(file).ino;
+  assert.equal(readHost(c.directory, sessionId, null), 'standalone');
+  // A save is temp-file + rename, which mints a new inode; an unchanged chat must not.
+  await prompt(c, sessionId);
+  assert.equal(fs.statSync(file).ino, first, 'second prompt rewrote an unchanged selection');
+  await choose(c, sessionId, 'desktop');
+  const chosen = fs.statSync(file).ino;
+  assert.notEqual(chosen, first, 'set_config_option persists at once');
+  await prompt(c, sessionId);
+  assert.equal(fs.statSync(file).ino, chosen, 'the prompt re-saved what set_config_option already saved');
+  fs.unlinkSync(file);
+  await prompt(c, sessionId);
+  assert.equal(readHost(c.directory, sessionId, null), 'desktop', 'a missing companion file is restored');
+  // A corrupt file at prompt time fails loudly, before any model request, like session/load does.
+  fs.writeFileSync(file, '{bad');
+  const before = c.calls.length;
+  await assert.rejects(prompt(c, sessionId), /invalid or unreadable/);
+  assert.equal(c.calls.length, before);
 });
 
 test('new launcher discovers controls over clean stdout without starting a bridge', async (t) => {

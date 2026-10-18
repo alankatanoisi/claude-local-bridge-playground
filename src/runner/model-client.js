@@ -413,6 +413,9 @@ function postStream(body, cb, bridgeUrl, opts) {
 }
 
 module.exports = {
+  // The one place the ordinary VS Code bridge address is spelled; the hosting
+  // table derives its "vscode" host from it instead of repeating the port.
+  DEFAULT_BRIDGE_URL,
   post,
   postStream,
   withCallerAuth,

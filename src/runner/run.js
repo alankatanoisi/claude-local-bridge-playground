@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const { buildUserMessage, buildRepoContextBlock, buildDynamicEnvironmentBlock } = require('./context-builder');
+const { isAcceptedImageBlock } = require('./media-read');
 const { resolveContextPolicy } = require('./context-policy');
 const { resolveSystemPrompt } = require('./system-prompt');
 const modelClient = require('./model-client');
@@ -503,9 +504,12 @@ async function run(options) {
     capabilities,
     enterWorktreeAtStart,
   } = options;
-  // Image blocks a hosted caller (the ACP agent) attached to this prompt. They
-  // join the outbound user message only; logs record the count, never bytes.
-  const imageCount = Array.isArray(promptAttachments) ? promptAttachments.length : 0;
+  // Image blocks a hosted caller (the ACP agent) attached to this prompt. Only
+  // blocks the shared acceptor admits reach the outbound user message, and the
+  // count every log records is of blocks actually placed, never received —
+  // and never bytes.
+  const promptImages = Array.isArray(promptAttachments) ? promptAttachments.filter(isAcceptedImageBlock) : [];
+  const imageCount = promptImages.length;
   const outputFormat = OUTPUT_FORMATS.has(options.outputFormat) ? options.outputFormat : 'text';
 
   // Thermo-nuclear M3 (2026-08-25): process.exitCode is CLI vocabulary. A
@@ -1219,7 +1223,7 @@ async function run(options) {
     // Checkpoint may already have been repaired in the early F6 reconcile above;
     // reload so we continue from the flushed repaired messages.
     messages = [...sessionStore.messages];
-    messages.push(buildUserMessage(prompt, stdinText, null, promptAttachments));
+    messages.push(buildUserMessage(prompt, stdinText, null, promptImages));
     ctx.contextState = updateDirective(ctx.contextState || createContextState(prompt, 'unknown'), prompt);
     if (!quiet) console.error('[runner] resumed ' + messages.length + ' messages from session ' + resolvedSessionPath);
     if (sessionStore && !noSessionPersistence) {
@@ -1243,7 +1247,7 @@ async function run(options) {
       const envBlock = buildDynamicEnvironmentBlock(ctx);
       if (envBlock) userEnvPrefix.push(envBlock);
     }
-    messages = [buildUserMessage(prompt, stdinText, userEnvPrefix.length ? userEnvPrefix : null, promptAttachments)];
+    messages = [buildUserMessage(prompt, stdinText, userEnvPrefix.length ? userEnvPrefix : null, promptImages)];
     if (transcript)
       transcript.append({ type: 'user_prompt', text: prompt, ...(imageCount ? { images: imageCount } : {}) });
     if (sessionStore && !noSessionPersistence) {

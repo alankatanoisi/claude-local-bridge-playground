@@ -632,6 +632,16 @@ node bin/bridge-hosts.js status</code></pre>
                 <td><code>src/hosting/connection-operations.js</code></td>
               </tr>
               <tr>
+                <td>Host table</td>
+                <td>The one list of ports, launchd names, output parsers, readiness probe, and lock</td>
+                <td><code>src/hosting/hosts.js</code></td>
+              </tr>
+              <tr>
+                <td>ACP turn helpers</td>
+                <td>Prompt-block parsing and the per-turn connection card, out of the translator</td>
+                <td><code>src/runner/acp/prompt-content.js</code>, <code>src/runner/acp/bridge-connection.js</code></td>
+              </tr>
+              <tr>
                 <td>Existing runner</td>
                 <td>Model requests, approvals, tools, streaming, conversation checkpoints</td>
                 <td><code>src/runner/run.js</code></td>
@@ -647,8 +657,8 @@ node bin/bridge-hosts.js status</code></pre>
         </p>
         <p>
           Future separate work could add validated step/time/cost controls, prompt templates, richer diagnostics,
-          session listing/export/fork, or MCP (Model Context Protocol) services. Images, audio, and embedded context
-          remain advertised as unsupported. Custom dashboards require a verified T3 extension surface or changes to T3
+          session listing/export/fork, or MCP (Model Context Protocol) services. Images are accepted since 2026-10-16 (one shared acceptor decides:
+          media type, decoded size, base64 shape); audio and embedded context remain advertised as unsupported. Custom dashboards require a verified T3 extension surface or changes to T3
           itself. Remote hosts and automatic failover are excluded. No additional controls are implemented merely
           because they appear in this possibilities list.
         </p>

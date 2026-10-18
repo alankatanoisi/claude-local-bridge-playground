@@ -38,10 +38,11 @@ const _blockCharCache = new WeakMap();
 
 // Image blocks carry base64 the model never tokenizes as text. The API bills
 // roughly (width × height) / 750 tokens, capped near 1,600 once an oversized
-// image is downscaled. Charge that flat cap so the budget sees attachments
-// without mistaking megabytes of base64 for prose.
+// image is downscaled. Charge that flat cap, in tokens, so the budget sees
+// attachments without mistaking megabytes of base64 for prose.
 const IMAGE_BLOCK_ESTIMATE_TOKENS = 1600;
 
+/** Prose-like characters in a block (text, tool content, tool input). Images are not prose and count 0 here. */
 function estimateBlockChars(block) {
   const cached = _blockCharCache.get(block);
   if (cached !== undefined) return cached;
@@ -49,23 +50,25 @@ function estimateBlockChars(block) {
   if (block.text) n += block.text.length;
   if (block.content) n += String(block.content).length;
   if (block.input) n += JSON.stringify(block.input).length;
-  if (block.type === 'image') n += IMAGE_BLOCK_ESTIMATE_TOKENS * 4;
   _blockCharCache.set(block, n);
   return n;
 }
 
+/** Heuristic token count: prose at chars / 4, plus a flat charge per image block. */
 function estimateTokens(messages) {
   let chars = 0;
+  let imageTokens = 0;
   for (const msg of messages) {
     if (typeof msg.content === 'string') {
       chars += msg.content.length;
     } else if (Array.isArray(msg.content)) {
       for (const block of msg.content) {
-        chars += estimateBlockChars(block);
+        if (block.type === 'image') imageTokens += IMAGE_BLOCK_ESTIMATE_TOKENS;
+        else chars += estimateBlockChars(block);
       }
     }
   }
-  return Math.ceil(chars / 4);
+  return Math.ceil(chars / 4) + imageTokens;
 }
 
 function clipToolResults(messages, maxChars) {
@@ -349,6 +352,7 @@ function applyCompactionLadder(messages, system, policy = {}) {
 module.exports = {
   COMPACTION_STAGES,
   DEFAULT_POLICY,
+  IMAGE_BLOCK_ESTIMATE_TOKENS,
   estimateTokens,
   clipToolResults,
   snipOldToolResults,

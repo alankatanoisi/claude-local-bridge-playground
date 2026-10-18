@@ -39,7 +39,12 @@ const { OPTIONAL_CAPABILITIES } = require('../src/runner/tool-catalog');
 // a bridge URL is normalized. Requiring it does not execute its main() — that
 // is gated behind require.main === module.
 const { resolveBridgeUrl } = require('./local-bridge-runner');
-const { validateHost, createHostManager } = require('../src/hosting/ensure');
+const { validateHost } = require('../src/hosting/hosts');
+const { createHostManager } = require('../src/hosting/ensure');
+// Building the macOS adapter is passive (closures only). It is handed to the
+// host manager here, at process start, so no hosting module has to reach for
+// another lazily; the operations only RUN when a prompt arrives.
+const { connectionOperations } = require('../src/hosting/connection-operations');
 
 function showHelp() {
   // Deliberately stderr: stdout carries protocol frames only.
@@ -160,7 +165,7 @@ function main() {
     sessionDir: args.values['session-dir'],
     version,
     ...(bridgeHost
-      ? { hostManager: createHostManager(undefined, { vscodeUrl: process.env.BRIDGE_RUNNER_VSCODE_URL }) }
+      ? { hostManager: createHostManager(connectionOperations(), { vscodeUrl: process.env.BRIDGE_RUNNER_VSCODE_URL }) }
       : {}),
     configDefaults: {
       ...(bridgeHost ? { bridgeHost } : {}),

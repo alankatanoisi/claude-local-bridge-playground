@@ -136,11 +136,13 @@ To leave this integration, change the T3 provider command deliberately while cha
 | Settings companion | Validate and privately save the selected host                                        | `src/runner/acp/host-settings.js`      |
 | Host policy        | Four endpoints, deadlines, connect-only VS Code, non-disruptive ensure               | `src/hosting/ensure.js`                |
 | macOS adapter      | Cooperative lock, job/listener ownership, asynchronous launch and browser activation | `src/hosting/connection-operations.js` |
+| Host table         | The one list of ports, launchd names, output parsers, readiness probe, and lock      | `src/hosting/hosts.js`                 |
+| ACP turn helpers   | Prompt-block parsing and the per-turn connection card, out of the translator         | `src/runner/acp/prompt-content.js`, `src/runner/acp/bridge-connection.js` |
 | Existing runner    | Model requests, approvals, tools, streaming, conversation checkpoints                | `src/runner/run.js`                    |
 
 The present customization surface includes provider command/environment defaults, model selection, effort, output-token presets, Ask/Plan/Code, supported capability toggles, and the new host selector. These controls must be backed by real runner behavior. A model label added only to T3 does not establish upstream model support.
 
-Future separate work could add validated step/time/cost controls, prompt templates, richer diagnostics, session listing/export/fork, or MCP (Model Context Protocol) services. Images, audio, and embedded context remain advertised as unsupported. Custom dashboards require a verified T3 extension surface or changes to T3 itself. Remote hosts and automatic failover are excluded. No additional controls are implemented merely because they appear in this possibilities list.
+Future separate work could add validated step/time/cost controls, prompt templates, richer diagnostics, session listing/export/fork, or MCP (Model Context Protocol) services. Images are accepted since 2026-10-16 (one shared acceptor decides: media type, decoded size, base64 shape); audio and embedded context remain advertised as unsupported. Custom dashboards require a verified T3 extension surface or changes to T3 itself. Remote hosts and automatic failover are excluded. No additional controls are implemented merely because they appear in this possibilities list.
 
 ## Verification record and remaining acceptance
 

@@ -16,6 +16,7 @@ const {
   capSkillListing,
   applyContextBudget,
 } = require('./context-budget');
+const { isAcceptedImageBlock } = require('./media-read');
 const { isToolVisible } = require('./tool-visibility');
 const { buildRepoMap } = require('./repo-map');
 const { DEFAULT_POLICY } = require('./context-policy');
@@ -225,14 +226,13 @@ function buildUserMessage(text, stdinText, prefixBlocks, attachments) {
   // Image attachments (an ACP client such as T3 sends dropped screenshots this
   // way) go in front of the prompt text: Anthropic's guidance is image first,
   // question after, and it keeps the text block last so the prompt reads
-  // naturally once the model has "seen" the pictures. Only well-formed
-  // Anthropic image blocks are accepted — anything else here is a caller bug,
-  // and dropping it beats sending the API a block it will reject outright.
+  // naturally once the model has "seen" the pictures. The same acceptor that
+  // admitted the image upstream decides again here (media type, decoded size,
+  // base64 shape) — anything else is a caller bug, and dropping it beats
+  // sending the API a block it will reject outright.
   if (Array.isArray(attachments)) {
     for (const block of attachments) {
-      if (block && block.type === 'image' && block.source && typeof block.source.data === 'string') {
-        blocks.push(block);
-      }
+      if (isAcceptedImageBlock(block)) blocks.push(block);
     }
   }
   let content = text;

@@ -1,20 +1,55 @@
 'use strict';
 
+// connection-operations.js — the ACP (Agent Client Protocol) adapter that
+// connects one chat to one managed bridge host. Every call here is abortable
+// (a Stop in the chat cancels it) and NOTHING here stops a service: there is
+// deliberately no stop operation for the ACP caller to invoke, and startup
+// uses bootstrap-or-kickstart, never the controller's exclusive Start verb.
+//
+// Ports, launchd names, output parsers, the readiness probe, and the
+// controller lock come from hosts.js — the same code the Finder controller
+// (control.js) runs — so the two cannot disagree about what a job, a listener,
+// or a busy lock looks like.
+
 const fs = require('fs');
 const path = require('path');
-const net = require('net');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
 const { setTimeout: pause } = require('timers/promises');
 const { privateAtomicWriteSync } = require('../runner/private-fs');
+const {
+  MODES,
+  WEB_PORT,
+  LOCK_PORT,
+  ROOT,
+  INSPECT_FAILURE_MESSAGE,
+  messagesUrl,
+  launchdDomain,
+  launchdTarget,
+  jobStateFromPrint,
+  jobStateFromExitCode,
+  listenerPidsFrom,
+  processRowsFrom,
+  ownsAllListeners,
+  probeMessagesEndpoint,
+  withLoopbackLock,
+} = require('./hosts');
 
 const execute = promisify(execFile);
 
-// These operations are deliberately separate from the old, exclusive Start
-// command. There is no stop operation here for the ACP caller to invoke.
-function connectionOperations({ root, modes, webPort, lockPort = 18081, executeCommand = execute }) {
-  const domain = `gui/${process.getuid()}`;
-  const label = (mode) => `org.alan.claude-bridge-lab.${mode}`;
+/**
+ * Build the adapter. Construction is passive (closures only, no subprocess),
+ * so the ACP entry point can create it at startup and discovery stays free of
+ * process launches. The defaults are the real installation; tests override
+ * `root`, the ports, and `executeCommand` to stay off the real machine.
+ */
+function connectionOperations({
+  root = ROOT,
+  modes = MODES,
+  webPort = WEB_PORT,
+  lockPort = LOCK_PORT,
+  executeCommand = execute,
+} = {}) {
   async function command(program, args, signal, allowExitOne = false) {
     try {
       return (await executeCommand(program, args, { signal, timeout: 5000, maxBuffer: 1024 * 1024, encoding: 'utf8' }))
@@ -30,7 +65,7 @@ function connectionOperations({ root, modes, webPort, lockPort = 18081, executeC
     let text;
     try {
       text = (
-        await executeCommand('/bin/launchctl', ['print', `${domain}/${label(mode)}`], {
+        await executeCommand('/bin/launchctl', ['print', launchdTarget(mode)], {
           signal,
           timeout: 5000,
           maxBuffer: 1024 * 1024,
@@ -39,76 +74,27 @@ function connectionOperations({ root, modes, webPort, lockPort = 18081, executeC
       ).stdout;
     } catch (error) {
       signal?.throwIfAborted();
-      // launchctl uses 113 for an absent service on current macOS.
-      if (error.code === 113 || error.code === 3) return { loaded: false, pid: null };
-      throw new Error('Could not inspect the selected managed bridge job. No service was changed.');
+      // The promisified execFile reports the child's exit code as `code`.
+      const absent = jobStateFromExitCode(error.code);
+      if (absent) return absent;
+      throw new Error(INSPECT_FAILURE_MESSAGE);
     }
-    return { loaded: true, pid: Number(text.match(/\n\s*pid = (\d+)/)?.[1]) || null };
+    return jobStateFromPrint(text);
   }
   async function listenerPids(port, signal) {
-    return (await command('/usr/sbin/lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fp'], signal, true))
-      .split('\n')
-      .filter((row) => /^p\d+$/.test(row))
-      .map((row) => Number(row.slice(1)));
+    // lsof exits 1 when nothing listens on the port; that is an empty answer.
+    return listenerPidsFrom(
+      await command('/usr/sbin/lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-Fp'], signal, true),
+    );
   }
   async function ownedBy(pids, rootPid, signal) {
     if (!rootPid || !pids.length) return false;
-    const rows = (await command('/bin/ps', ['-axo', 'pid=,ppid='], signal))
-      .trim()
-      .split('\n')
-      .map((row) => row.trim().split(/\s+/).map(Number));
-    const owned = new Set([rootPid]);
-    for (let changed = true; changed; ) {
-      changed = false;
-      for (const [pid, parent] of rows)
-        if (owned.has(parent) && !owned.has(pid)) {
-          owned.add(pid);
-          changed = true;
-        }
-    }
-    return pids.every((pid) => owned.has(pid));
+    return ownsAllListeners(pids, rootPid, processRowsFrom(await command('/bin/ps', ['-axo', 'pid=,ppid='], signal)));
   }
-  async function probe(url, signal) {
-    try {
-      const response = await fetch(url, {
-        method: 'OPTIONS',
-        headers: { Origin: 'http://localhost' },
-        redirect: 'error',
-        signal: AbortSignal.any([signal, AbortSignal.timeout(1200)]),
-      });
-      await response.body?.cancel();
-      return response.status === 204;
-    } catch {
-      signal.throwIfAborted();
-      return false;
-    }
-  }
-  async function locked(action, signal) {
-    // Use the SAME OS-owned lock as install/start/stop, but wait cooperatively
-    // rather than failing simultaneous chats or leaving a stale lock file.
-    while (true) {
-      signal.throwIfAborted();
-      const server = net.createServer((socket) => socket.destroy());
-      const acquired = await new Promise((resolve, reject) => {
-        server.once('error', (error) =>
-          error.code === 'EADDRINUSE'
-            ? resolve(false)
-            : reject(new Error('Could not acquire the bridge controller lock.')),
-        );
-        server.listen(lockPort, '127.0.0.1', () => resolve(true));
-      });
-      if (!acquired) {
-        await pause(100, undefined, { signal });
-        continue;
-      }
-      try {
-        signal.throwIfAborted();
-        return await action();
-      } finally {
-        await new Promise((resolve) => server.close(resolve));
-      }
-    }
-  }
+  const probe = (url, signal) => probeMessagesEndpoint(url, { signal });
+  // Same OS-owned lock as install/start/stop, but a chat waits its turn
+  // cooperatively instead of failing when another chat is mid-connection.
+  const locked = (action, signal) => withLoopbackLock(action, { port: lockPort, wait: true, signal });
   return {
     probe,
     locked,
@@ -118,7 +104,7 @@ function connectionOperations({ root, modes, webPort, lockPort = 18081, executeC
       const state = await job(mode, signal);
       const pids = await listenerPids(modes[mode], signal);
       const owned = await ownedBy(pids, state.pid, signal);
-      const ready = owned && (await probe(`http://127.0.0.1:${modes[mode]}/v1/messages`, signal));
+      const ready = owned && (await probe(messagesUrl(modes[mode]), signal));
       let editorReady = false;
       if (mode === 'browser' && state.pid && !ready) {
         const editorPids = await listenerPids(webPort, signal);
@@ -140,8 +126,8 @@ function connectionOperations({ root, modes, webPort, lockPort = 18081, executeC
       await command(
         '/bin/launchctl',
         loaded
-          ? ['kickstart', `${domain}/${label(mode)}`]
-          : ['bootstrap', domain, path.join(root, 'jobs', mode + '.plist')],
+          ? ['kickstart', launchdTarget(mode)]
+          : ['bootstrap', launchdDomain(), path.join(root, 'jobs', mode + '.plist')],
         signal,
       );
     },

@@ -1,5 +1,10 @@
 # Handoff — Thermo-nuclear code-quality review of T3 host selection and ACP images (2026-10-17)
 
+> **Implemented 2026-10-17 (Fable, Alan-directed):** all five findings below were closed the same
+> afternoon — record: [`HANDOFF-acp-hosts-images-structure-closed-2026-10-17.md`](HANDOFF-acp-hosts-images-structure-closed-2026-10-17.md).
+> That closure is **not yet Cursor-reviewed**; this file stays the review of record for the
+> `ac43f12`/`fb6b0fd` range. Do not re-implement from here.
+
 **Written:** 2026-10-17. Review only. No runner code was changed.
 **Scope:** landed playground `main` commits `ac43f12a78fe8b67dca96ad3f3f479db4f619ed5` (per-chat T3 bridge hosts) and `fb6b0fd4dba83deb76e48f46bae622f6aa7cda0c` (ACP image attachments and the 1000-step ceiling). No feature branch and no pull request. Parent of the range is `0011586`.
 **Verdict:** do not treat this range as structurally done. Behavior is carefully tested. The shape of the code is not. Two blockers: ACP grew a second copy of the hosting machinery next to `src/hosting/control.js`, and `src/runner/acp/agent.js` went from 837 lines to 1032.

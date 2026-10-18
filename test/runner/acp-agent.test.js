@@ -27,7 +27,6 @@ const {
   toolKindFor,
   acpStopReasonFor,
   promptTextFrom,
-  DEFAULT_ACP_MAX_STEPS,
   parseAskQuestionAnswer,
 } = require('../../src/runner/acp/agent');
 const { STOP_REASONS } = require('../../src/runner/kernel/contract');
@@ -969,75 +968,5 @@ describe('acp translation helpers', () => {
     );
     assert.equal(promptTextFrom([]), '');
     assert.equal(promptTextFrom(null), '');
-  });
-
-  it('forwards image attachments to run() as Anthropic blocks, separate from the text prompt', async () => {
-    const captured = [];
-    const stubRun = async (options) => {
-      captured.push(options);
-      return {
-        stopReason: STOP_REASONS.SUCCESS,
-        finalText: 'ok',
-        steps: 1,
-        duration_ms: 1,
-        usage: { input_tokens: 0, output_tokens: 0 },
-        events: [],
-      };
-    };
-    const client = createTestClient({ runFn: stubRun });
-    const sessionId = await client.startSession();
-    const png = Buffer.from('not really a png, but the agent does not decode it').toString('base64');
-
-    await client.request('session/prompt', {
-      sessionId,
-      prompt: [
-        { type: 'text', text: 'what is in this screenshot?' },
-        { type: 'image', data: png, mimeType: 'image/png' },
-        { type: 'image', data: 'AAAA', mimeType: 'image/tiff' },
-      ],
-    });
-
-    const opts = captured[0];
-    assert.equal(typeof opts.prompt, 'string', 'prompt stays a plain string for every text-only sink');
-    assert.match(opts.prompt, /^what is in this screenshot\?/);
-    assert.match(opts.prompt, /image attachment 2 not forwarded: unsupported media type image\/tiff/);
-    assert.deepEqual(opts.promptAttachments, [
-      { type: 'image', source: { type: 'base64', media_type: 'image/png', data: png } },
-    ]);
-
-    // A text-only turn carries no attachment key at all (not an empty array),
-    // so the runner's call shape is unchanged for the common case.
-    await client.prompt(sessionId, 'plain text');
-    assert.equal('promptAttachments' in captured[1], false);
-
-    // An image-only prompt is still a valid turn: run() requires text, so a
-    // minimal stub stands in for it.
-    await client.request('session/prompt', {
-      sessionId,
-      prompt: [{ type: 'image', data: png, mimeType: 'image/jpeg' }],
-    });
-    assert.equal(captured[2].prompt, '(See attached image.)');
-    assert.equal(captured[2].promptAttachments.length, 1);
-  });
-
-  it('applies the ACP step ceiling by default and lets the command line override it', async () => {
-    const captured = [];
-    const stubRun = async (options) => {
-      captured.push(options);
-      return { stopReason: STOP_REASONS.SUCCESS, finalText: 'ok', steps: 1, duration_ms: 1, usage: {}, events: [] };
-    };
-    // createTestClient pins maxSteps: 4 for the live-runner tests; passing
-    // undefined here is the "nothing on the command line" case — and the
-    // spread must NOT clobber the default with that undefined.
-    const bare = createTestClient({ runFn: stubRun, runDefaults: { maxSteps: undefined } });
-    const bareSession = await bare.startSession();
-    await bare.prompt(bareSession, 'hi');
-    assert.equal(DEFAULT_ACP_MAX_STEPS, 1000);
-    assert.equal(captured[0].maxSteps, DEFAULT_ACP_MAX_STEPS);
-
-    const pinned = createTestClient({ runFn: stubRun, runDefaults: { maxSteps: 7 } });
-    const pinnedSession = await pinned.startSession();
-    await pinned.prompt(pinnedSession, 'hi');
-    assert.equal(captured[1].maxSteps, 7);
   });
 });

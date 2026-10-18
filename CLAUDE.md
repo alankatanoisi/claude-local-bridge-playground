@@ -351,7 +351,16 @@ items rather than starting a parallel tracker.
   review is `HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md`.
 
 - **ACP thread (Bridge Runner → T3 Code) — Slices A–D built; current entry
-  `HANDOFF-acp-nightly-graduation-2026-09-26.md`.** 2026-09-26 (Fable, Alan-directed): graduated
+  `HANDOFF-acp-hosts-images-structure-closed-2026-10-17.md`.** 2026-10-16 (Fable, Alan-directed):
+  per-chat bridge-host selection (`ac43f12`) and image attachments + the 1000-step ACP ceiling
+  (`fb6b0fd`). **Cursor thermo-nuclear review 2026-10-17**
+  (`HANDOFF-acp-hosts-images-thermo-nuclear-2026-10-17.md`): High #1–#2, Medium #3–#4, Low #5
+  **all closed the same day (Fable, Alan-directed) — landed on `main` the same day as one commit
+  (`Simplify ACP host startup and image acceptance onto the existing helpers`) and NOT
+  yet Cursor-reviewed; read the closure handoff's banner before trusting its claims.** One host
+  table now lives in `src/hosting/hosts.js`; `agent.js` is back under 1000 lines. Live T3
+  checks (screenshot drop, VS Code connect-only) remain Alan's. Earlier entry (still the
+  graduation record): `HANDOFF-acp-nightly-graduation-2026-09-26.md`. 2026-09-26 (Fable, Alan-directed): graduated
   to the packaged T3 Code Nightly app through the playground-owned launcher
   `bin/t3-cursor-shim.sh` (no fork, demo dev stack retired); `scripts/acp-live-probe.js` is the
   committed cancel-survival probe — its first full pass is pending a bridge relaunch (the live

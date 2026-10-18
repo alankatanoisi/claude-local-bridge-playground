@@ -4,9 +4,10 @@
  * agent.js — the ACP (Agent Client Protocol) front end for the bridge runner.
  *
  * This module translates client messages into runner options. Model calls
- * and permission decisions remain in run(). Its small local responsibilities
- * are saving the selected bridge and asking the injected host manager to
- * connect before a turn; neither responsibility is available to model tools.
+ * and permission decisions remain in run(). Two sibling modules carry the
+ * pieces that are not translation: prompt-content.js parses the prompt
+ * blocks, and bridge-connection.js connects the selected host for a turn and
+ * paints T3's local connection card (neither is available to model tools).
  * It converts between two vocabularies:
  *
  *   ACP client (T3 Code)                      bridge runner (run())
@@ -36,24 +37,18 @@
 
 const path = require('path');
 const fs = require('fs');
-const { randomUUID } = require('crypto');
 
 const { createConnection, RpcError, ERROR_CODES } = require('./connection');
 const { STOP_REASONS } = require('../kernel/contract');
 const { CATEGORIES, OPTIONAL_CAPABILITIES } = require('../tool-catalog');
 const { DEFAULT_MODEL, EFFORT_LEVELS, EFFORT_AUTO, catalogEntryForModel } = require('../model-catalog');
 const { makeSessionId, sessionPathFor } = require('../session-store');
-const { HOSTS, validateHost } = require('../../hosting/ensure');
+const { HOSTS, validateHost } = require('../../hosting/hosts');
 const hostSettings = require('./host-settings');
-const { createRedactionBoundary } = require('../redaction-boundary');
-const { MAX_IMAGE_BYTES } = require('../media-read');
+const { promptContentFrom, promptTextFrom } = require('./prompt-content');
+const { connectBridgeForTurn } = require('./bridge-connection');
 
 const PROTOCOL_VERSION = 1;
-
-// Image media types the Anthropic Messages API accepts as base64 sources. An
-// ACP client may send anything; everything else is dropped with a visible
-// placeholder rather than forwarded to fail at the model boundary.
-const PROMPT_IMAGE_MEDIA_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 
 // Default tool-step ceiling for one ACP turn. The CLI runner defaults to 16
 // because a one-shot command should fail fast, but an interactive chat turn has
@@ -170,17 +165,12 @@ function describeConfigOptions(config) {
             description:
               'Connection for the next turn. Managed hosts start on demand; existing VS Code is connect-only.',
             currentValue: config.bridgeHost,
+            // Name and blurb both come from the host table, so adding a host
+            // there is the whole change.
             options: Object.entries(HOSTS).map(([value, host]) => ({
               value,
               name: host.name,
-              description:
-                value === 'vscode'
-                  ? 'Use your existing VS Code bridge for debugging; start it yourself.'
-                  : value === 'browser'
-                    ? 'Opens the local browser editor if needed; keep its tab open.'
-                    : value === 'standalone'
-                      ? 'No editor window required.'
-                      : 'Starts the dedicated desktop editor, leaving other hosts running.',
+              description: host.description,
             })),
           },
         ]
@@ -270,59 +260,6 @@ const ERROR_STOP_REASONS = new Set([
   STOP_REASONS.RESUME_FAILED,
   STOP_REASONS.WORKSPACE_NOT_TRUSTED,
 ]);
-
-/**
- * Split an ACP prompt (ContentBlock[]) into what run() consumes: the plain
- * prompt text plus any image attachments as Anthropic image blocks.
- *
- * ACP image blocks are `{ type: 'image', data: <base64>, mimeType }`. Images
- * the model API cannot accept (unknown media type, oversized, malformed) are
- * not forwarded; a short placeholder is appended to the text instead so the
- * model — and the user reading the transcript — can see an attachment was
- * dropped rather than silently losing it. A prompt that is only images gets a
- * minimal text stub because run() requires a non-empty prompt string and the
- * ledger/trace capture it as text.
- */
-function promptContentFrom(blocks) {
-  if (!Array.isArray(blocks)) return { text: '', attachments: [], dropped: [] };
-  const parts = [];
-  const attachments = [];
-  const dropped = [];
-  let imageIndex = 0;
-  for (const block of blocks) {
-    if (!block || typeof block !== 'object') continue;
-    if (block.type === 'text' && typeof block.text === 'string') parts.push(block.text);
-    // Baseline ACP also requires resource_link support: we cannot fetch the
-    // resource, but we can hand its address to the model as context.
-    else if (block.type === 'resource_link' && typeof block.uri === 'string') parts.push('[resource] ' + block.uri);
-    else if (block.type === 'image') {
-      imageIndex += 1;
-      const mediaType = typeof block.mimeType === 'string' ? block.mimeType.toLowerCase() : '';
-      const data = typeof block.data === 'string' ? block.data : '';
-      let reason = null;
-      if (!PROMPT_IMAGE_MEDIA_TYPES.has(mediaType)) reason = 'unsupported media type ' + (mediaType || '(missing)');
-      else if (!data) reason = 'missing image data';
-      // base64 inflates ~4/3; compare decoded size against the model limit.
-      else if (Math.floor((data.length * 3) / 4) > MAX_IMAGE_BYTES) reason = 'exceeds ' + MAX_IMAGE_BYTES + ' bytes';
-      if (reason) {
-        dropped.push({ index: imageIndex, reason });
-        parts.push('[image attachment ' + imageIndex + ' not forwarded: ' + reason + ']');
-        continue;
-      }
-      attachments.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data } });
-    }
-  }
-  let text = parts.join('\n\n').trim();
-  if (!text && attachments.length > 0) {
-    text = attachments.length === 1 ? '(See attached image.)' : '(See the ' + attachments.length + ' attached images.)';
-  }
-  return { text, attachments, dropped };
-}
-
-/** Extract the plain text of an ACP prompt (ContentBlock[]) for run(). */
-function promptTextFrom(blocks) {
-  return promptContentFrom(blocks).text;
-}
 
 /**
  * Interpret a cursor/ask_question response. `answers` is a loosely-typed
@@ -902,49 +839,23 @@ function createAcpAgent(deps) {
     try {
       let bridgeUrl;
       if (turnConfig.bridgeHost) {
-        // A process-local counter repeats after T3 restarts. A fresh identifier
-        // keeps this attempt from overwriting an older card in T3's history.
-        const toolCallId = 'bridge-connection-' + sessionId + '-' + randomUUID();
-        // This is a local connection activity, NOT a tool requested by the
-        // model. Its own title and metadata keep that distinction visible.
-        sendUpdate({
-          sessionUpdate: 'tool_call',
-          toolCallId,
-          title: 'Bridge connection (local)',
-          kind: 'other',
-          status: 'in_progress',
-          _meta: { origin: 'bridge-control' },
+        // The companion file already holds this host unless this is the chat's
+        // first prompt (session/new keeps the default in memory only) or the
+        // selection changed; an unchanged chat does no disk write here. A
+        // settings failure is reported as itself, not as a connection failure.
+        hostSettings.saveHostIfChanged(resolvedSessionDir, sessionId, turnConfig.bridgeHost);
+        // Connect (starting a managed host if needed) and paint T3's local
+        // connection card. Every path ends the card before we get back here.
+        const connected = await connectBridgeForTurn({
+          sessionId,
+          host: turnConfig.bridgeHost,
+          hostManager,
+          signal: session.hostAbort.signal,
+          sendUpdate,
+          isCancelled: () => session.cancelRequested || connection.closed,
         });
-        // Repeat presentation fields on updates: some clients normalize a
-        // missing update title to "Tool", replacing the original local label.
-        const connectionUpdate = (status, text) =>
-          sendUpdate({
-            sessionUpdate: 'tool_call_update',
-            toolCallId,
-            title: 'Bridge connection (local)',
-            kind: 'other',
-            status,
-            rawOutput: text,
-            _meta: { origin: 'bridge-control' },
-          });
-        try {
-          hostSettings.saveHost(resolvedSessionDir, sessionId, session.config.bridgeHost);
-          const connected = await hostManager.ensure(turnConfig.bridgeHost, {
-            signal: session.hostAbort.signal,
-            onStatus: (text) => connectionUpdate('in_progress', text),
-          });
-          if (session.cancelRequested || connection.closed) return { stopReason: 'cancelled' };
-          bridgeUrl = connected.bridgeUrl;
-          connectionUpdate('completed', 'Connected—sending prompt');
-        } catch (error) {
-          const cancelled = session.cancelRequested || connection.closed;
-          const message = cancelled
-            ? 'Bridge connection cancelled; no model request was sent.'
-            : createRedactionBoundary().scrubText(error.message || 'Bridge connection failed.');
-          connectionUpdate('failed', message);
-          if (cancelled) return { stopReason: 'cancelled' };
-          throw new RpcError(ERROR_CODES.INTERNAL_ERROR, message);
-        }
+        if (connected.cancelled) return { stopReason: 'cancelled' };
+        bridgeUrl = connected.bridgeUrl;
       }
       result = await runFn({
         ...runDefaults,
@@ -1020,11 +931,11 @@ module.exports = {
   toolKindFor,
   toolTitleFor,
   acpStopReasonFor,
+  // Re-exported from prompt-content.js: callers and tests import them here.
   promptTextFrom,
   promptContentFrom,
   parseAskQuestionAnswer,
   PROTOCOL_VERSION,
-  PROMPT_IMAGE_MEDIA_TYPES,
   DEFAULT_ACP_MAX_STEPS,
   MODEL_CHOICES,
   MAX_TOKENS_PRESETS,

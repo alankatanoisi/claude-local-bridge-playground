@@ -1,5 +1,11 @@
 'use strict';
 
+// control.js — the Finder-launcher controller for the three managed bridge
+// hosts: install, start (exclusive), stop, status, test. Ports, launchd names,
+// output parsers, the readiness probe, and the controller lock all come from
+// hosts.js so this file and the ACP adapter (connection-operations.js) cannot
+// drift apart. Only the subprocess calls here are synchronous.
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -7,14 +13,26 @@ const net = require('net');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const { privateDirectory, readPrivateJson, writePrivateJson } = require('../standalone');
+const {
+  MODES,
+  WEB_PORT,
+  LOCK_PORT,
+  ROOT,
+  INSPECT_FAILURE_MESSAGE,
+  messagesUrl,
+  launchdDomain,
+  launchdLabel,
+  launchdTarget,
+  jobStateFromPrint,
+  jobStateFromExitCode,
+  listenerPidsFrom,
+  processRowsFrom,
+  ownsAllListeners,
+  probeMessagesEndpoint,
+  withLoopbackLock,
+} = require('./hosts');
 
-const MODES = Object.freeze({ desktop: 11447, browser: 11457, standalone: 11467 });
-const WEB_PORT = 18080;
-const ROOT = path.join(os.homedir(), 'Library', 'Application Support', 'Claude Bridge Lab');
 const LAUNCHERS = path.join(os.homedir(), 'Applications', 'Claude Bridge Lab');
-const LABEL_PREFIX = 'org.alan.claude-bridge-lab.';
-const domain = () => `gui/${process.getuid()}`;
-const label = (mode) => LABEL_PREFIX + mode;
 const manifestPath = () => path.join(ROOT, 'installation.json');
 
 // Every subprocess receives separate arguments. Paths with spaces or shell
@@ -24,10 +42,14 @@ function run(program, args, options = {}) {
 }
 function job(mode) {
   try {
-    const text = run('/bin/launchctl', ['print', `${domain()}/${label(mode)}`]);
-    return { loaded: true, pid: Number(text.match(/\n\s*pid = (\d+)/)?.[1]) || null };
-  } catch {
-    return { loaded: false, pid: null };
+    return jobStateFromPrint(run('/bin/launchctl', ['print', launchdTarget(mode)]));
+  } catch (error) {
+    // execFileSync reports the child's exit code as `status`. An absent job is
+    // a normal state; anything else is unknown state and must not read as
+    // "stopped" (that could start a second copy over a live one).
+    const absent = jobStateFromExitCode(error.status);
+    if (absent) return absent;
+    throw new Error(INSPECT_FAILURE_MESSAGE);
   }
 }
 function assertMode(mode) {
@@ -49,7 +71,7 @@ function xml(value) {
 }
 function plist(mode, args, logFile, workingDirectory) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>
-<key>Label</key><string>${label(mode)}</string>
+<key>Label</key><string>${launchdLabel(mode)}</string>
 <key>ProgramArguments</key><array>${args.map((arg) => `<string>${xml(arg)}</string>`).join('')}</array>
 <key>WorkingDirectory</key><string>${xml(workingDirectory)}</string>
 <key>RunAtLoad</key><true/>
@@ -70,40 +92,15 @@ async function freePort(port) {
   });
 }
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-async function probe(port) {
-  try {
-    const response = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
-      method: 'OPTIONS',
-      headers: { Origin: 'http://localhost' },
-      signal: AbortSignal.timeout(1500),
-    });
-    return response.status === 204;
-  } catch {
-    return false;
-  }
-}
+const probe = (port) => probeMessagesEndpoint(messagesUrl(port));
 function ownsListener(mode) {
   const rootPid = job(mode).pid;
   if (!rootPid) return false;
-  const rows = run('/bin/ps', ['-axo', 'pid=,ppid='])
-    .trim()
-    .split('\n')
-    .map((row) => row.trim().split(/\s+/).map(Number));
-  const owned = new Set([rootPid]);
-  for (let changed = true; changed; ) {
-    changed = false;
-    for (const [pid, parent] of rows)
-      if (owned.has(parent) && !owned.has(pid)) {
-        owned.add(pid);
-        changed = true;
-      }
-  }
+  const rows = processRowsFrom(run('/bin/ps', ['-axo', 'pid=,ppid=']));
   try {
-    const pids = run('/usr/sbin/lsof', ['-nP', `-iTCP:${MODES[mode]}`, '-sTCP:LISTEN', '-Fp'])
-      .split('\n')
-      .filter((row) => /^p\d+$/.test(row))
-      .map((row) => Number(row.slice(1)));
-    return pids.length > 0 && pids.every((pid) => owned.has(pid));
+    // lsof exits 1 when nothing listens; that is "not owned", not a failure.
+    const pids = listenerPidsFrom(run('/usr/sbin/lsof', ['-nP', `-iTCP:${MODES[mode]}`, '-sTCP:LISTEN', '-Fp']));
+    return ownsAllListeners(pids, rootPid, rows);
   } catch {
     return false;
   }
@@ -114,7 +111,7 @@ async function stop(mode) {
   if (!job(mode).loaded) return;
   // launchd owns this exact user job and its process group. No pkill, guessed
   // process IDs, or stopping the user's ordinary VS Code instance.
-  run('/bin/launchctl', ['bootout', `${domain()}/${label(mode)}`]);
+  run('/bin/launchctl', ['bootout', launchdTarget(mode)]);
   for (let i = 0; i < 30 && job(mode).loaded; i++) await sleep(200);
   if (job(mode).loaded) throw new Error(`Could not stop managed ${mode} job`);
   console.log(`Stopped dedicated ${mode}.`);
@@ -132,7 +129,7 @@ async function start(mode, { open = true } = {}) {
     if (job(mode).loaded) await stop(mode);
     await freePort(MODES[mode]);
     if (mode === 'browser') await freePort(WEB_PORT);
-    run('/bin/launchctl', ['bootstrap', domain(), path.join(ROOT, 'jobs', mode + '.plist')]);
+    run('/bin/launchctl', ['bootstrap', launchdDomain(), path.join(ROOT, 'jobs', mode + '.plist')]);
   }
   if (mode === 'browser') {
     let editorReady = false;
@@ -381,29 +378,11 @@ async function install(sourceRoot) {
   console.log('No automatic login startup was enabled. Start a mode when you want it.');
 }
 
-async function withLock(action, port = 18081) {
-  // The operating system owns this short-lived loopback lock. Unlike a lock
-  // file, it disappears automatically when the controller exits or crashes.
-  // A second controller cannot acquire the same port, even during recovery.
-  const lock = net.createServer((socket) => socket.destroy());
-  await new Promise((resolve, reject) => {
-    lock.once('error', () =>
-      reject(new Error(`Another bridge control operation is active, or control port ${port} is occupied.`)),
-    );
-    lock.listen(port, '127.0.0.1', resolve);
-  });
-  try {
-    await action();
-  } finally {
-    await new Promise((resolve) => lock.close(resolve));
-  }
-}
+// The controller never waits for the lock: a second Finder launcher fails at
+// once with a clear message rather than queueing behind the first.
+const withLock = (action, port = LOCK_PORT) => withLoopbackLock(action, { port, wait: false });
 
 module.exports = {
-  // Lazy adapter construction keeps ACP discovery free of process launches.
-  connectionOperations: () =>
-    require('./connection-operations').connectionOperations({ root: ROOT, modes: MODES, webPort: WEB_PORT }),
-  ensure: (mode, options) => require('./ensure').createHostManager().ensure(mode, options),
   MODES,
   WEB_PORT,
   ROOT,
