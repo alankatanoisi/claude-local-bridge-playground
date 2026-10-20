@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cursor review · Starlark resume branch · 2026-10-20</title>
+    <style>
+      :root {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #1b2b35;
+        background: #f2f5f6;
+        line-height: 1.65;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      header {
+        background: linear-gradient(130deg, #182b45, #22536c);
+        color: white;
+        padding: 4rem max(1.5rem, calc((100vw - 1060px) / 2));
+      }
+      header h1 {
+        font-size: clamp(2.1rem, 5vw, 3.4rem);
+        line-height: 1.1;
+        max-width: 820px;
+        margin: 0.4rem 0 1rem;
+      }
+      header p {
+        max-width: 800px;
+        color: #d8e7ee;
+      }
+      .eyebrow {
+        color: #95ded0;
+        font-size: 0.8rem;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+      main {
+        max-width: 1060px;
+        padding: 0 1.25rem 4rem;
+        margin: -1.5rem auto 0;
+      }
+      section {
+        background: white;
+        border: 1px solid #dce5e8;
+        border-radius: 18px;
+        padding: clamp(1.2rem, 3vw, 2rem);
+        margin: 1rem 0;
+        box-shadow: 0 12px 30px #1b354016;
+      }
+      h2 {
+        margin-top: 0;
+        line-height: 1.25;
+      }
+      h3 {
+        margin-bottom: 0.2rem;
+      }
+      ul,
+      ol {
+        padding-left: 1.45rem;
+      }
+      li {
+        margin: 0.45rem 0;
+      }
+      code {
+        background: #eaf0f2;
+        border-radius: 4px;
+        padding: 0.1rem 0.28rem;
+        overflow-wrap: anywhere;
+      }
+      a {
+        color: #126c79;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 0.93rem;
+        margin: 0.6rem 0 1rem;
+      }
+      th,
+      td {
+        border: 1px solid #dce5e8;
+        padding: 0.45rem 0.6rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: #f2f6f7;
+      }
+      .badge {
+        display: inline-block;
+        color: #103a39;
+        background: #aff0db;
+        font-weight: 750;
+        padding: 0.3rem 0.8rem;
+        border-radius: 99px;
+        margin-right: 0.4rem;
+      }
+      .badge.warn {
+        background: #ffe1b3;
+        color: #4a2a00;
+      }
+      .sev {
+        display: inline-block;
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 0.1rem 0.55rem;
+        border-radius: 99px;
+        margin-right: 0.4rem;
+        vertical-align: middle;
+      }
+      .sev.medium {
+        background: #ffd9a8;
+        color: #5a3100;
+      }
+      .sev.low {
+        background: #dbe9f5;
+        color: #19395a;
+      }
+      .alert {
+        border-left: 5px solid #d19036;
+        background: #fff5e5;
+        padding: 0.8rem 1rem;
+        border-radius: 4px;
+      }
+      .ok {
+        border-left: 5px solid #2f9b74;
+        background: #ebf8f2;
+        padding: 0.8rem 1rem;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="eyebrow">Research playground · Cursor invariant review · October 20, 2026</div>
+      <h1>Starlark resume branch: review results</h1>
+      <p>
+        Branch <code>codex/starlark-resume-2020-2026-09-26</code>, range <code>1e06820..2596b2c</code>. Review only: no
+        Starlark code was changed and no model was called. The Markdown file
+        <a href="HANDOFF-starlark-thermo-nuclear-2026-10-20.md">HANDOFF-starlark-thermo-nuclear-2026-10-20.md</a> is the
+        source of truth; this page is its readable companion.
+      </p>
+      <span class="badge">Live spend $0</span><span class="badge warn">Not ready for main as-is</span>
+    </header>
+    <main>
+      <section>
+        <h2>Plain-language summary</h2>
+        <p>
+          The branch does what it set out to do on its main path. When a stop (Ctrl-C, or SIGTERM, the “please stop”
+          signal another program sends) lands while the host is checking the planner’s paid answer, the answer is kept,
+          and <code>--resume</code> re-checks that same answer without paying the planner again. Every tampering case
+          tried was refused before anything was written. The three small fixes (Low #5 exit codes, Low #6 shared file
+          names, Low #7 named torn-line error) are correct, with one gap in Low #5.
+        </p>
+        <div class="alert">
+          <strong>Two real problems, one cause.</strong> The code decides “was this the model’s fault or the computer’s
+          fault?” by asking “is a stop pending?” and “which <code>catch</code> block am I in?”. With a planner ladder, a
+          disk failure buys an answer from the more expensive model (Medium #1). A program that would normally be
+          rejected, arriving together with a stop, now crashes the run instead of being recorded and stopping cleanly,
+          which <code>main</code> handles correctly today (Medium #2). One small fix (label the model’s mistakes
+          explicitly) closes both.
+        </div>
+        <p>
+          <strong>What the branch buys in practice</strong> (measured): for a valid plan, <code>main</code> already
+          keeps the paid answer when you stop during the check, because the check finishes within its 2-second cap. The
+          branch stops sooner, and it also makes “stopped while checking a plan that would have been rejected”
+          resumable, which <code>main</code> refuses.
+        </p>
+      </section>
+
+      <section>
+        <h2>Was there Starlark work after September 26?</h2>
+        <ul>
+          <li>
+            No commit on GitHub <code>main</code> touches <code>starlark-host/</code> since the branch was cut (18 newer
+            commits, all elsewhere).
+          </li>
+          <li>No other branch touches <code>starlark-host/</code> after September 20 except this branch.</li>
+          <li>
+            The branch merges into current <code>main</code> without conflicts; the Starlark suite passes 151/151 on the
+            merged tree.
+          </li>
+          <li>
+            <strong>Not visible from here:</strong> the preserved stash on the 2020 laptop and any uncommitted work on
+            either laptop.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Findings</h2>
+
+        <h3><span class="sev medium">Medium</span>1. Ladder runs: a storage failure buys a pricier planner answer</h3>
+        <p>
+          The accepted-plan writes moved out of the validation <code>catch</code> (<code>coordinator.js</code> 635–647)
+          but now throw into the ladder <code>catch</code> (498–512), which escalates on any non-abort error.
+        </p>
+        <table>
+          <tr>
+            <th>Tree</th>
+            <th>Planner calls</th>
+            <th>Final plan model</th>
+          </tr>
+          <tr>
+            <td><code>main</code></td>
+            <td>cheap:1, cheap:2 (same-tier repair)</td>
+            <td>cheap</td>
+          </tr>
+          <tr>
+            <td>branch</td>
+            <td>cheap:1, strong:1 (escalated)</td>
+            <td>strong</td>
+          </tr>
+        </table>
+        <p>
+          The pinning test (<code>planner-resume.test.js</code> 84) uses a one-tier ladder, so it passes falsely for
+          ladders. Reach: opt-in only (<code>run-workflow.js --planner-ladder</code>).
+        </p>
+
+        <h3><span class="sev medium">Medium</span>2. A real rejection during a stop now crashes the run</h3>
+        <p>
+          <code>coordinator.js</code> 610–619 rethrows every non-cancellation error raw when a stop is pending,
+          including pre-lint, validation, and evaluator program failures. The comment below it (620–622) still says
+          rejections are recorded during a stop.
+        </p>
+        <table>
+          <tr>
+            <th>Tree</th>
+            <th>Outcome</th>
+            <th>Events</th>
+          </tr>
+          <tr>
+            <td><code>main</code></td>
+            <td>returns <code>aborted</code></td>
+            <td><code>plan_rejected</code>, <code>run_aborted</code></td>
+          </tr>
+          <tr>
+            <td>branch</td>
+            <td>throws the pre-lint message</td>
+            <td><code>plan_response_received</code> only</td>
+          </tr>
+        </table>
+        <p>
+          No money is lost (resume re-rejects, then pays one legitimate repair). The record and exit code are wrong.
+        </p>
+        <div class="ok">
+          <strong>One fix for #1 and #2:</strong> mark verdict errors at their source (pre-lint, validator, evaluator
+          <code>ok: false</code>, output ceiling). Only verdicts may record <code>_rejected</code>, feed the repair
+          prompt, or escalate, stop or no stop. Cancellation records <code>_evaluation_interrupted</code>. Everything
+          else rethrows untouched from both catches.
+        </div>
+
+        <h3><span class="sev low">Low</span>3. Low #5 fixed only in the matrix loop</h3>
+        <p>
+          <code>run-workflow.js</code> 69–72 and the <code>--resume</code> path still set exit code 1 after a signal,
+          and this branch makes that path more reachable.
+        </p>
+
+        <h3><span class="sev low">Low</span>4. Unhandled <code>EPIPE</code> when a stop kills the evaluator early</h3>
+        <p>
+          No <code>'error'</code> listener on the evaluator’s stdin (<code>starlark.js</code> 76–84). Reproduced with a
+          300 KB payload: <code>run_aborted</code> is written, then the process dies with exit code 1. Latent for
+          today’s payload sizes; a one-line fix.
+        </p>
+
+        <h3>
+          <span class="sev low">Low</span>5. New child-process tests write into the real <code>runs/</code> folder and
+          can hang
+        </h3>
+        <p>
+          <code>run-abort.test.js</code> 47–103 runs the real matrix command, adding 4 folders to
+          <code>starlark-host/runs/</code> on every suite run (<code>main</code>: 0). Its <code>ready</code> wait never
+          fails on early exit, so a same-millisecond folder-name collision hangs it: 2 of 48 parallel runs here.
+        </p>
+
+        <h3><span class="sev low">Low</span>6. One rule, three copies</h3>
+        <p>
+          The evaluation fingerprint, the recovery policy, and artifact confinement are each built in two or three
+          places. They agree today, and drift fails closed. The receipt’s <code>rejection</code> field is never used and
+          copies rejected source into the event log.
+        </p>
+
+        <h3><span class="sev low">Low</span>7. Docs owed when this lands on <code>main</code></h3>
+        <p>
+          <code>CLAUDE.md</code> Starlark bullet, the September 6 review banner, and the September 26 review still say
+          Low #5–#8 are open.
+        </p>
+      </section>
+
+      <section>
+        <h2>Not bugs (do not fix)</h2>
+        <ul>
+          <li>
+            A stop during the planner’s own network call is not resumable (no receipt yet). Same as <code>main</code>.
+          </li>
+          <li>
+            Resume refuses after a verdict with no accepted plan (stop during the repair call). Same as
+            <code>main</code>.
+          </li>
+          <li>The ledger constructor refusing a torn line is correct and protective.</li>
+          <li>A bad middle line staying a raw <code>SyntaxError</code> is what Low #7 specified.</li>
+          <li>Safe-name collisions fail closed through the input fingerprint.</li>
+          <li>Forwarding the stop signal to the evaluator child is correct on Node 22; only add the stdin listener.</li>
+          <li>The test-only <code>evaluatePlan</code> seam; model output stored in the gitignored run folder.</li>
+          <li>Scope stays inside <code>starlark-host/</code>; R8 (no runner tool) holds.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Unresolved observations</h2>
+        <ul>
+          <li>
+            The September 27 exit-137 run (“2 requests instead of 1”) was <strong>not reproduced</strong> in 73 focused
+            runs and several full suites. That test file is unchanged by this branch. Best unproven lead: the stray
+            loopback request hazard noted on September 26. Suggested diagnostic: print method and path of every request
+            the fake server counts.
+          </li>
+          <li>
+            Pre-existing on <code>main</code> too: an evaluator host failure is treated as a model rejection and buys
+            repairs; an empty planner reply crashes before any receipt; worker artifacts are confined by path text only;
+            restarting recovery overwrites its attempt-1 source file.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Recommended order</h2>
+        <ol>
+          <li>Medium #1 + #2 together: verdict classification plus four tests.</li>
+          <li>Low #3: keep 130/143 in <code>run-workflow.js</code> and <code>--resume</code>.</li>
+          <li>Low #4: stdin error listener plus a test.</li>
+          <li>Low #5: temporary run root, a <code>ready</code> wait that fails on early exit, model-count check.</li>
+          <li>Low #6 optionally; Low #7 at landing.</li>
+        </ol>
+        <p>
+          Alternatives: merge now and fix on <code>main</code> (fast, but Medium #1 can cost money on ladder runs and
+          Medium #2 regresses a clean-stop path), or keep only Low #5–#7 and drop the Low #8 resume machinery (smaller,
+          but undoes Alan’s recorded option-2 decision).
+        </p>
+      </section>
+
+      <section>
+        <h2>Checks run</h2>
+        <table>
+          <tr>
+            <th>Check</th>
+            <th>Result</th>
+          </tr>
+          <tr>
+            <td>Starlark suite, <code>main</code> / branch / merged</td>
+            <td>128 / 151 / 151 pass, 0 fail, 0 skipped</td>
+          </tr>
+          <tr>
+            <td>Focused set, 25 serial / 48 parallel</td>
+            <td>25/25 / 46/48 (2 = Low #5 hang)</td>
+          </tr>
+          <tr>
+            <td>Root <code>npm test</code></td>
+            <td>1,160 pass, 1 known Linux-only failure, 1 platform skip</td>
+          </tr>
+          <tr>
+            <td>Lint, docs check, Prettier on changed files</td>
+            <td>pass (format check fails only on three historical handoffs)</td>
+          </tr>
+          <tr>
+            <td>Fix-reversal checks</td>
+            <td>every reverted fix turned at least one test red</td>
+          </tr>
+          <tr>
+            <td>Second opinion</td>
+            <td>independent review subagent; its two new findings re-run by the primary reviewer</td>
+          </tr>
+        </table>
+        <p>Skipped: running on Alan’s Mac, the 2020-laptop stash, browser rendering of this page, and any paid run.</p>
+      </section>
+    </main>
+  </body>
+</html>

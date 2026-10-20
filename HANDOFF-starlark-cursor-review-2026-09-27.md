@@ -1,5 +1,10 @@
 # Cursor review entry: Starlark reconciliation
 
+> **Reviewed 2026-10-20 (Cursor).** Findings:
+> [`HANDOFF-starlark-thermo-nuclear-2026-10-20.md`](HANDOFF-starlark-thermo-nuclear-2026-10-20.md): two Medium
+> (planner-ladder escalation on a storage failure; a rejection during a stop now crashes the run) and five Low.
+> Recommendation: fix before moving to `main`. Nothing below has been changed.
+
 Prepared September 27, 2026. **Review requested; findings are not yet verified.** [Browser companion](HANDOFF-starlark-cursor-review-2026-09-27.html).
 
 ## Start here
