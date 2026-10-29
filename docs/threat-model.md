@@ -14,8 +14,11 @@ Owner decisions recorded on August 10, 2026:
 - Explicit `--allow-shell` use accepts unsandboxed local-account authority, and `--no-network` is accepted as a
   best-effort guard rather than hard network isolation. Bypasses of the opt-in boundary and false isolation claims remain
   reportable.
-- HS-01 remains an unresolved limitation. It is documented context, not an accepted-safe
-  findings and not suppression authority; see the root policy and their registered `false-green` tests.
+
+HS-01 protection now matches sensitive basenames and protected directory segments case-insensitively before file
+access, including nonexistent write targets. The registered `false-green` tests enforce this policy on every platform;
+an additional volume-dependent test checks actual case aliases where supported. Shell scanning checks literal path
+words across command names and argument positions; it remains a best-effort guard, not a complete shell parser.
 
 ## Scope
 
