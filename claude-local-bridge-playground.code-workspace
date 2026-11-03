@@ -16,6 +16,7 @@
 			".github/workflows/bridge-runner-readonly-poc.yml"
 		],
 		"liveServer.settings.multiRootWorkspaceName": "claude-local-bridge-playground",
-		"DockerRun.DisableAutoGenerateConfig": true
+		"DockerRun.DisableAutoGenerateConfig": true,
+		"chat.sessionSync.enabled": true
 	}
 }
