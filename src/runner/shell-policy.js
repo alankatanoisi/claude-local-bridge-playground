@@ -235,6 +235,32 @@ function extractPathTokens(command) {
   return extractPathWords(command).map((word) => word.value);
 }
 
+// Keep main's raw-text extraction (023d056) alongside the word reader. It
+// catches `cat token` inside substitutions, nested shell code and wrappers
+// that the word reader treats as data. Neither reader replaces the other:
+// a denial found by either must survive, even inside echo or inline code.
+function legacyRawPathTokens(command) {
+  const tokens = [];
+  const redirectMatches = command.match(/(?:>>?|\|)\s*([^\s|;&]+)/g) || [];
+  for (const m of redirectMatches) {
+    tokens.push(m.replace(/^(>>?|\|)\s*/, '').trim());
+  }
+  const argMatches = command.match(/(?:cat|head|tail|less|more|grep|node|python3?|php|ruby)\s+([^\s|;&]+)/gi) || [];
+  for (const m of argMatches) {
+    const parts = m.split(/\s+/);
+    if (parts[1]) tokens.push(parts[1]);
+  }
+  if (/\bcat\b/i.test(command)) {
+    const catArgs = command.match(/\bcat\b[^\n|;&]*/i);
+    if (catArgs) {
+      for (const part of catArgs[0].split(/\s+/).slice(1)) {
+        if (part && !part.startsWith('-')) tokens.push(part);
+      }
+    }
+  }
+  return tokens;
+}
+
 // Wildcards are expanded only against project metadata, never by a shell.
 // Bound the walk and fail closed for unsupported or unbounded expansion forms.
 // Checking matches keeps ordinary globs such as src/*.js usable.
@@ -260,12 +286,20 @@ function globPathBlocked(word, ctx) {
         else if (ch === '[') {
           const end = part.indexOf(']', i + 1);
           if (end < 0) return true;
-          const body = part.slice(i + 1, end).replace(/^!/, '^');
+          const rawBody = part.slice(i + 1, end);
+          // Bash bracket syntax is not identical to a JavaScript character
+          // class. Empty/negation-only bodies, a leading literal `]`, POSIX
+          // classes and backslashes cannot be translated safely here. Refuse
+          // the command rather than incorrectly conclude it matches no keys.
+          if (!rawBody || rawBody === '!' || rawBody === '^' || /[[\\]/.test(rawBody)) return true;
+          const body = rawBody.replace(/^!/, '^');
           expression += '[' + body + ']';
           i = end;
         } else expression += ch.replace(/[\\^$+?.()|{}\]]/g, '\\$&');
       }
-      const matcher = new RegExp(expression + '$');
+      // Check a superset of possible matches, including case aliases. The
+      // shell may match more broadly than a case-sensitive regex would.
+      const matcher = new RegExp(expression + '$', 'i');
       for (const parent of candidates) {
         if (!fs.statSync(parent).isDirectory()) continue;
         if (!/[*?[]/.test(part)) {
@@ -373,15 +407,24 @@ function scanShellCommand(command, ctx = {}) {
 
   for (const word of extractPathWords(cmd)) {
     const token = word.value;
-    // A prior cd changes where Bash expands a glob. We cannot safely validate
-    // that expansion using the startup folder, so reject this combined form.
-    if ((word.hasGlob && /\b(?:cd|pushd|popd)\b/.test(cmd)) || globPathBlocked(word, ctx)) {
+    // Directory changes alter where a glob expands. shopt and GLOBIGNORE can
+    // also change its matches (including dotfiles). Our metadata walk models
+    // default expansion only, so refuse these combinations in the same call.
+    if ((word.hasGlob && /\b(?:cd|pushd|popd|shopt|GLOBIGNORE)\b/.test(cmd)) || globPathBlocked(word, ctx)) {
       issues.push({ kind: 'blocked_path_pattern', token });
     }
     const hardSegment = findHardDenyPathSegment(token);
     if (hardSegment) {
       issues.push({ kind: 'hard_deny_path', segment: hardSegment });
     } else if (isBlockedPathToken(token)) {
+      issues.push({ kind: 'blocked_path_pattern', token });
+    }
+  }
+
+  // Run the old scan unconditionally: exemptions in the word reader must
+  // never hide a command that the older raw-text guard already rejected.
+  for (const token of legacyRawPathTokens(cmd)) {
+    if (isBlockedPathToken(token)) {
       issues.push({ kind: 'blocked_path_pattern', token });
     }
   }

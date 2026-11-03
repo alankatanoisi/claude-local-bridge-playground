@@ -17,8 +17,11 @@ Owner decisions recorded on August 10, 2026:
 
 HS-01 protection now matches sensitive basenames and protected directory segments case-insensitively before file
 access, including nonexistent write targets. The registered `false-green` tests enforce this policy on every platform;
-an additional volume-dependent test checks actual case aliases where supported. Shell scanning checks literal path
-words across command names and argument positions; it remains a best-effort guard, not a complete shell parser.
+an additional volume-dependent test checks actual case aliases where supported. Shell scanning combines a raw-text
+scan with a word scan that checks literal path operands. The word scan exempts `echo`/`printf` data operands and
+supported interpreter inline-code operands (`-e`, `-p`, `-c`, `--eval`, `--print`); the raw-text scan still checks the
+full command, including those operands and shell substitutions. This remains a best-effort guard, not a complete shell
+parser.
 
 ## Scope
 

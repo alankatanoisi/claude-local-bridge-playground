@@ -8,11 +8,12 @@ const path = require('path');
 const Module = require('module');
 const childProcess = require('child_process');
 const { execute, executeForce } = require('../../src/runner/tool-registry');
+const { scanShellCommand, isBlockedPathToken } = require('../../src/runner/shell-policy');
 
 function fixture(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hs01-review-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  for (const name of ['ID_RSA', 'ID_ED25519', '.NETRC'])
+  for (const name of ['ID_RSA', 'ID_ED25519', '.netrc', 'token'])
     fs.writeFileSync(path.join(dir, name), 'DISPOSABLE_KEY_MARKER\n');
   fs.mkdirSync(path.join(dir, '.SSH'));
   fs.writeFileSync(path.join(dir, '.SSH', 'config'), 'DISPOSABLE_KEY_MARKER\n');
@@ -20,6 +21,12 @@ function fixture(t) {
   fs.writeFileSync(path.join(dir, 'src', 'safe.js'), 'SAFE_SEARCH_MARKER\n');
   fs.mkdirSync(path.join(dir, 'UPPER'));
   fs.writeFileSync(path.join(dir, 'UPPER', 'ID_RSA'), 'DISPOSABLE_KEY_MARKER\n');
+  fs.mkdirSync(path.join(dir, 'keys'));
+  fs.writeFileSync(path.join(dir, 'keys', 'ID_RSA'), 'DISPOSABLE_KEY_MARKER\n');
+  // Keep the earlier uppercase search canary as well as the lowercase root
+  // .netrc needed to reproduce Bash's case-sensitive *rc expansion.
+  fs.writeFileSync(path.join(dir, 'keys', '.NETRC'), 'DISPOSABLE_KEY_MARKER\n');
+  fs.writeFileSync(path.join(dir, 'README.md'), 'ORDINARY_FILE_MARKER\n');
   return { cwd: dir, cwdRealpath: fs.realpathSync(dir), allowShell: true, dontAsk: true };
 }
 
@@ -48,8 +55,11 @@ describe('HS-01 review corrections', () => {
     }
     assert.equal(fs.readFileSync(path.join(ctx.cwd, 'ID_RSA'), 'utf8'), 'DISPOSABLE_KEY_MARKER\n');
     if (fs.existsSync(path.join(ctx.cwd, 'upper'))) {
-      const result = await execute('bash', { command: 'cat upper/*' }, ctx);
-      assert.equal(result.ok, false, 'literal directory aliases must not hide glob matches');
+      for (const run of [execute, executeForce]) {
+        const result = await run('bash', { command: 'cat upper/*' }, ctx);
+        assert.equal(result.ok, false, 'literal directory aliases must not hide glob matches');
+        assert.ok(!result.text.includes('DISPOSABLE_KEY_MARKER'));
+      }
     }
   });
 
@@ -63,13 +73,26 @@ describe('HS-01 review corrections', () => {
       'cat src/*.js',
       'cat src/safe.?s',
       "printf '%s\\n' token",
+      'cat README.md',
+      'ls *.md',
+      'echo hello world',
+      'git --version',
     ]) {
-      const result = await execute('bash', { command }, ctx);
-      assert.equal(result.ok, true, command + ': ' + result.text);
+      for (const run of [execute, executeForce]) {
+        const result = await run('bash', { command }, ctx);
+        assert.equal(result.ok, true, run.name + ': ' + command + ': ' + result.text);
+        assert.ok(!result.text.includes('DISPOSABLE_KEY_MARKER'));
+        if (command === 'cat README.md') assert.match(result.text, /ORDINARY_FILE_MARKER/);
+        if (command === `node -e "console.log('secret')"`) assert.equal(result.text.trim(), 'secret');
+        if (command === 'cat src/*.js') assert.match(result.text, /SAFE_SEARCH_MARKER/);
+      }
     }
     // Shell code arguments are exempted, but subsequent file operands are not.
-    const result = await execute('bash', { command: `node -e "console.log('secret')" ID_RSA` }, ctx);
-    assert.equal(result.ok, false);
+    for (const run of [execute, executeForce]) {
+      const result = await run('bash', { command: `node -e "console.log('secret')" ID_RSA` }, ctx);
+      assert.equal(result.ok, false);
+      assert.ok(!result.text.includes('DISPOSABLE_KEY_MARKER'));
+    }
   });
 
   for (const backend of ['rg', 'grep', 'node']) {
@@ -117,7 +140,10 @@ describe('HS-01 review corrections', () => {
               return fs.readdirSync(dir, options);
             },
             readFileSync(file, options) {
-              assert.ok(!/ID_RSA|ID_ED25519|\.NETRC|\.SSH/.test(String(file)), 'must not read protected data');
+              assert.ok(
+                !/ID_RSA|ID_ED25519|\.NETRC|\.SSH|\btoken\b/i.test(String(file)),
+                'must not read protected data',
+              );
               return fs.readFileSync(file, options);
             },
           };
@@ -133,5 +159,135 @@ describe('HS-01 review corrections', () => {
       assert.ok(!rawOutputs.join('').includes('DISPOSABLE_KEY_MARKER'));
       assert.equal(searches > 0, backend !== 'node');
     });
+  }
+});
+
+// Keep every review example explicit: a future failure should name the exact
+// shell shape and gate, rather than hiding later examples behind an early exit.
+const reviewShapes = [
+  'echo ok\ncat id_rsa',
+  'echo "$(cat id_rsa)"',
+  'echo $(cat token)',
+  'echo `cat id_rsa`',
+  'node -e "$(cat id_rsa)"',
+  'x=$(cat token); echo "$x"',
+  "sh -c 'cat id_rsa'",
+  'bash -c "cat token"',
+  "eval 'cat token'",
+  'env cat token',
+  'command cat token',
+  '{ cat token; }',
+  'if true; then cat token; fi',
+  'printf "%s" "$(cat ID_RSA)"',
+  'cat I[[:upper:]]_RSA',
+  'cat I[]D]_RSA',
+  'shopt -s nocaseglob; cat id_rs?',
+  'shopt -s dotglob; cat *rc',
+  'GLOBIGNORE=x; cat *rc',
+];
+
+describe('HS-01 November follow-up: real execution boundaries', () => {
+  for (const command of reviewShapes) {
+    for (const run of [execute, executeForce]) {
+      it(run.name + ' denies ' + JSON.stringify(command) + ' without returning the fake marker', async (t) => {
+        const ctx = fixture(t);
+        const result = await run('bash', { command }, ctx);
+        const markerReturned = result.text.includes('DISPOSABLE_KEY_MARKER');
+        // This diagnostic makes the untouched baseline useful even when the
+        // assertions fail. A child program error alone is not a policy denial.
+        t.diagnostic(JSON.stringify({ gate: run.name, command, ok: result.ok, markerReturned }));
+        assert.equal(markerReturned, false, 'fake protected-file content escaped');
+        assert.equal(result.ok, false, 'command must be refused before execution');
+        assert.match(result.text, /blocked/i, 'must be a policy block, not a shell error');
+        assert.equal(scanShellCommand(command, ctx).allowed, false);
+      });
+    }
+  }
+});
+
+// Frozen extractPathTokens body from main at 023d056. Do not replace this
+// helper with an import of the implementation: that would let both weaken
+// together while the test stayed green. It needs no Git access at test time.
+function legacyRawPathTokens(command) {
+  const tokens = [];
+  const redirectMatches = command.match(/(?:>>?|\|)\s*([^\s|;&]+)/g) || [];
+  for (const m of redirectMatches) {
+    tokens.push(m.replace(/^(>>?|\|)\s*/, '').trim());
+  }
+  const argMatches = command.match(/(?:cat|head|tail|less|more|grep|node|python3?|php|ruby)\s+([^\s|;&]+)/gi) || [];
+  for (const m of argMatches) {
+    const parts = m.split(/\s+/);
+    if (parts[1]) tokens.push(parts[1]);
+  }
+  if (/\bcat\b/i.test(command)) {
+    const catArgs = command.match(/\bcat\b[^\n|;&]*/i);
+    if (catArgs) {
+      for (const part of catArgs[0].split(/\s+/).slice(1)) {
+        if (part && !part.startsWith('-')) tokens.push(part);
+      }
+    }
+  }
+  return tokens;
+}
+
+describe('HS-01 raw-scan coverage and conservative glob limits', () => {
+  it('preserves every legacy raw-scan denial in a fixed corpus', (t) => {
+    const ctx = fixture(t);
+    const corpus = [
+      ...reviewShapes.slice(0, 13),
+      'cat id_rsa',
+      'cat keys/id_rsa',
+      'cat safe.txt token',
+      'cat -n token',
+      'head token',
+      'tail token',
+      'less token',
+      'more token',
+      'grep token',
+      'node token',
+      'python token',
+      'python3 token',
+      'php token',
+      'ruby token',
+      'printf x > token',
+      'printf x >> token',
+      'echo x | token',
+      'cat .netrc',
+      'cat .npmrc',
+      'cat credentials.json',
+      'cat file.pem',
+    ];
+    // These corpus paths are all lowercase, and were blocked on main too.
+    // Use the frozen extraction plus shared path rules to prevent the new
+    // reader's command/data exemptions from deleting those older denials.
+    const missing = corpus.filter((command) => {
+      assert.ok(legacyRawPathTokens(command).some(isBlockedPathToken), 'invalid legacy corpus entry: ' + command);
+      return scanShellCommand(command, ctx).allowed;
+    });
+    assert.deepEqual(missing, [], 'raw-scan denials must survive the word reader');
+  });
+
+  for (const command of [
+    'cat I[]_RSA',
+    'cat I[!]_RSA',
+    'cat I[^]_RSA',
+    // Single quotes keep the backslash inside the brackets for Bash to see.
+    "cat 'I[D\\]_RSA'*",
+    // Two shell backslashes preserve one inside an active bracket pattern.
+    'cat I[Z\\\\q]_RSA',
+    'cat id_rs?',
+    'shopt -s dotglob; cat *rc*',
+    'GLOBIGNORE=x; cat *rc*',
+    'cd keys; cat *',
+  ]) {
+    for (const run of [execute, executeForce]) {
+      it(run.name + ' fails closed for ' + JSON.stringify(command), async (t) => {
+        const ctx = fixture(t);
+        const result = await run('bash', { command }, ctx);
+        assert.ok(!result.text.includes('DISPOSABLE_KEY_MARKER'));
+        assert.equal(result.ok, false);
+        assert.match(result.text, /blocked/i);
+      });
+    }
   }
 });
