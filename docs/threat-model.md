@@ -19,9 +19,17 @@ HS-01 protection now matches sensitive basenames and protected directory segment
 access, including nonexistent write targets. The registered `false-green` tests enforce this policy on every platform;
 an additional volume-dependent test checks actual case aliases where supported. Shell scanning combines a raw-text
 scan with a word scan that checks literal path operands. The word scan exempts `echo`/`printf` data operands and
-supported interpreter inline-code operands (`-e`, `-p`, `-c`, `--eval`, `--print`); the raw-text scan still checks the
-full command, including those operands and shell substitutions. This remains a best-effort guard, not a complete shell
-parser.
+supported interpreter inline-code operands (`-e`, `-p`, `-c`, `--eval`, `--print`). The raw-text scan checks the full
+command for recognized literal protected-path forms, including inside those operands and shell substitutions; it does
+not expand wildcard patterns inside nested shell code. A separate conservative check refuses explicit Bash `-O`
+settings for `nocaseglob`, `dotglob`, `globstar`, and `extglob`, including quoted option names and bundles such as `-Oc`.
+Dollar-quoted Bash startup option words (`$'...'` and `$"..."`) and dollar-quoted `-O` settings are conservatively
+refused rather than decoded, including escape-encoded spellings. Ordinary dollar-quoted code/data after `-c` remains
+usable.
+This also refuses harmless uses of those option words, even without a wildcard, such as `bash -O dotglob -c 'echo hello'`
+or `echo -O dotglob`. Options themselves hidden inside another quoted command, nested `shopt` code, dynamically
+constructed commands, and shell state carried between persistent-shell calls remain outside that check. This remains a
+best-effort guard, not a complete shell parser.
 
 ## Scope
 

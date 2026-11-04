@@ -129,12 +129,14 @@ function shellWords(command) {
   let quote = null;
   let started = false;
   let hasGlob = false;
+  let hasDollarQuote = false;
   function flush() {
-    if (started) words.push({ value, glob, hasGlob });
+    if (started) words.push({ value, glob, hasGlob, hasDollarQuote });
     value = '';
     glob = '';
     started = false;
     hasGlob = false;
+    hasDollarQuote = false;
   }
   for (let i = 0; i < command.length; i++) {
     const ch = command[i];
@@ -159,6 +161,9 @@ function shellWords(command) {
         glob += /[*?[]/.test(ch) ? '[' + ch + ']' : ch;
       }
     } else if (ch === "'" || ch === '"') {
+      // Bash gives $'...' and $"..." extra meaning. Remember that this word
+      // needs interpretation; do not pretend its contents were fully decoded.
+      if (command[i - 1] === '$') hasDollarQuote = true;
       quote = ch;
       started = true;
     } else if (/\s|[|;&<>]/.test(ch)) {
@@ -297,9 +302,11 @@ function globPathBlocked(word, ctx) {
           i = end;
         } else expression += ch.replace(/[\\^$+?.()|{}\]]/g, '\\$&');
       }
-      // Check a superset of possible matches, including case aliases. The
-      // shell may match more broadly than a case-sensitive regex would.
-      const matcher = new RegExp(expression + '$', 'i');
+      // Keep BOTH matching modes. Ignoring case widens positive classes but
+      // shrinks negated ones: Bash's [!d] can match D, while /[^d]/i cannot.
+      // Checking their union preserves ordinary Bash matches and case aliases.
+      const matcher = new RegExp(expression + '$');
+      const caseInsensitiveMatcher = new RegExp(expression + '$', 'i');
       for (const parent of candidates) {
         if (!fs.statSync(parent).isDirectory()) continue;
         if (!/[*?[]/.test(part)) {
@@ -315,7 +322,7 @@ function globPathBlocked(word, ctx) {
           // Bash's ordinary wildcards do not match dotfiles unless the pattern
           // itself starts with a dot. Exact dot-paths still get checked below.
           if (entry.startsWith('.') && !part.startsWith('.')) continue;
-          if (!matcher.test(entry)) continue;
+          if (!matcher.test(entry) && !caseInsensitiveMatcher.test(entry)) continue;
           if (--budget < 0) return true;
           const full = path.join(parent, entry);
           if (isBlockedPathToken(full) || isBlockedPathToken(fs.realpathSync(full))) return true;
@@ -358,18 +365,16 @@ function findHardDenyPathSegment(token) {
 function isBlockedPathToken(token) {
   const t = String(token || '').replace(/^['"]|['"]$/g, '');
   if (!t) return false;
-  // Normalize Windows separators before asking for the final filename. That
-  // keeps a transcript containing `C:\\work\\ID_RSA` protected on a Mac too.
+  // Check both meanings of a backslash. On Mac/Linux it can be a literal
+  // filename character (id_rsa\x); Windows uses it as a folder separator.
+  // Normalizing must add protection without discarding the literal basename.
   const portableToken = t.replace(/\\/g, '/');
-  const base = path.posix.basename(portableToken);
+  if (isBlockedBasename(path.posix.basename(t)) || isBlockedBasename(path.posix.basename(portableToken))) return true;
   // Keep the shell's duplicate raw-string checks case-insensitive too. The
-  // shared basename helper below already has that contract, but directory
+  // shared basename helper above already has that contract, but directory
   // fragments can be found here before the shell resolves a real filesystem
   // path, so they must not depend on the host filesystem's case behavior.
   const normalizedToken = t.toLowerCase();
-  // One basename check, not two: the loop that used to follow this line
-  // re-tested the exact same pattern array isBlockedBasename already walks.
-  if (isBlockedBasename(base)) return true;
   if (findHardDenyPathSegment(t)) return true;
   for (const blocked of BLOCKED_PATH_TOKENS) {
     const normalizedBlocked = blocked.toLowerCase();
@@ -403,6 +408,43 @@ function scanShellCommand(command, ctx = {}) {
     if (normalizedCommand.includes(blocked.toLowerCase())) {
       issues.push({ kind: 'blocked_path_pattern', token: blocked });
     }
+  }
+
+  // Bash's -O options can change wildcard expansion inside a quoted -c
+  // argument, where the outer word reader sees no active wildcard at all.
+  // Inspect dequoted option spellings independently, including -Oc bundles.
+  // Retain operator words so `echo -O; echo dotglob` is not joined together.
+  const words = shellWords(cmd);
+  let bashOptions = false;
+  for (let i = 0; i < words.length - 1; i++) {
+    const option = words[i];
+    const setting = words[i + 1];
+    if (option.operator) {
+      bashOptions = false;
+      continue;
+    }
+    if (path.posix.basename(option.value) === 'bash') {
+      bashOptions = true;
+      continue;
+    }
+    // Dollar quotes can encode the option itself ($'\x2d\x4f') or its
+    // setting ($'dot\x67lob'). Refuse undecoded Bash option words rather
+    // than adding a second, incomplete escape-language interpreter here.
+    if (
+      !setting.operator &&
+      ((bashOptions && option.hasDollarQuote) ||
+        (/^-[^-]*O/.test(option.value) &&
+          (/^(?:nocaseglob|dotglob|globstar|extglob)$/.test(setting.value) || setting.hasDollarQuote)))
+    ) {
+      issues.push({ kind: 'blocked_path_pattern', token: option.value + ' ' + setting.value });
+    }
+    // -c ends Bash's startup options. Its command string and later data words
+    // keep their existing treatment, including harmless dollar-quoted data.
+    if (option.value === '--' || /^-[^-]*c/.test(option.value)) bashOptions = false;
+    // These startup options consume a following value. That value is not a
+    // script filename and must not hide a later dollar-quoted -O option.
+    else if (bashOptions && (/^-[^-]*[oO]/.test(option.value) || /^(?:--rcfile|--init-file)$/.test(option.value))) i++;
+    else if (!option.value.startsWith('-')) bashOptions = false;
   }
 
   for (const word of extractPathWords(cmd)) {

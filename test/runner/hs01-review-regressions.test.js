@@ -8,13 +8,25 @@ const path = require('path');
 const Module = require('module');
 const childProcess = require('child_process');
 const { execute, executeForce } = require('../../src/runner/tool-registry');
+const bashTool = require('../../src/runner/tools/bash');
 const { scanShellCommand, isBlockedPathToken } = require('../../src/runner/shell-policy');
 
-function fixture(t) {
+// A backslash can be part of a Mac/Linux filename. Windows treats it as a
+// folder separator, so exercise those real filenames only where they exist.
+const backslashShapes =
+  process.platform === 'win32' ? [] : ["cat 'id_rsa\\x'", 'cat id_rsa\\\\x', "cat 'secret\\plan.md'"];
+
+function fixture(t, { backslashNames = false } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hs01-review-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   for (const name of ['ID_RSA', 'ID_ED25519', '.netrc', 'token'])
     fs.writeFileSync(path.join(dir, name), 'DISPOSABLE_KEY_MARKER\n');
+  // Keep these special files out of ordinary-glob controls: secret\plan.md
+  // really does match *.md, which should then be denied rather than read.
+  if (backslashNames && process.platform !== 'win32') {
+    for (const name of ['id_rsa\\x', 'secret\\plan.md'])
+      fs.writeFileSync(path.join(dir, name), 'DISPOSABLE_KEY_MARKER\n');
+  }
   fs.mkdirSync(path.join(dir, '.SSH'));
   fs.writeFileSync(path.join(dir, '.SSH', 'config'), 'DISPOSABLE_KEY_MARKER\n');
   fs.mkdirSync(path.join(dir, 'src'));
@@ -77,6 +89,12 @@ describe('HS-01 review corrections', () => {
       'ls *.md',
       'echo hello world',
       'git --version',
+      // Ordinary nested shells and harmless negated globs must remain usable.
+      "bash -c 'cat README.md'",
+      "bash -c $'cat README.md'",
+      "bash -c 'printf %s \"$1\"' ignored $'hello' $'world'",
+      "printf '%s' $'hello' $'world'",
+      'ls [!z]*.md',
     ]) {
       for (const run of [execute, executeForce]) {
         const result = await run('bash', { command }, ctx);
@@ -184,21 +202,64 @@ const reviewShapes = [
   'shopt -s nocaseglob; cat id_rs?',
   'shopt -s dotglob; cat *rc',
   'GLOBIGNORE=x; cat *rc',
+  // Ignoring case can SHRINK a negated class: [!d] matches uppercase D in
+  // ordinary Bash. These examples must not disappear from the candidate set.
+  'cat I[!d]_RSA',
+  'cat I[^d]_RSA',
+  'cat ?[!d]_RSA',
+  'cat ID_[!r]SA',
+  ...backslashShapes,
+  // Bash can enable glob options before running a quoted command. Quoting
+  // hides its wildcard from the outer word reader, but the option still acts.
+  "bash -O nocaseglob -c 'cat id_rs?'",
+  "bash -O dotglob -c 'cat *rc'",
+  'bash -O dotglob -c "cat *rc"',
+  "bash -O 'dotglob' -c 'cat *rc'",
+  "/bin/bash -O no'case'glob -c 'cat id_rs?'",
+  "bash '-O' nocaseglob -c 'cat id_rs?'",
+  "bash -Oc nocaseglob 'cat id_rs?'",
+  "bash -O dotglob -O nocaseglob -c 'cat *rc'",
+  "bash -O globstar -c 'cat **/ID?RSA'",
+  "bash -O extglob -c 'cat @(ID_RSA)'",
+  // Dollar-prefixed quotes are Bash syntax too, including hexadecimal escapes.
+  "bash -O $'dotglob' -c 'cat *rc'",
+  "bash $'-O' dotglob -c 'cat *rc'",
+  'bash -O $"dotglob" -c \'cat *rc\'',
+  "bash -O $'nocaseglob' -c 'cat id_rs?'",
+  "bash -O $'dot\\x67lob' -c 'cat *rc'",
+  "bash $'\\x2d\\x4f' $'dot\\x67lob' -c 'cat *rc'",
+  "bash -O nullglob $'-O' dotglob -c 'cat *rc'",
+  "bash --rcfile /dev/null $'-O' dotglob -c 'cat *rc'",
+  "bash --init-file /dev/null $'-O' dotglob -c 'cat *rc'",
 ];
 
 describe('HS-01 November follow-up: real execution boundaries', () => {
   for (const command of reviewShapes) {
     for (const run of [execute, executeForce]) {
       it(run.name + ' denies ' + JSON.stringify(command) + ' without returning the fake marker', async (t) => {
-        const ctx = fixture(t);
+        const ctx = fixture(t, { backslashNames: backslashShapes.includes(command) });
+        // This spy calls the real tool if reached; it never invents a denial.
+        // Zero tool calls proves neither a new process nor a persistent shell
+        // received the command. A program error cannot satisfy this check.
+        const shellExecution = t.mock.method(bashTool, 'execute');
         const result = await run('bash', { command }, ctx);
         const markerReturned = result.text.includes('DISPOSABLE_KEY_MARKER');
         // This diagnostic makes the untouched baseline useful even when the
         // assertions fail. A child program error alone is not a policy denial.
-        t.diagnostic(JSON.stringify({ gate: run.name, command, ok: result.ok, markerReturned }));
+        t.diagnostic(
+          JSON.stringify({
+            gate: run.name,
+            command,
+            ok: result.ok,
+            markerReturned,
+            toolCalls: shellExecution.mock.callCount(),
+          }),
+        );
         assert.equal(markerReturned, false, 'fake protected-file content escaped');
         assert.equal(result.ok, false, 'command must be refused before execution');
         assert.match(result.text, /blocked/i, 'must be a policy block, not a shell error');
+        assert.equal(result.permission.ruleId, 'shell_hard_deny');
+        assert.equal(shellExecution.mock.callCount(), 0, 'must deny before entering the shell tool');
         assert.equal(scanShellCommand(command, ctx).allowed, false);
       });
     }
@@ -256,6 +317,7 @@ describe('HS-01 raw-scan coverage and conservative glob limits', () => {
       'cat .npmrc',
       'cat credentials.json',
       'cat file.pem',
+      ...backslashShapes,
     ];
     // These corpus paths are all lowercase, and were blocked on main too.
     // Use the frozen extraction plus shared path rules to prevent the new
@@ -265,6 +327,20 @@ describe('HS-01 raw-scan coverage and conservative glob limits', () => {
       return scanShellCommand(command, ctx).allowed;
     });
     assert.deepEqual(missing, [], 'raw-scan denials must survive the word reader');
+  });
+
+  it('protects both literal POSIX basenames and Windows-style path spellings', () => {
+    // Explicit expected answers keep this check independent of the corpus's
+    // shared predicate: the implementation cannot weaken its own test oracle.
+    for (const token of ['id_rsa\\x', 'secret\\plan.md', 'C:\\work\\ID_RSA', 'C:\\work\\.AWS\\config']) {
+      assert.equal(isBlockedPathToken(token), true, token);
+    }
+    assert.equal(isBlockedPathToken('notes\\plan.md'), false);
+  });
+
+  it('does not join option words across command separators', (t) => {
+    const ctx = fixture(t);
+    assert.equal(scanShellCommand('echo -O; echo dotglob', ctx).allowed, true);
   });
 
   for (const command of [
