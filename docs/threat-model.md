@@ -48,6 +48,11 @@ Bearer token. Anthropic Console API-key sources are intentionally ignored so loc
 Sensitive bridge diagnostics are also gated: `/v1/debug` requires the local `x-claude-local-bridge-debug-token` printed
 in the Claude Local Bridge Output log. That token is a local debug door code, not an upstream Claude credential.
 
+Since 2026-11-04 the bridge forwards Anthropic's `anthropic-ratelimit-unified-*` response headers (the plan's usage
+windows) to the loopback caller and records their values in traces. They describe account usage state, not identity,
+and are not secrets. `anthropic-organization-id` and `anthropic-workspace-id` are deliberately not forwarded; the trace
+redactor also drops any key matching an organization or workspace id.
+
 ## What the model can touch
 
 **Default surface is the seven-tool core (P2-01, 2026-07-20).** A no-flag run offers only `list_files`,

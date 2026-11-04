@@ -96,6 +96,13 @@ function responseMeta(res) {
       'retry-after': res.headers['retry-after'] || null,
       'anthropic-ratelimit-requests-remaining': res.headers['anthropic-ratelimit-requests-remaining'] || null,
       'anthropic-ratelimit-tokens-remaining': res.headers['anthropic-ratelimit-tokens-remaining'] || null,
+      // Subscription meter (2026-11-04): the bridge now forwards the OAuth
+      // plan's 5-hour and 7-day windows. Keeping them in the runner's response
+      // metadata means a run's own trace shows what each turn cost the plan.
+      'anthropic-ratelimit-unified-5h-utilization': res.headers['anthropic-ratelimit-unified-5h-utilization'] || null,
+      'anthropic-ratelimit-unified-5h-status': res.headers['anthropic-ratelimit-unified-5h-status'] || null,
+      'anthropic-ratelimit-unified-7d-utilization': res.headers['anthropic-ratelimit-unified-7d-utilization'] || null,
+      'anthropic-ratelimit-unified-7d-status': res.headers['anthropic-ratelimit-unified-7d-status'] || null,
     },
   };
 }

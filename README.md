@@ -150,11 +150,16 @@ On macOS with Claude Code installed, **Priority 3 is used automatically** if no 
 
 ## Supported Endpoints
 
-| Endpoint                         | Format           | Notes                                                  |
-| -------------------------------- | ---------------- | ------------------------------------------------------ |
-| `POST /v1/messages`              | Anthropic native | Proxied verbatim to api.anthropic.com                  |
-| `POST /v1/messages/count_tokens` | Anthropic        | Mock response (returns 0) for Claude CLI preflight     |
-| `GET /v1/debug`                  | JSON             | Locked diagnostic endpoint; requires local debug token |
+| Endpoint                         | Format           | Notes                                              |
+| -------------------------------- | ---------------- | -------------------------------------------------- |
+| `POST /v1/messages`              | Anthropic native | Proxied verbatim to api.anthropic.com              |
+| `POST /v1/messages/count_tokens` | Anthropic        | Mock response (returns 0) for Claude CLI preflight |
+
+Since 2026-11-04 the bridge also forwards Anthropic's subscription-meter headers (`anthropic-ratelimit-unified-*`:
+the plan's 5-hour and 7-day utilization, status, and reset times) to the local caller and records them in the trace
+as `upstream_subscription_meter`. Organization and workspace ids are never forwarded. Measurement record:
+[docs/entrypoint-metering-experiment-2026-11-04.html](./docs/entrypoint-metering-experiment-2026-11-04.html).
+| `GET /v1/debug` | JSON | Locked diagnostic endpoint; requires local debug token |
 
 ---
 

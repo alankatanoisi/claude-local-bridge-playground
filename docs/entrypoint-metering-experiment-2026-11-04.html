@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Subscription Meter Experiment — 2026-11-04</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1a1f26;
+        --muted: #5a6570;
+        --line: #d7dee6;
+        --bg: #f7f9fb;
+        --panel: #fff;
+        --accent: #0b5fa5;
+        --warn: #8a4b00;
+      }
+      body {
+        margin: 0;
+        font:
+          16px/1.55 system-ui,
+          -apple-system,
+          sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+      }
+      main {
+        max-width: 56rem;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+      }
+      h1 {
+        font-size: 1.7rem;
+        margin-bottom: 0.25rem;
+      }
+      h2 {
+        margin-top: 2.2rem;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 0.3rem;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .small {
+        font-size: 0.9rem;
+      }
+      .note {
+        background: var(--panel);
+        border-left: 4px solid var(--accent);
+        padding: 0.75rem 1rem;
+        margin: 1rem 0;
+      }
+      .caution {
+        border-left-color: var(--warn);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--panel);
+        margin: 1rem 0;
+        font-size: 0.93rem;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 0.45rem 0.6rem;
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        background: #eef2f6;
+      }
+      td.num,
+      th.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.9em;
+      }
+      pre {
+        background: #eef2f6;
+        padding: 0.75rem 1rem;
+        overflow-x: auto;
+      }
+      dl dt {
+        font-weight: 600;
+        margin-top: 0.6rem;
+      }
+      dl dd {
+        margin-left: 0;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Subscription Meter Experiment</h1>
+      <p class="muted">
+        2026-11-04 · Fable (Claude Code) with Alan · playground <code>main</code> · live spend $32.98 at list prices
+        (cap $40) · raw data under <code>~/.bridge-runner/experiments/entrypoint-metering-2026-11-04/</code> (not in
+        git)
+      </p>
+
+      <div class="note">
+        <strong>Question.</strong> Every request the bridge sends draws on the Claude plan's 5-hour usage window. How
+        much window does one request cost, per model, and does the bridge draw the window at the same rate as Claude
+        Code's own headless mode (<code>claude -p</code>) on the same account?
+      </div>
+
+      <h2>1. Headline numbers</h2>
+      <p>
+        Each row is one <em>complete interval</em>: the tokens and list-price dollars that passed between two
+        consecutive one-percent steps of the 5-hour meter, with nothing else known to be using the account. "Prompt
+        tokens" is everything on the input side (plain input plus cache writes). Output was held to a few tokens per
+        request.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Path</th>
+            <th>Model</th>
+            <th>Prompt shape</th>
+            <th class="num">Prompt tokens per 1%</th>
+            <th class="num">List $ per 1%</th>
+            <th class="num">Requests</th>
+            <th class="num">Seconds</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Bridge</td>
+            <td>Haiku 5.5</td>
+            <td>plain input</td>
+            <td class="num">9,432,802</td>
+            <td class="num">0.944</td>
+            <td class="num">189</td>
+            <td class="num">250</td>
+          </tr>
+          <tr>
+            <td>Bridge</td>
+            <td>Haiku 5.5</td>
+            <td>plain input</td>
+            <td class="num">9,437,460</td>
+            <td class="num">0.944</td>
+            <td class="num">189</td>
+            <td class="num">265</td>
+          </tr>
+          <tr>
+            <td>Bridge</td>
+            <td>Sonnet 5.5</td>
+            <td>plain input</td>
+            <td class="num">639,374</td>
+            <td class="num">1.280</td>
+            <td class="num">32</td>
+            <td class="num">58</td>
+          </tr>
+          <tr>
+            <td>Bridge</td>
+            <td>Sonnet 5.5</td>
+            <td>plain input</td>
+            <td class="num">619,313</td>
+            <td class="num">1.240</td>
+            <td class="num">31</td>
+            <td class="num">39</td>
+          </tr>
+          <tr>
+            <td>Bridge</td>
+            <td>Opus 5.5</td>
+            <td>plain input</td>
+            <td class="num">391,803</td>
+            <td class="num">1.570</td>
+            <td class="num">39</td>
+            <td class="num">63</td>
+          </tr>
+          <tr>
+            <td>claude -p</td>
+            <td>Haiku 5.5</td>
+            <td>1h cache write</td>
+            <td class="num">7,563,985</td>
+            <td class="num">1.507</td>
+            <td class="num">151</td>
+            <td class="num">324</td>
+          </tr>
+          <tr>
+            <td>claude -p</td>
+            <td>Sonnet 5.5</td>
+            <td>1h cache write</td>
+            <td class="num">500,105</td>
+            <td class="num">1.966</td>
+            <td class="num">49</td>
+            <td class="num">88</td>
+          </tr>
+          <tr>
+            <td>claude -p</td>
+            <td>Opus 5.5</td>
+            <td>1h cache write</td>
+            <td class="num">343,425</td>
+            <td class="num">2.656</td>
+            <td class="num">66</td>
+            <td class="num">132</td>
+          </tr>
+          <tr>
+            <td>claude -p</td>
+            <td>Opus 5.5</td>
+            <td>1h cache write (coarse: 5 requests of ~90k)</td>
+            <td class="num">453,352 ± 180,000</td>
+            <td class="num">3.620</td>
+            <td class="num">5</td>
+            <td class="num">9</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="small muted">
+        Resolution: an interval's boundaries are known only to within one request on each end, so the error is about ±
+        one request's tokens per end (Haiku 50k, Sonnet 20k or 10k, Opus 10k or 5k). The two Haiku bridge intervals
+        agree to 0.05%, and the two Sonnet bridge intervals to 3%, which is the strongest sign the account was quiet
+        while they ran.
+      </p>
+
+      <h2>2. What "one-percent tick" means and why it is the method</h2>
+      <p>
+        Anthropic answers every OAuth request with headers that describe the plan's usage windows. The two that matter
+        here are <code>anthropic-ratelimit-unified-5h-utilization</code> and the 7-day twin. Their value has two
+        decimals: <code>0.15</code> means 15% of the window is used. A single request never changes the number, so the
+        only measurable quantity is <em>how much usage passes between two consecutive steps</em>. The probe sends
+        equal-sized requests, reads the meter from each response, and when the value steps from 0.19 to 0.20 and then
+        from 0.20 to 0.21, the tokens sent in between are the cost of exactly one percent of the window. The request
+        that crosses a step is counted as the first request of the next interval.
+      </p>
+      <p>
+        Partial intervals (before the first tick seen, or after the last) are discarded; the raw files keep them. The
+        probe also records a tick whose value goes <em>down</em> as a window reset; none occurred (the window reset at
+        17:50 UTC, after the last run ended at 17:32 UTC).
+      </p>
+
+      <h2>3. Instruments that landed in the repo</h2>
+      <dl>
+        <dt><code>src/proxy.js</code> — meter headers forwarded and traced</dt>
+        <dd>
+          Every upstream header under the <code>anthropic-ratelimit-unified-</code> prefix is now forwarded to the local
+          caller and recorded as a new <code>upstream_subscription_meter</code> trace event with its values. Before this
+          the bridge recorded only header names and forwarded only the API-style request and token limits.
+          <code>anthropic-organization-id</code> and <code>anthropic-workspace-id</code> stay unforwarded; the new test
+          in <code>test/anthropic.integration.test.js</code> checks both directions.
+        </dd>
+        <dt><code>src/runner/model-client.js</code> — meter in runner response metadata</dt>
+        <dd>
+          The runner's per-turn response metadata now carries the 5-hour and 7-day utilization and status, so a run's
+          own trace shows what each turn cost the plan.
+        </dd>
+        <dt><code>scripts/meter-probe.js</code> — the probe</dt>
+        <dd>
+          One arm per invocation. <code>--arm bridge</code> posts to a bridge (default: a lab copy on port 11477) and
+          reads the meter from the forwarded headers. <code>--arm print</code> runs one <code>claude -p</code> process
+          per request with the session-marker variables removed and the entrypoint pinned to print mode's own default,
+          and reads the meter from its <code>rate_limit_event</code> and the tokens from <code>result.modelUsage</code>.
+          Claude Code's own list-price <code>total_cost_usd</code> matched the probe's price table to the cent on every
+          run. Each request carries fresh inventory-style filler so no two prompts share a cacheable prefix; refusals
+          and HTTP errors are recorded and excluded from intervals; a shared ledger enforces the session budget cap.
+        </dd>
+      </dl>
+      <p>
+        The bridge under test was a <em>standalone</em> copy started from the working tree (<code
+          >node bin/local-bridge-standalone.js</code
+        >
+        on port 11477, reading the Keychain login), so the VS Code bridge and the Claude Code session that ran the
+        experiment were untouched.
+      </p>
+
+      <h2>4. Arms</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Arm</th>
+            <th>What sends the request</th>
+            <th>Identity on the wire</th>
+            <th>Prompt shape</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Bridge, plain</td>
+            <td>probe → lab bridge → api.anthropic.com</td>
+            <td>the bridge's fallback manifest (Claude Code 2.1.301 headers, print-mode label, no billing block)</td>
+            <td>plain input tokens</td>
+          </tr>
+          <tr>
+            <td>Bridge, cache-user</td>
+            <td>same</td>
+            <td>same</td>
+            <td>user block marked <code>cache_control: ephemeral, ttl 1h</code>, mirroring Claude Code</td>
+          </tr>
+          <tr>
+            <td>claude -p</td>
+            <td>Claude Code 2.1.318 headless, one process per request</td>
+            <td>Claude Code's own current headers and billing block, print-mode label</td>
+            <td>
+              Claude Code writes the prompt into the 1-hour cache (about 2k tokens of its own overhead per request)
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        Requests used <code>max_tokens</code> 16, effort <code>low</code>, a one-line system prompt, and the instruction
+        to reply "OK". Both arms sat at the same label on purpose: the comparison isolates
+        <em>our bridge versus real Claude Code</em>, not one label versus another.
+      </p>
+
+      <h2>5. Observations</h2>
+      <ol>
+        <li>
+          <strong>The meter is neither pure tokens nor pure list price.</strong> Through the bridge, one percent costs
+          about 9.4M Haiku tokens, 0.63M Sonnet tokens, or 0.39M Opus tokens. In list dollars that is $0.94, $1.26 and
+          $1.57. List input prices span 40x across the three models; the meter spans 1.7x in dollars and 24x in tokens.
+          Relative to list price, Haiku tokens weigh about 1.7x more than Opus tokens on this meter, and Sonnet about
+          1.25x more.
+        </li>
+        <li>
+          <strong>Bridge and headless Claude Code draw the window at similar token rates on every model.</strong>
+          Per one percent, <code>claude -p</code> needed 0.80x (Haiku), 0.79x (Sonnet) and 0.88x (Opus) of the prompt
+          tokens the bridge needed. Its tokens are cache writes, which list at 2x plain input, yet the meter gap is far
+          smaller than 2x. The incomplete cache-user bridge arm points the same way: after its only tick, 291,808
+          cache-write tokens ($2.34) passed without reaching the next one, versus 391,803 plain tokens per percent on
+          the same model. The data are consistent with "same path cost, slightly heavier weighting for cache writes",
+          but the cache-user arm did not complete, so that reading is supported, not proven.
+        </li>
+        <li>
+          <strong>The weekly meter moved three steps (0.11 → 0.14) while the 5-hour meter moved 22 steps</strong>
+          (0.17 → 0.39) over the whole experiment. Read coarsely, this account's 7-day window is about seven times the
+          5-hour window.
+        </li>
+        <li>
+          <strong>Haiku's safety classifier declined the first filler.</strong> A wall of random nature words was
+          refused with category <code>bio</code> on both arms; inventory-style lines were never refused. Refusals carry
+          <code>stop_reason: refusal</code> with zero output and are excluded from every interval because whether a
+          declined request is metered is unknown.
+        </li>
+        <li>
+          <strong>Claude Code's own cost figure is list price.</strong> <code>result.total_cost_usd</code> equals the
+          probe's independent computation on every run, with 1-hour cache writes at 2x input and the model's cache-read
+          rate.
+        </li>
+      </ol>
+
+      <h2>6. Not measured, and other limits</h2>
+      <ul>
+        <li>
+          No interactive or VS Code session rate was measured. Both arms carried the print-mode label. The experiment
+          therefore says how our bridge compares with Claude Code's headless mode on this account; it says nothing about
+          other labels.
+        </li>
+        <li>
+          Output-heavy requests were not run. All intervals are input-side costs; how output tokens weigh on the meter
+          is open.
+        </li>
+        <li>
+          One interval each for Opus (bridge) and for all three <code>claude -p</code> models. Two for Haiku and Sonnet
+          on the bridge. The cache-user bridge arm has a lower bound only.
+        </li>
+        <li>
+          External use of the same account during a run would shorten an interval. The runs were done while the Claude
+          Code session that drove them sat idle; usage from elsewhere cannot be excluded, only inferred absent from the
+          repeat agreement.
+        </li>
+        <li>Haiku 5.5 doubles its input price above 100k prompt tokens; all Haiku requests stayed near 50k.</li>
+      </ul>
+
+      <h2>7. Spend</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Run</th>
+            <th class="num">Requests</th>
+            <th class="num">List $</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>bridge-haiku-plain (two runs)</td>
+            <td class="num">701</td>
+            <td class="num">3.51</td>
+          </tr>
+          <tr>
+            <td>bridge-sonnet-plain</td>
+            <td class="num">80</td>
+            <td class="num">3.21</td>
+          </tr>
+          <tr>
+            <td>bridge-opus-plain</td>
+            <td class="num">80</td>
+            <td class="num">3.23</td>
+          </tr>
+          <tr>
+            <td>bridge-opus-cacheuser (two runs, second incomplete)</td>
+            <td class="num">125</td>
+            <td class="num">5.07</td>
+          </tr>
+          <tr>
+            <td>print-haiku (two runs)</td>
+            <td class="num">167</td>
+            <td class="num">1.67</td>
+          </tr>
+          <tr>
+            <td>print-sonnet (two runs, first coarse)</td>
+            <td class="num">101</td>
+            <td class="num">8.24</td>
+          </tr>
+          <tr>
+            <td>print-opus (two runs, first coarse)</td>
+            <td class="num">114</td>
+            <td class="num">8.04</td>
+          </tr>
+          <tr>
+            <td>smoke tests</td>
+            <td class="num">6</td>
+            <td class="num">0.00</td>
+          </tr>
+          <tr>
+            <th>Total</th>
+            <th class="num">1,374</th>
+            <th class="num">32.98</th>
+          </tr>
+        </tbody>
+      </table>
+      <p class="small muted">
+        The "coarse" first runs of the <code>claude -p</code> arms came from a probe bug: size calibration divided by
+        plain input tokens, which are near zero when the prompt lands in the cache, so requests grew to 18x their target
+        (and two arms died with a broken pipe at 16 MB). Fixed the same day: calibration now uses the whole prompt and
+        clamps the correction.
+      </p>
+
+      <h2>8. Reproduce</h2>
+      <p>In Terminal, from the repo root, with a lab bridge running on 11477:</p>
+      <pre>
+node bin/local-bridge-standalone.js --config /path/to/standalone.json --state-dir /path/to/state
+# standalone.json: { "port": 11477, "requireCallerAuth": false }
+
+node scripts/meter-probe.js --arm bridge --model claude-haiku-5-5 --input-tokens 50000 \
+  --intervals 2 --max-usd 1.5 --out ~/.bridge-runner/experiments/x/bridge-haiku.jsonl \
+  --ledger ~/.bridge-runner/experiments/x/ledger.jsonl --budget-cap 40
+
+node scripts/meter-probe.js --arm print --model claude-opus-5-5 --input-tokens 5000 \
+  --intervals 1 --max-usd 5 --print-cwd /tmp/probe-cwd --out ~/.bridge-runner/experiments/x/print-opus.jsonl \
+  --ledger ~/.bridge-runner/experiments/x/ledger.jsonl --budget-cap 40</pre
+      >
+      <p>
+        Success looks like a line ending in <code>&lt;-- TICK 0.19 -&gt; 0.2</code> and a final summary with one row per
+        complete interval. Run arms one at a time: the meter is shared.
+      </p>
+
+      <h2>9. Candidate follow-ups (Alan's call)</h2>
+      <ul>
+        <li>Complete the cache-user bridge arm on Opus (about $6 for two intervals) to settle observation 2.</li>
+        <li>An output-heavy shape on one model, to weigh output tokens.</li>
+        <li>Let the runner print the forwarded meter in its human log, so a run shows its plan cost as it goes.</li>
+      </ul>
+    </main>
+  </body>
+</html>

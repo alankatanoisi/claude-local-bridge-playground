@@ -157,6 +157,24 @@ async function proxyToAnthropic(ctx, res, apiPath, bodyStr, retry = false, trace
       for (const h of passthroughHeaders) {
         if (upRes.headers[h]) forwardHeaders[h] = upRes.headers[h];
       }
+      // Subscription meter (2026-11-04). With OAuth credentials Anthropic also
+      // answers with the plan's "unified" windows: how much of the 5-hour and
+      // 7-day allowance is used, when each resets, and whether overage is in
+      // play. The bridge used to drop these, so no local caller could see the
+      // meter that every bridge call draws on. They are account *state*, not
+      // account *identity*, so they are safe to hand to a loopback caller;
+      // anthropic-organization-id and anthropic-workspace-id stay unforwarded.
+      const meter = subscriptionMeterHeaders(upRes.headers);
+      Object.assign(forwardHeaders, meter);
+      if (trace && Object.keys(meter).length > 0) {
+        trace.append('upstream_subscription_meter', {
+          run_id: trace.runId,
+          turn: trace.turn,
+          boundary: 'upstream_to_bridge',
+          request_id: upRes.headers['request-id'] || upRes.headers['x-request-id'] || null,
+          meter,
+        });
+      }
 
       if (!res.headersSent) {
         res.writeHead(upRes.statusCode, forwardHeaders);
@@ -253,4 +271,27 @@ function tryExtractModel(bodyStr) {
   }
 }
 
-module.exports = { proxyToAnthropic };
+/**
+ * Pick out the subscription-meter headers from an upstream response.
+ *
+ * Every header Anthropic sends under the `anthropic-ratelimit-unified-`
+ * prefix describes the OAuth plan's usage windows (for example
+ * `...-5h-utilization`, `...-7d-utilization`, `...-5h-reset`, `...-status`).
+ * The prefix rule, rather than a fixed list, means a window Anthropic adds
+ * later is forwarded without a bridge change. Values are returned as they
+ * arrived (strings); interpreting them is the caller's job.
+ *
+ * @param {object} headers Upstream response headers (Node lower-cases them)
+ * @returns {Record<string, string>} meter headers, possibly empty
+ */
+function subscriptionMeterHeaders(headers) {
+  const meter = {};
+  for (const [name, value] of Object.entries(headers || {})) {
+    if (name.startsWith('anthropic-ratelimit-unified-') && typeof value === 'string') {
+      meter[name] = value;
+    }
+  }
+  return meter;
+}
+
+module.exports = { proxyToAnthropic, subscriptionMeterHeaders };

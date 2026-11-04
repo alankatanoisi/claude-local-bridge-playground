@@ -180,6 +180,47 @@ describe('anthropic pass-through integration', () => {
     assert.equal(body.id, 'msg_1');
   });
 
+  it('forwards the subscription meter headers and nothing that identifies the account', async () => {
+    // 2026-11-04: with OAuth credentials Anthropic reports the plan's unified
+    // 5-hour / 7-day windows on every response. The bridge forwards that
+    // meter (prefix rule) but must keep the organization / workspace ids
+    // on its side of the loopback.
+    const { handleAnthropicMessages } = loadAnthropicHandler(() => {});
+    const script = installHttpsScript([
+      {
+        statusCode: 200,
+        headers: {
+          'content-type': 'application/json',
+          'x-request-id': 'req_meter',
+          'anthropic-ratelimit-unified-5h-utilization': '0.1304',
+          'anthropic-ratelimit-unified-5h-status': 'allowed',
+          'anthropic-ratelimit-unified-7d-utilization': '0.11',
+          'anthropic-ratelimit-unified-reset': '1762270800',
+          'anthropic-organization-id': 'org_secret',
+          'anthropic-workspace-id': 'wrkspc_secret',
+        },
+        chunks: [JSON.stringify({ type: 'message', id: 'msg_meter', content: [{ type: 'text', text: 'ok' }] })],
+      },
+    ]);
+    restoreHttps = script.restore;
+
+    const req = makeReq({ model: 'claude-sonnet-4-5', messages: [{ role: 'user', content: 'meter' }] });
+    const res = makeRes();
+    await handleAnthropicMessages(makeCtx(), req, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.headers['anthropic-ratelimit-unified-5h-utilization'], '0.1304');
+    assert.equal(res.headers['anthropic-ratelimit-unified-5h-status'], 'allowed');
+    assert.equal(res.headers['anthropic-ratelimit-unified-7d-utilization'], '0.11');
+    assert.equal(res.headers['anthropic-ratelimit-unified-reset'], '1762270800');
+    assert.equal(res.headers['anthropic-organization-id'], undefined);
+    assert.equal(res.headers['anthropic-workspace-id'], undefined);
+
+    const { subscriptionMeterHeaders } = require('../src/proxy');
+    assert.deepEqual(subscriptionMeterHeaders({ 'anthropic-organization-id': 'x', 'content-type': 'y' }), {});
+    assert.deepEqual(subscriptionMeterHeaders(undefined), {});
+  });
+
   it('writes correlated bridge trace events when a trace header is present', async () => {
     const traceId = 'trace_bridge_test_' + Date.now();
     const tracePath = defaultBridgeTracePath(traceId);

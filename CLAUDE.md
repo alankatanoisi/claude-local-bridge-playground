@@ -350,6 +350,13 @@ items rather than starting a parallel tracker.
   code-quality items stay open. `65c001a` (eval harness / HE-06 goldens) was not in that range; its
   review is `HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md`.
 
+- **Subscription-meter thread (2026-11-04, Fable, Alan-directed) — entry
+  `HANDOFF-entrypoint-metering-2026-11-04.md`, record
+  `docs/entrypoint-metering-experiment-2026-11-04.html`.** The bridge now forwards and traces Anthropic's
+  `anthropic-ratelimit-unified-*` usage-window headers (`src/proxy.js`, not yet Cursor-reviewed);
+  `scripts/meter-probe.js` measures tokens per 1% of the 5-hour window by tick counting. Measured: bridge
+  vs `claude -p` on Haiku/Sonnet/Opus 5.5 at the same print-mode label. The bridge's own entrypoint label
+  is deliberately unchanged; relabeling stays Alan's undecided call. $32.98 spent of a $40 cap.
 - **ACP thread (Bridge Runner → T3 Code) — Slices A–D built; current entry
   `HANDOFF-acp-hosts-images-structure-closed-2026-10-17.md`.** 2026-10-16 (Fable, Alan-directed):
   per-chat bridge-host selection (`ac43f12`) and image attachments + the 1000-step ACP ceiling
