@@ -12,8 +12,8 @@
  * burns an extra model turn.
  *
  * Safety: every candidate file is checked with safety.isFileCandidateAllowed
- * (realpath confinement + deny matrix) before its contents can reach the model.
- * rg/grep exclusions are defense-in-depth; the shared predicate is authoritative.
+ * (realpath confinement + deny matrix) before any backend reads its contents.
+ * External backends receive explicit checked files, never recursive directories.
  */
 
 const { execSync } = require('child_process');
@@ -24,10 +24,6 @@ const { BLOCKED_DIRS } = safety;
 const searchCache = require('./_search-cache');
 
 const MAX_OUTPUT_LINES = 200;
-
-// Extra rg/grep excludes for common secret basenames. Complex deny-matrix
-// patterns still rely on isFileCandidateAllowed after the shell tool returns.
-const DENY_BASENAME_GLOBS = ['.env', '.env*', '.netrc', '.npmrc', '*.pem', '*.key', '*.p8', '*.p12', '*.pfx'];
 
 function definition() {
   return {
@@ -82,39 +78,52 @@ function shellEscape(str) {
   return "'" + str.replace(/'/g, "'\\''") + "'";
 }
 
-function searchWithRg(pattern, targetDir, targetFile) {
-  const excludeGlobs = [...BLOCKED_DIRS.map((d) => '!' + d), ...DENY_BASENAME_GLOBS.map((g) => '!' + g)];
-  const cmd =
-    'rg -i -n --max-count 50 --hidden ' +
-    excludeGlobs.map((g) => '-g ' + shellEscape(g)).join(' ') +
-    ' -- ' +
-    shellEscape(pattern) +
-    (targetFile ? ' ' + shellEscape(targetFile) : '');
-  const result = execSync(cmd, {
-    cwd: targetDir,
-    encoding: 'utf8',
-    timeout: 10000,
-    maxBuffer: 1024 * 1024,
-  });
-  return result;
+// Build the input list before starting rg/grep. Output filtering alone is too
+// late: a recursive backend may already have read a protected file. Never hand
+// a directory or symlink to an external backend for recursive discovery.
+function collectSearchFiles(targetDir, targetFile, ctx) {
+  if (targetFile) return [targetFile];
+  const files = [];
+  function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (!safety.isFileCandidateAllowed(ctx, full)) continue;
+      if (entry.isDirectory()) {
+        if (!BLOCKED_DIRS.some((name) => name.toLowerCase() === entry.name.toLowerCase())) walk(full);
+      } else if (entry.isFile()) {
+        files.push('./' + path.relative(targetDir, full));
+      }
+    }
+  }
+  walk(targetDir);
+  return files;
 }
 
-function searchWithGrep(pattern, targetDir, targetFile) {
-  const cmd = targetFile
-    ? 'grep -i -n --max-count=50 ' + shellEscape(pattern) + ' ' + shellEscape(targetFile)
-    : 'grep -r -i -n --max-count=50 ' +
-      BLOCKED_DIRS.map((d) => '--exclude-dir=' + shellEscape(d)).join(' ') +
-      DENY_BASENAME_GLOBS.map((g) => ' --exclude=' + shellEscape(g)).join('') +
-      ' ' +
-      shellEscape(pattern) +
-      ' .';
-  const result = execSync(cmd, {
-    cwd: targetDir,
-    encoding: 'utf8',
-    timeout: 10000,
-    maxBuffer: 1024 * 1024,
-  });
-  return result;
+function searchWithBackend(backend, pattern, targetDir, files, ctx) {
+  const results = [];
+  // Batches keep the command below operating-system argument-size limits.
+  for (let start = 0; start < files.length; start += 100) {
+    const batch = files
+      .slice(start, start + 100)
+      .filter((file) => safety.isFileCandidateAllowed(ctx, path.join(targetDir, file)));
+    if (!batch.length) continue;
+    const command =
+      backend + ' -i -n -H --max-count=50 -- ' + shellEscape(pattern) + ' ' + batch.map(shellEscape).join(' ');
+    try {
+      results.push(
+        execSync(command, {
+          cwd: targetDir,
+          encoding: 'utf8',
+          timeout: 10000,
+          maxBuffer: 1024 * 1024,
+        }),
+      );
+    } catch (err) {
+      if (err.status !== 1) throw err;
+    }
+    if (results.join('\n').split('\n').length > MAX_OUTPUT_LINES) break;
+  }
+  return results.join('\n');
 }
 
 function searchWithNode(pattern, targetDir, targetFile, ctx) {
@@ -163,8 +172,8 @@ function searchWithNode(pattern, targetDir, targetFile, ctx) {
 
 /**
  * Parse "relpath:lineno:text" hits and drop any whose resolved file fails the
- * shared candidate predicate. Covers rg/grep backends that may still touch a
- * deny-matrix file despite exclude globs.
+ * shared candidate predicate. This is a second output check; backend inputs
+ * have already passed the same guard before any content search starts.
  *
  * When targetFile is set, rg/grep emit "lineno:text" without a path prefix —
  * the candidate was already checked before the search, so pass lines through.
@@ -243,11 +252,17 @@ function execute(args, ctx) {
 
   let raw = '';
   let lastErr = null;
+  let files;
+  try {
+    files = collectSearchFiles(targetDir, targetFile, ctx);
+  } catch (err) {
+    return { ok: false, text: 'Search enumeration failed: ' + err.message };
+  }
 
   // Try ripgrep first
   if (rgAvailable()) {
     try {
-      raw = filterSearchHits(searchWithRg(pattern, targetDir, targetFile), targetDir, ctx, targetFile);
+      raw = filterSearchHits(searchWithBackend('rg', pattern, targetDir, files, ctx), targetDir, ctx, targetFile);
     } catch (err) {
       // rg returns exit code 1 when no matches — that's not an error
       if (err.status !== 1) lastErr = err;
@@ -257,7 +272,7 @@ function execute(args, ctx) {
   // Fall back to grep
   if (!raw && grepAvailable()) {
     try {
-      raw = filterSearchHits(searchWithGrep(pattern, targetDir, targetFile), targetDir, ctx, targetFile);
+      raw = filterSearchHits(searchWithBackend('grep', pattern, targetDir, files, ctx), targetDir, ctx, targetFile);
     } catch (err) {
       // grep returns exit code 1 when no matches — that's not an error
       if (err.status !== 1) lastErr = err;

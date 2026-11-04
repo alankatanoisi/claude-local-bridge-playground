@@ -93,6 +93,7 @@ The following properties must continue to hold.
   out-of-root symlinks, and sensitive credential paths must be denied before execution and rechecked by effectful tools.
 - `.env` files, private keys, credential JSON, token files, `.ssh`, `.aws`, `.claude`, `.gnupg`, `.git`, and equivalent
   protected paths must remain hard-denied. Convenience or automation flags must not override these denials.
+  Sensitive basenames and protected directory segments are matched case-insensitively, including nonexistent write targets.
 - Child agents and coordinator workers may inherit or narrow the parent's authority; they must not gain new tools,
   shell access, network permission, edit automation, or trust persistence that the parent did not possess.
 - Git history-changing actions and destructive worktree cleanup must retain explicit consent at their documented
@@ -176,9 +177,6 @@ The repository owner consciously accepted the following conditions on August 10,
 
 These are unresolved limitations, not accepted-safe findings and not instructions to suppress related reports:
 
-- **HS-01 — case-variant sensitive filenames:** a case-variant key filename can bypass a basename rule on a
-  case-insensitive filesystem. Canonical sensitive names, directory rules, realpath confinement, and sink redaction are
-  compensating controls, not a complete fix.
 - The generic permission gate depends on reviewed tool argument contracts, including path-bearing argument names.
   Execution-time path rechecks and catalog tests are compensating controls; a new or renamed argument can create a gap.
 - Transcripts, traces, ledgers, checkpoints, backups, and archives can contain source code and local paths even after

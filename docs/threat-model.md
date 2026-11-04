@@ -14,8 +14,22 @@ Owner decisions recorded on August 10, 2026:
 - Explicit `--allow-shell` use accepts unsandboxed local-account authority, and `--no-network` is accepted as a
   best-effort guard rather than hard network isolation. Bypasses of the opt-in boundary and false isolation claims remain
   reportable.
-- HS-01 remains an unresolved limitation. It is documented context, not an accepted-safe
-  findings and not suppression authority; see the root policy and their registered `false-green` tests.
+
+HS-01 protection now matches sensitive basenames and protected directory segments case-insensitively before file
+access, including nonexistent write targets. The registered `false-green` tests enforce this policy on every platform;
+an additional volume-dependent test checks actual case aliases where supported. Shell scanning combines a raw-text
+scan with a word scan that checks literal path operands. The word scan exempts `echo`/`printf` data operands and
+supported interpreter inline-code operands (`-e`, `-p`, `-c`, `--eval`, `--print`). The raw-text scan checks the full
+command for recognized literal protected-path forms, including inside those operands and shell substitutions; it does
+not expand wildcard patterns inside nested shell code. A separate conservative check refuses explicit Bash `-O`
+settings for `nocaseglob`, `dotglob`, `globstar`, and `extglob`, including quoted option names and bundles such as `-Oc`.
+Dollar-quoted Bash startup option words (`$'...'` and `$"..."`) and dollar-quoted `-O` settings are conservatively
+refused rather than decoded, including escape-encoded spellings. Ordinary dollar-quoted code/data after `-c` remains
+usable.
+This also refuses harmless uses of those option words, even without a wildcard, such as `bash -O dotglob -c 'echo hello'`
+or `echo -O dotglob`. Options themselves hidden inside another quoted command, nested `shopt` code, dynamically
+constructed commands, and shell state carried between persistent-shell calls remain outside that check. This remains a
+best-effort guard, not a complete shell parser.
 
 ## Scope
 
