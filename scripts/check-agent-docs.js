@@ -59,23 +59,37 @@ if (validRunnerFlags.size === 0) {
 
 function extractHeadingSection(markdown, heading) {
   const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp('^## ' + escaped + '\\s*$([\\s\\S]*?)(?=^## |\\Z)', 'm');
-  // JavaScript RegExp lacks \Z; match to next `^## ` or end of string manually.
+  // Match to the next heading or end of the document without relying on a
+  // regular-expression end marker that JavaScript does not support.
   const startRe = new RegExp('^## ' + escaped + '[ \\t]*$', 'm');
   const startMatch = startRe.exec(markdown);
   if (!startMatch) return null;
   const afterHeading = markdown.slice(startMatch.index + startMatch[0].length);
   const nextHeading = /^## /m.exec(afterHeading);
-  void re;
   return nextHeading ? afterHeading.slice(0, nextHeading.index) : afterHeading;
 }
 
 function extractBullets(sectionText) {
   if (!sectionText) return null;
-  return sectionText
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('- '));
+  const bullets = [];
+  let current = [];
+  const finishBullet = () => {
+    // A line break used just to wrap prose should not count as a different
+    // instruction. Keep the entire item's text, including nested/continued
+    // lines, and normalize whitespace before comparing the two documents.
+    if (current.length) bullets.push(current.join(' ').replace(/\s+/g, ' ').trim());
+    current = [];
+  };
+  for (const line of sectionText.split('\n')) {
+    if (line.startsWith('- ')) {
+      finishBullet();
+      current.push(line);
+    } else if (current.length && line.trim()) {
+      current.push(line.trim());
+    }
+  }
+  finishBullet();
+  return bullets;
 }
 
 function extractTableRows(sectionText) {
@@ -276,6 +290,17 @@ for (const abs of livePrimitiveFiles) {
 
 const cursorSkillsRoot = path.join(root, '.cursor/skills');
 const agentsSkillsRoot = path.join(root, '.agents/skills');
+const cursorBuilderAgent = path.join(root, '.cursor/agents/runner-command-builder.md');
+const codexBuilderAgent = path.join(root, '.codex/agents/runner-command-builder.toml');
+
+// These are required copies, not optional integrations. Losing a whole side
+// must produce a failure before the content comparison is skipped below.
+for (const required of [cursorSkillsRoot, agentsSkillsRoot, cursorBuilderAgent, codexBuilderAgent]) {
+  if (!fs.existsSync(required)) {
+    errors.push(`Required instruction mirror is missing: ${path.relative(root, required)}`);
+  }
+}
+
 if (fs.existsSync(cursorSkillsRoot) && fs.existsSync(agentsSkillsRoot)) {
   const cursorRels = walkFiles(cursorSkillsRoot)
     .map((p) => path.relative(cursorSkillsRoot, p).split(path.sep).join('/'))
@@ -300,8 +325,6 @@ if (fs.existsSync(cursorSkillsRoot) && fs.existsSync(agentsSkillsRoot)) {
   }
 }
 
-const cursorBuilderAgent = path.join(root, '.cursor/agents/runner-command-builder.md');
-const codexBuilderAgent = path.join(root, '.codex/agents/runner-command-builder.toml');
 if (fs.existsSync(cursorBuilderAgent) && fs.existsSync(codexBuilderAgent)) {
   const mdRaw = fs.readFileSync(cursorBuilderAgent, 'utf8');
   const mdBody = mdRaw.replace(/^---[\s\S]*?---\n+/, '').trim();

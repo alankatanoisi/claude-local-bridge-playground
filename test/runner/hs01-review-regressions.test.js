@@ -91,9 +91,6 @@ describe('HS-01 review corrections', () => {
       'git --version',
       // Ordinary nested shells and harmless negated globs must remain usable.
       "bash -c 'cat README.md'",
-      "bash -c $'cat README.md'",
-      "bash -c 'printf %s \"$1\"' ignored $'hello' $'world'",
-      "printf '%s' $'hello' $'world'",
       'ls [!z]*.md',
     ]) {
       for (const run of [execute, executeForce]) {
@@ -110,6 +107,66 @@ describe('HS-01 review corrections', () => {
       const result = await run('bash', { command: `node -e "console.log('secret')" ID_RSA` }, ctx);
       assert.equal(result.ok, false);
       assert.ok(!result.text.includes('DISPOSABLE_KEY_MARKER'));
+    }
+  });
+
+  it('allows Bash dollar-quoted scripts with the host shell and installed dash as outer parsers', async (t) => {
+    const ctx = fixture(t);
+    const controls = [
+      { script: "bash -c $'cat README.md'", output: 'ORDINARY_FILE_MARKER' },
+      { script: "bash -c 'printf %s \"$1\"' ignored $'hello' $'world'", output: 'hello' },
+      { script: "printf '%s' $'hello' $'world'", output: 'helloworld' },
+    ];
+    // Single quotes understood by both Bash and dash protect the whole script
+    // until the explicitly requested Bash parser receives it. An embedded
+    // single quote is expressed by ending the quote, escaping it, and reopening.
+    const quoteForOuterShell = (script) => "'" + script.replace(/'/g, "'\\''") + "'";
+    const shells = [true]; // true means the runtime's normal host shell.
+    if (fs.existsSync('/bin/dash')) shells.push('/bin/dash');
+    const sourceFile = require.resolve('../../src/runner/tools/bash');
+    let implementation;
+    t.mock.method(bashTool, 'execute', (...args) => implementation(...args));
+
+    for (const outerShell of shells) {
+      // A private module keeps the runtime unchanged while reproducing Linux's
+      // dash outer parser on any machine where dash is installed (including
+      // this Mac). Both real registry execution gates still run their checks.
+      const instance = new Module(sourceFile, module);
+      instance.filename = sourceFile;
+      instance.paths = Module._nodeModulePaths(path.dirname(sourceFile));
+      const normalRequire = instance.require.bind(instance);
+      let launches = 0;
+      instance.require = (name) =>
+        name === 'child_process'
+          ? {
+              ...childProcess,
+              spawnSync(command, args, options) {
+                assert.equal(options.shell, true, 'the production launcher still requests the host shell');
+                launches++;
+                return childProcess.spawnSync(command, args, { ...options, shell: outerShell });
+              },
+            }
+          : normalRequire(name);
+      instance._compile(fs.readFileSync(sourceFile, 'utf8'), sourceFile);
+      implementation = instance.exports.execute;
+
+      for (const { script, output } of controls) {
+        // Keep direct coverage of the original scanner input. Wrapping the
+        // execution must not accidentally stop testing Bash's quote syntax.
+        assert.equal(scanShellCommand(script, ctx).allowed, true, script);
+        const command = 'bash -c ' + quoteForOuterShell(script);
+        for (const run of [execute, executeForce]) {
+          const result = await run('bash', { command }, ctx);
+          assert.equal(result.ok, true, `${outerShell}: ${run.name}: ${result.text}`);
+          assert.equal(result.text.trim(), output, 'ordinary data must survive every quoting layer exactly');
+          assert.ok(!result.text.includes('DISPOSABLE_KEY_MARKER'));
+        }
+      }
+      assert.equal(
+        launches,
+        controls.length * 2,
+        'each control must reach the real process launcher through both gates',
+      );
     }
   });
 

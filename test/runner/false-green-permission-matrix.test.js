@@ -249,123 +249,21 @@ describe('FG-B gate coverage of non-"path" argument keys', () => {
 });
 
 describe('FG-B whole-runner effectiveFlags(ctx) enforcement (no raw ceiling-flag reads)', () => {
-  const RUNNER_DIR = path.join(__dirname, '..', '..', 'src', 'runner');
-
-  function walkRunnerJs(dir = RUNNER_DIR, acc = []) {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      const p = path.join(dir, entry.name);
-      if (entry.isDirectory()) walkRunnerJs(p, acc);
-      else if (entry.name.endsWith('.js')) acc.push(p);
-    }
-    return acc;
-  }
-
-  function stripJsComments(src) {
-    const out = src.split('');
-    const blank = (from, to) => {
-      for (let k = from; k < to; k++) if (out[k] !== '\n') out[k] = ' ';
-    };
-    let i = 0;
-    let prev = '';
-    while (i < src.length) {
-      const c = src[i];
-      const n = src[i + 1];
-      if (c === '/' && n === '/') {
-        let j = i;
-        while (j < src.length && src[j] !== '\n') j++;
-        blank(i, j);
-        i = j;
-        continue;
-      }
-      if (c === '/' && n === '*') {
-        let j = src.indexOf('*/', i + 2);
-        j = j === -1 ? src.length : j + 2;
-        blank(i, j);
-        i = j;
-        continue;
-      }
-      if (c === '"' || c === "'" || c === '`') {
-        let j = i + 1;
-        while (j < src.length) {
-          if (src[j] === '\\') {
-            j += 2;
-            continue;
-          }
-          if (src[j] === c) break;
-          j++;
-        }
-        i = j + 1;
-        prev = c;
-        continue;
-      }
-      if (c === '/' && /[(=,:[!&|?{};+\-*%]|^$/.test(prev)) {
-        let j = i + 1;
-        let inClass = false;
-        while (j < src.length) {
-          if (src[j] === '\\') {
-            j += 2;
-            continue;
-          }
-          if (src[j] === '[') inClass = true;
-          else if (src[j] === ']') inClass = false;
-          else if (src[j] === '/' && !inClass) break;
-          else if (src[j] === '\n') {
-            j = -1;
-            break;
-          }
-          j++;
-        }
-        if (j > 0) {
-          i = j + 1;
-          prev = '/';
-          continue;
-        }
-      }
-      if (!/\s/.test(c)) prev = c;
-      i++;
-    }
-    return out.join('');
-  }
-
-  // FG-B19: PR #27 thermo-nuclear F1 caught five modules reading raw
-  // `ctx.noNetwork` instead of `effectiveFlags(ctx).noNetwork`, and `FG-I2`
-  // banned raw `if (ctx.noNetwork)` — leaving `ctx.plan` and `ctx.allowShell`
-  // unguarded across `tool-pipeline.js`, `test-watcher.js`, `tool-visibility.js`,
-  // `user-question.js`, `context-budget.js`, and `run.js`. Ban ALL raw reads of
-  // the three ceiling-clamped flags outside `authority.js` itself and `run.js`'s
-  // single startup `run_started` trace snapshot (3 fields when raw === effective).
-  it('FG-B19: no module under src/runner reads raw ctx.allowShell, ctx.plan, or ctx.noNetwork for behavior', () => {
-    const ALLOWED_RAW_COUNTS = {
-      'authority.js': 9, // createAuthorityCeiling + effectiveFlags implementation
-      'run.js': 3, // run_started startup trace snapshot (allow_shell, no_network, plan)
-    };
-    const RAW_CEILING_FLAG = /\bctx\s*(?:\?\.|\.)\s*(allowShell|plan|noNetwork)\b/g;
-    const offenders = [];
-
-    for (const abs of walkRunnerJs()) {
-      const rel = path.relative(RUNNER_DIR, abs);
-      const code = stripJsComments(fs.readFileSync(abs, 'utf8'));
-      const hits = [...code.matchAll(RAW_CEILING_FLAG)];
-      const allowed = ALLOWED_RAW_COUNTS[rel] || 0;
-      if (hits.length !== allowed && (hits.length > allowed || allowed === 0)) {
-        if (hits.length > 0) {
-          const lines = hits.map((m) => {
-            const line = code.slice(0, m.index).split('\n').length;
-            return `${rel}:${line} (${m[0].trim()})`;
-          });
-          offenders.push(...lines);
-        }
-      }
-    }
-
-    assert.deepEqual(
-      offenders,
-      [],
-      'Raw ceiling-flag read(s) found under src/runner:\n  ' +
-        offenders.join('\n  ') +
-        '\nUse effectiveFlags(ctx).allowShell / .plan / .noNetwork from src/runner/authority.js ' +
-        'so mid-run ctx mutation can never widen authority or escape plan/no-network mode.',
+  // FG-B19 shares the real lint configuration. A syntax tree sees dot reads,
+  // bracket reads, and destructuring as code instead of guessing from text.
+  // Separate negative examples in authority-flag-lint.test.js prove the rule
+  // rejects each spelling and keeps the two narrow exemptions constrained.
+  it('FG-B19: no module under src/runner reads raw ceiling flags for behavior', async () => {
+    const { ESLint } = require('eslint');
+    const repo = path.resolve(__dirname, '../..');
+    const eslint = new ESLint({ cwd: repo, overrideConfigFile: path.join(repo, 'eslint.config.cjs') });
+    const results = await eslint.lintFiles(['src/runner/**/*.js']);
+    const offenders = results.flatMap((result) =>
+      result.messages
+        .filter((message) => message.fatal || message.ruleId === 'runner/no-raw-authority-flags')
+        .map((message) => `${path.relative(process.cwd(), result.filePath)}:${message.line} ${message.message}`),
     );
+    assert.deepEqual(offenders, [], 'Raw ceiling-flag reads found:\n' + offenders.join('\n'));
   });
 
   it('FG-B20: mid-run allowShell=true cannot enable test-watcher shell execution or run during plan ceiling', () => {
