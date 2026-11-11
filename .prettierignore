@@ -1,6 +1,13 @@
-node_modules
+node_modules/
+.bridge-runner/
+actions-runner/
+awesome-claude-code-subagents/
 
-# Generated transcript exports can contain command-line continuations and
-# copied terminal text. Prettier may convert those into trailing spaces, which
-# makes `git diff --check` fail, so keep them out of formatting checks.
-session-ses_*.md
+# EXCEPTION: immutable historical review records preserved byte-identical per Charter Rule 3
+# (`docs/agent-team-charter-2026-08-25.md`) and Alan's record-authenticity directive
+# (`HANDOFF-CURSOR-dot-cursor-audit-2026-07-25.md` §2.1); expiry: 2027-02-10.
+# All living root `.md` files and all future `HANDOFF-*.md` files remain gated by `npm run format:check`.
+HANDOFF-acp-hosts-images-thermo-nuclear-2026-10-17.md
+HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md
+HANDOFF-permission-cache-thermo-nuclear-2026-09-07.md
+HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md

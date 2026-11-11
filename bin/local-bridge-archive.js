@@ -15,7 +15,6 @@ const {
   rebuildIndex,
   getSessionSummary,
   ingestLegacyLogs,
-  ingestLegacyFile,
   searchCatalog,
   rebuildSpreadsheets,
 } = require('../src/runner/archive');

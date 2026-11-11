@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, Docs, Format, and Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Setup Go for Starlark evaluator
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: starlark-host/go.mod
+          cache-dependency-path: starlark-host/go.sum
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint all JS surfaces
+        run: npm run lint
+
+      - name: Check docs and runner/agent manifests
+        run: npm run check:docs
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run bridge and runner test suite
+        run: npm test
+
+      - name: Build and verify Starlark lab
+        run: npm run test:starlark

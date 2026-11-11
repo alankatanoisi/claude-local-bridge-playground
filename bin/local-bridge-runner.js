@@ -69,7 +69,7 @@ Options:\n\
   --effort <level>     Model effort: auto (omit), low, medium, high, xhigh, or max\n\
   --thinking <mode>    Adaptive thinking: auto, adaptive, or off (default: auto)\n\
   --auto-memory        Opt-in runner auto-memory in context (default off)\n\
-  --trusted-workspace  Enable hooks from .bridge-runner/hooks.json in cwd (exec hooks also need \"trusted\": true in that file)\n\
+  --trusted-workspace  Enable hooks from .bridge-runner/hooks.json in cwd (exec hooks also need "trusted": true in that file)\n\
   --trust-workspace    Record trust consent for cwd (required in CI/non-interactive)\n\
   --inherit-workspace-trust  Allow this run because a parent already validated cwd (do not write trust.json)\n\
   --chaos-ok           Allow risky flag combo: --allow-shell --accept-edits --dont-ask\n\
@@ -704,7 +704,6 @@ async function main() {
     systemPromptFile: args.values['system-prompt-file'] || undefined,
     excludeDynamicFromSystem: !!args.values['exclude-dynamic-system-prompt-sections'],
     noSessionPersistence: !!args.values['no-session-persistence'],
-    exposedTools,
   });
 }
 

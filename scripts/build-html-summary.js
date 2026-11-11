@@ -4,10 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const projectRoot = path.resolve(__dirname, '..');
-const mdPath = path.join(projectRoot, 'docs', 'project-summary.md');
 const htmlPath = path.join(projectRoot, 'docs', 'project-summary.html');
-
-let mdContent = fs.readFileSync(mdPath, 'utf8');
 
 // Helper to encode image to base64
 function getBase64Image(relPath) {

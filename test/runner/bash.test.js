@@ -85,8 +85,9 @@ describe('bash tool', () => {
   });
 
   it('reports signal when process is killed', async () => {
-    // Run a subshell that kills itself with SIGABRT
-    const result = await execute({ command: 'bash -c "kill -ABRT \\$\\$"' }, { cwd: tmpDir });
+    // Use `exec` so /bin/sh (including dash on Ubuntu Linux) replaces itself
+    // with bash instead of forking a wrapper that converts SIGABRT into exit 134.
+    const result = await execute({ command: 'exec bash -c "kill -ABRT \\$\\$"' }, { cwd: tmpDir });
     assert.equal(result.ok, false);
     assert.ok(result.text.includes('killed by signal'));
     assert.ok(result.text.includes('SIGABRT') || result.text.includes('SIGTERM'));

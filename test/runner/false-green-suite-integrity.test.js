@@ -29,6 +29,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -232,5 +233,118 @@ describe('FG-G harness-configuration integrity', () => {
         '(they report STALE, not FAIL). Re-point them at the current code:\n  ' +
         stale.join('\n  '),
     );
+  });
+
+  // FG-G10: bin/ and scripts/ were omitted from `npm run lint` and
+  // `npm run format:check`, letting a real duplicate `exposedTools` key land
+  // in bin/local-bridge-runner.js undetected. Lock directory coverage on both.
+  it('FG-G10: npm run lint and format:check cover bin/, src/, test/, and scripts/', () => {
+    const scripts = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8')).scripts || {};
+    for (const dir of ['bin/', 'src/', 'test/', 'scripts/']) {
+      assert.ok(
+        typeof scripts.lint === 'string' && new RegExp('(^|\\s)' + dir + '(\\s|$)').test(scripts.lint),
+        `package.json scripts.lint does not cover whole directory "${dir}" (got: ${scripts.lint})`,
+      );
+    }
+    for (const glob of ['bin/**/*.js', 'src/**/*.js', 'test/**/*.js', 'scripts/**/*.js']) {
+      assert.ok(
+        typeof scripts['format:check'] === 'string' && scripts['format:check'].includes(glob),
+        `package.json scripts["format:check"] does not cover "${glob}"`,
+      );
+    }
+  });
+
+  // FG-G11: .cursor/hooks/state/continual-learning.json was appended to
+  // .gitignore THREE separate times (commits 8bfe4b6, f05f69e, f85ad5f) while
+  // remaining tracked in Git's index, so .gitignore had zero effect and every
+  // Cursor turn kept dirtying the working tree.
+  it('FG-G11: .gitignore has no duplicate entries and .cursor/hooks/state/* is not tracked in Git', () => {
+    const rawLines = fs
+      .readFileSync(path.join(REPO, '.gitignore'), 'utf8')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#'));
+    const seen = new Set();
+    const dupes = [];
+    for (const line of rawLines) {
+      if (seen.has(line)) dupes.push(line);
+      seen.add(line);
+    }
+    assert.deepEqual(dupes, [], 'Duplicate pattern(s) in .gitignore: ' + dupes.join(', '));
+
+    if (fs.existsSync(path.join(REPO, '.git'))) {
+      const tracked = execFileSync('git', ['ls-files', '.cursor/hooks/state'], {
+        cwd: REPO,
+        encoding: 'utf8',
+      })
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean);
+      assert.deepEqual(
+        tracked,
+        [],
+        '.cursor/hooks/state/* is tracked in Git despite .gitignore — run `git rm --cached ' +
+          tracked.join(' ') +
+          '` so local hook state stops dirtying the working tree.',
+      );
+    }
+  });
+
+  // FG-G12: three thermo-nuclear reviews flagged monolith creep past 1,000
+  // lines (`acp/agent.js`, `acp-agent.test.js`, `starlark-host/src/coordinator.js`,
+  // and `src/runner/run.js`). Enforce <= 1,000 lines on every JS file, with one
+  // explicit non-increasing ratchet on `src/runner/run.js` so no slice can feed
+  // it more lines without extracting a focused module first.
+  it('FG-G12: JS files stay within the 1,000-line ceiling (and run.js never exceeds its ratchet)', () => {
+    const DEFAULT_MAX_LINES = 1000;
+    const LINE_CEILING_EXCEPTIONS = {
+      // EXCEPTION: legacy main runner loop predates the 1k-line rule; owner-approved review directive
+      // (`HANDOFF-acp-hosts-images-thermo-nuclear-2026-10-17.md:30` "Do not split run.js" unbidden);
+      // expiry: 2027-02-10 — ratchet may move DOWN when extracted, never UP.
+      'src/runner/run.js': 1992,
+    };
+
+    const ROOTS = ['bin', 'src', 'test', 'starlark-host/src', 'starlark-host/test'];
+    const offenders = [];
+
+    function walkJs(dir) {
+      if (!fs.existsSync(dir)) return;
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (entry.name === 'node_modules') continue;
+        const abs = path.join(dir, entry.name);
+        if (entry.isDirectory()) walkJs(abs);
+        else if (entry.isFile() && entry.name.endsWith('.js')) {
+          const rel = path.relative(REPO, abs).split(path.sep).join('/');
+          const lines = fs.readFileSync(abs, 'utf8').split('\n').length;
+          const cap = LINE_CEILING_EXCEPTIONS[rel] ?? DEFAULT_MAX_LINES;
+          if (lines > cap) {
+            offenders.push(`${rel}: ${lines} lines > ceiling ${cap} — extract a sibling module instead of growing it`);
+          }
+        }
+      }
+    }
+
+    for (const r of ROOTS) walkJs(path.join(REPO, r));
+    assert.deepEqual(offenders, [], 'Monolith line-ceiling violation(s):\n  ' + offenders.join('\n  '));
+  });
+
+  // FG-G13: commits 24d0df8, 1d1fb0f, 0a26f14, and f85ad5f landed with failing
+  // tests, formatting, or doc checks because .github/workflows/ only deployed
+  // Pages and ran CodeQL. Pin a real CI workflow running the same local gates.
+  it('FG-G13: .github/workflows/ci.yml runs lint, check:docs, format:check, test, and test:starlark on push/PR', () => {
+    const ciPath = path.join(REPO, '.github', 'workflows', 'ci.yml');
+    assert.ok(fs.existsSync(ciPath), 'Missing .github/workflows/ci.yml — local checks are not enforced in CI');
+    const ci = fs.readFileSync(ciPath, 'utf8');
+    assert.match(ci, /\bpush\s*:/, 'ci.yml must run on push');
+    assert.match(ci, /\bpull_request\s*:/, 'ci.yml must run on pull_request');
+    for (const cmd of [
+      'npm run lint',
+      'npm run check:docs',
+      'npm run format:check',
+      'npm test',
+      'npm run test:starlark',
+    ]) {
+      assert.ok(ci.includes(cmd), `ci.yml is missing "${cmd}" — CI and local checks must run the same commands`);
+    }
   });
 });
