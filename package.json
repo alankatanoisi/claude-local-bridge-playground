@@ -36,7 +36,7 @@
     "lint:fix": "eslint --config eslint.config.cjs bin/ src/ test/ scripts/ --fix",
     "format": "prettier --write \"bin/**/*.js\" \"src/**/*.js\" \"test/**/*.js\" \"scripts/**/*.js\" \"*.json\" \"*.md\"",
     "format:check": "prettier --check \"bin/**/*.js\" \"src/**/*.js\" \"test/**/*.js\" \"scripts/**/*.js\" \"*.json\" \"*.md\"",
-    "check:docs": "node scripts/check-doc-defaults.js && node scripts/check-runner-manifest.js",
+    "check:docs": "node scripts/check-doc-defaults.js && node scripts/check-runner-manifest.js && node scripts/check-agent-docs.js",
     "fingerprint:check": "node scripts/claude-code-fingerprint.js check",
     "fingerprint:due": "node scripts/claude-code-fingerprint.js due",
     "fingerprint:prepare": "node scripts/claude-code-fingerprint.js prepare",

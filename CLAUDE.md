@@ -162,6 +162,7 @@ working:
 - `src/proxy.js`
 - `src/server.js`
 - `src/interceptors/**`
+- VS Code extension auth settings
 
 Runner tasks should usually stay in:
 
@@ -406,10 +407,9 @@ When changing runner behavior or CLI options, update:
 
 These preferences are **universal for this repo** (same content as `AGENTS.md`). Follow them in Claude Code sessions too; do not treat them as Cursor-only memory. When continual-learning updates `AGENTS.md`, keep this block in sync.
 
-> **Mirror verified in sync with `AGENTS.md` on 2026-07-25.** Both Learned blocks matched bullet-for-bullet.
-> The mirroring rule is holding; the drift in this repo is in the _non-mirrored_ sections, which were written
-> independently in each file. A `check:agent-docs` script that fails the gate on divergence would make this
-> verification automatic instead of manual — recommended, not yet built.
+> **Mirror verified automatically by `scripts/check-agent-docs.js` (`npm run check:docs` and CI).**
+> `Learned User Preferences`, `Learned Workspace Facts`, `Enforced Rule Table`, core safety invariants,
+> and live `.cursor/` / `.agents/` / `.codex/` skill primitives are checked on every gate run.
 
 - Treat `docs/command-builder.html` as the primary day-to-day runner UX; keep it lean, and update it when runner CLI flags or capabilities change.
 - Prefer compact in-UI explanations for runner flags (hover/"what does this do"/glossary) over relying on long docs alone; Alan learns mainly by doing.
@@ -439,6 +439,23 @@ Same content as `AGENTS.md` — keep mirrored.
 - Runtime concordance / P0–P1 remediation status is tracked in dated docs under `docs/` (assessment HTML plus agent-facing handoffs); annotate those when closing items rather than inventing a parallel tracker.
 - Orchestration prototype scratch code lives in `~/Developer/orchestration-prototypes/` (outside git); only dated result docs belong in the repo's `docs/`. Exception: the Starlark phased-hybrid prototype graduated into this repo as `starlark-host/` on 2026-08-10 (recommendation R3); its run evidence (`starlark-host/{runs,workflow-runs,matrix-runs}/`) stays untracked and sensitive, and live spend is metered by durable campaign ledgers under `~/.bridge-runner/campaigns/`.
 - Runner session ledgers under `~/.bridge-runner` can contain prompts and file paths; when analyzing them, report aggregate counts only and never quote ledger payload text.
+
+## Enforced Rule Table
+
+Same content as `AGENTS.md` — keep mirrored (verified automatically by `scripts/check-agent-docs.js`).
+
+| Rule                                                                                                                                                                         | Enforced by                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Agent profiles (`--agent`, `--profile`, `--list-agents`, `--list-profiles`) stay retired in runtime and live skills/docs                                                     | `test/runner/profiles-retired.test.js`, `scripts/check-agent-docs.js`                                                                                                                                        |
+| Authority ceiling flags (`allowShell`, `plan`, `noNetwork`) are read via `effectiveFlags(ctx)`, never raw `ctx.<flag>`                                                       | `src/runner/authority.js`, `test/runner/false-green-permission-matrix.test.js`, `test/runner/false-green-egress-surface.test.js`                                                                             |
+| Shell stays hidden without `--allow-shell`; `--dont-ask` never enables shell or auto-allows writes                                                                           | `src/runner/tool-visibility.js`, `test/runner/false-green-catalog-registration.test.js`, `test/runner/false-green-permission-matrix.test.js`                                                                 |
+| Protected paths (`.env`, keys, `.ssh`, `.aws`, `.claude`, `.gnupg`, `.git`, symlink/case aliases) stay hard-denied across gate, tools, and shell                             | `src/runner/safety.js`, `test/runner/false-green-deny-matrix.test.js`, `test/runner/he01-tool-layer-symlink.test.js`, `test/runner/hs01-review-regressions.test.js`, `test/runner/path-arg-contract.test.js` |
+| Every persistent or user-visible sink scrubs secrets through `redaction-boundary.js` (`scrubDeepSecrets` for structured objects)                                             | `src/runner/redaction-boundary.js`, `test/runner/false-green-redaction-parity.test.js`, `test/runner/false-green-telemetry-sink.test.js`                                                                     |
+| Every tool, capability group, model, CLI flag, prompt summary, and cache path-key stays in sync with `tool-catalog.js` and `model-catalog.js`                                | `scripts/check-runner-manifest.js`, `test/runner/false-green-catalog-registration.test.js`, `test/runner/false-green-model-evolution.test.js`, `test/runner/p2-01-02-tool-surface.test.js`                   |
+| `docs/command-builder.html`, `docs/command-builder-v2.html`, and `README.md` defaults never drift from runtime                                                               | `scripts/check-doc-defaults.js`, `scripts/check-runner-manifest.js`, `test/runner/command-builder-drift.test.js`, `test/runner/command-builder-v2.test.js`                                                   |
+| `AGENTS.md`, `CLAUDE.md`, `.cursor/`, `.agents/`, and `.codex/` keep Learned blocks, Enforced Rule Table, boundary fences, and live skills synchronized                      | `scripts/check-agent-docs.js`                                                                                                                                                                                |
+| Tests and golden evals never pass silently (`--update` still scores checklists, no `.only`, no unreviewed `todo`/`skip`, no bare `assert.throws`, confinement on eval files) | `src/runner/golden-eval.js`, `test/runner/golden-eval.test.js`, `test/runner/false-green-suite-integrity.test.js`, `test/runner/false-green-oracle-strength.test.js`, `scripts/mutation-check.js`            |
+| Lint (`bin/`, `src/`, `test/`, `scripts/`), formatting, 1,000-line JS ceiling, untracked hook state, and full test + Starlark suites run locally and in CI                   | `package.json`, `eslint.config.cjs`, `.prettierignore`, `.github/workflows/ci.yml`, `test/runner/false-green-suite-integrity.test.js`                                                                        |
 
 ## Handoff
 

@@ -205,14 +205,9 @@ This section is for Cloud Agents running in a headless Linux VM (not Alan's Mac)
 (`npm install`) are already refreshed on startup, so do not repeat install steps here.
 
 - This is a pure Node.js project (Node 22 in the VM). Standard checks already documented above work
-  as-is: `npm run lint`, `npm run check:docs`, and `npm test`.
-- `npm run format:check` reports pre-existing Prettier style warnings on `package.json` and
-  `package-lock.json`. That failure is unrelated to your changes; do not reformat those files just to
-  make it pass unless the task is about formatting.
-- `npm test` has one environment-dependent failure on Linux: the bash-tool test
-  `reports signal when process is killed` (`test/runner/bash.test.js`). On this VM a `bash -c` wrapper
-  reports SIGABRT as exit code 134 instead of surfacing `killed by signal`, so the assertion fails.
-  All other 478 tests pass. Treat this single failure as a known platform difference, not a regression.
+  as-is: `npm run lint`, `npm run check:docs`, `npm run format:check`, and `npm test` (the former Linux
+  `dash` wrapper difference in `test/runner/bash.test.js` was closed via `exec`, and `.prettierignore`
+  preserves the four immutable historical review handoffs so `format:check` exits `0`).
 - The **bridge** (`src/server.js`) is a VS Code extension (`require('vscode')`) and cannot be started
   standalone outside VS Code. Live model calls also need real Claude Code OAuth credentials, which are
   not present in the cloud VM, so a true end-to-end run against `api.anthropic.com` is not possible here.
@@ -257,3 +252,20 @@ Keep this block mirrored in `CLAUDE.md` whenever it changes.
 - Runtime concordance / P0–P1 remediation status is tracked in dated docs under `docs/` (assessment HTML plus agent-facing handoffs); annotate those when closing items rather than inventing a parallel tracker.
 - Orchestration prototype scratch code lives in `~/Developer/orchestration-prototypes/` (outside git); only dated result docs belong in the repo's `docs/`. Exception: the Starlark phased-hybrid prototype graduated into this repo as `starlark-host/` on 2026-08-10 (recommendation R3); its run evidence (`starlark-host/{runs,workflow-runs,matrix-runs}/`) stays untracked and sensitive, and live spend is metered by durable campaign ledgers under `~/.bridge-runner/campaigns/`.
 - Runner session ledgers under `~/.bridge-runner` can contain prompts and file paths; when analyzing them, report aggregate counts only and never quote ledger payload text.
+
+## Enforced Rule Table
+
+Keep this table mirrored in `CLAUDE.md` (verified automatically by `scripts/check-agent-docs.js`). When a recurring mistake is corrected, enforce it at the highest mechanical level first and pair the rule with its enforcer here; drop a row once architecture makes the mistake impossible.
+
+| Rule                                                                                                                                                                         | Enforced by                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Agent profiles (`--agent`, `--profile`, `--list-agents`, `--list-profiles`) stay retired in runtime and live skills/docs                                                     | `test/runner/profiles-retired.test.js`, `scripts/check-agent-docs.js`                                                                                                                                        |
+| Authority ceiling flags (`allowShell`, `plan`, `noNetwork`) are read via `effectiveFlags(ctx)`, never raw `ctx.<flag>`                                                       | `src/runner/authority.js`, `test/runner/false-green-permission-matrix.test.js`, `test/runner/false-green-egress-surface.test.js`                                                                             |
+| Shell stays hidden without `--allow-shell`; `--dont-ask` never enables shell or auto-allows writes                                                                           | `src/runner/tool-visibility.js`, `test/runner/false-green-catalog-registration.test.js`, `test/runner/false-green-permission-matrix.test.js`                                                                 |
+| Protected paths (`.env`, keys, `.ssh`, `.aws`, `.claude`, `.gnupg`, `.git`, symlink/case aliases) stay hard-denied across gate, tools, and shell                             | `src/runner/safety.js`, `test/runner/false-green-deny-matrix.test.js`, `test/runner/he01-tool-layer-symlink.test.js`, `test/runner/hs01-review-regressions.test.js`, `test/runner/path-arg-contract.test.js` |
+| Every persistent or user-visible sink scrubs secrets through `redaction-boundary.js` (`scrubDeepSecrets` for structured objects)                                             | `src/runner/redaction-boundary.js`, `test/runner/false-green-redaction-parity.test.js`, `test/runner/false-green-telemetry-sink.test.js`                                                                     |
+| Every tool, capability group, model, CLI flag, prompt summary, and cache path-key stays in sync with `tool-catalog.js` and `model-catalog.js`                                | `scripts/check-runner-manifest.js`, `test/runner/false-green-catalog-registration.test.js`, `test/runner/false-green-model-evolution.test.js`, `test/runner/p2-01-02-tool-surface.test.js`                   |
+| `docs/command-builder.html`, `docs/command-builder-v2.html`, and `README.md` defaults never drift from runtime                                                               | `scripts/check-doc-defaults.js`, `scripts/check-runner-manifest.js`, `test/runner/command-builder-drift.test.js`, `test/runner/command-builder-v2.test.js`                                                   |
+| `AGENTS.md`, `CLAUDE.md`, `.cursor/`, `.agents/`, and `.codex/` keep Learned blocks, Enforced Rule Table, boundary fences, and live skills synchronized                      | `scripts/check-agent-docs.js`                                                                                                                                                                                |
+| Tests and golden evals never pass silently (`--update` still scores checklists, no `.only`, no unreviewed `todo`/`skip`, no bare `assert.throws`, confinement on eval files) | `src/runner/golden-eval.js`, `test/runner/golden-eval.test.js`, `test/runner/false-green-suite-integrity.test.js`, `test/runner/false-green-oracle-strength.test.js`, `scripts/mutation-check.js`            |
+| Lint (`bin/`, `src/`, `test/`, `scripts/`), formatting, 1,000-line JS ceiling, untracked hook state, and full test + Starlark suites run locally and in CI                   | `package.json`, `eslint.config.cjs`, `.prettierignore`, `.github/workflows/ci.yml`, `test/runner/false-green-suite-integrity.test.js`                                                                        |
