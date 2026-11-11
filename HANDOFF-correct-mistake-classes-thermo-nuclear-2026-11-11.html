@@ -374,14 +374,14 @@
   <body>
     <header>
       <div class="eyebrow">Independent review and corrections · November 11, 2026</div>
-      <div class="hero-title">Independent review complete.<br />No actionable findings.</div>
+      <div class="hero-title">Published and verified.<br />Both GitHub workflows passed.</div>
       <p class="deck">
-        All twelve changed and new files passed separate review. Local verification passed; publication and exact-commit
-        GitHub monitoring are authorized.
+        Final implementation commit a2a0a7e contains all twelve reviewed files. Ubuntu CI and CodeQL completed
+        successfully; the handoff records their exact results and links.
       </p>
       <div class="pills">
-        <span class="pill open">Independent review accepted</span><span class="pill">main · based on 4e38ce9</span
-        ><span class="pill">Publication checkpoint</span>
+        <span class="pill open">All GitHub checks passed</span><span class="pill">main · implementation a2a0a7e</span
+        ><span class="pill">Verified November 11, 2026</span>
       </div>
     </header>
     <div class="layout">
@@ -390,12 +390,13 @@
         ><a href="#2-location-scope-and-inputs">2. Location, scope, and inputs</a
         ><a href="#3-initial-findings-and-their-implemented-corrections"
           >3. Initial findings and their implemented corrections</a
-        ><a href="#4-linux-shell-quoting-corrected-locally-published-run-remains-historical"
-          >4. Linux shell quoting: corrected locally; published run remains historical</a
+        ><a href="#4-linux-shell-quoting-corrected-and-verified-on-ubuntu"
+          >4. Linux shell quoting: corrected and verified on Ubuntu</a
         ><a href="#5-independent-verification-and-failure-history">5. Independent verification and failure history</a
         ><a href="#6-separate-final-read-only-review">6. Separate final read-only review</a
         ><a href="#7-not-bugs-do-not-fix-as-part-of-the-follow-up">7. Not bugs — do not fix as part of the follow-up</a
-        ><a href="#8-publication-and-remote-verification">8. Publication and remote verification</a
+        ><a href="#8-final-implementation-commit-and-successful-github-verification"
+          >8. Final implementation commit and successful GitHub verification</a
         ><a href="#9-handoff-files-and-limits">9. Handoff, files, and limits</a
         ><a class="download" href="HANDOFF-correct-mistake-classes-thermo-nuclear-2026-11-11.md"
           >Read the Markdown companion</a
@@ -403,23 +404,25 @@
       </nav>
       <main>
         <div class="stats">
-          <div class="stat good"><strong>1,377 / 1,377</strong><span>Full Mac tests passed · no skips</span></div>
-          <div class="stat good"><strong>117 / 117</strong><span>Shell regression tests with dash</span></div>
-          <div class="stat good"><strong>0 findings</strong><span>Separate final read-only review</span></div>
+          <div class="stat good">
+            <strong>1,374 passed</strong><span>Ubuntu main suite · 3 skips · 0 failures</span>
+          </div>
+          <div class="stat good"><strong>128 / 128</strong><span>Starlark on Ubuntu · no skips</span></div>
+          <div class="stat good"><strong>2 workflows</strong><span>CI and CodeQL completed successfully</span></div>
         </div>
         <article>
-          <h1 id="independent-review-and-local-corrections-cursor-s-recurring-mistake-pass">
-            Independent review and local corrections — Cursor's recurring-mistake pass
+          <h1 id="independent-review-and-verified-corrections-cursor-s-recurring-mistake-pass">
+            Independent review and verified corrections — Cursor's recurring-mistake pass
           </h1>
           <aside class="status-note">
             <p>
-              <strong>Final independent review complete · 2026-11-11 · No actionable findings.</strong> A separate agent
-              reviewed all 12 changed/new files and accepted the correction within the requested scope. It independently
-              passed 163 targeted tests and 117 shell regression tests under dash, plus lint, documentation, formatting,
-              and additional boundary probes. The implementation checks also passed 1,377 main tests, 128 Starlark
-              tests, 9 golden cases, and 9 mutation checks. Alan has now authorized committing, pushing, and syncing all
-              reviewed changes, followed by monitoring the resulting GitHub checks. This publication checkpoint does not
-              predeclare the outcome of checks that run after the push.
+              <strong>Published and verified · 2026-11-11 · Final implementation commit <code>a2a0a7e</code>.</strong>
+              All 12 reviewed files were committed as <code>a2a0a7eeea24d6a98896c7a027de847dd3bc114d</code>, pushed to
+              playground <code>main</code>, and synced locally. Both GitHub workflows completed successfully: Ubuntu CI
+              and CodeQL analysis. Ubuntu ran 1,377 main tests:
+              <strong>1,374 passed, 0 failed, 3 environment/platform skips</strong>; Starlark built and passed
+              <strong>128/128</strong>, with no skips. The separate final review found no actionable issues. Section 8
+              records the permanent commit and workflow links; the old failing runs remain historical evidence only.
             </p>
           </aside>
           <p>
@@ -430,8 +433,8 @@
           <h2 id="1-outcome-and-meaning">1. Outcome and meaning</h2>
           <p>
             <strong
-              >All three review findings and the Linux test failure are corrected locally, with all verification checks
-              passing.</strong
+              >All three review findings and the Linux test failure are corrected, published, and verified on GitHub,
+              with all triggered checks passing.</strong
             >
             The follow-up changes developer checks and tests; it does not change runner runtime behavior. Cursor's
             runtime improvements remain intact.
@@ -464,10 +467,14 @@
             high-priority defect in the five commits, and no wholesale revert was warranted.
           </p>
           <p>
-            <strong>Publication checkpoint:</strong> the separate final review is complete, with no correction
-            requested. Alan has authorized publication of all 12 reviewed files, including the new files. The post-push
-            GitHub continuous integration (CI) outcome must be checked on the resulting commit; it was not yet available
-            when this handoff was prepared.
+            <strong>Publication status:</strong>
+            <a
+              href="https://github.com/alankatanoisi/claude-local-bridge-playground/commit/a2a0a7eeea24d6a98896c7a027de847dd3bc114d"
+              >final implementation commit <code>a2a0a7e</code></a
+            >
+            is committed, pushed, and synced on <code>main</code>. Its Ubuntu continuous integration (CI) workflow and
+            CodeQL analysis both completed successfully. This documentation-only follow-up records those completed
+            results without changing the reviewed implementation.
           </p>
           <h2 id="2-location-scope-and-inputs">2. Location, scope, and inputs</h2>
           <ul>
@@ -492,8 +499,17 @@
             </li>
             <li>
               <p>
-                <strong>Base commit for the current uncommitted corrections:</strong>
+                <strong>Original base commit for the reviewed corrections:</strong>
                 <code>4e38ce9aa6c0376f35b7996088208d7a69229c44</code>, matching <code>origin/main</code> at preflight.
+              </p>
+            </li>
+            <li>
+              <p>
+                <strong>Final implementation commit:</strong>
+                <a
+                  href="https://github.com/alankatanoisi/claude-local-bridge-playground/commit/a2a0a7eeea24d6a98896c7a027de847dd3bc114d"
+                  ><code>a2a0a7eeea24d6a98896c7a027de847dd3bc114d</code></a
+                >, containing all 12 reviewed changed/new files.
               </p>
             </li>
             <li>
@@ -537,11 +553,11 @@
             3. Initial findings and their implemented corrections
           </h2>
           <p>
-            The problem descriptions and reproductions below record the state at the base commit. Each finding now has a
-            local correction and passing regression coverage.
+            The problem descriptions and reproductions below record the state at the base commit. Each finding was
+            corrected in the published implementation commit and has passing local and GitHub regression coverage.
           </p>
-          <h3 id="f1-p2-corrected-locally-the-raw-flag-guard-misses-ordinary-javascript-access-forms">
-            F1 · P2 · Corrected locally · The raw-flag guard misses ordinary JavaScript access forms
+          <h3 id="f1-p2-corrected-and-published-the-raw-flag-guard-misses-ordinary-javascript-access-forms">
+            F1 · P2 · Corrected and published · The raw-flag guard misses ordinary JavaScript access forms
           </h3>
           <p>
             <strong>Location:</strong>
@@ -582,8 +598,8 @@ const rawShellAllowed = ctx['allowShell'];</code></pre>
             rejection controls and exemption-boundary checks. A syntax tree describes code structurally, so a different
             spelling cannot evade these supported checks.
           </p>
-          <h3 id="f2-p2-corrected-locally-deleting-a-required-mirrored-file-disables-its-comparison">
-            F2 · P2 · Corrected locally · Deleting a required mirrored file disables its comparison
+          <h3 id="f2-p2-corrected-and-published-deleting-a-required-mirrored-file-disables-its-comparison">
+            F2 · P2 · Corrected and published · Deleting a required mirrored file disables its comparison
           </h3>
           <p>
             <strong>Locations:</strong>
@@ -629,8 +645,8 @@ const rawShellAllowed = ctx['allowShell'];</code></pre>
             and simultaneous deletion of both skill roots using private in-memory filesystem views; accidental
             exceptions cannot count as successful detection.
           </p>
-          <h3 id="f3-p2-corrected-locally-continued-markdown-bullet-text-is-omitted-from-mirror-checks">
-            F3 · P2 · Corrected locally · Continued Markdown bullet text is omitted from mirror checks
+          <h3 id="f3-p2-corrected-and-published-continued-markdown-bullet-text-is-omitted-from-mirror-checks">
+            F3 · P2 · Corrected and published · Continued Markdown bullet text is omitted from mirror checks
           </h3>
           <p>
             <strong>Location:</strong>
@@ -663,8 +679,8 @@ const rawShellAllowed = ctx['allowShell'];</code></pre>
             positive control proves that harmless wrapping changes still pass. The same regression file also tests the
             actual checker against the real current documents.
           </p>
-          <h2 id="4-linux-shell-quoting-corrected-locally-published-run-remains-historical">
-            4. Linux shell quoting: corrected locally; published run remains historical
+          <h2 id="4-linux-shell-quoting-corrected-and-verified-on-ubuntu">
+            4. Linux shell quoting: corrected and verified on Ubuntu
           </h2>
           <p>
             <strong>Historical pre-correction GitHub evidence:</strong>
@@ -742,12 +758,13 @@ const rawShellAllowed = ctx['allowShell'];</code></pre>
             The older run cited by Cursor,
             <a href="https://github.com/alankatanoisi/claude-local-bridge-playground/actions/runs/42985886672"
               >42985886672</a
-            >, has the same failure. That published run confirms the pre-fix failure; it does not include these local
-            corrections. Its skipped Starlark step is not evidence of a Starlark failure.
+            >, has the same failure. Those older runs confirm the pre-fix failure and do not include the corrections.
+            Their skipped Starlark steps are not evidence of a Starlark failure. The successful replacement runs for the
+            final implementation commit are recorded in section 8.
           </p>
           <h2 id="5-independent-verification-and-failure-history">5. Independent verification and failure history</h2>
           <p>
-            All follow-up checks ran on this Mac, with Node.js <code>v22.22.3</code> and Go
+            The local implementation checks below ran on this Mac, with Node.js <code>v22.22.3</code> and Go
             <code>go1.26.8 darwin/arm64</code>, on local edits based on <code>4e38ce9</code>. No provider calls were
             required.
           </p>
@@ -985,25 +1002,106 @@ const rawShellAllowed = ctx['allowShell'];</code></pre>
               </p>
             </li>
           </ul>
-          <h2 id="8-publication-and-remote-verification">8. Publication and remote verification</h2>
+          <h2 id="8-final-implementation-commit-and-successful-github-verification">
+            8. Final implementation commit and successful GitHub verification
+          </h2>
           <p>
-            All four corrections and the separate final review are complete. Alan authorized publication on 2026-11-11.
-            This handoff is prepared for the commit containing the reviewed fixes and new files. After pushing, monitor
-            every GitHub check for that exact commit through a terminal result, including the Ubuntu test/Starlark
-            workflow and CodeQL analysis, and verify local <code>main</code> matches <code>origin/main</code>.
+            <strong>Final implementation commit:</strong>
+            <a
+              href="https://github.com/alankatanoisi/claude-local-bridge-playground/commit/a2a0a7eeea24d6a98896c7a027de847dd3bc114d"
+              ><code>a2a0a7eeea24d6a98896c7a027de847dd3bc114d</code></a
+            >
+            — <code>fix(checks): close review gaps and make Bash quote tests portable</code>.
           </p>
           <p>
-            The final remote outcome must come from the resulting checks, not the historical failure logs in section 4.
-            No post-push success is asserted at this preparation checkpoint. Keep runtime restrictions, effective-flag
-            behavior, and safety assertions intact; no branch change or published-history rewrite is required.
+            All 12 reviewed files, including the five new files, were included. The push to
+            <code>origin/main</code> succeeded. A subsequent pull reported already up to date; local
+            <code>main</code> and <code>origin/main</code> both resolved to that full commit, with zero commits
+            ahead/behind and a clean working tree.
+          </p>
+          <p>
+            The checks below were monitored through successful completion for <strong>that exact commit</strong> on
+            2026-11-11. Results were read from GitHub workflow/job status and the completed Ubuntu job log, not inferred
+            from local tests.
+          </p>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>GitHub workflow or step</th>
+                  <th>Verified final result</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <a href="https://github.com/alankatanoisi/claude-local-bridge-playground/actions/runs/43122934121"
+                      >Ubuntu CI run 43122934121</a
+                    >
+                  </td>
+                  <td><strong>Completed successfully</strong></td>
+                </tr>
+                <tr>
+                  <td>Dependency installation</td>
+                  <td>Passed</td>
+                </tr>
+                <tr>
+                  <td>Lint, documentation/manifest checks, formatting</td>
+                  <td>All passed</td>
+                </tr>
+                <tr>
+                  <td>Main bridge and runner suite</td>
+                  <td><strong>1,377 tests; 1,374 passed; 0 failed; 3 skipped; 275 suites</strong></td>
+                </tr>
+                <tr>
+                  <td>Main suite cancellation/expected-failure counts</td>
+                  <td>0 cancelled; 0 TODO</td>
+                </tr>
+                <tr>
+                  <td>Starlark evaluator build and verification</td>
+                  <td><strong>128 passed; 0 failed; 0 skipped; 0 cancelled; 0 TODO</strong></td>
+                </tr>
+                <tr>
+                  <td>
+                    <a href="https://github.com/alankatanoisi/claude-local-bridge-playground/actions/runs/43122934214"
+                      >CodeQL Advanced run 43122934214</a
+                    >
+                  </td>
+                  <td><strong>Completed successfully</strong></td>
+                </tr>
+                <tr>
+                  <td>Exact-commit check-run summary</td>
+                  <td>Both registered checks completed with <code>success</code>; none pending or failed</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            <strong>Ubuntu skip reasons:</strong> the main suite skipped one macOS service-management test, one on-disk
+            case-alias test because the filesystem distinguishes uppercase/lowercase names, and one
+            <code>rg</code> backend test because that executable was unavailable. The unconditional path-policy
+            regression and the other installed search backends still ran. These were the only three main-suite skips;
+            Starlark had none.
+          </p>
+          <p>
+            <strong>The Linux quoting failure is resolved:</strong> the corrected shell tests passed on the actual
+            Ubuntu workflow, and the Starlark step ran successfully instead of being blocked by an earlier test failure.
+            The older failed workflow runs in section 4 remain preserved as pre-correction history.
+          </p>
+          <p>
+            <strong>Documentation follow-up scope:</strong> this update records the already verified implementation
+            commit and its completed runs. It does not change runtime code, enforcement code, test code, dependencies,
+            or workflow configuration. A later documentation-only commit has its own identifier and must not be confused
+            with the implementation commit whose results are recorded above.
           </p>
           <h2 id="9-handoff-files-and-limits">9. Handoff, files, and limits</h2>
           <ul>
             <li>
               <p>
                 <strong>Folder and branch:</strong>
-                <code>/Users/alanman/Developer/claude-local-bridge-playground</code>, <code>main</code>, based on
-                <code>4e38ce9</code>; local and remote commit history matched at follow-up preflight.
+                <code>/Users/alanman/Developer/claude-local-bridge-playground</code>, <code>main</code>; final
+                implementation commit <code>a2a0a7e</code>, with local/remote synchronization verified after
+                publication.
               </p>
             </li>
             <li>
@@ -1035,15 +1133,17 @@ const rawShellAllowed = ctx['allowShell'];</code></pre>
             </li>
             <li>
               <p>
-                <strong>Checks:</strong> all outcomes and the real initial/intermediate failures are recorded in section
-                5. No runtime source changes or dependency additions were needed.
+                <strong>Checks:</strong> local outcomes and initial/intermediate failures are in section 5; independent
+                review results are in section 6; completed GitHub checks for the final implementation commit are in
+                section 8. No runtime source changes or dependency additions were needed for the corrections.
               </p>
             </li>
             <li>
               <p>
-                <strong>Checks outside the local review:</strong> live Anthropic calls and native Linux/Windows
-                execution were not performed on this Mac. Local <code>dash</code> execution covers the reported parser
-                mismatch. The requested post-push GitHub monitoring supplies the separate Ubuntu workflow result.
+                <strong>Checks outside the local review:</strong> live Anthropic calls and native Windows execution were
+                not performed. Ubuntu verification was subsequently completed on GitHub for the exact implementation
+                commit, including the main suite and Starlark. The separate reviewer's narrower rerun scope remains
+                accurately recorded in section 6.
               </p>
             </li>
             <li>
@@ -1057,10 +1157,10 @@ const rawShellAllowed = ctx['allowShell'];</code></pre>
             </li>
             <li>
               <p>
-                <strong>Publication authorization:</strong> Alan explicitly requested committing, pushing, and syncing
-                all reviewed changes after this final-review update. The 12-file review was preserved; only handoff
-                documentation changed afterward to record its results. Post-push completion must be reported using the
-                resulting commit and GitHub run URLs.
+                <strong>Publication result:</strong> all 12 reviewed files were committed and pushed in
+                <code>a2a0a7e</code>; both triggered GitHub workflows passed and local/remote <code>main</code> were
+                synced. Alan then requested this documentation-only update to record the successful checks and final
+                implementation commit. Only the three handoff documents change in this follow-up.
               </p>
             </li>
           </ul>

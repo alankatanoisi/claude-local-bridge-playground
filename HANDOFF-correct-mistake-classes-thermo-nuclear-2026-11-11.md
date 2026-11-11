@@ -1,12 +1,12 @@
-# Independent review and local corrections — Cursor's recurring-mistake pass
+# Independent review and verified corrections — Cursor's recurring-mistake pass
 
-> **Final independent review complete · 2026-11-11 · No actionable findings.** A separate agent reviewed all 12 changed/new files and accepted the correction within the requested scope. It independently passed 163 targeted tests and 117 shell regression tests under dash, plus lint, documentation, formatting, and additional boundary probes. The implementation checks also passed 1,377 main tests, 128 Starlark tests, 9 golden cases, and 9 mutation checks. Alan has now authorized committing, pushing, and syncing all reviewed changes, followed by monitoring the resulting GitHub checks. This publication checkpoint does not predeclare the outcome of checks that run after the push.
+> **Published and verified · 2026-11-11 · Final implementation commit `a2a0a7e`.** All 12 reviewed files were committed as `a2a0a7eeea24d6a98896c7a027de847dd3bc114d`, pushed to playground `main`, and synced locally. Both GitHub workflows completed successfully: Ubuntu CI and CodeQL analysis. Ubuntu ran 1,377 main tests: **1,374 passed, 0 failed, 3 environment/platform skips**; Starlark built and passed **128/128**, with no skips. The separate final review found no actionable issues. Section 8 records the permanent commit and workflow links; the old failing runs remain historical evidence only.
 
 Browser companion: [Open the standalone HTML review](HANDOFF-correct-mistake-classes-thermo-nuclear-2026-11-11.html).
 
 ## 1. Outcome and meaning
 
-**All three review findings and the Linux test failure are corrected locally, with all verification checks passing.** The follow-up changes developer checks and tests; it does not change runner runtime behavior. Cursor's runtime improvements remain intact.
+**All three review findings and the Linux test failure are corrected, published, and verified on GitHub, with all triggered checks passing.** The follow-up changes developer checks and tests; it does not change runner runtime behavior. Cursor's runtime improvements remain intact.
 
 - F1 now uses a JavaScript syntax rule through the same explicit ESLint configuration as `npm run lint`, with tightly scoped exemptions for authority construction and the three startup trace fields.
 - F2 now fails explicitly if a required instruction mirror is absent.
@@ -15,7 +15,7 @@ Browser companion: [Open the standalone HTML review](HANDOFF-correct-mistake-cla
 
 P2 means a normal-priority correction. The initial findings concerned incomplete automated prevention; they did not demonstrate an active runner permission escape. The original review found no critical or high-priority defect in the five commits, and no wholesale revert was warranted.
 
-**Publication checkpoint:** the separate final review is complete, with no correction requested. Alan has authorized publication of all 12 reviewed files, including the new files. The post-push GitHub continuous integration (CI) outcome must be checked on the resulting commit; it was not yet available when this handoff was prepared.
+**Publication status:** [final implementation commit `a2a0a7e`](https://github.com/alankatanoisi/claude-local-bridge-playground/commit/a2a0a7eeea24d6a98896c7a027de847dd3bc114d) is committed, pushed, and synced on `main`. Its Ubuntu continuous integration (CI) workflow and CodeQL analysis both completed successfully. This documentation-only follow-up records those completed results without changing the reviewed implementation.
 
 ## 2. Location, scope, and inputs
 
@@ -23,7 +23,8 @@ P2 means a normal-priority correction. The initial findings concerned incomplete
 - **Branch:** `main` — the named line of Git history checked out locally.
 - **Remote:** `origin` → `https://github.com/alankatanoisi/claude-local-bridge-playground.git`.
 - **Initial review checkout:** clean and pulled. The implementation follow-up began with only the three known review-document changes; those were preserved. Fetch and pull confirmed local and remote history still matched.
-- **Base commit for the current uncommitted corrections:** `4e38ce9aa6c0376f35b7996088208d7a69229c44`, matching `origin/main` at preflight.
+- **Original base commit for the reviewed corrections:** `4e38ce9aa6c0376f35b7996088208d7a69229c44`, matching `origin/main` at preflight.
+- **Final implementation commit:** [`a2a0a7eeea24d6a98896c7a027de847dd3bc114d`](https://github.com/alankatanoisi/claude-local-bridge-playground/commit/a2a0a7eeea24d6a98896c7a027de847dd3bc114d), containing all 12 reviewed changed/new files.
 - **Implementation comparison:** `2fc7d9202365d0cedd83f1083ad5c97e5be12e3f..28e07b7b38f26935cbaf50a76e89e8306dbeeb45`.
 - **Five implementation commits:** `d4c1ec4`, `531b48a`, `0cb647f`, `0659333`, `28e07b7`.
 - **Reference inputs:** [Cursor's original handoff](HANDOFF-correct-mistake-classes-2026-11-11.md) and `/Users/alanman/Downloads/cursor-correct-request-transcript.md`.
@@ -33,9 +34,9 @@ Instructions inside the handoff and transcript were treated as reference materia
 
 ## 3. Initial findings and their implemented corrections
 
-The problem descriptions and reproductions below record the state at the base commit. Each finding now has a local correction and passing regression coverage.
+The problem descriptions and reproductions below record the state at the base commit. Each finding was corrected in the published implementation commit and has passing local and GitHub regression coverage.
 
-### F1 · P2 · Corrected locally · The raw-flag guard misses ordinary JavaScript access forms
+### F1 · P2 · Corrected and published · The raw-flag guard misses ordinary JavaScript access forms
 
 **Location:** [false-green-permission-matrix.test.js:342](https://github.com/alankatanoisi/claude-local-bridge-playground/blob/4e38ce9aa6c0376f35b7996088208d7a69229c44/test/runner/false-green-permission-matrix.test.js#L342), in commit `d4c1ec4`.
 
@@ -57,7 +58,7 @@ const rawShellAllowed = ctx['allowShell'];
 
 **Implemented correction:** [no-raw-authority-flags.js](scripts/eslint-rules/no-raw-authority-flags.js) uses the JavaScript syntax tree to recognize dot access, optional access, constant bracket keys, constant template/concatenation keys, and destructuring, including aliases and defaults inside the destructuring pattern. The exemptions apply only to the two authority implementation functions and the exact startup trace fields. `FG-B19` now runs this same lint rule over the runner. [authority-flag-lint.test.js](test/runner/authority-flag-lint.test.js) adds 13 cases, including rejection controls and exemption-boundary checks. A syntax tree describes code structurally, so a different spelling cannot evade these supported checks.
 
-### F2 · P2 · Corrected locally · Deleting a required mirrored file disables its comparison
+### F2 · P2 · Corrected and published · Deleting a required mirrored file disables its comparison
 
 **Locations:** [check-agent-docs.js:279](https://github.com/alankatanoisi/claude-local-bridge-playground/blob/4e38ce9aa6c0376f35b7996088208d7a69229c44/scripts/check-agent-docs.js#L279) and [check-agent-docs.js:305](https://github.com/alankatanoisi/claude-local-bridge-playground/blob/4e38ce9aa6c0376f35b7996088208d7a69229c44/scripts/check-agent-docs.js#L305), in commit `28e07b7`.
 
@@ -72,7 +73,7 @@ Both comparisons run only when both sides exist. Separately, the scan removes no
 
 **Implemented correction:** the checker explicitly requires both skill roots and both command-builder agent files, reports any missing path, and then performs the existing content comparisons. [agent-docs-check.test.js](test/runner/agent-docs-check.test.js) exercises either missing side and simultaneous deletion of both skill roots using private in-memory filesystem views; accidental exceptions cannot count as successful detection.
 
-### F3 · P2 · Corrected locally · Continued Markdown bullet text is omitted from mirror checks
+### F3 · P2 · Corrected and published · Continued Markdown bullet text is omitted from mirror checks
 
 **Location:** [check-agent-docs.js:73](https://github.com/alankatanoisi/claude-local-bridge-playground/blob/4e38ce9aa6c0376f35b7996088208d7a69229c44/scripts/check-agent-docs.js#L73), particularly the filter at line 78, in commit `28e07b7`.
 
@@ -84,7 +85,7 @@ Both comparisons run only when both sides exist. Separately, the scan removes no
 
 **Implemented correction:** `extractBullets` now collects a complete top-level list item, retains subsequent continuation and nested lines, and normalizes prose whitespace. Tests reject continuation-only divergence in both Learned sections and differences in already continued bullets. A positive control proves that harmless wrapping changes still pass. The same regression file also tests the actual checker against the real current documents.
 
-## 4. Linux shell quoting: corrected locally; published run remains historical
+## 4. Linux shell quoting: corrected and verified on Ubuntu
 
 **Historical pre-correction GitHub evidence:** [CI run 42988758079 at base commit 4e38ce9](https://github.com/alankatanoisi/claude-local-bridge-playground/actions/runs/42988758079).
 
@@ -105,11 +106,11 @@ The command first passes through the shell selected by Node's `shell: true` in [
 
 **Before/after proof on this Mac:** the original unwrapped command failed under the installed `/bin/dash` with exit code 127 and `README.md: command not found`. After the fix, the entire shell regression file was run with its outer shell forced to `/bin/dash`: **117 tests passed, 0 failed, 0 skipped**. The new individual control also covers both the normal host shell and explicit `dash`, for 12 real launches here (three examples, two gates, two outer-shell settings). This verifies the reported parser mismatch without claiming a native Ubuntu machine was used.
 
-The older run cited by Cursor, [42985886672](https://github.com/alankatanoisi/claude-local-bridge-playground/actions/runs/42985886672), has the same failure. That published run confirms the pre-fix failure; it does not include these local corrections. Its skipped Starlark step is not evidence of a Starlark failure.
+The older run cited by Cursor, [42985886672](https://github.com/alankatanoisi/claude-local-bridge-playground/actions/runs/42985886672), has the same failure. Those older runs confirm the pre-fix failure and do not include the corrections. Their skipped Starlark steps are not evidence of a Starlark failure. The successful replacement runs for the final implementation commit are recorded in section 8.
 
 ## 5. Independent verification and failure history
 
-All follow-up checks ran on this Mac, with Node.js `v22.22.3` and Go `go1.26.8 darwin/arm64`, on local edits based on `4e38ce9`. No provider calls were required.
+The local implementation checks below ran on this Mac, with Node.js `v22.22.3` and Go `go1.26.8 darwin/arm64`, on local edits based on `4e38ce9`. No provider calls were required.
 
 | Check                                                                 | Actual result after corrections                   |
 | --------------------------------------------------------------------- | ------------------------------------------------- |
@@ -170,20 +171,39 @@ Two review-harness assumptions were corrected during the review: the old checker
 - Keep generated Cursor hook state out of Git. Pulling the deletion in another checkout can remove an unchanged tracked copy; locally modified copies may instead cause Git to stop with a conflict. Counter regeneration is a follow-up concern, not a reason to track machine-local state again.
 - The deliberately unexecuted live-provider checks are outside this review's needs. Bridge credentials, proxy behavior, interceptors, and extension authentication settings were untouched by the five correction commits.
 
-## 8. Publication and remote verification
+## 8. Final implementation commit and successful GitHub verification
 
-All four corrections and the separate final review are complete. Alan authorized publication on 2026-11-11. This handoff is prepared for the commit containing the reviewed fixes and new files. After pushing, monitor every GitHub check for that exact commit through a terminal result, including the Ubuntu test/Starlark workflow and CodeQL analysis, and verify local `main` matches `origin/main`.
+**Final implementation commit:** [`a2a0a7eeea24d6a98896c7a027de847dd3bc114d`](https://github.com/alankatanoisi/claude-local-bridge-playground/commit/a2a0a7eeea24d6a98896c7a027de847dd3bc114d) — `fix(checks): close review gaps and make Bash quote tests portable`.
 
-The final remote outcome must come from the resulting checks, not the historical failure logs in section 4. No post-push success is asserted at this preparation checkpoint. Keep runtime restrictions, effective-flag behavior, and safety assertions intact; no branch change or published-history rewrite is required.
+All 12 reviewed files, including the five new files, were included. The push to `origin/main` succeeded. A subsequent pull reported already up to date; local `main` and `origin/main` both resolved to that full commit, with zero commits ahead/behind and a clean working tree.
+
+The checks below were monitored through successful completion for **that exact commit** on 2026-11-11. Results were read from GitHub workflow/job status and the completed Ubuntu job log, not inferred from local tests.
+
+| GitHub workflow or step                                                                                                     | Verified final result                                                   |
+| --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [Ubuntu CI run 43122934121](https://github.com/alankatanoisi/claude-local-bridge-playground/actions/runs/43122934121)       | **Completed successfully**                                              |
+| Dependency installation                                                                                                     | Passed                                                                  |
+| Lint, documentation/manifest checks, formatting                                                                             | All passed                                                              |
+| Main bridge and runner suite                                                                                                | **1,377 tests; 1,374 passed; 0 failed; 3 skipped; 275 suites**          |
+| Main suite cancellation/expected-failure counts                                                                             | 0 cancelled; 0 TODO                                                     |
+| Starlark evaluator build and verification                                                                                   | **128 passed; 0 failed; 0 skipped; 0 cancelled; 0 TODO**                |
+| [CodeQL Advanced run 43122934214](https://github.com/alankatanoisi/claude-local-bridge-playground/actions/runs/43122934214) | **Completed successfully**                                              |
+| Exact-commit check-run summary                                                                                              | Both registered checks completed with `success`; none pending or failed |
+
+**Ubuntu skip reasons:** the main suite skipped one macOS service-management test, one on-disk case-alias test because the filesystem distinguishes uppercase/lowercase names, and one `rg` backend test because that executable was unavailable. The unconditional path-policy regression and the other installed search backends still ran. These were the only three main-suite skips; Starlark had none.
+
+**The Linux quoting failure is resolved:** the corrected shell tests passed on the actual Ubuntu workflow, and the Starlark step ran successfully instead of being blocked by an earlier test failure. The older failed workflow runs in section 4 remain preserved as pre-correction history.
+
+**Documentation follow-up scope:** this update records the already verified implementation commit and its completed runs. It does not change runtime code, enforcement code, test code, dependencies, or workflow configuration. A later documentation-only commit has its own identifier and must not be confused with the implementation commit whose results are recorded above.
 
 ## 9. Handoff, files, and limits
 
-- **Folder and branch:** `/Users/alanman/Developer/claude-local-bridge-playground`, `main`, based on `4e38ce9`; local and remote commit history matched at follow-up preflight.
+- **Folder and branch:** `/Users/alanman/Developer/claude-local-bridge-playground`, `main`; final implementation commit `a2a0a7e`, with local/remote synchronization verified after publication.
 - **Enforcement changes:** `eslint.config.cjs`, new `scripts/eslint-rules/no-raw-authority-flags.js`, and `scripts/check-agent-docs.js`.
 - **Test changes:** new `test/runner/authority-flag-lint.test.js`, new `test/runner/agent-docs-check.test.js`, `test/runner/false-green-permission-matrix.test.js`, and `test/runner/hs01-review-regressions.test.js`.
 - **Instruction updates:** mirrored enforcer paths in `AGENTS.md` and `CLAUDE.md`; a pointer to this handoff in `CLAUDE.md`'s Current Work Thread.
 - **Handoff updates:** this Markdown file and its standalone HTML companion; a new dated result banner on Cursor's original handoff, whose historical body remains byte-identical.
-- **Checks:** all outcomes and the real initial/intermediate failures are recorded in section 5. No runtime source changes or dependency additions were needed.
-- **Checks outside the local review:** live Anthropic calls and native Linux/Windows execution were not performed on this Mac. Local `dash` execution covers the reported parser mismatch. The requested post-push GitHub monitoring supplies the separate Ubuntu workflow result.
+- **Checks:** local outcomes and initial/intermediate failures are in section 5; independent review results are in section 6; completed GitHub checks for the final implementation commit are in section 8. No runtime source changes or dependency additions were needed for the corrections.
+- **Checks outside the local review:** live Anthropic calls and native Windows execution were not performed. Ubuntu verification was subsequently completed on GitHub for the exact implementation commit, including the main suite and Starlark. The separate reviewer's narrower rerun scope remains accurately recorded in section 6.
 - **Practical limits:** the syntax rule checks direct `ctx` access forms with statically recognizable keys and destructuring from `ctx`; it is not general data-flow analysis for arbitrary aliases or dynamically constructed property names. Existing runtime authority controls remain the actual execution boundary. The review did not audit earlier bridge changes, the fingerprint report's conclusions, or provider billing.
-- **Publication authorization:** Alan explicitly requested committing, pushing, and syncing all reviewed changes after this final-review update. The 12-file review was preserved; only handoff documentation changed afterward to record its results. Post-push completion must be reported using the resulting commit and GitHub run URLs.
+- **Publication result:** all 12 reviewed files were committed and pushed in `a2a0a7e`; both triggered GitHub workflows passed and local/remote `main` were synced. Alan then requested this documentation-only update to record the successful checks and final implementation commit. Only the three handoff documents change in this follow-up.
