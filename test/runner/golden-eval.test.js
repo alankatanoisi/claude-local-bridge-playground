@@ -219,4 +219,86 @@ describe('golden-eval terminal-state checklists (HE-06 / research review idea 2)
     assert.equal(summary.failed, 1);
     assert.match(summary.results[0].message, /wrong claim/);
   });
+
+  it('runGoldenEval({ update: true }) still scores checklist-only cases and fails broken ones without snapshotting', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-update-checklist-'));
+    const caseData = loadGoldenCase(path.join(DEFAULT_GOLDEN_DIR, 'he06-authority-ceiling.json'));
+    caseData.checklist = [{ name: 'broken under update', check: 'file_exists', path: 'evil.txt' }];
+    const casePath = path.join(tmp, 'sabotaged.json');
+    const originalBytes = JSON.stringify(caseData, null, 2) + '\n';
+    fs.writeFileSync(casePath, originalBytes, 'utf8');
+
+    const summary = await runGoldenEval({ dir: tmp, update: true });
+    assert.equal(summary.ok, false, '--update must not report a failing checklist case as green');
+    assert.equal(summary.failed, 1);
+    assert.equal(fs.readFileSync(casePath, 'utf8'), originalBytes, 'checklist-only JSON must stay untouched');
+  });
+
+  it('runGoldenEval({ update: true }) refreshes expect on dual-mode cases while still failing a broken checklist', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-update-dual-'));
+    const caseData = loadGoldenCase(path.join(DEFAULT_GOLDEN_DIR, 'read-list-then-answer.json'));
+    caseData.expect = { ...caseData.expect, stopReason: 'max_steps' };
+    caseData.checklist = [{ name: 'impossible file', check: 'file_exists', path: 'never-created.txt' }];
+    const casePath = path.join(tmp, 'dual.json');
+    fs.writeFileSync(casePath, JSON.stringify(caseData, null, 2) + '\n', 'utf8');
+
+    const summary = await runGoldenEval({ dir: tmp, update: true });
+    const reloaded = JSON.parse(fs.readFileSync(casePath, 'utf8'));
+    assert.equal(reloaded.expect.stopReason, 'success', 'snapshot half may refresh');
+    assert.equal(summary.ok, false, 'failing checklist must still fail the dual-mode case');
+    assert.equal(summary.failed, 1);
+  });
+
+  it('empty checklist: [] without expect fails closed in both normal and --update modes', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-empty-checklist-'));
+    const caseData = {
+      id: 'empty-checklist',
+      prompt: 'Say hi.',
+      model_script: [{ content: [{ type: 'text', text: 'hi' }], stop_reason: 'end_turn' }],
+      checklist: [],
+    };
+    fs.writeFileSync(path.join(tmp, 'empty.json'), JSON.stringify(caseData, null, 2) + '\n', 'utf8');
+
+    const normal = await runGoldenEval({ dir: tmp });
+    assert.equal(normal.ok, false, 'empty checklist without expect must not silently pass');
+    assert.equal(normal.failed, 1);
+
+    const updated = await runGoldenEval({ dir: tmp, update: true });
+    assert.equal(updated.ok, false, 'empty checklist without expect must not silently pass under --update');
+  });
+
+  it('file predicates refuse symlinks whose realpath escapes the case cwd', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-symlink-escape-'));
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-outside-'));
+    const secretFile = path.join(outside, 'outside.txt');
+    fs.writeFileSync(secretFile, 'outside-secret\n', 'utf8');
+    fs.symlinkSync(secretFile, path.join(tmp, 'escape-link.txt'));
+
+    const existsRes = evaluateChecklist(
+      [{ name: 'symlink escape exists', check: 'file_exists', path: 'escape-link.txt' }],
+      fakeTerminal(tmp),
+    );
+    assert.equal(existsRes.passed, 0, 'file_exists must not follow a symlink outside case cwd');
+    assert.match(existsRes.items[0].detail, /escapes case cwd/);
+
+    const contentRes = evaluateChecklist(
+      [{ name: 'symlink escape content', check: 'file_content', path: 'escape-link.txt', includes: 'outside-secret' }],
+      fakeTerminal(tmp),
+    );
+    assert.equal(contentRes.passed, 0, 'file_content must not read outside case cwd via symlink');
+    assert.match(contentRes.items[0].detail, /escapes case cwd/);
+  });
+
+  it('he06-offered-tools-quarantine carries a live apply_patch payload that mutates disk if quarantine is bypassed', () => {
+    const applyPatch = require('../../src/runner/tools/apply-patch');
+    const caseData = loadGoldenCase(path.join(DEFAULT_GOLDEN_DIR, 'he06-offered-tools-quarantine.json'));
+    const toolCall = caseData.model_script[0].content.find((b) => b.type === 'tool_use' && b.name === 'apply_patch');
+    assert.ok(toolCall, 'case must script an apply_patch tool_use');
+
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-quarantine-liveness-'));
+    fs.writeFileSync(path.join(tmp, 'notes.txt'), 'original\n', 'utf8');
+    const direct = applyPatch.execute(toolCall.input, { cwd: tmp, cwdRealpath: fs.realpathSync(tmp) });
+    assert.equal(direct.ok, true, 'fixture input must be valid apply_patch arguments so disk predicate is live');
+    assert.equal(fs.readFileSync(path.join(tmp, 'notes.txt'), 'utf8'), 'updated\n');
+  });
 });

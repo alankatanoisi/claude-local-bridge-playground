@@ -352,8 +352,19 @@ async function executeGoldenCase(caseData, options = {}) {
 function resolveChecklistFile(cwd, relPath) {
   const target = path.resolve(cwd, relPath);
   // Confine file predicates to the case workspace: a checklist must not be
-  // able to read outside its own sandbox cwd.
+  // able to read outside its own sandbox cwd (including via symlinks).
   if (target !== cwd && !target.startsWith(cwd + path.sep)) {
+    return { error: 'checklist path escapes case cwd: ' + relPath };
+  }
+  try {
+    const cwdReal = fs.realpathSync(cwd);
+    if (fs.existsSync(target)) {
+      const targetReal = fs.realpathSync(target);
+      if (targetReal !== cwdReal && !targetReal.startsWith(cwdReal + path.sep)) {
+        return { error: 'checklist path escapes case cwd: ' + relPath };
+      }
+    }
+  } catch {
     return { error: 'checklist path escapes case cwd: ' + relPath };
   }
   return { target };
@@ -577,28 +588,26 @@ async function runGoldenEval(options = {}) {
     const caseData = loadGoldenCase(casePath);
     const { actual, phases, cwd } = await executeGoldenCase(caseData);
 
-    if (update) {
-      // --update refreshes snapshot cases only. Checklist-only cases are
-      // hand-written invariants; recording a snapshot over them would
-      // silently convert an intent-level check back into a brittle one.
-      if (caseData.expect || !caseData.checklist) {
-        caseData.expect = actual;
-        fs.writeFileSync(casePath, JSON.stringify(caseData, null, 2) + '\n', 'utf8');
-        if (verbose) console.error('[golden] updated ' + casePath);
-        results.push({ id: caseData.id, ok: true, updated: true });
-      } else {
-        if (verbose) console.error('[golden] skipped checklist-only case ' + casePath);
-        results.push({ id: caseData.id, ok: true, updated: false });
-      }
-      continue;
+    const hasChecklist = Array.isArray(caseData.checklist) && caseData.checklist.length > 0;
+    const hasEmptyChecklist = Array.isArray(caseData.checklist) && caseData.checklist.length === 0;
+    let updated = false;
+
+    if (update && (caseData.expect || (!hasChecklist && !hasEmptyChecklist))) {
+      // --update refreshes snapshot cases (and dual-mode snapshots), never
+      // checklist-only invariants and never an empty `checklist: []` shell.
+      caseData.expect = actual;
+      fs.writeFileSync(casePath, JSON.stringify(caseData, null, 2) + '\n', 'utf8');
+      updated = true;
+      if (verbose) console.error('[golden] updated ' + casePath);
     }
 
-    if (!caseData.expect && !caseData.checklist) {
+    if (!caseData.expect && !hasChecklist) {
       failed++;
       results.push({
         id: caseData.id,
         ok: false,
-        error: 'missing expect block and checklist (run with --update, or add a checklist)',
+        updated,
+        error: 'missing expect block and non-empty checklist (run with --update, or add checklist items)',
       });
       continue;
     }
@@ -606,7 +615,7 @@ async function runGoldenEval(options = {}) {
     const messages = [];
     let caseOk = true;
 
-    if (caseData.expect) {
+    if (caseData.expect && !updated) {
       const diffs = diffObjects(caseData.expect, actual);
       if (diffs.length) {
         caseOk = false;
@@ -615,7 +624,7 @@ async function runGoldenEval(options = {}) {
     }
 
     let checklistResult = null;
-    if (Array.isArray(caseData.checklist) && caseData.checklist.length > 0) {
+    if (hasChecklist) {
       checklistResult = evaluateChecklist(caseData.checklist, { cwd, phases });
       if (checklistResult.fraction !== 1) {
         caseOk = false;
@@ -627,10 +636,13 @@ async function runGoldenEval(options = {}) {
       failed++;
       const message = messages.join('\n');
       if (verbose) console.error(message);
-      results.push({ id: caseData.id, ok: false, message, checklist: checklistResult });
+      results.push({ id: caseData.id, ok: false, updated, message, checklist: checklistResult });
     } else {
-      if (verbose) console.error('[golden] ok ' + caseData.id);
-      results.push({ id: caseData.id, ok: true, checklist: checklistResult });
+      if (verbose)
+        console.error(
+          update && !updated ? '[golden] verified checklist-only ' + casePath : '[golden] ok ' + caseData.id,
+        );
+      results.push({ id: caseData.id, ok: true, updated, checklist: checklistResult });
     }
   }
 
