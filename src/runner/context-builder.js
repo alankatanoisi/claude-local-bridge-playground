@@ -261,6 +261,7 @@ module.exports = {
   buildUserMessage,
   buildToolResultMessage,
   buildFullToolSection,
+  FULL_TOOL_DESCRIPTIONS,
   buildRepoContextBlock,
   buildDynamicEnvironmentBlock,
   boundedRepositoryContext,

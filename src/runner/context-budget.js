@@ -113,7 +113,7 @@ const TOOL_SUMMARIES = Object.freeze({
 });
 
 // Display labels for capability-group prompt lines. Keys must match
-// CAPABILITY_GROUPS in tool-catalog.js (the lint below is the drift guard).
+// CAPABILITY_GROUPS in tool-catalog.js (enforced by FG-D15).
 const GROUP_LABELS = Object.freeze({
   core: 'Core (read + session)',
   edits: 'Edits',
@@ -241,4 +241,5 @@ module.exports = {
   capSkillListing,
   applyContextBudget,
   TOOL_SUMMARIES,
+  GROUP_LABELS,
 };

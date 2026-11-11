@@ -28,6 +28,8 @@ const { EFFECTFUL_CATEGORIES } = require('../../src/runner/authority');
 const catalog = require('../../src/runner/model-catalog');
 const pricing = require('../../src/runner/model-pricing');
 const capabilities = require('../../src/runner/model-capabilities');
+const { TOOL_SUMMARIES, GROUP_LABELS } = require('../../src/runner/context-budget');
+const { FULL_TOOL_DESCRIPTIONS } = require('../../src/runner/context-builder');
 
 const TOOLS_DIR = path.join(__dirname, '..', '..', 'src', 'runner', 'tools');
 
@@ -237,5 +239,50 @@ describe('FG-D model catalog cross-consistency', () => {
         entry.label + ' must reject effort ' + missing[0],
       );
     }
+  });
+});
+
+describe('FG-D prompt-table and group-label concordance with tool-catalog', () => {
+  // Commit 19c2a69 added the `history` capability group (`search_history`,
+  // `expand_history`) to tool-catalog.js while missing TOOL_SUMMARIES,
+  // GROUP_LABELS, and FULL_TOOL_DESCRIPTIONS (thermo-nuclear Low #8). Pin exact
+  // key parity so adding a tool or group fails immediately with the exact table
+  // to update.
+  it('FG-D14: TOOL_SUMMARIES and FULL_TOOL_DESCRIPTIONS match TOOLS 1-for-1', () => {
+    const catalogTools = Object.keys(TOOLS).sort();
+    const summaryTools = Object.keys(TOOL_SUMMARIES || {}).sort();
+    assert.deepEqual(
+      summaryTools,
+      catalogTools,
+      'src/runner/context-budget.js TOOL_SUMMARIES drifted from src/runner/tool-catalog.js TOOLS',
+    );
+
+    assert.ok(
+      Array.isArray(FULL_TOOL_DESCRIPTIONS),
+      'src/runner/context-builder.js must export FULL_TOOL_DESCRIPTIONS for catalog drift checking',
+    );
+    const fullNames = FULL_TOOL_DESCRIPTIONS.map(([name]) => name);
+    assert.equal(
+      new Set(fullNames).size,
+      fullNames.length,
+      'src/runner/context-builder.js FULL_TOOL_DESCRIPTIONS contains duplicate tool names',
+    );
+    assert.deepEqual(
+      [...fullNames].sort(),
+      catalogTools,
+      'src/runner/context-builder.js FULL_TOOL_DESCRIPTIONS drifted from src/runner/tool-catalog.js TOOLS',
+    );
+  });
+
+  it('FG-D15: GROUP_LABELS matches CAPABILITY_GROUPS 1-for-1', () => {
+    assert.ok(
+      GROUP_LABELS && typeof GROUP_LABELS === 'object',
+      'src/runner/context-budget.js must export GROUP_LABELS (fulfilling its own drift-guard comment)',
+    );
+    assert.deepEqual(
+      Object.keys(GROUP_LABELS).sort(),
+      Object.keys(CAPABILITY_GROUPS).sort(),
+      'src/runner/context-budget.js GROUP_LABELS drifted from src/runner/tool-catalog.js CAPABILITY_GROUPS',
+    );
   });
 });

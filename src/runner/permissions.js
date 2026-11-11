@@ -7,9 +7,9 @@
 const path = require('path');
 const safety = require('./safety');
 // CATEGORIES is derived from each tool module's own meta — see tool-catalog.js.
-const { CATEGORIES, pathArgKeysFor } = require('./tool-catalog');
+const { CATEGORIES, CANONICAL_PATH_ARG_KEYS, pathArgKeysFor } = require('./tool-catalog');
 const { normalizeSlot, inspectWorktreeStatus } = require('./worktree-utils');
-const { SHELL_AUTHORITY_SHORT } = require('./shell-policy');
+const { SHELL_AUTHORITY_SHORT, scanShellCommand } = require('./shell-policy');
 const { effectiveFlags, toolAboveCeiling } = require('./authority');
 
 const MODES = {
@@ -154,10 +154,35 @@ function invalidateDecisionCache(ctx, paths) {
     cache.clear();
     return;
   }
-  // Drop entries whose canonical args.path matches any invalidated path.
+  const baseCwd = ctx.cwdRealpath || ctx.cwd || process.cwd();
+  const rawTargets = new Set();
+  const resolvedTargets = new Set();
+  for (const p of paths) {
+    if (typeof p !== 'string' || !p) continue;
+    rawTargets.add(p);
+    resolvedTargets.add(path.resolve(baseCwd, p));
+  }
+  // Drop entries whose catalogued or canonical path arguments match any
+  // invalidated path (including lexical aliases such as ./a.txt vs a.txt).
   for (const [k] of cache) {
-    for (const p of paths) {
-      if (k.includes('"path":"' + p + '"') || k.includes('"path":' + JSON.stringify(p))) {
+    const firstSep = k.indexOf('|');
+    const secondSep = firstSep === -1 ? -1 : k.indexOf('|', firstSep + 1);
+    const thirdSep = secondSep === -1 ? -1 : k.indexOf('|', secondSep + 1);
+    if (thirdSep === -1) continue;
+    const toolName = k.slice(0, firstSep);
+    const argsJson = k.slice(thirdSep + 1);
+    let parsed;
+    try {
+      parsed = JSON.parse(argsJson);
+    } catch {
+      parsed = null;
+    }
+    if (!parsed || typeof parsed !== 'object') continue;
+    const candidateKeys = new Set([...pathArgKeysFor(toolName), ...CANONICAL_PATH_ARG_KEYS]);
+    for (const argKey of candidateKeys) {
+      const val = parsed[argKey];
+      if (typeof val !== 'string' || !val) continue;
+      if (rawTargets.has(val) || resolvedTargets.has(path.resolve(baseCwd, val))) {
         cache.delete(k);
         break;
       }
@@ -269,7 +294,6 @@ function _checkUncached(toolName, args, ctx) {
   // bash, not ask about a git verb inside it.
   let gitStateVerb = null;
   if (toolName === 'bash' && args && args.command) {
-    const { scanShellCommand } = require('./shell-policy');
     const scan = scanShellCommand(args.command, ctx);
     for (const issue of scan.issues) {
       if (issue.kind === 'git_state_change') {

@@ -44,6 +44,30 @@ describe('Ext-8 permission decision cache', () => {
     assert.equal(b1, b2, 'b remained cached');
   });
 
+  it('invalidateDecisionCache drops lexical path aliases (./a.txt vs a.txt) and non-"path" target keys (PR #27 F3)', () => {
+    const ctx = freshCtx('invalidate-aliases');
+    fs.writeFileSync(path.join(ctx.cwd, 'a.txt'), 'x');
+    fs.writeFileSync(path.join(ctx.cwd, 'b.txt'), 'y');
+
+    const dotSlash = permissions.check('read_file', { path: './a.txt' }, ctx);
+    const altKey = permissions.check('read_file', { file_path: 'a.txt' }, ctx);
+    const unrelated = permissions.check('read_file', { path: 'b.txt' }, ctx);
+
+    permissions.invalidateDecisionCache(ctx, ['a.txt']);
+
+    assert.notEqual(
+      permissions.check('read_file', { path: './a.txt' }, ctx),
+      dotSlash,
+      './a.txt cache entry must be invalidated when a.txt changes',
+    );
+    assert.notEqual(
+      permissions.check('read_file', { file_path: 'a.txt' }, ctx),
+      altKey,
+      'CANONICAL_PATH_ARG_KEYS entry (file_path) must be invalidated, not only literal "path"',
+    );
+    assert.equal(permissions.check('read_file', { path: 'b.txt' }, ctx), unrelated, 'unrelated path stays cached');
+  });
+
   it('P0-10: cached allow under root A does not auto-allow after the root moves to B', () => {
     const wt = require('../../src/runner/worktree-utils');
     const rootA = fs.mkdtempSync(path.join(os.tmpdir(), 'permcache-rootA-'));

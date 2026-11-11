@@ -16,7 +16,13 @@ const assert = require('node:assert');
 
 const { getDefinitions } = require('../../src/runner/tool-registry');
 const { isToolVisible, normalizeCapabilityList, computeAllowedTools } = require('../../src/runner/tool-visibility');
-const { CAPABILITY_GROUPS, TOOL_GROUPS, TOOLS } = require('../../src/runner/tool-catalog');
+const {
+  CAPABILITY_GROUPS,
+  DEFAULT_HIDDEN_TOOLS,
+  OPTIONAL_CAPABILITIES,
+  TOOL_GROUPS,
+  TOOLS,
+} = require('../../src/runner/tool-catalog');
 const { buildToolSummarySection } = require('../../src/runner/context-budget');
 const { buildFullToolSection } = require('../../src/runner/context-builder');
 
@@ -64,20 +70,14 @@ test('P2-01: default and opted-in tool surfaces', async (t) => {
     assert.ok(!names.includes('undo'), 'recovery is a separate opt-in');
   });
 
-  await t.test('recovery, agents, worktrees, skills, history each opt in independently', () => {
-    const expectations = [
-      ['recovery', ['undo', 'undo_edit']],
-      ['agents', ['spawn_agent']],
-      ['worktrees', ['enter_worktree', 'exit_worktree', 'list_worktrees']],
-      ['skills', ['run_skill']],
-      ['history', ['search_history', 'expand_history']],
-    ];
-    for (const [group, tools] of expectations) {
+  await t.test('every optional capability group opts in independently (derived from catalog)', () => {
+    for (const group of OPTIONAL_CAPABILITIES) {
+      const visibleMembers = CAPABILITY_GROUPS[group].filter((tool) => !DEFAULT_HIDDEN_TOOLS.has(tool));
       const names = offeredNames({ enabledCapabilities: new Set([group]) });
-      for (const tool of tools) {
+      for (const tool of visibleMembers) {
         assert.ok(names.includes(tool), group + ' enables ' + tool);
       }
-      assert.deepStrictEqual(names, [...CORE_SEVEN, ...tools].sort(), group + ' adds only its own tools');
+      assert.deepStrictEqual(names, [...CORE_SEVEN, ...visibleMembers].sort(), group + ' adds only its own tools');
     }
   });
 
@@ -161,7 +161,7 @@ test('P2-02: capability prose matches the offered definition set', async (t) => 
         const ctx = {
           allowShell: true,
           enableLsp: true,
-          enabledCapabilities: new Set(['edits', 'recovery', 'agents', 'worktrees', 'skills', 'history']),
+          enabledCapabilities: new Set(OPTIONAL_CAPABILITIES),
         };
         return ctx;
       })(),

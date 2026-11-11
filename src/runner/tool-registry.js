@@ -50,7 +50,16 @@
  * All three return Promises. Synchronous callers should `await`.
  */
 
-const { TOOLS, CATEGORIES, WRITE_TOOLS, DEFAULT_HIDDEN_TOOLS, QUARANTINED_TOOLS } = require('./tool-catalog');
+const path = require('path');
+const {
+  TOOLS,
+  CATEGORIES,
+  WRITE_TOOLS,
+  DEFAULT_HIDDEN_TOOLS,
+  QUARANTINED_TOOLS,
+  CANONICAL_PATH_ARG_KEYS,
+  pathArgKeysFor,
+} = require('./tool-catalog');
 const { isToolVisible } = require('./tool-visibility');
 const { planCeilingBlocksForce } = require('./authority');
 const permissions = require('./permissions');
@@ -234,6 +243,24 @@ function wrapPermissionResult(perm, toolName, args) {
   return null;
 }
 
+function invalidateCachesAfterWrite(canonical, args, ctx) {
+  invalidateContextCache();
+  if (!args || typeof args !== 'object') return;
+  const keys = new Set([...pathArgKeysFor(canonical), ...CANONICAL_PATH_ARG_KEYS]);
+  const touched = [];
+  for (const key of keys) {
+    if (typeof args[key] === 'string' && args[key]) touched.push(args[key]);
+  }
+  if (touched.length === 0) return;
+  safety.invalidateRealpathCache(ctx, touched);
+  permissions.invalidateDecisionCache(ctx, touched);
+  const baseCwd = ctx.cwdRealpath || ctx.cwd || process.cwd();
+  for (const p of touched) {
+    const absPath = path.isAbsolute(p) ? p : path.resolve(baseCwd, p);
+    searchCache.invalidateForPath(absPath);
+  }
+}
+
 async function execute(toolName, args, ctx, toolUseId) {
   const resolved = resolveToolName(toolName);
   const canonical = resolved.canonical;
@@ -254,16 +281,7 @@ async function execute(toolName, args, ctx, toolUseId) {
   try {
     const result = await runAndScrub(tool, args, ctx, toolUseId);
     if (WRITE_TOOLS.has(canonical) && result.ok) {
-      invalidateContextCache();
-      if (args && args.path) {
-        safety.invalidateRealpathCache(ctx, [args.path]);
-        permissions.invalidateDecisionCache(ctx, [args.path]);
-        const path = require('path');
-        const absPath = path.isAbsolute(args.path)
-          ? args.path
-          : path.resolve(ctx.cwdRealpath || ctx.cwd || process.cwd(), args.path);
-        searchCache.invalidateForPath(absPath);
-      }
+      invalidateCachesAfterWrite(canonical, args, ctx);
     }
     if (resolved.aliasUsed) {
       result.envelope.aliasUsed = resolved.aliasUsed;
@@ -310,16 +328,7 @@ async function executeForce(toolName, args, ctx, toolUseId) {
   try {
     const result = await runAndScrub(tool, args, ctx, toolUseId);
     if (WRITE_TOOLS.has(canonical) && result.ok) {
-      invalidateContextCache();
-      if (args && args.path) {
-        safety.invalidateRealpathCache(ctx, [args.path]);
-        permissions.invalidateDecisionCache(ctx, [args.path]);
-        const path = require('path');
-        const absPath = path.isAbsolute(args.path)
-          ? args.path
-          : path.resolve(ctx.cwdRealpath || ctx.cwd || process.cwd(), args.path);
-        searchCache.invalidateForPath(absPath);
-      }
+      invalidateCachesAfterWrite(canonical, args, ctx);
     }
     result.permission = perm;
     return result;
