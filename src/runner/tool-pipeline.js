@@ -72,6 +72,7 @@ const { buildToolResultContent } = require('./tool-result-content');
 const { createRepeatToolDetector, formatRepeatWarningNote } = require('./repeat-tool-detector');
 const { scrubDeepSecrets } = require('./redaction-boundary');
 const { buildPlanProposal } = require('./plan-proposals');
+const { effectiveFlags } = require('./authority');
 
 // B3: path-disjoint detection over canonicalized paths. Two paths are
 // disjoint iff neither is identical to the other and neither is a
@@ -408,7 +409,7 @@ function createToolPipeline(deps = {}) {
     const readOutcomes = [];
     for (const { toolUse: tu, result: rawResult } of readBatch) {
       let result = rawResult;
-      if (result.needsConfirmation && ctx.plan) {
+      if (result.needsConfirmation && effectiveFlags(ctx).plan) {
         // Read-only tools run for real in plan mode; this only fires for a
         // read-category tool that still returned an ask (defense in depth).
         result = recordPlanProposal(step, tu, result);
@@ -447,7 +448,7 @@ function createToolPipeline(deps = {}) {
     // emitted order. Never in plan mode: executeForce would bypass the
     // plan-mode fabrication and write for real.
     const parallelResults = new Map();
-    if (ctx.acceptEdits === true && !ctx.plan && writeTools.length > 1) {
+    if (ctx.acceptEdits === true && !effectiveFlags(ctx).plan && writeTools.length > 1) {
       const groups = _groupDisjointWrites(writeTools, ctx);
       for (const group of groups) {
         if (group.length < 2) continue;
@@ -506,7 +507,7 @@ function createToolPipeline(deps = {}) {
             transcript &&
             transcript.append({ type: 'tool_confirm', step, tool: tu.name, proposedAction: result.proposedAction }),
         );
-        if (ctx.plan) {
+        if (effectiveFlags(ctx).plan) {
           result = recordPlanProposal(step, tu, result);
         } else {
           const choice = await confirm.ask(result.proposedAction, ctx.confirmTimeout);
@@ -545,7 +546,7 @@ function createToolPipeline(deps = {}) {
     }
 
     const hadSuccessfulWrite = outcomes.some((o) => o.phase === 'write' && o.result && o.result.ok);
-    if (hadSuccessfulWrite && !ctx.plan) {
+    if (hadSuccessfulWrite && !effectiveFlags(ctx).plan) {
       const watch = runIfEnabled(ctx);
       if (watch.ran) {
         const appendix = formatVerificationAppendix(watch);

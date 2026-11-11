@@ -8,6 +8,7 @@
  */
 
 const fs = require('fs');
+const { effectiveFlags } = require('./authority');
 
 const TTY_PATH = '/dev/tty';
 
@@ -55,7 +56,7 @@ function parseSelection(raw, options, allowMultiple) {
 }
 
 function askUserQuestion(payload, ctx = {}) {
-  if (ctx.plan) {
+  if (effectiveFlags(ctx).plan) {
     return {
       ok: false,
       text: 'Plan mode: would ask the user — ' + String(payload.question || '').trim(),

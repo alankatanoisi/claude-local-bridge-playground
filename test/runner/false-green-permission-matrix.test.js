@@ -247,3 +247,210 @@ describe('FG-B gate coverage of non-"path" argument keys', () => {
     }
   });
 });
+
+describe('FG-B whole-runner effectiveFlags(ctx) enforcement (no raw ceiling-flag reads)', () => {
+  const RUNNER_DIR = path.join(__dirname, '..', '..', 'src', 'runner');
+
+  function walkRunnerJs(dir = RUNNER_DIR, acc = []) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) walkRunnerJs(p, acc);
+      else if (entry.name.endsWith('.js')) acc.push(p);
+    }
+    return acc;
+  }
+
+  function stripJsComments(src) {
+    const out = src.split('');
+    const blank = (from, to) => {
+      for (let k = from; k < to; k++) if (out[k] !== '\n') out[k] = ' ';
+    };
+    let i = 0;
+    let prev = '';
+    while (i < src.length) {
+      const c = src[i];
+      const n = src[i + 1];
+      if (c === '/' && n === '/') {
+        let j = i;
+        while (j < src.length && src[j] !== '\n') j++;
+        blank(i, j);
+        i = j;
+        continue;
+      }
+      if (c === '/' && n === '*') {
+        let j = src.indexOf('*/', i + 2);
+        j = j === -1 ? src.length : j + 2;
+        blank(i, j);
+        i = j;
+        continue;
+      }
+      if (c === '"' || c === "'" || c === '`') {
+        let j = i + 1;
+        while (j < src.length) {
+          if (src[j] === '\\') {
+            j += 2;
+            continue;
+          }
+          if (src[j] === c) break;
+          j++;
+        }
+        i = j + 1;
+        prev = c;
+        continue;
+      }
+      if (c === '/' && /[(=,:[!&|?{};+\-*%]|^$/.test(prev)) {
+        let j = i + 1;
+        let inClass = false;
+        while (j < src.length) {
+          if (src[j] === '\\') {
+            j += 2;
+            continue;
+          }
+          if (src[j] === '[') inClass = true;
+          else if (src[j] === ']') inClass = false;
+          else if (src[j] === '/' && !inClass) break;
+          else if (src[j] === '\n') {
+            j = -1;
+            break;
+          }
+          j++;
+        }
+        if (j > 0) {
+          i = j + 1;
+          prev = '/';
+          continue;
+        }
+      }
+      if (!/\s/.test(c)) prev = c;
+      i++;
+    }
+    return out.join('');
+  }
+
+  // FG-B19: PR #27 thermo-nuclear F1 caught five modules reading raw
+  // `ctx.noNetwork` instead of `effectiveFlags(ctx).noNetwork`, and `FG-I2`
+  // banned raw `if (ctx.noNetwork)` — leaving `ctx.plan` and `ctx.allowShell`
+  // unguarded across `tool-pipeline.js`, `test-watcher.js`, `tool-visibility.js`,
+  // `user-question.js`, `context-budget.js`, and `run.js`. Ban ALL raw reads of
+  // the three ceiling-clamped flags outside `authority.js` itself and `run.js`'s
+  // single startup `run_started` trace snapshot (3 fields when raw === effective).
+  it('FG-B19: no module under src/runner reads raw ctx.allowShell, ctx.plan, or ctx.noNetwork for behavior', () => {
+    const ALLOWED_RAW_COUNTS = {
+      'authority.js': 9, // createAuthorityCeiling + effectiveFlags implementation
+      'run.js': 3, // run_started startup trace snapshot (allow_shell, no_network, plan)
+    };
+    const RAW_CEILING_FLAG = /\bctx\s*(?:\?\.|\.)\s*(allowShell|plan|noNetwork)\b/g;
+    const offenders = [];
+
+    for (const abs of walkRunnerJs()) {
+      const rel = path.relative(RUNNER_DIR, abs);
+      const code = stripJsComments(fs.readFileSync(abs, 'utf8'));
+      const hits = [...code.matchAll(RAW_CEILING_FLAG)];
+      const allowed = ALLOWED_RAW_COUNTS[rel] || 0;
+      if (hits.length !== allowed && (hits.length > allowed || allowed === 0)) {
+        if (hits.length > 0) {
+          const lines = hits.map((m) => {
+            const line = code.slice(0, m.index).split('\n').length;
+            return `${rel}:${line} (${m[0].trim()})`;
+          });
+          offenders.push(...lines);
+        }
+      }
+    }
+
+    assert.deepEqual(
+      offenders,
+      [],
+      'Raw ceiling-flag read(s) found under src/runner:\n  ' +
+        offenders.join('\n  ') +
+        '\nUse effectiveFlags(ctx).allowShell / .plan / .noNetwork from src/runner/authority.js ' +
+        'so mid-run ctx mutation can never widen authority or escape plan/no-network mode.',
+    );
+  });
+
+  it('FG-B20: mid-run allowShell=true cannot enable test-watcher shell execution or run during plan ceiling', () => {
+    const watcher = require('../../src/runner/test-watcher');
+    const { tmp, ctx } = makeCtx({ allowShell: false, testWatch: true });
+    fs.writeFileSync(path.join(tmp, 'package.json'), JSON.stringify({ scripts: { test: 'echo should-not-run' } }));
+    ctx.authorityCeiling = createAuthorityCeiling({ allowShell: false, plan: false });
+    ctx.allowShell = true; // hostile/buggy mid-run escalation
+
+    assert.equal(watcher.isWatchEnabled(ctx), false, 'ceiling allowShell:false must keep test-watcher off');
+    assert.equal(watcher.runIfEnabled(ctx).ran, false, 'test-watcher must not spawn shell without startup consent');
+
+    const planCtx = {
+      cwd: tmp,
+      cwdRealpath: fs.realpathSync(tmp),
+      allowShell: true,
+      plan: true,
+      testWatch: true,
+    };
+    planCtx.authorityCeiling = createAuthorityCeiling(planCtx);
+    planCtx.plan = false; // attempt to escape plan mode mid-run
+    assert.equal(watcher.isWatchEnabled(planCtx), false, 'plan ceiling must block post-write test execution');
+  });
+
+  it('FG-B21: mid-run allowShell=true or allowedTools wipe cannot widen tool visibility above the ceiling', () => {
+    const { isToolVisible } = require('../../src/runner/tool-visibility');
+    const { ctx } = makeCtx({ allowShell: false });
+    ctx.authorityCeiling = createAuthorityCeiling({
+      allowShell: false,
+      _cliToolAllowlist: new Set(['read_file']),
+    });
+    ctx.allowShell = true; // mid-run escalation attempt
+    ctx.allowedTools = null; // attempt to drop --tools allowlist
+
+    assert.equal(isToolVisible('bash', ctx), false, 'bash must stay invisible under allowShell:false ceiling');
+    assert.equal(
+      isToolVisible('list_files', ctx),
+      false,
+      'list_files must stay invisible outside the startup --tools ceiling',
+    );
+    assert.equal(isToolVisible('read_file', ctx), true, 'read_file inside --tools ceiling remains visible');
+  });
+
+  it('FG-B22: clearing ctx.plan mid-run cannot let askUserQuestion bypass plan-mode refusal', () => {
+    const { askUserQuestion } = require('../../src/runner/user-question');
+    const { ctx } = makeCtx({ plan: true });
+    ctx.authorityCeiling = createAuthorityCeiling(ctx);
+    ctx.plan = false; // mid-run escape attempt
+
+    const res = askUserQuestion({ question: 'Proceed?', options: [{ label: 'Yes' }, { label: 'No' }] }, ctx);
+    assert.equal(res.ok, false);
+    assert.match(res.text, /^Plan mode:/, 'askUserQuestion must still enforce the startup plan ceiling');
+  });
+
+  it('FG-B23: clearing ctx.plan mid-run in tool-pipeline still records plan proposals without prompting or writing', async () => {
+    const { createToolPipeline } = require('../../src/runner/tool-pipeline');
+    const { tmp, ctx } = makeCtx({
+      plan: true,
+      enabledCapabilities: new Set(['edits']),
+      planProposals: [],
+    });
+    ctx.authorityCeiling = createAuthorityCeiling(ctx);
+
+    let confirmCalled = false;
+    const pipeline = createToolPipeline({
+      ctx,
+      runId: 'fg-b23-plan-ceiling',
+      confirm: {
+        ask: async () => {
+          confirmCalled = true;
+          return 'allow';
+        },
+      },
+      sinks: {},
+    });
+    pipeline.toolDefinitions(); // snapshot offered tools for this turn
+    ctx.plan = false; // mid-run attempt to drop out of plan mode
+
+    const turn = await pipeline.executeTurn(1, [
+      { id: 'tu_plan_1', name: 'write_file', input: { path: 'escaped.txt', content: 'nope\n' } },
+    ]);
+
+    assert.equal(confirmCalled, false, 'plan ceiling must record a proposal, never call confirm.ask');
+    assert.equal(fs.existsSync(path.join(tmp, 'escaped.txt')), false, 'plan ceiling must never write to disk');
+    assert.equal(ctx.planProposals.length, 1, 'write must be recorded in ctx.planProposals');
+    assert.match(String(turn.toolResults[0].content), /Plan mode:/);
+  });
+});

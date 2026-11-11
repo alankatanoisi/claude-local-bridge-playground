@@ -19,6 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const safety = require('./safety');
+const { effectiveFlags } = require('./authority');
 
 const DEFAULT_BUDGET_MS = 30_000;
 
@@ -55,7 +56,11 @@ function detectTestCommand(cwd) {
 }
 
 function isWatchEnabled(ctx) {
-  if (!ctx || !ctx.allowShell) return false;
+  // Clamp against the startup authority ceiling: test-watcher spawns a real
+  // shell child, so mid-run escalation must never enable it without
+  // --allow-shell and clearing plan mid-run must never run post-write commands.
+  const eff = effectiveFlags(ctx);
+  if (!ctx || !eff.allowShell || eff.plan) return false;
   if (ctx.testWatch) return true;
   return process.env.BRIDGE_RUNNER_TEST_WATCH === '1';
 }

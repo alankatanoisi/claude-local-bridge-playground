@@ -23,13 +23,15 @@ const {
   QUARANTINED_TOOLS,
   OPTIONAL_CAPABILITIES,
 } = require('./tool-catalog');
+const { effectiveFlags, toolAboveCeiling } = require('./authority');
 
 // Hard gates that apply on every path, including a --tools allowlist. These
 // are consent flags, not preferences: naming a gated tool in --tools must not
 // bypass the flag that grants its authority.
 function isBaseEligible(name, ctx) {
   if (QUARANTINED_TOOLS.has(name)) return false;
-  if ((name === 'bash' || name === 'manage_shell_jobs') && !(ctx && ctx.allowShell)) return false;
+  if (toolAboveCeiling(name, ctx)) return false;
+  if ((name === 'bash' || name === 'manage_shell_jobs') && !effectiveFlags(ctx).allowShell) return false;
   if (name === 'lsp_query' && !isLspEnabled(ctx)) return false;
   if (name === 'spawn_agent' && (ctx?.spawnDepth || 0) > 0) return false;
   return true;
@@ -48,7 +50,7 @@ function isLspEnabled(ctx) {
 function isGroupEnabled(name, ctx) {
   const group = TOOL_GROUPS[name];
   if (group === 'core') return true;
-  if (group === 'shell') return !!(ctx && ctx.allowShell);
+  if (group === 'shell') return effectiveFlags(ctx).allowShell;
   if (group === 'lsp') return isLspEnabled(ctx);
   return !!(ctx && ctx.enabledCapabilities instanceof Set && ctx.enabledCapabilities.has(group));
 }
@@ -68,10 +70,12 @@ function computeAllowedTools(ctx) {
 
 function isToolVisible(name, ctx) {
   if (QUARANTINED_TOOLS.has(name)) return false;
+  if (toolAboveCeiling(name, ctx)) return false;
   // --tools exact allowlist wins (it already went through isBaseEligible in
   // computeAllowedTools, and may deliberately expose hidden tools like
-  // apply_patch).
-  if (ctx?.allowedTools) return ctx.allowedTools.has(name);
+  // apply_patch). Re-check isBaseEligible so a mid-run narrowing or ceiling
+  // still hides consent-gated tools.
+  if (ctx?.allowedTools) return isBaseEligible(name, ctx) && ctx.allowedTools.has(name);
   if (!isBaseEligible(name, ctx)) return false;
   if (!isGroupEnabled(name, ctx)) return false;
   return !DEFAULT_HIDDEN_TOOLS.has(name);

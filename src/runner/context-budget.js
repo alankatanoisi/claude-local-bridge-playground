@@ -12,6 +12,7 @@
 const crypto = require('crypto');
 const { isToolVisible } = require('./tool-visibility');
 const { CAPABILITY_GROUPS } = require('./tool-catalog');
+const { effectiveFlags } = require('./authority');
 
 const DEFAULT_CONTEXT_BUDGET_CHARS = 32_000;
 const SKILL_ENTRY_MAX_CHARS = 250;
@@ -23,7 +24,7 @@ let dynamicTailCache = null;
 let dynamicCacheKey = null;
 
 function _toolRegistryHash(ctx) {
-  const allowShell = ctx && ctx.allowShell ? '1' : '0';
+  const allowShell = effectiveFlags(ctx).allowShell ? '1' : '0';
   const enableLsp = ctx && ctx.enableLsp ? '1' : '0';
   // P2-01: the capability set changes the offered surface, so it must change
   // the cache key — otherwise a 7-tool run could reuse a cached prompt that

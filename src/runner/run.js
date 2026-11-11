@@ -865,15 +865,12 @@ async function run(options) {
       prompt,
       stdinText,
       flags: {
-        allowShell: ctx.allowShell,
+        allowShell: effectiveFlags(ctx).allowShell,
         acceptEdits: ctx.acceptEdits,
         dontAsk: ctx.dontAsk,
-        plan: ctx.plan,
-        // Effective, not raw: a child must inherit the startup no-network
-        // ceiling even if the parent's mutable flag was cleared mid-run
-        // (thermo-nuclear F1). allowShell/acceptEdits/dontAsk stay raw here
-        // because narrowChildAuthority clamps them against the parent ceiling
-        // downstream; noNetwork has no such downstream clamp.
+        plan: effectiveFlags(ctx).plan,
+        // Effective, not raw: child/archive state must reflect the startup
+        // authority ceiling even if a mutable flag changes mid-run.
         noNetwork: effectiveFlags(ctx).noNetwork,
       },
       transcriptPath,
@@ -1117,7 +1114,7 @@ async function run(options) {
     if (partial.upstreamStopReason !== undefined && partial.upstreamStopReason !== null) {
       result.upstreamStopReason = partial.upstreamStopReason;
     }
-    if (ctx.plan && Array.isArray(ctx.planProposals) && ctx.planProposals.length > 0) {
+    if (effectiveFlags(ctx).plan && Array.isArray(ctx.planProposals) && ctx.planProposals.length > 0) {
       result.planProposals = ctx.planProposals;
     }
     // P1-05: surface incomplete child usage so operators know parent telemetry
@@ -1435,7 +1432,7 @@ async function run(options) {
         changedFiles: (ctx.undoLog || []).map((entry) => entry.path).filter(Boolean),
         unresolvedErrors: ctx.unresolvedErrors || [],
         safetyConstraints: [
-          ctx.allowShell ? 'Shell is explicitly enabled.' : 'Shell remains hidden.',
+          effectiveFlags(ctx).allowShell ? 'Shell is explicitly enabled.' : 'Shell remains hidden.',
           ctx.acceptEdits ? 'Writes may proceed without confirmation.' : 'Writes remain confirmation-guarded.',
         ],
       },
