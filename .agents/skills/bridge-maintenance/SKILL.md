@@ -98,6 +98,14 @@ canonical repository or the sibling Codex playground. Read `AGENTS.md` first.
 7. Restore the originally running mode and verify it again. Run a final
    fingerprint check. Report discrepancies rather than calling partial success
    complete.
+8. When the user explicitly includes `VS Code — existing/debug`, inspect the
+   ordinary VS Code extension installation and port 11437 separately from the
+   managed copies. If missing or stale, install the verified current local VSIX
+   into the ordinary profile, activate it, and compare its source files. Keep
+   the runtime host selector connect-only. Run
+   `node scripts/hosting/verify-live.js vscode`, then select that host in a fresh
+   T3 Bridge Runner chat and verify a bounded synthetic response. Ordinary
+   VS Code must stay open; never reset a failed old chat to manufacture success.
 
 ## Handoff and synchronization
 

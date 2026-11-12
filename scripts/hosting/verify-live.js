@@ -8,19 +8,31 @@ const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
 const { MODES, job, ownsListener } = require('../../src/hosting/control');
+const { HOSTS, probeMessagesEndpoint } = require('../../src/hosting/hosts');
 const { DEFAULT_MODEL } = require('../../src/models');
 async function main() {
   const mode = process.argv[2];
-  if (!Object.hasOwn(MODES, mode) || !job(mode).pid) throw new Error('Start a managed mode first');
-  const port = MODES[mode];
-  if (!ownsListener(mode)) throw new Error('Listener is not owned by the selected managed job');
+  if (!Object.hasOwn(HOSTS, mode)) throw new Error('Choose standalone, desktop, browser, or vscode');
+  const managed = Object.hasOwn(MODES, mode);
+  const port = HOSTS[mode].port;
+  if (managed) {
+    if (!job(mode).pid) throw new Error('Start the selected managed mode first');
+    if (!ownsListener(mode)) throw new Error('Listener is not owned by the selected managed job');
+  } else if (!(await probeMessagesEndpoint(`http://127.0.0.1:${port}/v1/messages`))) {
+    // The ordinary editor belongs to the user. Verify an existing listener;
+    // this check never starts, stops, installs, or adopts a VS Code process.
+    throw new Error('Start the Claude Local Bridge extension in ordinary VS Code first');
+  }
   const runId = new Date().toISOString().replace(/[:.]/g, '-');
   const root = path.join(os.homedir(), '.bridge-runner', 'hosting-verification');
   fs.mkdirSync(root, { recursive: true, mode: 0o700 });
   const results = {
     mode,
     port,
-    listenerOwned: true,
+    managed,
+    // Ownership is established only for launchd-managed modes. An ordinary
+    // editor connection must not be mislabeled as a job owned by our controller.
+    listenerOwned: managed ? true : null,
     model: DEFAULT_MODEL,
     testedAt: new Date().toISOString(),
     checks: {},
