@@ -89,9 +89,9 @@ describe('fingerprint automation header containment', () => {
   it('loads the checked-in fallback without request-specific fields', () => {
     const checkedIn = automation.loadFallbackManifest();
     // This pin must move every time the fallback manifest is refreshed
-    // The 2026-10-16 localhost capture verified 2.1.301. Keeping an explicit
+    // The 2026-11-11 localhost capture verified 2.1.322. Keeping an explicit
     // expected version makes us review this test whenever that identity changes.
-    assert.equal(checkedIn.claudeCodeVersion, '2.1.301');
+    assert.equal(checkedIn.claudeCodeVersion, '2.1.322');
     for (const name of checkedIn.stableHeaders ? Object.keys(checkedIn.stableHeaders) : []) {
       assert.ok(automation.STABLE_CAPTURE_HEADERS.includes(name));
       assert.equal(name.startsWith('authorization'), false);

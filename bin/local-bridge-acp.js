@@ -33,7 +33,7 @@ const path = require('path');
 
 const { run } = require('../src/runner/run');
 const { createAcpAgent, MODEL_CHOICES, DEFAULT_ACP_MAX_STEPS } = require('../src/runner/acp/agent');
-const { EFFORT_LEVELS, EFFORT_AUTO } = require('../src/runner/model-catalog');
+const { EFFORT_LEVELS, EFFORT_AUTO, CATALOG_VERSION } = require('../src/runner/model-catalog');
 const { OPTIONAL_CAPABILITIES } = require('../src/runner/tool-catalog');
 // Reused from the terminal runner so the two entry points cannot drift on how
 // a bridge URL is normalized. Requiring it does not execute its main() — that
@@ -143,6 +143,9 @@ function main() {
   let version = '0.0.0';
   try {
     version = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version || version;
+    // A host can cache models by agent version. Include the catalog revision
+    // so a new handshake can distinguish this model list from an older one.
+    version += '+' + CATALOG_VERSION;
   } catch {
     // agentInfo.version is cosmetic; never fail startup over it
   }

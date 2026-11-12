@@ -36,8 +36,12 @@ function resolveRatesDetailed(model) {
 }
 
 function estimateCostUsd(model, usage) {
-  const rates = resolveRates(model);
   const u = usage || {};
+  // Cached tokens are part of prompt size too: a mostly cached 101K prompt
+  // still crosses Haiku 5.5's pricing boundary.
+  const totalInputTokens =
+    (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+  const rates = pricingForModel(model, totalInputTokens).rates;
   // The Messages API reports cache_read_input_tokens and
   // cache_creation_input_tokens SEPARATELY from input_tokens (they are not
   // included in it), so summing all four components is correct — no double count.

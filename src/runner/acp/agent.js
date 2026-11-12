@@ -62,11 +62,15 @@ const DEFAULT_ACP_MAX_STEPS = 1000;
 // ACP composer controls are select-or-boolean only (no numeric input exists in
 // the protocol or in T3's composer), so the token budget is a preset list.
 
-// Newest first after the default; the older Fable 5 / Opus 5 stay selectable
-// because they are still served (models overview checked 2026-09-26).
+// Keep the existing default first; new releases stay above their older siblings.
+// Both ACP picker surfaces read this list (official pages checked 2026-11-11).
 const MODEL_CHOICES = Object.freeze([
   'claude-sonnet-5',
   'claude-opus-5-5',
+  'claude-fable-5-2',
+  'claude-mythos-5-2',
+  'claude-sonnet-5-5',
+  'claude-haiku-5-5',
   'claude-fable-5-1',
   'claude-fable-5',
   'claude-opus-5',
@@ -97,7 +101,7 @@ const SESSION_MODE_IDS = Object.freeze(SESSION_MODES.map((mode) => mode.id));
 
 function modelLabel(modelId) {
   const entry = catalogEntryForModel(modelId);
-  return (entry && entry.label) || modelId;
+  return entry ? entry.label + (entry.lifecycle === 'limited-availability' ? ' (limited availability)' : '') : modelId;
 }
 
 /**

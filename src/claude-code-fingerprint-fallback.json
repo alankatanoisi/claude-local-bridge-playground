@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
-  "verifiedAt": "2026-10-16",
-  "claudeCodeVersion": "2.1.301",
+  "verifiedAt": "2026-11-11",
+  "claudeCodeVersion": "2.1.322",
   "stableHeaders": {
     "accept": "application/json",
     "anthropic-beta": "claude-code-20250219,interleaved-thinking-2025-05-14",
     "anthropic-dangerous-direct-browser-access": "true",
-    "user-agent": "claude-cli/2.1.301 (external, sdk-cli)",
+    "user-agent": "claude-cli/2.1.322 (external, sdk-cli)",
     "x-app": "cli",
     "x-stainless-arch": "arm64",
     "x-stainless-lang": "js",
     "x-stainless-os": "MacOS",
     "x-stainless-package-version": "0.128.0",
     "x-stainless-runtime": "node",
-    "x-stainless-runtime-version": "v26.3.0"
+    "x-stainless-runtime-version": "v26.12.1"
   },
   "systemBlocks": {
     "agentIdentity": "You are a Claude agent, built on Anthropic's Claude Agent SDK.",

@@ -850,7 +850,11 @@
                 <select id="coordinatorModel">
                   <option value="claude-sonnet-5" selected>claude-sonnet-5 (default)</option>
                   <option value="claude-opus-5-5">claude-opus-5-5 (latest Opus)</option>
-                  <option value="claude-fable-5-1">claude-fable-5-1 (latest Fable)</option>
+                  <option value="claude-fable-5-2">claude-fable-5-2 (latest Fable)</option>
+                  <option value="claude-mythos-5-2">claude-mythos-5-2 (limited availability)</option>
+                  <option value="claude-sonnet-5-5">claude-sonnet-5-5</option>
+                  <option value="claude-haiku-5-5">claude-haiku-5-5</option>
+                  <option value="claude-fable-5-1">claude-fable-5-1</option>
                   <option value="claude-mythos-5-1">claude-mythos-5-1 (limited availability)</option>
                   <option value="claude-fable-5">claude-fable-5</option>
                   <option value="claude-mythos-5">claude-mythos-5 (limited availability)</option>
@@ -1040,7 +1044,11 @@
                   <select id="model">
                     <option value="claude-sonnet-5" selected>claude-sonnet-5 (default)</option>
                     <option value="claude-opus-5-5">claude-opus-5-5 (latest Opus)</option>
-                    <option value="claude-fable-5-1">claude-fable-5-1 (latest Fable)</option>
+                    <option value="claude-fable-5-2">claude-fable-5-2 (latest Fable)</option>
+                    <option value="claude-mythos-5-2">claude-mythos-5-2 (limited availability)</option>
+                    <option value="claude-sonnet-5-5">claude-sonnet-5-5</option>
+                    <option value="claude-haiku-5-5">claude-haiku-5-5</option>
+                    <option value="claude-fable-5-1">claude-fable-5-1</option>
                     <option value="claude-mythos-5-1">claude-mythos-5-1 (limited availability)</option>
                     <option value="claude-fable-5">claude-fable-5</option>
                     <option value="claude-mythos-5">claude-mythos-5 (limited availability)</option>
@@ -2278,6 +2286,10 @@ node bin/local-bridge-undo.js run &lt;run-id|session-id&gt; --cwd /path/to/proje
       // MATTERS: the first match wins, and "claude-fable-5-1" also matches the
       // "claude-fable-5" prefix, so point releases sit above their family.
       const MODEL_RULES = [
+        { prefix: 'claude-fable-5-2', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
+        { prefix: 'claude-mythos-5-2', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
+        { prefix: 'claude-sonnet-5-5', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
+        { prefix: 'claude-haiku-5-5', effort: EFFORT_LEVELS, thinking: 'default-on', offEffort: ['low', 'medium', 'high'], sampling: 'default-only', maxOutput: 128000 },
         { prefix: 'claude-fable-5-1', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
         { prefix: 'claude-mythos-5-1', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },
         { prefix: 'claude-opus-5-5', effort: EFFORT_LEVELS, thinking: 'always-on', sampling: 'default-only', maxOutput: 128000 },

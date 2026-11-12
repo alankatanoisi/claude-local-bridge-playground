@@ -22,13 +22,41 @@
  */
 
 // Bump the version whenever an entry changes; consumers report it in warnings.
-const CATALOG_VERSION = '2026-09-26-fable-5-1-opus-5-5';
+const CATALOG_VERSION = '2026-11-11-fable-5-2-sonnet-haiku-5-5';
 
 // Where each class of fact came from. `status` is deliberately blunt:
 // 'verified-live' means someone actually fetched the official page on that
 // date; 'local-experiment' means behavior was confirmed against the API via
 // the bridge; 'unverified' means inherited knowledge awaiting a live check.
 const CATALOG_SOURCES = Object.freeze([
+  {
+    id: 'anthropic-fable-5-2',
+    url: 'https://platform.claude.com/docs/en/models/fable-5-2/overview',
+    status: 'verified-live',
+    checked: '2026-11-11',
+    note: 'Fable/Mythos 5.2: 1M context, 128K output, always-on adaptive thinking; $8/$40, $0.20 cache reads, $16 one-hour cache writes. Mythos access is limited.',
+  },
+  {
+    id: 'anthropic-sonnet-5-5',
+    url: 'https://platform.claude.com/docs/en/models/sonnet-5-5/overview',
+    status: 'verified-live',
+    checked: '2026-11-11',
+    note: 'Sonnet 5.5: 1M context, 128K synchronous output; $2/$10, $0.10 cache reads. Thinking cannot be fully disabled; between_tools is a separate mode not exposed by this runner.',
+  },
+  {
+    id: 'anthropic-haiku-5-5',
+    url: 'https://platform.claude.com/docs/en/models/haiku-5-5/overview',
+    status: 'verified-live',
+    checked: '2026-11-11',
+    note: 'Haiku 5.5: 1M context, 128K output; prompts up to 100K cost $0.10/$0.50, above 100K $0.50/$2.50. Cache reads 0.1x input, one-hour writes 2x.',
+  },
+  {
+    id: 'anthropic-effort-2026-11',
+    url: 'https://platform.claude.com/docs/en/build-with-claude/effort',
+    status: 'verified-live',
+    checked: '2026-11-11',
+    note: 'Fable/Mythos 5.2, Sonnet/Haiku 5.5 support all five effort levels. Haiku 5.5 permits thinking disabled only through high effort; Sonnet 5.5 rejects disabled.',
+  },
   {
     id: 'anthropic-models-overview',
     url: 'https://platform.claude.com/docs/en/about-claude/models/overview',
@@ -139,6 +167,10 @@ const FABLE_PRICING = Object.freeze({ input: 10.0, output: 50.0, cache_read: 1.0
 // Fable/Mythos 5.1 keep Fable 5's per-token price but cache reads drop to
 // 0.025x input ($0.25/MTok), so they need their own rate object.
 const FABLE_5_1_PRICING = Object.freeze({ input: 10.0, output: 50.0, cache_read: 0.25, cache_write: 20.0 });
+const FABLE_5_2_PRICING = Object.freeze({ input: 8.0, output: 40.0, cache_read: 0.2, cache_write: 16.0 });
+const SONNET_5_5_PRICING = Object.freeze({ input: 2.0, output: 10.0, cache_read: 0.1, cache_write: 4.0 });
+const HAIKU_5_5_PRICING = Object.freeze({ input: 0.1, output: 0.5, cache_read: 0.01, cache_write: 0.2 });
+const HAIKU_5_5_LONG_PRICING = Object.freeze({ input: 0.5, output: 2.5, cache_read: 0.05, cache_write: 1.0 });
 const OPUS_PRICING = Object.freeze({ input: 5.0, output: 25.0, cache_read: 0.5, cache_write: 10.0 });
 // Opus 5.5 is cheaper than Opus 5 and its cache reads are 0.05x input.
 const OPUS_5_5_PRICING = Object.freeze({ input: 4.0, output: 20.0, cache_read: 0.2, cache_write: 8.0 });
@@ -168,6 +200,59 @@ const THINKING_OFF_EFFORT = BASE_EFFORT;
 // pattern such as /^claude-fable-5(?:$|-)/ also matches "claude-fable-5-1".
 // Point releases must therefore sit ABOVE their family entry.
 const CATALOG_ENTRIES = Object.freeze([
+  {
+    matches: /^claude-fable-5-2(?:$|-)/,
+    label: 'Claude Fable 5.2',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+    effortLevels: XHIGH_EFFORT,
+    thinking: 'always-on',
+    sampling: 'default-only',
+    lifecycle: 'active',
+    pricing: FABLE_5_2_PRICING,
+    provenance: 'anthropic-fable-5-2',
+  },
+  {
+    matches: /^claude-mythos-5-2(?:$|-)/,
+    label: 'Claude Mythos 5.2',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+    effortLevels: XHIGH_EFFORT,
+    thinking: 'always-on',
+    sampling: 'default-only',
+    lifecycle: 'limited-availability',
+    pricing: FABLE_5_2_PRICING,
+    provenance: 'anthropic-fable-5-2',
+  },
+  {
+    matches: /^claude-sonnet-5-5(?:$|-)/,
+    label: 'Claude Sonnet 5.5',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+    effortLevels: XHIGH_EFFORT,
+    thinking: 'always-on',
+    sampling: 'default-only',
+    lifecycle: 'active',
+    pricing: SONNET_5_5_PRICING,
+    provenance: 'anthropic-sonnet-5-5',
+  },
+  {
+    matches: /^claude-haiku-5-5(?:$|-)/,
+    label: 'Claude Haiku 5.5',
+    contextWindow: 1_000_000,
+    maxOutputTokens: 128_000,
+    effortLevels: XHIGH_EFFORT,
+    thinking: 'default-on',
+    thinkingOffEffortLevels: THINKING_OFF_EFFORT,
+    // The higher rate applies to the whole request once total prompt tokens exceed 100K.
+    longContextThreshold: 100_000,
+    longContextPricing: HAIKU_5_5_LONG_PRICING,
+    sampling: 'default-only',
+    lifecycle: 'active',
+    pricing: HAIKU_5_5_PRICING,
+    provenance: 'anthropic-haiku-5-5',
+  },
+
   {
     matches: /^claude-fable-5-1(?:$|-)/,
     label: 'Claude Fable 5.1',
@@ -365,10 +450,10 @@ const CATALOG_ENTRIES = Object.freeze([
 // the number is a family estimate rather than an exact published rate.
 const PRICING_FAMILY_FALLBACKS = Object.freeze([
   { prefix: 'claude-opus', canonical: 'claude-opus-5-5' },
-  { prefix: 'claude-fable', canonical: 'claude-fable-5-1' },
-  { prefix: 'claude-mythos', canonical: 'claude-mythos-5-1' },
-  { prefix: 'claude-sonnet', canonical: 'claude-sonnet-5' },
-  { prefix: 'claude-haiku', canonical: 'claude-haiku-4-5' },
+  { prefix: 'claude-fable', canonical: 'claude-fable-5-2' },
+  { prefix: 'claude-mythos', canonical: 'claude-mythos-5-2' },
+  { prefix: 'claude-sonnet', canonical: 'claude-sonnet-5-5' },
+  { prefix: 'claude-haiku', canonical: 'claude-haiku-5-5' },
 ]);
 
 const DEFAULT_PRICING = Object.freeze({ input: 3.0, output: 15.0, cache_read: 0.3, cache_write: 6.0 });
@@ -385,15 +470,28 @@ function catalogEntryForModel(model) {
  * 'family-estimate', or 'default-estimate'. Callers surface non-'catalog'
  * sources so cost numbers are labeled as estimates, not published rates.
  */
-function pricingForModel(model) {
+function pricingForModel(model, totalInputTokens) {
   const entry = catalogEntryForModel(model);
-  if (entry) return { rates: entry.pricing, source: entry.pricingSource || 'catalog', label: entry.label };
+  if (entry) {
+    // Without a prompt size, use the higher tier so budget projections stay conservative.
+    const longPrompt =
+      entry.longContextPricing && (totalInputTokens === undefined || totalInputTokens > entry.longContextThreshold);
+    return {
+      rates: longPrompt ? entry.longContextPricing : entry.pricing,
+      source: entry.pricingSource || 'catalog',
+      label: entry.label,
+    };
+  }
   const modelId = String(model || '').toLowerCase();
   for (const { prefix, canonical } of PRICING_FAMILY_FALLBACKS) {
     if (modelId.startsWith(prefix)) {
       const canonicalEntry = catalogEntryForModel(canonical);
       if (canonicalEntry) {
-        return { rates: canonicalEntry.pricing, source: 'family-estimate', label: canonicalEntry.label };
+        return {
+          rates: canonicalEntry.longContextPricing || canonicalEntry.pricing,
+          source: 'family-estimate',
+          label: canonicalEntry.label,
+        };
       }
     }
   }

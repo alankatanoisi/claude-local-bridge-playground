@@ -8,6 +8,16 @@ const { estimateCostUsd, summarizeUsage, resolveRates } = require('../../src/run
 const M = 1_000_000;
 
 describe('model-pricing: estimateCostUsd', () => {
+  it('counts cached prompt tokens when crossing Haiku 5.5 pricing tiers', () => {
+    // Exactly 100K still uses the small-prompt rate; one extra cached token
+    // changes the rate for the whole request, including its output tokens.
+    const small = { input_tokens: 1000, cache_read_input_tokens: 99000, output_tokens: 1000 };
+    assert.ok(Math.abs(estimateCostUsd('claude-haiku-5-5', small) - 0.00159) < 1e-9);
+    const large = { ...small, cache_read_input_tokens: 99001 };
+    assert.ok(Math.abs(estimateCostUsd('claude-haiku-5-5', large) - 0.00795005) < 1e-9);
+    assert.equal(resolveRates('claude-haiku-5-5').input, 0.5, 'unknown prompt size uses the conservative tier');
+  });
+
   it('prices input + output (regression, no cache tokens)', () => {
     // sonnet: 1M input @ $3 + 1M output @ $15 = $18.00
     const cost = estimateCostUsd('claude-sonnet-4-6', { input_tokens: M, output_tokens: M });

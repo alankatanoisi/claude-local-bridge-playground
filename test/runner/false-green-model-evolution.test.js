@@ -113,7 +113,7 @@ describe('FG-H catalog reachability (the shadowed-entry trap)', () => {
       'claude-opus-5-1': 'Claude Opus 5',
       'claude-sonnet-5-1': 'Claude Sonnet 5',
       'claude-haiku-4-5-20251001': 'Claude Haiku 4.5',
-      'claude-fable-5-2': 'Claude Fable 5',
+      'claude-fable-5-2': 'Claude Fable 5.2',
       // Dedicated point-release entries added 2026-09-26 (verified live). Their
       // dated snapshots must resolve to the point release, not the family.
       'claude-fable-5-1': 'Claude Fable 5.1',

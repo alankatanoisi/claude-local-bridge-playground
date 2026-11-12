@@ -1,6 +1,6 @@
 'use strict';
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -54,11 +54,18 @@ function parseClaudeCodeCredentials(raw) {
 function readKeychainToken() {
   if (process.platform !== 'darwin') return null;
   try {
-    const raw = execSync("security find-generic-password -s 'Claude Code-credentials' -w", {
-      timeout: 5000,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    // A service can have several Keychain entries. Select this macOS user's
+    // entry so an unrelated MCP-only entry cannot hide their Claude login.
+    // Separate arguments also keep spaces in a username out of shell parsing.
+    const raw = execFileSync(
+      'security',
+      ['find-generic-password', '-s', 'Claude Code-credentials', '-a', os.userInfo().username, '-w'],
+      {
+        timeout: 5000,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    );
     return parseClaudeCodeCredentials(raw);
   } catch {
     return null;

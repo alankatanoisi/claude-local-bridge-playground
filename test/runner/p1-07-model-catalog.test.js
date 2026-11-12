@@ -21,8 +21,28 @@ const { resolveModelControls, capabilityForModel } = require('../../src/runner/m
 const { resolveRatesDetailed, summarizeUsage } = require('../../src/runner/model-pricing');
 
 describe('P1-07 model catalog', () => {
+  it('uses point-release rules and prices for the November model additions', () => {
+    for (const model of ['claude-fable-5-2', 'claude-mythos-5-2', 'claude-sonnet-5-5', 'claude-haiku-5-5']) {
+      const entry = catalog.catalogEntryForModel(model);
+      assert.equal(entry.maxOutputTokens, 128_000);
+      assert.equal(entry.contextWindow, 1_000_000);
+      assert.deepEqual(entry.effortLevels, ['low', 'medium', 'high', 'xhigh', 'max']);
+    }
+    assert.equal(catalog.catalogEntryForModel('claude-fable-5-2').pricing.input, 8);
+    assert.equal(catalog.catalogEntryForModel('claude-sonnet-5-5').pricing.cache_read, 0.1);
+    assert.throws(() => resolveModelControls({ model: 'claude-sonnet-5-5', thinking: 'off' }), /always on/);
+    assert.deepEqual(
+      resolveModelControls({ model: 'claude-haiku-5-5', thinking: 'off', effort: 'high' }).thinkingConfig,
+      { type: 'disabled' },
+    );
+    assert.throws(
+      () => resolveModelControls({ model: 'claude-haiku-5-5', thinking: 'off', effort: 'xhigh' }),
+      /high effort/,
+    );
+  });
+
   it('has a version and provenance-annotated sources', () => {
-    assert.equal(catalog.CATALOG_VERSION, '2026-09-26-fable-5-1-opus-5-5');
+    assert.equal(catalog.CATALOG_VERSION, '2026-11-11-fable-5-2-sonnet-haiku-5-5');
     assert.ok(catalog.CATALOG_SOURCES.length > 0);
     for (const source of catalog.CATALOG_SOURCES) {
       assert.ok(source.id && source.url && source.status, 'every source names id/url/status');

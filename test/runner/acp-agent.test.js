@@ -605,9 +605,18 @@ describe('acp agent over the real runner', () => {
     // The Cursor driver's model catalogue probe: every model carries the
     // composer knobs, and only select/boolean shapes are allowed.
     const catalogue = await client.request('cursor/list_available_models', {});
-    // MODEL_CHOICES in src/runner/acp/agent.js: Sonnet 5, Opus 5.5, Fable 5.1,
-    // Fable 5, Opus 5, Haiku 4.5 (latest models added 2026-09-26).
-    assert.equal(catalogue.models.length, 6);
+    // Check the actual new identifiers, not just the list's length: ten stale
+    // entries would still be ten entries, but would leave T3's picker broken.
+    assert.equal(catalogue.models.length, 10);
+    for (const id of ['claude-fable-5-2', 'claude-mythos-5-2', 'claude-sonnet-5-5', 'claude-haiku-5-5']) {
+      assert.ok(
+        catalogue.models.some((model) => model.value === id),
+        id + ' is advertised to T3',
+      );
+      await client.request('session/set_model', { sessionId, modelId: id });
+      await client.prompt(sessionId, 'check selection');
+      assert.equal(captured.pop().model, id, 'the selected identifier reaches the runner unchanged');
+    }
     for (const model of catalogue.models) {
       assert.ok(model.value && model.name);
       const knobIds = model.configOptions.map((o) => o.id);
