@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="report-source-sha256" content="a17f2407b505d1eefb1bd11435b22bb355b942245e667e690acfbd7de06f8377" />
+    <title>Node.js security assessment — November 4, 2026</title>
+    <!-- All presentation styling is embedded so this report works offline. -->
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f6f3ed;
+        --ink: #182a32;
+        --muted: #51636a;
+        --teal: #006f72;
+        --line: #d5dfdb;
+        --rust: #a34421;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 24px;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          17px/1.7 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+      a {
+        color: var(--teal);
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+      }
+      a:hover {
+        color: var(--rust);
+      }
+      a:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 3px solid #d68e22;
+        outline-offset: 4px;
+      }
+      .skip {
+        position: absolute;
+        left: 20px;
+        top: -100px;
+        padding: 10px;
+        background: #fff;
+        z-index: 9;
+      }
+      .skip:focus {
+        top: 10px;
+      }
+      header {
+        background: #142d36;
+        color: #f6f3ed;
+        padding: 58px max(28px, calc((100vw - 1280px) / 2)) 44px;
+        border-top: 7px solid #d9a668;
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.19em;
+        text-transform: uppercase;
+        color: #a9d5d0;
+        font-weight: 750;
+      }
+      h1 {
+        font-family: Georgia, serif;
+        font-size: clamp(32px, 4.2vw, 56px);
+        font-weight: 500;
+        line-height: 1.12;
+        letter-spacing: -0.025em;
+        max-width: 1000px;
+        margin: 16px 0 22px;
+      }
+      .lead {
+        max-width: 850px;
+        color: #d9e6e7;
+        font-size: 20px;
+        margin: 0;
+      }
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-top: 32px;
+        max-width: 1000px;
+      }
+      .metric {
+        padding: 18px 20px;
+        border: 1px solid #486169;
+        border-radius: 10px;
+        background: #1e3c45;
+      }
+      .metric span {
+        display: block;
+        font-size: 12px;
+        color: #bed1d2;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .metric strong {
+        display: block;
+        font-size: 28px;
+        line-height: 1.3;
+        margin: 5px 0;
+        color: #fff;
+      }
+      .metric small {
+        font-size: 13px;
+        color: #d2dfdf;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 235px minmax(0, 1fr);
+        gap: 40px;
+        max-width: 1328px;
+        margin: auto;
+        padding: 38px 24px 70px;
+      }
+      aside {
+        align-self: start;
+        position: sticky;
+        top: 24px;
+        padding: 20px 4px;
+      }
+      aside p {
+        font-size: 12px;
+        font-weight: 750;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 0 0 12px;
+      }
+      nav a {
+        display: block;
+        text-decoration: none;
+        font-size: 14px;
+        line-height: 1.5;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      main {
+        min-width: 0;
+        background: #fff;
+        padding: 12px 36px 36px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: 0 5px 24px #182a3205;
+      }
+      h2 {
+        font-family: Georgia, serif;
+        font-weight: 500;
+        font-size: 29px;
+        line-height: 1.25;
+        margin: 42px 0 16px;
+        padding-top: 25px;
+        border-top: 1px solid var(--line);
+      }
+      h2:first-of-type {
+        margin-top: 30px;
+      }
+      p {
+        margin: 18px 0;
+      }
+      main > p:first-child {
+        background: #edf6f2;
+        border-left: 4px solid var(--teal);
+        padding: 20px 22px;
+        margin: 24px 0;
+        border-radius: 0 8px 8px 0;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.83em;
+        background: #eef2f1;
+        border: 1px solid #e0e8e5;
+        border-radius: 4px;
+        padding: 2px 4px;
+        overflow-wrap: anywhere;
+      }
+      .table-scroll {
+        overflow-x: auto;
+        margin: 24px 0;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        line-height: 1.55;
+        min-width: 650px;
+      }
+      th {
+        background: #eaf1ed;
+        color: #244640;
+        text-align: left;
+        font-size: 12px;
+        letter-spacing: 0.03em;
+      }
+      th,
+      td {
+        padding: 14px 15px;
+        border-bottom: 1px solid #e1e7e3;
+        vertical-align: top;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      tbody tr:nth-child(even) {
+        background: #fafbf9;
+      }
+      td:first-child {
+        min-width: 175px;
+      }
+      li {
+        padding-left: 6px;
+        margin: 13px 0;
+      }
+      ol {
+        padding-left: 24px;
+      }
+      ol li::marker {
+        color: var(--rust);
+        font-weight: 750;
+      }
+      ul {
+        padding-left: 21px;
+      }
+      footer {
+        max-width: 1280px;
+        margin: auto;
+        padding: 0 24px 35px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      footer a {
+        font-weight: 600;
+      }
+      @media (max-width: 1000px) {
+        .layout {
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+        aside {
+          position: static;
+          padding: 0 8px 18px;
+        }
+        nav {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        nav a {
+          padding: 6px 10px;
+          background: #fff;
+          border: 1px solid var(--line);
+          border-radius: 7px;
+          font-size: 12px;
+        }
+        main {
+          padding: 8px 24px 28px;
+        }
+      }
+      @media (max-width: 600px) {
+        body {
+          font-size: 16px;
+        }
+        header {
+          padding: 35px 20px 28px;
+        }
+        .lead {
+          font-size: 17px;
+        }
+        .metrics {
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+        .metric {
+          padding: 11px 15px;
+        }
+        .metric strong {
+          font-size: 23px;
+        }
+        .layout {
+          padding: 20px 12px 40px;
+        }
+        main {
+          padding: 5px 17px 24px;
+        }
+        h2 {
+          font-size: 26px;
+        }
+        aside {
+          display: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+      @media print {
+        body {
+          background: #fff;
+          font-size: 11pt;
+        }
+        header {
+          background: #fff;
+          color: #182a32;
+          border: 0;
+          padding: 0 0 20px;
+        }
+        .eyebrow,
+        .lead {
+          color: #182a32;
+        }
+        h1 {
+          font-size: 30pt;
+        }
+        .metrics,
+        aside,
+        .skip {
+          display: none;
+        }
+        .layout {
+          display: block;
+          padding: 0;
+        }
+        main {
+          padding: 0;
+          border: 0;
+          box-shadow: none;
+        }
+        h2 {
+          font-size: 18pt;
+          break-after: avoid;
+        }
+        .table-scroll {
+          overflow: visible;
+        }
+        table {
+          min-width: 0;
+          font-size: 9pt;
+        }
+        tr {
+          break-inside: avoid;
+        }
+        a {
+          color: #182a32;
+        }
+        footer {
+          padding: 20px 0 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#report">Skip to report</a>
+    <header>
+      <div class="eyebrow">Local research lab · November 4, 2026</div>
+      <h1>Node.js security assessment — November 4, 2026</h1>
+      <p class="lead">
+        Preserved before-update assessment. The follow-up report records the installations and validation completed
+        afterward.
+      </p>
+      <div class="metrics" aria-label="Key results">
+        <div class="metric">
+          <span>Selected runtime before update</span><strong>22.22.3</strong
+          ><small>Historical assessment snapshot</small>
+        </div>
+        <div class="metric">
+          <span>Next security release</span><strong>November 11</strong
+          ><small>On or shortly after · 22 / 24 / 26</small>
+        </div>
+        <div class="metric">
+          <span>November severity</span><strong>High</strong><small>Attack requirements remain undisclosed</small>
+        </div>
+      </div>
+    </header>
+    <div class="layout">
+      <aside>
+        <p>In this report</p>
+        <nav aria-label="Report sections">
+          <a href="#what-node-js-does-here">What Node.js does here</a
+          ><a href="#what-the-november-announcement-establishes">What the November announcement establishes</a
+          ><a href="#directly-measured-standalone-runtimes">Directly measured standalone runtimes</a
+          ><a href="#installed-desktop-applications">Installed desktop applications</a
+          ><a href="#reachability-what-the-code-and-processes-actually-show"
+            >Reachability: what the code and processes actually show</a
+          ><a href="#recommended-order-of-work">Recommended order of work</a
+          ><a href="#evidence-checks-and-handoff">Evidence, checks, and handoff</a>
+        </nav>
+      </aside>
+      <!-- The body below comes directly from the adjacent Markdown source. -->
+      <main id="report">
+        <p>
+          <strong>Follow-up:</strong> Runtime updates and validation are now recorded in the
+          <a href="nodejs-runtime-updates-2026-11-04.html">update report</a>. This assessment preserves the
+          before-update snapshot.
+        </p>
+        <p>
+          <strong>Decision:</strong> Update the shared bridge/runner Node.js installation promptly, then reassess the
+          November release when it becomes available. Several installed copies already predate October security fixes.
+          The November announcement does not yet disclose enough detail to determine exploitability in this setup.
+        </p>
+        <p>
+          This is a local runtime inventory and advisory assessment, not a compromise investigation or a complete
+          machine audit. No installed software, application settings, services, or repository runtime code were changed.
+          The assessment and its HTML companion are the only new project files.
+        </p>
+        <h2 id="what-node-js-does-here">What Node.js does here</h2>
+        <p>
+          Node.js is the program that executes JavaScript outside a browser. Our <code>.js</code> files contain
+          instructions; Node.js runs those instructions and provides access to files, processes, and networking.
+        </p>
+        <p>
+          The bridge, command-line runner, Agent Client Protocol (ACP) adapter, coordinator, archive browser, and
+          Starlark host use Node.js. The command-line entry files begin with <code>#!/usr/bin/env node</code>, which
+          asks the computer to select a program named <code>node</code> from its executable search path. The T3 launcher
+          can instead use an explicit <code>BRIDGE_RUNNER_NODE</code> setting. That distinction matters because an
+          editor can choose a different Node.js executable from Terminal.
+        </p>
+        <p>
+          Electron is a desktop application framework that bundles Node.js with browser technology. Cursor, Visual
+          Studio Code, Claude Desktop, and T3 Code each carry a separate copy. Changing Terminal&#x27;s Node.js does not
+          replace those bundled copies.
+          <a href="https://www.electronjs.org/docs/latest/tutorial/security">Electron security documentation</a>
+        </p>
+        <h2 id="what-the-november-announcement-establishes">What the November announcement establishes</h2>
+        <p>
+          The advisory was published November 3. Node.js plans security releases for
+          <strong>22.x, 24.x, and 26.x on or shortly after November 11, 2026</strong>, with a highest severity of
+          <strong>High</strong> in each line. As checked November 4, it does not identify the vulnerabilities, fixed
+          version numbers, affected functions, operating-system restrictions, or attack requirements. Treat these
+          release lines as needing the forthcoming update; exact exposure remains unresolved.
+          <a href="https://nodejs.org/en/blog/vulnerability/november-2026-security-releases">November advisory</a>,
+          <a
+            href="https://raw.githubusercontent.com/nodejs/nodejs.org/main/apps/site/pages/en/blog/vulnerability/november-2026-security-releases.md"
+            >official source text</a
+          >
+        </p>
+        <p>
+          The available release index lists <strong>22.23.4</strong>, <strong>24.22.2</strong>, and
+          <strong>26.13.0</strong> as the latest versions in those respective lines at assessment time. These are
+          existing releases, not the forthcoming November fixes.
+          <a href="https://nodejs.org/dist/index.json">Official release index</a>
+        </p>
+        <h2 id="directly-measured-standalone-runtimes">Directly measured standalone runtimes</h2>
+        <p>
+          These version numbers came from the executable itself. The broken Homebrew copy was identified by its
+          installation path and loader failure instead.
+        </p>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Report table">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Location or owner</th>
+                <th scope="col">Observed version</th>
+                <th scope="col">Assessment and priority</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Selected local Node.js: <code>/Users/alanman/.local/bin/node</code></td>
+                <td><strong>22.22.3</strong></td>
+                <td>
+                  <strong>First update priority.</strong> Its link points to
+                  <code>/Users/alanman/.local/share/nodejs/v22.22.3/bin/node</code>. Several running Node.js processes
+                  use that same executable.
+                </td>
+              </tr>
+              <tr>
+                <td>Homebrew Node.js 22: <code>/opt/homebrew/opt/node@22/bin/node</code></td>
+                <td><strong>22.23.3</strong></td>
+                <td>
+                  Also behind the October security release. Updating this copy alone would leave the selected local copy
+                  unchanged.
+                </td>
+              </tr>
+              <tr>
+                <td>Installer-managed copy: <code>/usr/local/bin/node</code></td>
+                <td><strong>24.14.0</strong></td>
+                <td>Older fallback; update or deliberately stop selecting it.</td>
+              </tr>
+              <tr>
+                <td>Version-manager copy: <code>/Users/alanman/.nvm/versions/node/v26.4.0/bin/node</code></td>
+                <td><strong>26.4.0</strong></td>
+                <td>Older optional runtime; update if retained for use.</td>
+              </tr>
+              <tr>
+                <td>Homebrew default: <code>/opt/homebrew/bin/node</code></td>
+                <td>Path identifies <strong>25.8.2</strong>; version query failed</td>
+                <td>
+                  Fails to start because <code>libsimdjson.31.dylib</code> is missing. Node.js 25 is also out of
+                  upstream support. Repair or retire this fallback separately.
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  ChatGPT computer-use runtime:
+                  <code>/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node</code>
+                </td>
+                <td><strong>24.22.1</strong></td>
+                <td>
+                  At the October security-release version. Future November coverage depends on the application&#x27;s
+                  runtime updates.
+                </td>
+              </tr>
+              <tr>
+                <td>Codex artifact runtime, current observed generation</td>
+                <td><strong>24.22.1</strong></td>
+                <td>
+                  Same October baseline; separately managed. Changing the selected local Node.js does not update it.
+                </td>
+              </tr>
+              <tr>
+                <td>Raycast runtime observed running</td>
+                <td><strong>26.12.1</strong></td>
+                <td>
+                  At the October security-release version for its line. Another installed Raycast runtime measured
+                  <strong>22.23.4</strong>.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The Codex artifact executable observed was
+          <code
+            >/Users/alanman/Library/Application
+            Support/Codex/artifact-sessions/runtime-generations/generation-X1fdhC/runtime/bin/node</code
+          >. Raycast&#x27;s observed running executable was under
+          <code
+            >/Users/alanman/Library/Application
+            Support/com.raycast.macos/node/runtime/node-v26.12.1-darwin-arm64/bin/node</code
+          >.
+        </p>
+        <p>
+          Node.js <strong>22.23.4</strong> is the October security release for the active major line. It contains fixes
+          missing from the standard older release, including changes to certificate checks, name resolution, HTTP
+          connection reuse, and the bundled Brotli decompressor. Keep the bridge/runner on 22.x for the first update to
+          avoid introducing an unrelated major-version migration.
+          <a href="https://nodejs.org/en/blog/release/v22.23.4">Node.js 22.23.4 release</a>
+        </p>
+        <p>
+          Node.js 24.22.1 and 26.12.1 are the corresponding October security releases. The Node.js support schedule
+          keeps 22.x supported through April 30, 2027; 25.x ended support June 1, 2026.
+          <a href="https://nodejs.org/en/blog/release/v24.22.1">24.22.1 release</a>,
+          <a href="https://nodejs.org/en/blog/release/v26.12.1/">26.12.1 release</a>,
+          <a href="https://github.com/nodejs/Release/blob/main/schedule.json">official support schedule</a>
+        </p>
+        <h2 id="installed-desktop-applications">Installed desktop applications</h2>
+        <p>
+          The application and Electron versions below were read from installed application metadata. The Node.js
+          versions are <strong>upstream mappings from Electron&#x27;s release index</strong>, not direct measurements
+          inside each application. Vendors can apply additional fixes without changing the upstream base number, so a
+          lower base version is an update/review signal, not proof of a specific missing patch.
+        </p>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Report table">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Installed application</th>
+                <th scope="col">Application version</th>
+                <th scope="col">Electron version</th>
+                <th scope="col">Upstream Node.js baseline</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Cursor</td>
+                <td>3.28.7</td>
+                <td>42.11.16</td>
+                <td><strong>24.19.0</strong></td>
+              </tr>
+              <tr>
+                <td>Visual Studio Code</td>
+                <td>1.144.1</td>
+                <td>43.8.3</td>
+                <td><strong>24.22.0</strong></td>
+              </tr>
+              <tr>
+                <td>Claude Desktop</td>
+                <td>4.4212.0</td>
+                <td>44.9.3</td>
+                <td><strong>24.22.0</strong></td>
+              </tr>
+              <tr>
+                <td>T3 Code Nightly</td>
+                <td>0.1.8-nightly.20261104.4179</td>
+                <td>44.10.1</td>
+                <td><strong>24.22.1</strong></td>
+              </tr>
+              <tr>
+                <td>T3 Code Alpha</td>
+                <td>0.0.13</td>
+                <td>40.6.0</td>
+                <td><strong>24.13.1</strong></td>
+              </tr>
+              <tr>
+                <td>Antigravity</td>
+                <td>2.24.0</td>
+                <td>44.3.0</td>
+                <td><strong>24.20.0</strong></td>
+              </tr>
+              <tr>
+                <td>Antigravity IDE</td>
+                <td>2.1.1</td>
+                <td>39.2.3</td>
+                <td><strong>22.21.1</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Evidence: <a href="https://releases.electronjs.org/releases.json">Electron release index</a>,
+          <a href="https://releases.electronjs.org/release/v42.11.16">Cursor&#x27;s Electron baseline</a>,
+          <a href="https://releases.electronjs.org/release/v43.8.3">Visual Studio Code&#x27;s Electron baseline</a>,
+          <a href="https://releases.electronjs.org/release/v44.9.3">Claude Desktop&#x27;s Electron baseline</a>,
+          <a href="https://releases.electronjs.org/release/v44.10.1">T3 Nightly&#x27;s Electron baseline</a>.
+        </p>
+        <p>
+          Check vendor application updates for the older baselines and verify the fixes delivered. Do not manually
+          replace files inside signed applications. Electron&#x27;s release policy allows security backports, and
+          updates must reach each application independently.
+          <a href="https://www.electronjs.org/docs/latest/tutorial/electron-timelines#nodejs-version-support"
+            >Electron runtime update policy</a
+          >
+        </p>
+        <h2 id="reachability-what-the-code-and-processes-actually-show">
+          Reachability: what the code and processes actually show
+        </h2>
+        <p>
+          <strong>Bridge network binding — direct source evidence.</strong> <code>src/server.js:54</code> explicitly
+          binds to <code>127.0.0.1</code>, an address reachable on this Mac. The capture proxy also binds there. The
+          observed socket inventory contained no listener on the usual Claude bridge port, 11437. A Node.js listener on
+          11438 belonged to a separate local lab, identified by its process working directory; it was not established as
+          this Claude bridge. Local-only binding reduces unsolicited network access but does not protect every outbound
+          connection or unsafe input-processing path.
+        </p>
+        <p>
+          <strong>Existing October defects — conditional relevance.</strong> The October advisory includes a Brotli
+          decompression memory-corruption flaw, name-resolution and certificate-verification flaws, and a
+          reused-connection response issue. Exploitation has specific input or peer requirements. The direct
+          bridge/runner/Starlark source search found no Brotli decompression or <code>dns.resolve</code> calls. The
+          bridge and model client do reuse network connections. This supports updating the runtime; it does not
+          demonstrate a working exploit. Dependencies, editor extensions, alternate hosts, and unrelated tools were not
+          exhaustively traced.
+          <a href="https://nodejs.org/en/blog/vulnerability/october-2026-security-releases">October advisory</a>
+        </p>
+        <p>
+          <strong>T3 network binding — direct process evidence, separate follow-up.</strong> T3 Code Nightly was
+          listening on IPv4 <code>*:3773</code>, meaning all local IPv4 interfaces rather than only this Mac&#x27;s
+          loopback address. Firewall rules, application authentication, router behavior, and any tunnel routing were not
+          evaluated. This is a reason to review the intended binding if local-only access is desired; it does not
+          establish internet exposure, missing authentication, or a November exploit.
+        </p>
+        <p>
+          <strong>November exploitability — unknown.</strong> The announcement does not disclose which APIs are
+          affected. There is no basis yet to narrow the November issues to servers, Windows, a permission mode,
+          decompression, or any other particular feature. The October findings above are separate issues, not an
+          identification of November&#x27;s undisclosed flaws.
+        </p>
+        <h2 id="recommended-order-of-work">Recommended order of work</h2>
+        <ol>
+          <li>
+            <strong>Update the selected bridge/runner installation from 22.22.3 to 22.23.4 now.</strong> Install the
+            newer executable beside the old one, verify the official download checksum, and switch the existing local
+            <code>node</code> and <code>npm</code> links coherently. Retain the previous installation temporarily for
+            recovery. A link is a small filesystem pointer; switching it changes which installed version future launches
+            select.
+          </li>
+          <li>
+            <strong>Verify the actual launch paths and restart affected tools deliberately.</strong> T3&#x27;s bridge
+            launcher supports <code>BRIDGE_RUNNER_NODE</code>, and existing project documentation points to
+            <code>/Users/alanman/.local/bin/node</code>. A running process continues using its old executable after a
+            link changes. Check newly launched processes, then run the repository checks on the updated runtime.
+            Coordinate restarts with active work.
+          </li>
+          <li>
+            <strong>Address the other stale standalone copies and desktop applications.</strong> Update Homebrew Node.js
+            22 and other retained copies through their owners. Repair or retire the broken, unsupported Node.js 25
+            fallback. Review app updates for Cursor, Visual Studio Code, Claude, and the older T3/Antigravity
+            installations; verify vendor security backports where needed. Replacing the local symlink cannot fix these
+            separate runtimes.
+          </li>
+          <li>
+            <strong>Revisit the advisory on or after November 11.</strong> Use the versions and attack requirements
+            actually published then. Update the shared runner runtime again and check vendor-delivered runtimes
+            independently. No automatic reminder or future monitoring was configured by this assessment.
+          </li>
+          <li>
+            <strong>Review the T3 listener&#x27;s intended network scope.</strong> Establish whether access from other
+            devices is intentional before changing its binding or service behavior.
+          </li>
+        </ol>
+        <p>
+          Use project-specific versions where required: the sibling Codex playground declares Node.js
+          <code>&gt;=22</code>, while the T3 source checkout declares <code>26.12.1</code>. Do not force every project
+          to use the bridge&#x27;s selected 22.x version.
+        </p>
+        <p>
+          The repository&#x27;s container recipe uses <code>node:22-alpine</code>; its GitHub workflow requests Node.js
+          22. Those declarations do not prove the version in an existing container or runner cache. After fixes are
+          published, refresh the base image and rebuild any containers actually in use, and verify the executable used
+          by workflow jobs. No container or workflow execution was inspected here. Updating JavaScript dependencies
+          alone does not replace the Node.js executable.
+        </p>
+        <h2 id="evidence-checks-and-handoff">Evidence, checks, and handoff</h2>
+        <ul>
+          <li><strong>Folder:</strong> <code>/Users/alanman/Developer/claude-local-bridge-playground</code>.</li>
+          <li>
+            <strong>Branch:</strong> <code>main</code>; starting commit
+            <code>2fc7d9202365d0cedd83f1083ad5c97e5be12e3f</code>.
+          </li>
+          <li>
+            <strong>Repository:</strong> <code>origin</code> points to
+            <code>alankatanoisi/claude-local-bridge-playground</code>; the canonical repository remains reference-only.
+          </li>
+          <li>
+            <strong>Startup:</strong> directory, repository root, branch, remotes, and clean working tree verified. The
+            required fast-forward-only pull reported already up to date before report creation.
+          </li>
+          <li>
+            <strong>Files added:</strong> <code>docs/nodejs-security-assessment-2026-11-04.md</code> and the adjacent
+            <code>.html</code> companion. No commit or push performed.
+          </li>
+          <li>
+            <strong>Checks performed:</strong> official advisory and source retrieval; release/support-index comparison;
+            direct standalone version queries; installed application metadata and Electron mapping; process executable
+            and listening-socket inventory; targeted source and launcher review. Homebrew Node.js 25 failed its version
+            query with a missing-library error, as recorded above.
+          </li>
+          <li>
+            <strong>Report checks:</strong> passed targeted Prettier formatting, source-to-HTML hash and
+            section/citation parity, balanced HTML and local links, <code>npm run check:docs</code>, and
+            <code>git diff --check</code>. The HTML checker initially mishandled valid self-closing metadata tags; it
+            passed after correcting the checker. No browser layout inspection was performed.
+          </li>
+          <li>
+            <strong>Checks skipped:</strong> full runtime tests and source-code linting, dependency audit, exploit
+            execution, live model calls, credential inspection, package installs, service restarts, firewall/tunnel
+            review, and exhaustive searches of caches or every application. This was an assessment with no runtime
+            changes; no remediation or exploit-validation claim is made.
+          </li>
+          <li>
+            <strong>Remaining risks:</strong> stale shared and fallback runtimes remain installed; bundled application
+            fixes require vendor verification; November applicability remains undisclosed; T3 network reachability needs
+            a separate bounded check.
+          </li>
+        </ul>
+        <p>
+          The intended next action is a controlled update of the selected 22.x runtime, followed by verification of the
+          processes that actually use it.
+        </p>
+      </main>
+    </div>
+    <footer>
+      Local execution record. <a href="nodejs-security-assessment-2026-11-04.md">Read the Markdown source</a>. The
+      original assessment and follow-up preserve their different observation times.
+    </footer>
+  </body>
+</html>

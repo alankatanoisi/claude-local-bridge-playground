@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="report-source-sha256" content="ce9fdb071779f7cd19a5c2df41f43454930d16607be3608cfcc8aa650516f389" />
+    <title>Node.js updates and validation — November 4, 2026</title>
+    <!-- All presentation styling is embedded so this report works offline. -->
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: #f6f3ed;
+        --ink: #182a32;
+        --muted: #51636a;
+        --teal: #006f72;
+        --line: #d5dfdb;
+        --rust: #a34421;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+        scroll-padding-top: 24px;
+      }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font:
+          17px/1.7 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+      a {
+        color: var(--teal);
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+      }
+      a:hover {
+        color: var(--rust);
+      }
+      a:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 3px solid #d68e22;
+        outline-offset: 4px;
+      }
+      .skip {
+        position: absolute;
+        left: 20px;
+        top: -100px;
+        padding: 10px;
+        background: #fff;
+        z-index: 9;
+      }
+      .skip:focus {
+        top: 10px;
+      }
+      header {
+        background: #142d36;
+        color: #f6f3ed;
+        padding: 58px max(28px, calc((100vw - 1280px) / 2)) 44px;
+        border-top: 7px solid #d9a668;
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.19em;
+        text-transform: uppercase;
+        color: #a9d5d0;
+        font-weight: 750;
+      }
+      h1 {
+        font-family: Georgia, serif;
+        font-size: clamp(32px, 4.2vw, 56px);
+        font-weight: 500;
+        line-height: 1.12;
+        letter-spacing: -0.025em;
+        max-width: 1000px;
+        margin: 16px 0 22px;
+      }
+      .lead {
+        max-width: 850px;
+        color: #d9e6e7;
+        font-size: 20px;
+        margin: 0;
+      }
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-top: 32px;
+        max-width: 1000px;
+      }
+      .metric {
+        padding: 18px 20px;
+        border: 1px solid #486169;
+        border-radius: 10px;
+        background: #1e3c45;
+      }
+      .metric span {
+        display: block;
+        font-size: 12px;
+        color: #bed1d2;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .metric strong {
+        display: block;
+        font-size: 28px;
+        line-height: 1.3;
+        margin: 5px 0;
+        color: #fff;
+      }
+      .metric small {
+        font-size: 13px;
+        color: #d2dfdf;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 235px minmax(0, 1fr);
+        gap: 40px;
+        max-width: 1328px;
+        margin: auto;
+        padding: 38px 24px 70px;
+      }
+      aside {
+        align-self: start;
+        position: sticky;
+        top: 24px;
+        padding: 20px 4px;
+      }
+      aside p {
+        font-size: 12px;
+        font-weight: 750;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 0 0 12px;
+      }
+      nav a {
+        display: block;
+        text-decoration: none;
+        font-size: 14px;
+        line-height: 1.5;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      main {
+        min-width: 0;
+        background: #fff;
+        padding: 12px 36px 36px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: 0 5px 24px #182a3205;
+      }
+      h2 {
+        font-family: Georgia, serif;
+        font-weight: 500;
+        font-size: 29px;
+        line-height: 1.25;
+        margin: 42px 0 16px;
+        padding-top: 25px;
+        border-top: 1px solid var(--line);
+      }
+      h2:first-of-type {
+        margin-top: 30px;
+      }
+      p {
+        margin: 18px 0;
+      }
+      main > p:first-child {
+        background: #edf6f2;
+        border-left: 4px solid var(--teal);
+        padding: 20px 22px;
+        margin: 24px 0;
+        border-radius: 0 8px 8px 0;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.83em;
+        background: #eef2f1;
+        border: 1px solid #e0e8e5;
+        border-radius: 4px;
+        padding: 2px 4px;
+        overflow-wrap: anywhere;
+      }
+      .table-scroll {
+        overflow-x: auto;
+        margin: 24px 0;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        line-height: 1.55;
+        min-width: 650px;
+      }
+      th {
+        background: #eaf1ed;
+        color: #244640;
+        text-align: left;
+        font-size: 12px;
+        letter-spacing: 0.03em;
+      }
+      th,
+      td {
+        padding: 14px 15px;
+        border-bottom: 1px solid #e1e7e3;
+        vertical-align: top;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      tbody tr:nth-child(even) {
+        background: #fafbf9;
+      }
+      td:first-child {
+        min-width: 175px;
+      }
+      li {
+        padding-left: 6px;
+        margin: 13px 0;
+      }
+      ol {
+        padding-left: 24px;
+      }
+      ol li::marker {
+        color: var(--rust);
+        font-weight: 750;
+      }
+      ul {
+        padding-left: 21px;
+      }
+      footer {
+        max-width: 1280px;
+        margin: auto;
+        padding: 0 24px 35px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      footer a {
+        font-weight: 600;
+      }
+      @media (max-width: 1000px) {
+        .layout {
+          grid-template-columns: 1fr;
+          gap: 10px;
+        }
+        aside {
+          position: static;
+          padding: 0 8px 18px;
+        }
+        nav {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        nav a {
+          padding: 6px 10px;
+          background: #fff;
+          border: 1px solid var(--line);
+          border-radius: 7px;
+          font-size: 12px;
+        }
+        main {
+          padding: 8px 24px 28px;
+        }
+      }
+      @media (max-width: 600px) {
+        body {
+          font-size: 16px;
+        }
+        header {
+          padding: 35px 20px 28px;
+        }
+        .lead {
+          font-size: 17px;
+        }
+        .metrics {
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+        .metric {
+          padding: 11px 15px;
+        }
+        .metric strong {
+          font-size: 23px;
+        }
+        .layout {
+          padding: 20px 12px 40px;
+        }
+        main {
+          padding: 5px 17px 24px;
+        }
+        h2 {
+          font-size: 26px;
+        }
+        aside {
+          display: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+      @media print {
+        body {
+          background: #fff;
+          font-size: 11pt;
+        }
+        header {
+          background: #fff;
+          color: #182a32;
+          border: 0;
+          padding: 0 0 20px;
+        }
+        .eyebrow,
+        .lead {
+          color: #182a32;
+        }
+        h1 {
+          font-size: 30pt;
+        }
+        .metrics,
+        aside,
+        .skip {
+          display: none;
+        }
+        .layout {
+          display: block;
+          padding: 0;
+        }
+        main {
+          padding: 0;
+          border: 0;
+          box-shadow: none;
+        }
+        h2 {
+          font-size: 18pt;
+          break-after: avoid;
+        }
+        .table-scroll {
+          overflow: visible;
+        }
+        table {
+          min-width: 0;
+          font-size: 9pt;
+        }
+        tr {
+          break-inside: avoid;
+        }
+        a {
+          color: #182a32;
+        }
+        footer {
+          padding: 20px 0 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#report">Skip to report</a>
+    <header>
+      <div class="eyebrow">Local research lab · November 4, 2026</div>
+      <h1>Node.js updates and validation — November 4, 2026</h1>
+      <p class="lead">
+        Verified runtime updates, four application updates, and a clear record of the final restart still required.
+      </p>
+      <div class="metrics" aria-label="Key results">
+        <div class="metric">
+          <span>Selected shared runtime</span><strong>22.23.4</strong
+          ><small>Verified in a fresh Terminal-style shell</small>
+        </div>
+        <div class="metric">
+          <span>Controlled full test suite</span><strong>1,336 passed</strong
+          ><small>Zero failures · two test files at once</small>
+        </div>
+        <div class="metric">
+          <span>Vendor applications updated</span><strong>4 applications</strong
+          ><small>Checksums, signatures and Gatekeeper checked</small>
+        </div>
+      </div>
+    </header>
+    <div class="layout">
+      <aside>
+        <p>In this report</p>
+        <nav aria-label="Report sections">
+          <a href="#standalone-runtime-changes">Standalone runtime changes</a
+          ><a href="#process-restart-and-the-final-user-step">Process restart and the final user step</a
+          ><a href="#desktop-application-updates">Desktop application updates</a
+          ><a href="#validation-and-the-initial-failures">Validation and the initial failures</a
+          ><a href="#recovery-records-and-handoff">Recovery records and handoff</a>
+        </nav>
+      </aside>
+      <!-- The body below comes directly from the adjacent Markdown source. -->
+      <main id="report">
+        <p>
+          <strong>November 11 follow-up:</strong> The published security updates and current remaining items are
+          recorded in the <a href="nodejs-security-updates-2026-11-11.html">November 11 report</a>. This document
+          preserves the November 4 execution record.
+        </p>
+        <p>
+          <strong>Result:</strong> The selected shared runtime is now <strong>Node.js 22.23.4</strong>. The other
+          standalone installation paths were updated, the idle gateway was restarted and verified, and four desktop
+          applications were updated.
+          <strong
+            >One final ChatGPT/Codex quit and reopen remains necessary for three processes attached to this active
+            chat.</strong
+          >
+          Bundled application security coverage still requires vendor verification.
+        </p>
+        <p>
+          This is the execution record following the
+          <a href="nodejs-security-assessment-2026-11-04.html">original security assessment</a>. Runtime changes were
+          authorized in the same chat. No repository runtime source, model configuration, application account settings,
+          or project version declarations were edited.
+        </p>
+        <h2 id="standalone-runtime-changes">Standalone runtime changes</h2>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Report table">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Installation</th>
+                <th scope="col">Before</th>
+                <th scope="col">Verified after</th>
+                <th scope="col">Selection and recovery</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Shared local installation, <code>/Users/alanman/.local/bin/node</code></td>
+                <td>22.22.3</td>
+                <td><strong>22.23.4</strong></td>
+                <td>
+                  The <code>node</code>, <code>npm</code>, and <code>npx</code> links point to the new installation; old
+                  targets and installation retained.
+                </td>
+              </tr>
+              <tr>
+                <td>Homebrew Node.js 22</td>
+                <td>22.23.3</td>
+                <td><strong>22.23.4</strong></td>
+                <td>
+                  Homebrew package revision <code>22.23.4_2</code>; measured through
+                  <code>/opt/homebrew/opt/node@22/bin/node</code>.
+                </td>
+              </tr>
+              <tr>
+                <td>Homebrew default Node.js</td>
+                <td>Broken 25.8.2</td>
+                <td><strong>26.13.0</strong></td>
+                <td>
+                  Homebrew package revision <code>26.13.0_2</code>; <code>/opt/homebrew/bin/node</code> now starts
+                  successfully.
+                </td>
+              </tr>
+              <tr>
+                <td>Administrator-owned <code>/usr/local/bin/node</code></td>
+                <td>24.14.0</td>
+                <td><strong>24.22.2</strong></td>
+                <td>
+                  Updated with the official signed and notarized installer; native Apple Silicon execution verified.
+                </td>
+              </tr>
+              <tr>
+                <td>Node Version Manager installation</td>
+                <td>26.4.0 available</td>
+                <td><strong>26.13.0 added and verified</strong></td>
+                <td>
+                  Installed in <code>.nvm/versions/node/v26.13.0</code>; 26.4.0 remains for recovery. No aliases or
+                  shell startup files changed.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The shared installation&#x27;s bundled npm package manager and npx command launcher both report
+          <strong>10.9.9</strong>. The system-wide 24.x installation&#x27;s bundled npm reports
+          <strong>11.19.1</strong> when explicitly run with that Node.js executable.
+        </p>
+        <p>
+          A new interactive login shell—the startup behavior used by a typical new Terminal window—selected
+          <code>/Users/alanman/.local/share/nodejs/v22.23.4/bin/node</code>. The real T3 bridge launcher also selected
+          that executable, then exited successfully when its empty input pipe closed. No model prompt or paid request
+          was sent.
+        </p>
+        <p>
+          The first update stays within Node.js 22 for the bridge/runner. The newer Homebrew default is separate, and
+          project-specific requirements remain intact.
+          <a href="https://nodejs.org/en/blog/release/v22.23.4">Node.js 22.23.4 security release</a>,
+          <a href="https://nodejs.org/dist/index.json">official release index</a>
+        </p>
+        <h2 id="process-restart-and-the-final-user-step">Process restart and the final user step</h2>
+        <p>
+          The idle <code>com.alanman.opencode-go-cowork-gateway</code> service had no established connections before
+          shutdown. It was stopped with a graceful termination signal, started through macOS&#x27;s service manager, and
+          verified using both its actual executable path and its read-only HTTPS health endpoint. It now uses
+          <strong>22.23.4</strong>. HTTPS certificate verification used the existing local public certificate authority;
+          no private key was inspected or changed.
+        </p>
+        <p>
+          Three remaining processes using shared Node.js <strong>22.22.3</strong> belong to the active ChatGPT/Codex
+          session or one of its child processes. They were left running so the update work and its verification could
+          finish. Changing an executable-selection link does not replace the executable already loaded by an existing
+          process.
+        </p>
+        <p>
+          After reading the handoff, save any unsent text, focus the <strong>ChatGPT/Codex desktop app</strong>, choose
+          <strong>Quit</strong> from its application menu or press <strong>Command–Q</strong>, then reopen the app from
+          <strong>Applications</strong>. Merely closing a window may leave background processes running. The app can
+          then start fresh tool processes through the updated shared link. This final restart has
+          <strong>not</strong> been observed or verified in this execution record.
+        </p>
+        <h2 id="desktop-application-updates">Desktop application updates</h2>
+        <p>
+          Every replaced application was downloaded from its vendor&#x27;s distribution host, checked against a
+          published SHA-256 fingerprint, verified with Apple&#x27;s code-signature tool, checked for the same developer
+          identity as the installed app, and accepted by macOS Gatekeeper. Gatekeeper checks whether macOS accepts an
+          application under its signing and notarization rules. The previous bundles are retained outside Applications
+          with <code>.app.recovery</code> suffixes.
+        </p>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Report table">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Application</th>
+                <th scope="col">Application version change</th>
+                <th scope="col">Electron after update</th>
+                <th scope="col">Upstream Node.js baseline</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Visual Studio Code</td>
+                <td>1.144.1 → <strong>1.145.0</strong></td>
+                <td>43.8.3</td>
+                <td>24.22.0</td>
+              </tr>
+              <tr>
+                <td>Claude</td>
+                <td>4.4212.0 → <strong>4.16336.0</strong></td>
+                <td>44.9.3</td>
+                <td>24.22.0</td>
+              </tr>
+              <tr>
+                <td>Antigravity</td>
+                <td>2.24.0 → <strong>2.29.0</strong></td>
+                <td>44.5.1</td>
+                <td>24.21.0</td>
+              </tr>
+              <tr>
+                <td>Antigravity IDE</td>
+                <td>2.1.1 → <strong>2.6.0</strong></td>
+                <td>39.2.3</td>
+                <td>22.21.1</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The Visual Studio Code command-line entry point was also run successfully and reported
+          <strong>1.145.0</strong>, its new commit identifier, and the native <code>arm64</code> architecture. The four
+          applications were not running when their bundles were replaced, so no active editor or Claude session was
+          stopped.
+        </p>
+        <p>
+          The <strong>upstream Node.js baseline</strong> is the version published for that Electron release. It is
+          inferred from installed Electron metadata and the official Electron release index, rather than measured inside
+          each application. Several baselines still predate October&#x27;s security-release versions. Updating the
+          application did not establish that its bundled Node.js defects are fixed; additional vendor backports were not
+          verified. Signed application bundles were updated as whole applications, with their user-data folders
+          preserved. <a href="https://releases.electronjs.org/releases.json">Electron release index</a>,
+          <a href="https://www.electronjs.org/docs/latest/tutorial/electron-timelines#nodejs-version-support"
+            >Electron runtime update policy</a
+          >
+        </p>
+        <p>Other application results:</p>
+        <ul>
+          <li>
+            <strong>Cursor:</strong> installed <strong>3.28.7</strong>, matching the current public download catalogue
+            version. Its download endpoints returned HTTP 403, so the currently distributed build and any vendor
+            backports could not be independently compared. The installed app remains unchanged, with Electron
+            <strong>42.11.16</strong> and upstream Node.js baseline <strong>24.19.0</strong>. A catalogue version match
+            does not certify security coverage.
+          </li>
+          <li>
+            <strong>T3 Code Nightly:</strong> installed <strong>0.1.8-nightly.20261104.4179</strong>, matching the
+            newest published nightly release checked through GitHub. It remains on Electron <strong>44.10.1</strong>,
+            whose Node.js baseline is <strong>24.22.1</strong>. No update or restart was needed for its bundled runtime
+            at this check.
+          </li>
+          <li>
+            <strong>ChatGPT/Codex:</strong> the built-in update tool returned <strong>up to date</strong> for installed
+            version <strong>26.1029.61003</strong>, build <strong>24614</strong>. Its observed computer-use and artifact
+            runtimes remain <strong>24.22.1</strong>; they are application-managed and were not manually replaced.
+          </li>
+          <li>
+            <strong>Raycast:</strong> the observed running runtime remains <strong>26.12.1</strong>, the October
+            security-release version for that line. Its application-managed runtime was not manually replaced.
+          </li>
+          <li>
+            <strong>Old T3 Code Alpha:</strong> version <strong>0.0.13</strong> was moved out of Applications after Alan
+            explicitly chose recovery. Its complete bundle is preserved as
+            <code>application-recovery/T3 Code (Alpha).app.recovery</code> in the private update-record folder. The
+            recovery suffix removes its normal application-bundle name. It was not running, T3 Nightly metadata was
+            verified unchanged, and no application user-data folders were modified. The archived upstream Node.js
+            baseline is <strong>24.13.1</strong>; this is a preserved historical copy, not an updated runtime.
+          </li>
+        </ul>
+        <p>
+          Vendor and release references:
+          <a
+            href="https://update.code.visualstudio.com/api/update/darwin-arm64/stable/261c84cb1eddf11235f9e2c921425e9663fbe556"
+            >Microsoft updater</a
+          >, <a href="https://formulae.brew.sh/api/cask/claude.json">Claude download catalogue</a>,
+          <a href="https://formulae.brew.sh/api/cask/antigravity.json">Antigravity catalogue</a>,
+          <a href="https://formulae.brew.sh/api/cask/antigravity-ide.json">Antigravity IDE catalogue</a>,
+          <a href="https://formulae.brew.sh/api/cask/cursor.json">Cursor catalogue</a>,
+          <a href="https://github.com/pingdotgg/t3code/releases/tag/v0.1.8-nightly.20261104.4179">T3 nightly release</a
+          >.
+        </p>
+        <h2 id="validation-and-the-initial-failures">Validation and the initial failures</h2>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Report table">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Check</th>
+                <th scope="col">Actual result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>First full <code>npm test</code> run under 22.23.4</td>
+                <td>
+                  <strong>1,333 passed; 3 failed.</strong> Failures were in two command-builder launch tests and one
+                  failed-startup lifecycle test.
+                </td>
+              </tr>
+              <tr>
+                <td>Same failing files under previous Node.js 22.22.3, sequential execution</td>
+                <td><strong>32 tests passed; 0 failed.</strong></td>
+              </tr>
+              <tr>
+                <td>Full suite under 22.23.4, at most two test files at once</td>
+                <td><strong>1,336 tests passed; 0 failed</strong>, approximately 70 seconds.</td>
+              </tr>
+              <tr>
+                <td><code>npm run lint</code></td>
+                <td><strong>Passed.</strong></td>
+              </tr>
+              <tr>
+                <td><code>npm run check:docs</code></td>
+                <td><strong>Passed.</strong></td>
+              </tr>
+              <tr>
+                <td>Repository-wide <code>npm run format:check</code></td>
+                <td><strong>Failed</strong> on four untouched, pre-existing root handoff Markdown files.</td>
+              </tr>
+              <tr>
+                <td>Fresh Terminal-style shell and real T3 launcher</td>
+                <td><strong>Passed</strong>, both selecting shared 22.23.4.</td>
+              </tr>
+              <tr>
+                <td>Gateway restart, executable lookup, and HTTPS health check</td>
+                <td><strong>Passed.</strong></td>
+              </tr>
+              <tr>
+                <td>Four replaced application signatures, developer identity, and Gatekeeper checks</td>
+                <td><strong>Passed.</strong></td>
+              </tr>
+              <tr>
+                <td>Visual Studio Code command-line version check</td>
+                <td><strong>Passed.</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The first-run failures occurred in time-sensitive tests. Lower-concurrency execution passed without changing
+          repository code. That is evidence of successful execution under the new runtime, not proof that the original
+          default-concurrency failures have been permanently resolved. The untouched formatting failures are in
+          <code>HANDOFF-acp-hosts-images-thermo-nuclear-2026-10-17.md</code>,
+          <code>HANDOFF-golden-eval-he06-thermo-nuclear-2026-09-06.md</code>,
+          <code>HANDOFF-permission-cache-thermo-nuclear-2026-09-07.md</code>, and
+          <code>HANDOFF-starlark-r11-thermo-nuclear-2026-09-06.md</code>.
+        </p>
+        <p>
+          The administrator-owned installer initially rejected the package path under Documents. The same
+          checksum-verified package was staged in <code>/private/tmp</code>, discovered successfully, and installed
+          successfully through macOS administrator authentication. The gateway&#x27;s first health probe used HTTP and
+          failed before any restart; the corrected HTTPS probe and restart succeeded. Native application-control
+          connections timed out, so application replacements were verified through signatures, metadata, and the
+          available command-line check rather than graphical interaction.
+        </p>
+        <p>
+          Targeted formatting passed for all four report files. HTML source fingerprints, section and citation parity,
+          balanced tags, local links, standalone rendering dependencies, and new-file whitespace checks passed. The
+          final repository documentation check also passed. Graphical application launch tests, a compromise
+          investigation, live model calls, and exhaustive dependency or network-boundary audits were not performed. The
+          T3 network-listener scope from the earlier assessment was not changed.
+        </p>
+        <h2 id="recovery-records-and-handoff">Recovery records and handoff</h2>
+        <p>Private downloads, checksums, receipts, check logs, and recovery copies are under:</p>
+        <p><code>/Users/alanman/Documents/Codex/2026-11-04-nodejs-runtime-updates/</code></p>
+        <p>
+          Key records include <code>shared-runtime-change.json</code>, <code>runtimes-after.json</code>,
+          <code>fresh-terminal-shell.json</code>, <code>t3-launcher-verification.json</code>,
+          <code>gateway-restart.json</code>, <code>application-updates.json</code>,
+          <code>applications-after.json</code>, <code>repository-checks.json</code>,
+          <code>new-runtime-full-controlled.json</code>, <code>old-runtime-processes-remaining.json</code>, and
+          <code>t3-alpha-retirement.json</code>. The prior system Node.js executable is retained as
+          <code>system-node-before-update</code>. Superseded runtime installations and older Homebrew packages were
+          retained; automatic cleanup was disabled. Homebrew upgraded the two requested Node.js packages and their
+          dependencies, without a general package upgrade.
+        </p>
+        <p>
+          Repository folder: <code>/Users/alanman/Developer/claude-local-bridge-playground</code>. Branch:
+          <strong>main</strong>, commit <strong>2fc7d9202365d0cedd83f1083ad5c97e5be12e3f</strong>. The directory,
+          repository root, branch, remotes, and known prior report files were checked before work. A fast-forward-only
+          pull reported already up to date.
+        </p>
+        <p>
+          Repository documentation changes are this Markdown report, its adjacent standalone HTML version, and a
+          follow-up link added to both original assessment files. No repository runtime source was changed, and no
+          commit or push was performed.
+        </p>
+        <p>
+          Remaining follow-up: perform the final ChatGPT/Codex quit and reopen; verify vendor security backports where
+          the bundled baseline remains older; and reassess the planned November 11 release when details and fixes are
+          published. These installed updates do not include undisclosed future November fixes.
+          <a href="https://nodejs.org/en/blog/vulnerability/november-2026-security-releases">November advisory</a>
+        </p>
+      </main>
+    </div>
+    <footer>
+      Local execution record. <a href="nodejs-runtime-updates-2026-11-04.md">Read the Markdown source</a>. The original
+      assessment and follow-up preserve their different observation times.
+    </footer>
+  </body>
+</html>
