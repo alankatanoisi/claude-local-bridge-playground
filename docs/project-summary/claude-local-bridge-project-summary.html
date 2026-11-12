@@ -1354,7 +1354,7 @@ node bin/local-bridge-runner.js runner worktrees list</code></pre>
       <tr><td><code>CLAUDE_CODE_OAUTH_TOKEN</code></td><td>Priority-2 credential source for the <em>bridge</em>.</td></tr>
       <tr><td><code>CLAUDE_CONFIG_DIR</code></td><td>Overrides the <code>~/.claude</code> lookup directory for the credentials file.</td></tr>
       <tr><td><code>BRIDGE_RUNNER_ARCHIVE=0</code></td><td>Disables the per-turn archive.</td></tr>
-      <tr><td><code>BRIDGE_RUNNER_PERSISTENT_SHELL=1</code></td><td>Opts into a persistent shell instead of spawn-per-command.</td></tr>
+      <tr><td><code>BRIDGE_RUNNER_PERSISTENT_SHELL=1</code></td><td>Opts into pre-started Bash processes (one per command, never reused) instead of spawn-per-command.</td></tr>
       <tr><td><code>BRIDGE_RUNNER_SPAWN_DEPTH</code></td><td>Inherited spawn depth for child runners.</td></tr>
       <tr><td><code>ANTHROPIC_BASE_URL</code></td><td>Used by third-party clients (e.g. Claude Code CLI) to point at the bridge root.</td></tr>
     </tbody>

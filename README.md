@@ -642,7 +642,9 @@ are OS-enforced sandboxing. Details and limits: [`docs/threat-model.md`](docs/th
 
 - **Prompt cache:** Automatic on every model request (system + tools + stable message prefix breakpoints).
 - **File cache:** In-memory LRU for `read_file` (invalidates on file change).
-- **Persistent shell:** Opt-in only — `BRIDGE_RUNNER_PERSISTENT_SHELL=1` (default stays spawn-per-command).
+- **Persistent shell:** Opt-in only — `BRIDGE_RUNNER_PERSISTENT_SHELL=1` (default stays spawn-per-command). Each
+  command runs in its own pre-started Bash process, which is retired afterwards; `cd`, variables, and shell options
+  never carry from one command to the next.
 - **Bench:** `node --require ./test/setup.js test/runner/bench/turn-latency.bench.js`
 
 ### Harbor / Terminal-Bench evals
