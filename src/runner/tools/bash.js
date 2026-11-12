@@ -71,9 +71,11 @@ function shapeOutput(stdout, stderr) {
   return text;
 }
 
-// Async fast path that routes through a long-lived bash child. Returns
-// null when the persistent shell decides it cannot serve the call (busy,
-// stream error, etc); callers must then fall back to spawnSync.
+// Async fast path that hands the command to a pre-started bash child. Each
+// child runs exactly one command and is then retired, so nothing (cd, shopt,
+// variables) carries from one call to the next — see persistent-shell.js.
+// Returns null when that path cannot serve the call (busy, stream error,
+// etc); callers must then fall back to spawnSync.
 async function executeViaPersistentShell(command, cwd, env, timeout) {
   const shell = persistentShell.getShell(cwd, env);
   const res = await shell.run(command, { timeout, maxBytes: DEFAULT_MAX_BUFFER });

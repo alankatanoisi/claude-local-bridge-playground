@@ -27,9 +27,15 @@ Dollar-quoted Bash startup option words (`$'...'` and `$"..."`) and dollar-quote
 refused rather than decoded, including escape-encoded spellings. Ordinary dollar-quoted code/data after `-c` remains
 usable.
 This also refuses harmless uses of those option words, even without a wildcard, such as `bash -O dotglob -c 'echo hello'`
-or `echo -O dotglob`. Options themselves hidden inside another quoted command, nested `shopt` code, dynamically
-constructed commands, and shell state carried between persistent-shell calls remain outside that check. This remains a
-best-effort guard, not a complete shell parser.
+or `echo -O dotglob`. Options themselves hidden inside another quoted command, nested `shopt` code, and dynamically
+constructed commands remain outside that check. This remains a best-effort guard, not a complete shell parser.
+
+Shell state is not carried between separate `bash` tool calls. The default launcher starts a new process per command.
+The opt-in fast path (`BRIDGE_RUNNER_PERSISTENT_SHELL=1`) hands each command its own pre-started Bash process and
+retires that process afterwards (changed 2026-11-12). Before that change the fast path reused one process, so
+`shopt -s dotglob`/`extglob`, `GLOBIGNORE`, or `cd`/`pushd` in one permitted call changed what a wildcard in a later
+permitted call matched — past the scanner, which checks one command at a time — and an `unset` of the `--no-network`
+proxy variables persisted. `test/runner/persistent-shell-cross-call.test.js` covers those sequences.
 
 ## Scope
 

@@ -40,7 +40,7 @@ describe('persistent-shell', { skip: !hasBash }, () => {
     shell.shutdown();
   });
 
-  it('preserves cwd across multiple commands', async () => {
+  it('starts every command in the same working directory', async () => {
     const shell = new PersistentShell({ cwd: tmpDir, env: baseEnv });
     const a = await shell.run('pwd');
     const b = await shell.run('pwd');
@@ -50,14 +50,42 @@ describe('persistent-shell', { skip: !hasBash }, () => {
     shell.shutdown();
   });
 
-  it('preserves shell variables across calls (the whole point of being persistent)', async () => {
+  // Owner decision 2026-11-12. This test used to assert the opposite
+  // ("preserves shell variables across calls"). Carried state let one permitted
+  // command change what a later one could read, past the per-command shell
+  // scanner — see persistent-shell-cross-call.test.js. Each command now gets
+  // its own bash process.
+  it('does not carry variables, shell options, or the current folder between calls', async () => {
+    fs.mkdirSync(path.join(tmpDir, 'sub'), { recursive: true });
     const shell = new PersistentShell({ cwd: tmpDir, env: baseEnv });
-    const set = await shell.run('export MY_VAR=stickyvalue');
-    assert.equal(set.exitCode, 0);
-    const read = await shell.run('echo "[$MY_VAR]"');
-    assert.equal(read.exitCode, 0);
-    assert.ok(read.stdout.includes('[stickyvalue]'), 'variable survives between calls');
+    const first = await shell.run('export MY_VAR=stickyvalue; shopt -s dotglob; cd sub; echo $$');
+    assert.equal(first.exitCode, 0);
+    // `shopt -q NAME` exits 1 when the option is off.
+    const second = await shell.run('shopt -q dotglob; echo "$$ [${MY_VAR:-absent}] dotglob=$? $PWD"');
+    assert.equal(second.exitCode, 0);
+    const [pid, variable, option, folder] = second.stdout.trim().split(' ');
+    assert.notEqual(pid, first.stdout.trim(), 'a used bash process never runs a second command');
+    assert.equal(variable, '[absent]');
+    assert.equal(option, 'dotglob=1');
+    assert.equal(folder, fs.realpathSync(tmpDir));
     shell.shutdown();
+  });
+
+  it('pre-starts the next bash after a command, and the next command uses exactly that one', async () => {
+    const shell = new PersistentShell({ cwd: tmpDir, env: baseEnv });
+    assert.equal(shell.child, null, 'nothing is started until the first command needs it');
+    await shell.run('true');
+    // The replacement is started on the next turn of the event loop, after the
+    // finished command's result has been handed back.
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.ok(shell.child, 'a bash is waiting before the next command is requested');
+    const waitingPid = shell.child.pid;
+    assert.equal(typeof waitingPid, 'number');
+    const next = await shell.run('echo $$');
+    assert.equal(next.stdout.trim(), String(waitingPid), 'the waiting bash served the next command');
+    shell.shutdown();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(shell.child, null, 'shutdown leaves no bash waiting, even if a pre-start was pending');
   });
 
   it('captures non-zero exit codes', async () => {
@@ -73,7 +101,7 @@ describe('persistent-shell', { skip: !hasBash }, () => {
     const result = await shell.run('sleep 5', { timeout: 200 });
     assert.equal(result.ok, true);
     assert.equal(result.timedOut, true);
-    // Shell got killed; the next call must succeed against a fresh child.
+    // The hung process was killed; the next call must succeed against a fresh child.
     const after = await shell.run('echo recovered');
     assert.equal(after.exitCode, 0);
     assert.ok(after.stdout.includes('recovered'));
